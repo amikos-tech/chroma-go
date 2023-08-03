@@ -3,7 +3,8 @@ info:
   title: FastAPI
   version: 0.1.0
 servers:
-- url: /
+- url: http://localhost:8000
+  description: Local server
 paths:
   /api/v1:
     get:
@@ -489,6 +490,8 @@ components:
         metadata:
           title: Metadata
           type: object
+          additionalProperties:
+            type: string
         get_or_create:
           title: Get Or Create
           type: boolean
@@ -549,9 +552,13 @@ components:
         where:
           title: Where
           type: object
+          additionalProperties:
+            type: string
         where_document:
           title: Where Document
           type: object
+          additionalProperties:
+            type: string
         sort:
           title: Sort
           type: string
@@ -662,7 +669,11 @@ components:
         embeddings:
           title: Embeddings
           type: array
-          items: {}
+          items:
+            type: array
+            items:
+              type: number
+              format: float
         metadatas:
           title: Metadatas
           type: array

@@ -10,8 +10,8 @@ package swagger
 
 type GetEmbedding struct {
 	Ids           []string                        `json:"ids,omitempty"`
-	Where         *interface{}                    `json:"where,omitempty"`
-	WhereDocument *interface{}                    `json:"where_document,omitempty"`
+	Where         map[string]string               `json:"where,omitempty"`
+	WhereDocument map[string]string               `json:"where_document,omitempty"`
 	Sort          string                          `json:"sort,omitempty"`
 	Limit         int32                           `json:"limit,omitempty"`
 	Offset        int32                           `json:"offset,omitempty"`

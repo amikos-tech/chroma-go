@@ -2,6 +2,9 @@ openapi: "3.0.0"
 info:
   title: FastAPI
   version: 0.1.0
+servers:
+  - url: http://localhost:8000
+    description: Local server
 paths:
   /api/v1:
     get:
@@ -451,6 +454,8 @@ components:
         metadata:
           type: object
           title: Metadata
+          additionalProperties:
+            type: string
         get_or_create:
           type: boolean
           title: Get Or Create
@@ -506,9 +511,13 @@ components:
         where:
           type: object
           title: Where
+          additionalProperties:
+            type: string
         where_document:
           type: object
           title: Where Document
+          additionalProperties:
+            type: string
         sort:
           type: string
           title: Sort
@@ -615,9 +624,13 @@ components:
     UpdateEmbedding:
       properties:
         embeddings:
-          items: { }
           type: array
           title: Embeddings
+          items:
+            type: array
+            items:
+              type: number
+              format: float
         metadatas:
           items:
             type: object

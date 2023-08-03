@@ -3,7 +3,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**Embeddings** | [**[]Object**](.md) |  | [optional] [default to null]
+**Embeddings** | [**[][]float32**](array.md) |  | [optional] [default to null]
 **Metadatas** | [**[]interface{}**](interface{}.md) |  | [optional] [default to null]
 **Documents** | **[]string** |  | [optional] [default to null]
 **Ids** | **[]string** |  | [default to null]

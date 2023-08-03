@@ -4,8 +4,8 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **Ids** | **[]string** |  | [optional] [default to null]
-**Where** | [***interface{}**](interface{}.md) |  | [optional] [default to null]
-**WhereDocument** | [***interface{}**](interface{}.md) |  | [optional] [default to null]
+**Where** | **map[string]string** |  | [optional] [default to null]
+**WhereDocument** | **map[string]string** |  | [optional] [default to null]
 **Sort** | **string** |  | [optional] [default to null]
 **Limit** | **int32** |  | [optional] [default to null]
 **Offset** | **int32** |  | [optional] [default to null]

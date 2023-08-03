@@ -9,7 +9,7 @@
 package swagger
 
 type UpdateEmbedding struct {
-	Embeddings     []Object      `json:"embeddings,omitempty"`
+	Embeddings     [][]float32   `json:"embeddings,omitempty"`
 	Metadatas      []interface{} `json:"metadatas,omitempty"`
 	Documents      []string      `json:"documents,omitempty"`
 	Ids            []string      `json:"ids"`

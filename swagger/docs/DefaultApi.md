@@ -1,6 +1,6 @@
 # {{classname}}
 
-All URIs are relative to */*
+All URIs are relative to *http://localhost:8000*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------

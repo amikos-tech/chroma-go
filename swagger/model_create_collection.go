@@ -9,7 +9,7 @@
 package swagger
 
 type CreateCollection struct {
-	Name        string       `json:"name"`
-	Metadata    *interface{} `json:"metadata,omitempty"`
-	GetOrCreate bool         `json:"get_or_create,omitempty"`
+	Name        string            `json:"name"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
+	GetOrCreate bool              `json:"get_or_create,omitempty"`
 }
