@@ -1,0 +1,757 @@
+openapi: 3.0.0
+info:
+  title: FastAPI
+  version: 0.1.0
+servers:
+- url: /
+paths:
+  /api/v1:
+    get:
+      operationId: root
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: integer
+                title: Response Root Api V1 Get
+                type: object
+          description: Successful Response
+      summary: Root
+  /api/v1/reset:
+    post:
+      operationId: reset
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                title: Response Reset Api V1 Reset Post
+                type: boolean
+          description: Successful Response
+      summary: Reset
+  /api/v1/version:
+    get:
+      operationId: version
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                title: Response Version Api V1 Version Get
+                type: string
+          description: Successful Response
+      summary: Version
+  /api/v1/heartbeat:
+    get:
+      operationId: heartbeat
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: number
+                title: Response Heartbeat Api V1 Heartbeat Get
+                type: object
+          description: Successful Response
+      summary: Heartbeat
+  /api/v1/raw_sql:
+    post:
+      operationId: raw_sql
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RawSql'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Raw Sql
+  /api/v1/collections:
+    get:
+      operationId: list_collections
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: List Collections
+    post:
+      operationId: create_collection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollection'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCollectionResponse'
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Create Collection
+  /api/v1/collections/{collection_id}/add:
+    post:
+      operationId: add
+      parameters:
+      - explode: false
+        in: path
+        name: collection_id
+        required: true
+        schema:
+          title: Collection Id
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddEmbedding'
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Add
+  /api/v1/collections/{collection_id}/update:
+    post:
+      operationId: update
+      parameters:
+      - explode: false
+        in: path
+        name: collection_id
+        required: true
+        schema:
+          title: Collection Id
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmbedding'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Update
+  /api/v1/collections/{collection_id}/upsert:
+    post:
+      operationId: upsert
+      parameters:
+      - explode: false
+        in: path
+        name: collection_id
+        required: true
+        schema:
+          title: Collection Id
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddEmbedding'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Upsert
+  /api/v1/collections/{collection_id}/get:
+    post:
+      operationId: get
+      parameters:
+      - explode: false
+        in: path
+        name: collection_id
+        required: true
+        schema:
+          title: Collection Id
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetEmbedding'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get
+  /api/v1/collections/{collection_id}/delete:
+    post:
+      operationId: delete
+      parameters:
+      - explode: false
+        in: path
+        name: collection_id
+        required: true
+        schema:
+          title: Collection Id
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteEmbedding'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Delete
+  /api/v1/collections/{collection_id}/count:
+    get:
+      operationId: count
+      parameters:
+      - explode: false
+        in: path
+        name: collection_id
+        required: true
+        schema:
+          title: Collection Id
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: integer
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Count
+  /api/v1/collections/{collection_id}/query:
+    post:
+      operationId: get_nearest_neighbors
+      parameters:
+      - explode: false
+        in: path
+        name: collection_id
+        required: true
+        schema:
+          title: Collection Id
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryEmbedding'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Nearest Neighbors
+  /api/v1/collections/{collection_name}/create_index:
+    post:
+      operationId: create_index
+      parameters:
+      - explode: false
+        in: path
+        name: collection_name
+        required: true
+        schema:
+          title: Collection Name
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: boolean
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Create Index
+  /api/v1/collections/{collection_name}:
+    delete:
+      operationId: delete_collection
+      parameters:
+      - explode: false
+        in: path
+        name: collection_name
+        required: true
+        schema:
+          title: Collection Name
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Delete Collection
+    get:
+      operationId: get_collection
+      parameters:
+      - explode: false
+        in: path
+        name: collection_name
+        required: true
+        schema:
+          title: Collection Name
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Collection
+  /api/v1/collections/{collection_id}:
+    put:
+      operationId: update_collection
+      parameters:
+      - explode: false
+        in: path
+        name: collection_id
+        required: true
+        schema:
+          title: Collection Id
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCollection'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Update Collection
+components:
+  schemas:
+    AddEmbedding:
+      example:
+        embeddings:
+        - ""
+        - ""
+        metadatas:
+        - key: ""
+        - key: ""
+        documents:
+        - documents
+        - documents
+        ids:
+        - ids
+        - ids
+        increment_index: true
+      properties:
+        embeddings:
+          items: {}
+          title: Embeddings
+          type: array
+        metadatas:
+          items:
+            additionalProperties: true
+            type: object
+          title: Metadatas
+          type: array
+        documents:
+          items:
+            type: string
+          title: Documents
+          type: array
+        ids:
+          items:
+            type: string
+          title: Ids
+          type: array
+        increment_index:
+          default: true
+          title: Increment Index
+          type: boolean
+      required:
+      - ids
+      title: AddEmbedding
+      type: object
+    CreateCollection:
+      example:
+        metadata: "{}"
+        name: name
+        get_or_create: false
+      properties:
+        name:
+          title: Name
+          type: string
+        metadata:
+          title: Metadata
+          type: object
+        get_or_create:
+          default: false
+          title: Get Or Create
+          type: boolean
+      required:
+      - name
+      title: CreateCollection
+      type: object
+    CreateCollectionResponse:
+      example:
+        metadata:
+          name: name
+          value: value
+        name: name
+        id: id
+      properties:
+        id:
+          title: Id
+          type: string
+        name:
+          title: Name
+          type: string
+        metadata:
+          $ref: '#/components/schemas/MetadataSimple'
+      title: CreateCollectionResponse
+      type: object
+    MetadataSimple:
+      example:
+        name: name
+        value: value
+      properties:
+        name:
+          title: Name
+          type: string
+        value:
+          title: Value
+          type: string
+      title: MetadataSimple
+      type: object
+    DeleteEmbedding:
+      example:
+        ids:
+        - ids
+        - ids
+        where: "{}"
+        where_document: "{}"
+      properties:
+        ids:
+          items:
+            type: string
+          title: Ids
+          type: array
+        where:
+          title: Where
+          type: object
+        where_document:
+          title: Where Document
+          type: object
+      title: DeleteEmbedding
+      type: object
+    GetEmbedding:
+      example:
+        include:
+        - null
+        - null
+        offset: 6
+        limit: 0
+        ids:
+        - ids
+        - ids
+        where: "{}"
+        sort: sort
+        where_document: "{}"
+      properties:
+        ids:
+          items:
+            type: string
+          title: Ids
+          type: array
+        where:
+          title: Where
+          type: object
+        where_document:
+          title: Where Document
+          type: object
+        sort:
+          title: Sort
+          type: string
+        limit:
+          title: Limit
+          type: integer
+        offset:
+          title: Offset
+          type: integer
+        include:
+          default:
+          - metadatas
+          - documents
+          items:
+            $ref: '#/components/schemas/Include_inner'
+          title: Include
+          type: array
+      title: GetEmbedding
+      type: object
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          title: Detail
+          type: array
+      title: HTTPValidationError
+      type: object
+    QueryEmbedding:
+      example:
+        include:
+        - documents
+        - documents
+        query_embeddings:
+        - ""
+        - ""
+        n_results: 0
+        where:
+          key: ""
+        where_document:
+          key: ""
+      properties:
+        where:
+          additionalProperties: true
+          default: {}
+          title: Where
+          type: object
+        where_document:
+          additionalProperties: true
+          default: {}
+          title: Where Document
+          type: object
+        query_embeddings:
+          additionalProperties: true
+          items: {}
+          title: Query Embeddings
+          type: array
+        n_results:
+          default: 10
+          title: N Results
+          type: integer
+        include:
+          default:
+          - metadatas
+          - documents
+          - distances
+          items:
+            enum:
+            - documents
+            - embeddings
+            - metadatas
+            - distances
+            type: string
+          title: Include
+          type: array
+      required:
+      - query_embeddings
+      title: QueryEmbedding
+      type: object
+    RawSql:
+      example:
+        raw_sql: raw_sql
+      properties:
+        raw_sql:
+          title: Raw Sql
+          type: string
+      required:
+      - raw_sql
+      title: RawSql
+      type: object
+    UpdateCollection:
+      example:
+        new_metadata: "{}"
+        new_name: new_name
+      properties:
+        new_name:
+          title: New Name
+          type: string
+        new_metadata:
+          title: New Metadata
+          type: object
+      title: UpdateCollection
+      type: object
+    UpdateEmbedding:
+      example:
+        embeddings:
+        - ""
+        - ""
+        metadatas:
+        - "{}"
+        - "{}"
+        documents:
+        - documents
+        - documents
+        ids:
+        - ids
+        - ids
+        increment_index: true
+      properties:
+        embeddings:
+          items: {}
+          title: Embeddings
+          type: array
+        metadatas:
+          items:
+            type: object
+          title: Metadatas
+          type: array
+        documents:
+          items:
+            type: string
+          title: Documents
+          type: array
+        ids:
+          items:
+            type: string
+          title: Ids
+          type: array
+        increment_index:
+          default: true
+          title: Increment Index
+          type: boolean
+      required:
+      - ids
+      title: UpdateEmbedding
+      type: object
+    ValidationError:
+      properties:
+        loc:
+          items:
+            $ref: '#/components/schemas/Location_inner'
+          title: Location
+          type: array
+        msg:
+          title: Message
+          type: string
+        type:
+          title: Error Type
+          type: string
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+      type: object
+    Include_inner:
+      anyOf:
+      - enum:
+        - documents
+        type: string
+      - enum:
+        - embeddings
+        type: string
+      - enum:
+        - metadatas
+        type: string
+      - enum:
+        - distances
+        type: string
+    Location_inner:
+      anyOf:
+      - type: string
+      - type: integer
