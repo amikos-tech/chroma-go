@@ -17,8 +17,11 @@ import (
 )
 
 func Test_chroma_client(t *testing.T) {
-
-	client := chroma.NewClient("http://localhost:8000")
+	chromaUrl := os.Getenv("CHROMA_URL")
+	if chromaUrl == "" {
+		chromaUrl = "http://localhost:8000"
+	}
+	client := chroma.NewClient(chromaUrl)
 
 	t.Run("Test Heartbeat", func(t *testing.T) {
 		resp, err := client.Heartbeat()
