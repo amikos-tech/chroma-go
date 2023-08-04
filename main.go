@@ -9,12 +9,6 @@ import (
 	"strings"
 )
 
-// function to create collection
-// Path: main.go
-func main() {
-
-}
-
 type ClientConfiguration struct {
 	BasePath          string            `json:"basePath,omitempty"`
 	DefaultHeaders    map[string]string `json:"defaultHeader,omitempty"`
@@ -194,4 +188,65 @@ func (c *Collection) Get(where map[string]string, whereDocuments map[string]stri
 	c.CollectionData = &cdata
 	fmt.Printf("Add: %v\n", httpResp)
 	return c, nil
+}
+
+type QueryEnum string
+
+const (
+	documents  QueryEnum = "documents"
+	embeddings QueryEnum = "embeddings"
+	metadatas  QueryEnum = "metadatas"
+	distances  QueryEnum = "distances"
+)
+
+type QueryResults struct {
+	Documents [][]string            `json:"documents,omitempty"`
+	Ids       [][]string            `json:"ids,omitempty"`
+	Metadatas [][]map[string]string `json:"metadatas,omitempty"`
+	Distances [][]float32           `json:"distances,omitempty"`
+}
+
+func (c *Collection) Query(queryTexts []string, nResults int32, where map[string]string, whereDocuments map[string]string, include []QueryEnum) (*QueryResults, error) {
+	_includes := make([]string, len(include))
+	for i, v := range include {
+		_includes[i] = string(v)
+	}
+	req := openapiclient.QueryEmbedding{
+		Where:         where,
+		WhereDocument: whereDocuments,
+		NResults:      nResults,
+		Include:       _includes,
+	}
+	embds, embErr := c.EmbeddingFunction.CreateEmbedding(queryTexts)
+	if embErr != nil {
+		return nil, embErr
+	}
+	req.QueryEmbeddings = embds
+
+	qr, httpResp, err := c.ApiClient.DefaultApi.GetNearestNeighbors(context.Background(), req, c.id)
+
+	if err != nil {
+		return nil, err
+	}
+	qresults := QueryResults{
+		Documents: qr.Documents,
+		Ids:       qr.Ids,
+		Metadatas: qr.Metadatas,
+		Distances: qr.Distances,
+	}
+	fmt.Printf("Add: %v\n", httpResp)
+	return &qresults, nil
+
+}
+
+func (c *Collection) Count() (int32, error) {
+	cd, httpResp, err := c.ApiClient.DefaultApi.Count(context.Background(), c.id)
+
+	if err != nil {
+		return -1, err
+	}
+
+	fmt.Printf("Count: %v\n", httpResp)
+
+	return cd, nil
 }
