@@ -531,9 +531,13 @@ components:
         where:
           title: Where
           type: object
+          additionalProperties:
+            type: string
         where_document:
           title: Where Document
           type: object
+          additionalProperties:
+            type: string
     DeleteEmbeddingResponse:
       title: DeleteEmbeddingResponse
       type: array

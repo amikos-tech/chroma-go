@@ -22,7 +22,7 @@ A simple Chroma Vector Database client written in go
 - ✅ Collection Update
 - ✅ Collection Upsert
 - 🚫 Collection Create Index
-- 🚫 Collection Delete - delete documents in collection
+- ✅ Collection Delete - delete documents in collection
 
 ## Embedding Functions Support
 

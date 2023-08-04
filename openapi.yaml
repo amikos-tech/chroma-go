@@ -491,9 +491,13 @@ components:
         where:
           type: object
           title: Where
+          additionalProperties:
+            type: string
         where_document:
           type: object
           title: Where Document
+          additionalProperties:
+            type: string
       type: object
       title: DeleteEmbedding
     DeleteEmbeddingResponse:

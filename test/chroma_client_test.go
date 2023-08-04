@@ -444,4 +444,142 @@ func Test_chroma_client(t *testing.T) {
 		//assert.Equal(t, 1, len(collections))
 	})
 
+	t.Run("Test Delete Embeddings by Id", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]string{}
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		collection, err := client.CreateCollection(collectionName, metadata, true, embeddingFunction, distanceFunction)
+		require.Nil(t, err)
+		require.NotNil(t, collection)
+		assert.Equal(t, collectionName, collection.Name)
+		fmt.Printf("resp: %v\n", collection.Metadata)
+		assert.Equal(t, 2, len(collection.Metadata))
+		//assert the metadata contains key embedding_function
+		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		documents := []string{
+			"Document 1 content here",
+			"Document 2 content here",
+		}
+		ids := []string{
+			"ID1",
+			"ID2",
+		}
+
+		metadatas := []map[string]string{
+			{"key1": "value1"},
+			{"key2": "value2"},
+		}
+		_, addError := collection.Add(nil, metadatas, documents, ids)
+		require.Nil(t, addError)
+		deletedIds, dellErr := collection.Delete([]string{"ID1"}, nil, nil)
+		require.Nil(t, dellErr)
+		assert.Equal(t, 1, len(deletedIds))
+		assert.Equal(t, "ID1", deletedIds[0])
+	})
+
+	t.Run("Test Delete Embeddings by Where", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]string{}
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		collection, err := client.CreateCollection(collectionName, metadata, true, embeddingFunction, distanceFunction)
+		require.Nil(t, err)
+		require.NotNil(t, collection)
+		assert.Equal(t, collectionName, collection.Name)
+		fmt.Printf("resp: %v\n", collection.Metadata)
+		assert.Equal(t, 2, len(collection.Metadata))
+		//assert the metadata contains key embedding_function
+		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		documents := []string{
+			"Document 1 content here",
+			"Document 2 content here",
+		}
+		ids := []string{
+			"ID1",
+			"ID2",
+		}
+
+		metadatas := []map[string]string{
+			{"key1": "value1"},
+			{"key2": "value2"},
+		}
+		_, addError := collection.Add(nil, metadatas, documents, ids)
+		require.Nil(t, addError)
+		deletedIds, dellErr := collection.Delete(nil, map[string]string{"key2": "value2"}, nil)
+		require.Nil(t, dellErr)
+		assert.Equal(t, 1, len(deletedIds))
+		assert.Equal(t, "ID2", deletedIds[0])
+	})
+
+	t.Run("Test Delete Embeddings by Where Document Contains", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]string{}
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		collection, err := client.CreateCollection(collectionName, metadata, true, embeddingFunction, distanceFunction)
+		require.Nil(t, err)
+		require.NotNil(t, collection)
+		assert.Equal(t, collectionName, collection.Name)
+		fmt.Printf("resp: %v\n", collection.Metadata)
+		assert.Equal(t, 2, len(collection.Metadata))
+		//assert the metadata contains key embedding_function
+		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		documents := []string{
+			"Document 1 content here",
+			"Document 2 content here",
+		}
+		ids := []string{
+			"ID1",
+			"ID2",
+		}
+
+		metadatas := []map[string]string{
+			{"key1": "value1"},
+			{"key2": "value2"},
+		}
+		_, addError := collection.Add(nil, metadatas, documents, ids)
+		require.Nil(t, addError)
+		deletedIds, dellErr := collection.Delete(nil, nil, map[string]string{"$contains": "Document 1"})
+		require.Nil(t, dellErr)
+		assert.Equal(t, 1, len(deletedIds))
+		assert.Equal(t, "ID1", deletedIds[0])
+	})
+
 }

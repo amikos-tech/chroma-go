@@ -113,11 +113,6 @@ func (c *Client) DeleteCollection(collectionName string) (*Collection, error) {
 	return NewCollection(c.ApiClient, col.Id, col.Name, *col.Metadata, nil), nil
 }
 
-func (c *Client) Upsert(collectionName string, ef EmbeddingFunction) (*Collection, error) {
-	// Implementation here
-	return nil, nil
-}
-
 func (c *Client) Reset() (bool, error) {
 	resp, httpResp, err := c.ApiClient.DefaultApi.Reset(context.Background())
 	fmt.Printf("Reset: %v\n", httpResp)
@@ -187,9 +182,9 @@ func (c *Collection) Add(embeddings [][]float32, metadatas []map[string]string, 
 	_, httpResp, err := c.ApiClient.DefaultApi.Add(context.Background(), req, c.id)
 
 	if err != nil {
+		log.Fatal(httpResp, err)
 		return c, err
 	}
-	fmt.Printf("Add: %v\n", httpResp)
 	return c, nil
 }
 
@@ -316,4 +311,20 @@ func (c *Collection) Update(newName string, newMetadata map[string]string) (*Col
 	c.Name = newName
 	c.Metadata = newMetadata
 	return c, nil
+}
+
+func (c *Collection) Delete(ids []string, where map[string]string, whereDocuments map[string]string) ([]string, error) {
+
+	req := openapiclient.DeleteEmbedding{
+		Where:         where,
+		WhereDocument: whereDocuments,
+		Ids:           ids,
+	}
+	dr, httpResp, err := c.ApiClient.DefaultApi.Delete(context.Background(), req, c.id)
+	if err != nil {
+		log.Fatal(httpResp, err)
+		return nil, err
+	}
+	return dr, nil
+
 }

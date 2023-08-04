@@ -9,7 +9,7 @@
 package swagger
 
 type DeleteEmbedding struct {
-	Ids           []string     `json:"ids,omitempty"`
-	Where         *interface{} `json:"where,omitempty"`
-	WhereDocument *interface{} `json:"where_document,omitempty"`
+	Ids           []string          `json:"ids,omitempty"`
+	Where         map[string]string `json:"where,omitempty"`
+	WhereDocument map[string]string `json:"where_document,omitempty"`
 }
