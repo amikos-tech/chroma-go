@@ -9,13 +9,16 @@ import (
 	"testing"
 )
 
-func Test_openapi_DefaultApiService(t *testing.T) {
+func Test_openai_client(t *testing.T) {
 
-	err := godotenv.Load("../.env")
-	if err != nil {
-		assert.Failf(t, "Error loading .env file", "%s", err)
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		err := godotenv.Load("../.env")
+		if err != nil {
+			assert.Failf(t, "Error loading .env file", "%s", err)
+		}
 	}
-	ef := NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+	ef := NewOpenAIEmbeddingFunction(apiKey)
 
 	t.Run("Test DefaultApiService Add", func(t *testing.T) {
 		documents := []string{
