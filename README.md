@@ -52,13 +52,14 @@ Ensure you have a running instance of Chroma running. We recommend one of the tw
 **The Setup (Cloud-native):**
 
 ```bash
-minikube start --profile chromaj
-minikube profile chromaj
+minikube start --profile chromago
+minikube profile chromago
 helm repo add chroma https://amikos-tech.github.io/chromadb-chart/
 helm repo update
 helm install chroma chroma/chromadb --set chromadb.allowReset=true,chromadb.apiVersion=0.4.4
 ```
 
+|**Note:** To delete the minikube cluster: `minikube delete --profile chromago`
 
 Consider the following example where:
 

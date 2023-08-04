@@ -31,11 +31,14 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test CreateCollection", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]string{}
-		err := godotenv.Load("../.env")
-		if err != nil {
-			assert.Failf(t, "Error loading .env file", "%s", err)
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset()
 		if errRest != nil {
@@ -54,11 +57,14 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Add Documents", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]string{}
-		err := godotenv.Load("../.env")
-		if err != nil {
-			assert.Failf(t, "Error loading .env file", "%s", err)
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset()
 		if errRest != nil {
@@ -93,11 +99,14 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Get Collection Documents", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]string{}
-		err := godotenv.Load("../.env")
-		if err != nil {
-			assert.Failf(t, "Error loading .env file", "%s", err)
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset()
 		if errRest != nil {
@@ -136,11 +145,14 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Query Collection Documents", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]string{}
-		err := godotenv.Load("../.env")
-		if err != nil {
-			assert.Failf(t, "Error loading .env file", "%s", err)
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset()
 		if errRest != nil {
@@ -179,11 +191,14 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Count Collection Documents", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]string{}
-		err := godotenv.Load("../.env")
-		if err != nil {
-			assert.Failf(t, "Error loading .env file", "%s", err)
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset()
 		if errRest != nil {
@@ -222,11 +237,14 @@ func Test_chroma_client(t *testing.T) {
 		collectionName1 := "test-collection1"
 		collectionName2 := "test-collection2"
 		metadata := map[string]string{}
-		err := godotenv.Load("../.env")
-		if err != nil {
-			assert.Failf(t, "Error loading .env file", "%s", err)
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset()
 		if errRest != nil {
@@ -263,11 +281,14 @@ func Test_chroma_client(t *testing.T) {
 		collectionName1 := "test-collection1"
 		collectionName2 := "test-collection2"
 		metadata := map[string]string{}
-		err := godotenv.Load("../.env")
-		if err != nil {
-			assert.Failf(t, "Error loading .env file", "%s", err)
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset()
 		if errRest != nil {
