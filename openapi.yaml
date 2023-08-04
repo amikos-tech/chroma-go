@@ -619,6 +619,8 @@ components:
         new_metadata:
           type: object
           title: New Metadata
+          additionalProperties:
+            type: string
       type: object
       title: UpdateCollection
     UpdateEmbedding:

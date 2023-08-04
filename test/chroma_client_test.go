@@ -320,4 +320,56 @@ func Test_chroma_client(t *testing.T) {
 		assert.Equal(t, 1, len(collections))
 	})
 
+	t.Run("Test Update Collection Name and Metadata", func(t *testing.T) {
+		collectionName1 := "test-collection1"
+		metadata := map[string]string{}
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
+		}
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		col, ccerr := client.CreateCollection(collectionName1, metadata, true, embeddingFunction, distanceFunction)
+		require.Nil(t, ccerr)
+		//update collection
+		newMetadata := map[string]string{"new": "metadata"}
+
+		updatedCol, uerr := col.Update("new-name", newMetadata)
+		updatedColQ, geterr := client.GetCollection(updatedCol.Name, nil)
+
+		require.Nil(t, uerr)
+		require.Nil(t, geterr)
+		assert.Equal(t, "new-name", updatedCol.Name)
+		assert.Equal(t, "new-name", updatedColQ.Name)
+		assert.Equal(t, newMetadata, updatedCol.Metadata)
+		assert.Equal(t, newMetadata, updatedColQ.Metadata)
+
+		//collections, gcerr := client.ListCollections()
+		//require.Nil(t, gcerr)
+		//assert.Equal(t, 2, len(collections))
+		//names := make([]string, len(collections))
+		//for i, person := range collections {
+		//	names[i] = person.Name
+		//}
+		//assert.Contains(t, names, collectionName1)
+		//assert.Contains(t, names, collectionName2)
+		//
+		////delete collection
+		//ocol, derr := client.DeleteCollection(collectionName1)
+		//require.Nil(t, derr)
+		//assert.Equal(t, collectionName1, ocol.Name)
+		//
+		////list collections
+		//collections, gcerr = client.ListCollections()
+		//require.Nil(t, gcerr)
+		//assert.Equal(t, 1, len(collections))
+	})
+
 }

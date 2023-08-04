@@ -660,6 +660,8 @@ components:
         new_metadata:
           title: New Metadata
           type: object
+          additionalProperties:
+            type: string
     UpdateEmbedding:
       title: UpdateEmbedding
       required:

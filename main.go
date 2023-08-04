@@ -36,8 +36,14 @@ func NewClient(basePath string) *Client {
 }
 
 func (c *Client) GetCollection(collectionName string, embeddingFunction EmbeddingFunction) (*Collection, error) {
-	// Implementation here
-	return nil, nil
+	col, httpResp, err := c.ApiClient.DefaultApi.GetCollection(context.Background(), collectionName)
+	if err != nil {
+		return nil, err
+	}
+	if httpResp.StatusCode != 200 {
+		return nil, fmt.Errorf("error getting collection: %v", httpResp)
+	}
+	return NewCollection(c.ApiClient, col.Id, col.Name, *col.Metadata, embeddingFunction), nil
 }
 
 func (c *Client) Heartbeat() (map[string]float64, error) {
@@ -268,4 +274,21 @@ func (c *Collection) Count() (int32, error) {
 	fmt.Printf("Count: %v\n", httpResp)
 
 	return cd, nil
+}
+
+func (c *Collection) Update(newName string, newMetadata map[string]string) (*Collection, error) {
+
+	req := openapiclient.UpdateCollection{
+		NewName:     newName,
+		NewMetadata: newMetadata,
+	}
+
+	httpResp, err := c.ApiClient.DefaultApi.UpdateCollection(context.Background(), req, c.id)
+	if err != nil {
+		log.Fatal(httpResp, err)
+		return c, err
+	}
+	c.Name = newName
+	c.Metadata = newMetadata
+	return c, nil
 }

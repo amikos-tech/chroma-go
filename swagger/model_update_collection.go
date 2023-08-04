@@ -9,6 +9,6 @@
 package swagger
 
 type UpdateCollection struct {
-	NewName     string       `json:"new_name,omitempty"`
-	NewMetadata *interface{} `json:"new_metadata,omitempty"`
+	NewName     string            `json:"new_name,omitempty"`
+	NewMetadata map[string]string `json:"new_metadata,omitempty"`
 }

@@ -19,7 +19,7 @@ A simple Chroma Vector Database client written in go
 - [x] Collection Count
 - [x] Collection Query
 - [ ] Collection Modify
-- [ ] Collection Update
+- [x] Collection Update
 - [ ] Collection Upsert
 - [ ] Collection Create Index
 - [ ] Collection Delete - delete documents in collection
