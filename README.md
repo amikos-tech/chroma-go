@@ -4,6 +4,27 @@ A simple Chroma Vector Database client written in go
 
 | Note: This is my first code in go so don't judge me for newb mistakes
 
+
+## Feature Parity with ChromaDB API
+
+- [x] Reset
+- [x] Heartbeat
+- [ ] List Collections
+- [ ] Raw SQL
+- [ ] Get Version
+- [x] Create Collection
+- [ ] Delete Collection
+- [x] Collection Add
+- [x] Collection Get (partial without additional parameters)
+- [x] Collection Count
+- [x] Collection Query
+- [ ] Collection Modify
+- [ ] Collection Update
+- [ ] Collection Upsert
+- [ ] Collection Create Index
+- [ ] Collection Delete - delete documents in collection
+
+
 ## Installation
 
 ```bash
