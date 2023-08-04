@@ -690,15 +690,15 @@ DefaultApiService Get Collection
   - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
   - @param collectionName
 
-@return CollectionData
+@return Collection
 */
-func (a *DefaultApiService) GetCollection(ctx context.Context, collectionName string) (CollectionData, *http.Response, error) {
+func (a *DefaultApiService) GetCollection(ctx context.Context, collectionName string) (Collection, *http.Response, error) {
 	var (
 		localVarHttpMethod  = strings.ToUpper("Get")
 		localVarPostBody    interface{}
 		localVarFileName    string
 		localVarFileBytes   []byte
-		localVarReturnValue CollectionData
+		localVarReturnValue Collection
 	)
 
 	// create path and map variables
@@ -756,7 +756,7 @@ func (a *DefaultApiService) GetCollection(ctx context.Context, collectionName st
 			error: localVarHttpResponse.Status,
 		}
 		if localVarHttpResponse.StatusCode == 200 {
-			var v CollectionData
+			var v Collection
 			err = a.client.decode(&v, localVarBody, localVarHttpResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()

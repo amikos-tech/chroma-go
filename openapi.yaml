@@ -357,7 +357,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CollectionData'
+                $ref: '#/components/schemas/Collection'
         '422':
           description: Validation Error
           content:

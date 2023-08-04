@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	openapiclient "github.com/amikos-tech/chroma-go/swagger"
+	"log"
 	"reflect"
 	"strings"
 )
@@ -93,8 +94,17 @@ func (c *Client) CreateCollection(collectionName string, metadata map[string]str
 }
 
 func (c *Client) DeleteCollection(collectionName string) (*Collection, error) {
-	// Implementation here
-	return nil, nil
+	col, httpResp, gcerr := c.ApiClient.DefaultApi.GetCollection(context.Background(), collectionName)
+	if gcerr != nil {
+		log.Fatal(httpResp, gcerr)
+		return nil, gcerr
+	}
+	httpResp, err := c.ApiClient.DefaultApi.DeleteCollection(context.Background(), collectionName)
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+	return NewCollection(c.ApiClient, col.Id, col.Name, *col.Metadata, nil), nil
 }
 
 func (c *Client) Upsert(collectionName string, ef EmbeddingFunction) (*Collection, error) {
@@ -109,13 +119,22 @@ func (c *Client) Reset() (bool, error) {
 }
 
 func (c *Client) ListCollections() ([]*Collection, error) {
-	// Implementation here
-	return nil, nil
+	resp, httpResp, err := c.ApiClient.DefaultApi.ListCollections(context.Background())
+	fmt.Printf("ListCollections: %v\n", httpResp)
+	if err != nil {
+		return nil, err
+	}
+	collections := make([]*Collection, len(resp))
+	for i, col := range resp {
+		collections[i] = NewCollection(c.ApiClient, col.Id, col.Name, *col.Metadata, nil)
+	}
+	return collections, nil
 }
 
 func (c *Client) Version() (string, error) {
-	// Implementation here
-	return "", nil
+	resp, httpResp, err := c.ApiClient.DefaultApi.Version(context.Background())
+	fmt.Printf("Version: %v\n", httpResp)
+	return resp, err
 }
 
 type CollectionData struct {

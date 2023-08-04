@@ -9,11 +9,11 @@ A simple Chroma Vector Database client written in go
 
 - [x] Reset
 - [x] Heartbeat
-- [ ] List Collections
+- [x] List Collections
 - [ ] Raw SQL
-- [ ] Get Version
+- [x] Get Version
 - [x] Create Collection
-- [ ] Delete Collection
+- [x] Delete Collection
 - [x] Collection Add
 - [x] Collection Get (partial without additional parameters)
 - [x] Collection Count

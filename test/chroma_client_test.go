@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"os"
+	"regexp"
 	"testing"
 )
 
@@ -215,6 +216,84 @@ func Test_chroma_client(t *testing.T) {
 		require.Nil(t, qrerr)
 		fmt.Printf("qr: %v\n", countDocs)
 		assert.Equal(t, int32(2), countDocs)
+	})
+
+	t.Run("Test List Collections", func(t *testing.T) {
+		collectionName1 := "test-collection1"
+		collectionName2 := "test-collection2"
+		metadata := map[string]string{}
+		err := godotenv.Load("../.env")
+		if err != nil {
+			assert.Failf(t, "Error loading .env file", "%s", err)
+		}
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		_, _ = client.CreateCollection(collectionName1, metadata, true, embeddingFunction, distanceFunction)
+		_, _ = client.CreateCollection(collectionName2, metadata, true, embeddingFunction, distanceFunction)
+		collections, gcerr := client.ListCollections()
+		require.Nil(t, gcerr)
+		assert.Equal(t, 2, len(collections))
+		names := make([]string, len(collections))
+		for i, person := range collections {
+			names[i] = person.Name
+		}
+		assert.Contains(t, names, collectionName1)
+		assert.Contains(t, names, collectionName2)
+	})
+
+	t.Run("Test Get Chroma Version", func(t *testing.T) {
+		version, verr := client.Version()
+		require.Nil(t, verr)
+		require.NotNil(t, version)
+		//semver expression
+		pattern := `^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`
+		match, err := regexp.MatchString(pattern, version)
+		if err != nil {
+			assert.Fail(t, fmt.Sprintf("Error matching version: %s", err))
+			return
+		}
+		assert.True(t, match, "Version does not match pattern")
+	})
+
+	t.Run("Test Delete Collection", func(t *testing.T) {
+		collectionName1 := "test-collection1"
+		collectionName2 := "test-collection2"
+		metadata := map[string]string{}
+		err := godotenv.Load("../.env")
+		if err != nil {
+			assert.Failf(t, "Error loading .env file", "%s", err)
+		}
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		_, _ = client.CreateCollection(collectionName1, metadata, true, embeddingFunction, distanceFunction)
+		_, _ = client.CreateCollection(collectionName2, metadata, true, embeddingFunction, distanceFunction)
+		collections, gcerr := client.ListCollections()
+		require.Nil(t, gcerr)
+		assert.Equal(t, 2, len(collections))
+		names := make([]string, len(collections))
+		for i, person := range collections {
+			names[i] = person.Name
+		}
+		assert.Contains(t, names, collectionName1)
+		assert.Contains(t, names, collectionName2)
+
+		//delete collection
+		ocol, derr := client.DeleteCollection(collectionName1)
+		require.Nil(t, derr)
+		assert.Equal(t, collectionName1, ocol.Name)
+
+		//list collections
+		collections, gcerr = client.ListCollections()
+		require.Nil(t, gcerr)
+		assert.Equal(t, 1, len(collections))
 	})
 
 }
