@@ -193,6 +193,31 @@ func (c *Collection) Add(embeddings [][]float32, metadatas []map[string]string, 
 	return c, nil
 }
 
+func (c *Collection) Upsert(embeddings [][]float32, metadatas []map[string]string, documents []string, ids []string) (*Collection, error) {
+	req := openapiclient.AddEmbedding{
+		Embeddings: embeddings,
+		Metadatas:  metadatas,
+		Documents:  documents,
+		Ids:        ids,
+	}
+
+	if len(embeddings) == 0 {
+		embds, embErr := c.EmbeddingFunction.CreateEmbedding(documents)
+		if embErr != nil {
+			return c, embErr
+		}
+		req.Embeddings = embds
+	}
+
+	_, httpResp, err := c.ApiClient.DefaultApi.Upsert(context.Background(), req, c.id)
+
+	if err != nil {
+		return c, err
+	}
+	fmt.Printf("Add: %v\n", httpResp)
+	return c, nil
+}
+
 func (c *Collection) Get(where map[string]string, whereDocuments map[string]string, ids []string) (*Collection, error) {
 	req := openapiclient.GetEmbedding{
 		Ids:           ids,

@@ -7,23 +7,30 @@ A simple Chroma Vector Database client written in go
 
 ## Feature Parity with ChromaDB API
 
-- [x] Reset
-- [x] Heartbeat
-- [x] List Collections
-- [ ] Raw SQL
-- [x] Get Version
-- [x] Create Collection
-- [x] Delete Collection
-- [x] Collection Add
-- [x] Collection Get (partial without additional parameters)
-- [x] Collection Count
-- [x] Collection Query
-- [ ] Collection Modify
-- [x] Collection Update
-- [ ] Collection Upsert
-- [ ] Collection Create Index
-- [ ] Collection Delete - delete documents in collection
+- ✅ Reset
+- ✅ Heartbeat
+- ✅ List Collections
+- 🚫 Raw SQL
+- ✅ Get Version
+- ✅ Create Collection
+- ✅ Delete Collection
+- ✅ Collection Add
+- ✅ Collection Get (partial without additional parameters)
+- ✅ Collection Count
+- ✅ Collection Query
+- 🚫 Collection Modify  Embeddings
+- ✅ Collection Update
+- ✅ Collection Upsert
+- 🚫 Collection Create Index
+- 🚫 Collection Delete - delete documents in collection
 
+## Embedding Functions Support
+
+- ✅ OpenAI API
+- 🚫 Cohere API (including Multi-language support)
+- 🚫 Sentence Transformers (HuggingFace Inference API)
+- 🚫 PaLM API
+- 🚫 Custom Embedding Function
 
 ## Installation
 

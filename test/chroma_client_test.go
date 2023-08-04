@@ -40,6 +40,7 @@ func Test_chroma_client(t *testing.T) {
 			if err != nil {
 				assert.Failf(t, "Error loading .env file", "%s", err)
 			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
@@ -66,6 +67,7 @@ func Test_chroma_client(t *testing.T) {
 			if err != nil {
 				assert.Failf(t, "Error loading .env file", "%s", err)
 			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
@@ -99,6 +101,70 @@ func Test_chroma_client(t *testing.T) {
 		require.Nil(t, addError)
 	})
 
+	t.Run("Test Upsert Documents", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]string{}
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		collection, err := client.CreateCollection(collectionName, metadata, true, embeddingFunction, distanceFunction)
+		require.Nil(t, err)
+		require.NotNil(t, collection)
+		assert.Equal(t, collectionName, collection.Name)
+		fmt.Printf("resp: %v\n", collection.EmbeddingFunction)
+		assert.Equal(t, 2, len(collection.Metadata))
+
+		//assert the metadata contains key embedding_function
+		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		documents := []string{
+			"Document 1 content here",
+			"Document 2 content here",
+		}
+		ids := []string{
+			"ID1",
+			"ID2",
+		}
+
+		metadatas := []map[string]string{
+			{"key1": "value1"},
+			{"key2": "value2"},
+		}
+		_, addError := collection.Add(nil, metadatas, documents, ids)
+		require.Nil(t, addError)
+
+		documentsNew := []string{
+			"Document 1 content here",
+			"Document 2 content here",
+		}
+		idsNew := []string{
+			"ID1",
+			"ID5",
+		}
+
+		metadatasNew := []map[string]string{
+			{"key1": "value1"},
+			{"key2": "value2"},
+		}
+		_, upError := collection.Upsert(nil, metadatasNew, documentsNew, idsNew)
+		require.Nil(t, upError)
+		getCollection, getError := collection.Get(nil, nil, nil)
+		require.Nil(t, getError)
+		require.NotNil(t, getCollection)
+		assert.Equal(t, 3, len(getCollection.CollectionData.Documents))
+		assert.Equal(t, []string{"ID1", "ID2", "ID5"}, getCollection.CollectionData.Ids)
+	})
+
 	t.Run("Test Get Collection Documents", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]string{}
@@ -108,6 +174,7 @@ func Test_chroma_client(t *testing.T) {
 			if err != nil {
 				assert.Failf(t, "Error loading .env file", "%s", err)
 			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
@@ -154,6 +221,7 @@ func Test_chroma_client(t *testing.T) {
 			if err != nil {
 				assert.Failf(t, "Error loading .env file", "%s", err)
 			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
@@ -200,6 +268,7 @@ func Test_chroma_client(t *testing.T) {
 			if err != nil {
 				assert.Failf(t, "Error loading .env file", "%s", err)
 			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
@@ -246,6 +315,7 @@ func Test_chroma_client(t *testing.T) {
 			if err != nil {
 				assert.Failf(t, "Error loading .env file", "%s", err)
 			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
@@ -290,6 +360,7 @@ func Test_chroma_client(t *testing.T) {
 			if err != nil {
 				assert.Failf(t, "Error loading .env file", "%s", err)
 			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
@@ -329,6 +400,7 @@ func Test_chroma_client(t *testing.T) {
 			if err != nil {
 				assert.Failf(t, "Error loading .env file", "%s", err)
 			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
