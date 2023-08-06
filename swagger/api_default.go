@@ -974,7 +974,7 @@ type ApiHeartbeatRequest struct {
 	ApiService *DefaultApiService
 }
 
-func (r ApiHeartbeatRequest) Execute() (map[string]int32, *http.Response, error) {
+func (r ApiHeartbeatRequest) Execute() (map[string]float32, *http.Response, error) {
 	return r.ApiService.HeartbeatExecute(r)
 }
 
@@ -993,13 +993,13 @@ func (a *DefaultApiService) Heartbeat(ctx context.Context) ApiHeartbeatRequest {
 
 // Execute executes the request
 //
-//	@return map[string]int32
-func (a *DefaultApiService) HeartbeatExecute(r ApiHeartbeatRequest) (map[string]int32, *http.Response, error) {
+//	@return map[string]float32
+func (a *DefaultApiService) HeartbeatExecute(r ApiHeartbeatRequest) (map[string]float32, *http.Response, error) {
 	var (
 		localVarHTTPMethod  = http.MethodGet
 		localVarPostBody    interface{}
 		formFiles           []formFile
-		localVarReturnValue map[string]int32
+		localVarReturnValue map[string]float32
 	)
 
 	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultApiService.Heartbeat")

@@ -55,7 +55,7 @@ paths:
             application/json:
               schema:
                 additionalProperties:
-                  type: integer
+                  type: number
                 type: object
                 title: Response Heartbeat Api V1 Heartbeat Get
   /api/v1/collections:

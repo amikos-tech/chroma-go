@@ -17,6 +17,7 @@ func Test_openai_client(t *testing.T) {
 		if err != nil {
 			assert.Failf(t, "Error loading .env file", "%s", err)
 		}
+		apiKey = os.Getenv("OPENAI_API_KEY")
 	}
 	ef := NewOpenAIEmbeddingFunction(apiKey)
 

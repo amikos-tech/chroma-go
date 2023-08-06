@@ -17,65 +17,65 @@ import (
 
 // MetadatasInnerValue struct for MetadatasInnerValue
 type MetadatasInnerValue struct {
-	bool    *bool
-	float32 *float32
-	int32   *int32
-	string  *string
+	Bool    *bool
+	Float32 *float32
+	Int32   *int32
+	String  *string
 }
 
 // Unmarshal JSON data into any of the pointers in the struct
 func (dst *MetadatasInnerValue) UnmarshalJSON(data []byte) error {
 	var err error
-	// try to unmarshal JSON data into bool
-	err = json.Unmarshal(data, &dst.bool)
+	// try to unmarshal JSON data into Bool
+	err = json.Unmarshal(data, &dst.Bool)
 	if err == nil {
-		jsonbool, _ := json.Marshal(dst.bool)
-		if string(jsonbool) == "{}" { // empty struct
-			dst.bool = nil
+		jsonBool, _ := json.Marshal(dst.Bool)
+		if string(jsonBool) == "{}" { // empty struct
+			dst.Bool = nil
 		} else {
-			return nil // data stored in dst.bool, return on the first match
+			return nil // data stored in dst.Bool, return on the first match
 		}
 	} else {
-		dst.bool = nil
+		dst.Bool = nil
 	}
 
-	// try to unmarshal JSON data into float32
-	err = json.Unmarshal(data, &dst.float32)
+	// try to unmarshal JSON data into Float32
+	err = json.Unmarshal(data, &dst.Float32)
 	if err == nil {
-		jsonfloat32, _ := json.Marshal(dst.float32)
-		if string(jsonfloat32) == "{}" { // empty struct
-			dst.float32 = nil
+		jsonFloat32, _ := json.Marshal(dst.Float32)
+		if string(jsonFloat32) == "{}" { // empty struct
+			dst.Float32 = nil
 		} else {
-			return nil // data stored in dst.float32, return on the first match
+			return nil // data stored in dst.Float32, return on the first match
 		}
 	} else {
-		dst.float32 = nil
+		dst.Float32 = nil
 	}
 
-	// try to unmarshal JSON data into int32
-	err = json.Unmarshal(data, &dst.int32)
+	// try to unmarshal JSON data into Int32
+	err = json.Unmarshal(data, &dst.Int32)
 	if err == nil {
-		jsonint32, _ := json.Marshal(dst.int32)
-		if string(jsonint32) == "{}" { // empty struct
-			dst.int32 = nil
+		jsonInt32, _ := json.Marshal(dst.Int32)
+		if string(jsonInt32) == "{}" { // empty struct
+			dst.Int32 = nil
 		} else {
-			return nil // data stored in dst.int32, return on the first match
+			return nil // data stored in dst.Int32, return on the first match
 		}
 	} else {
-		dst.int32 = nil
+		dst.Int32 = nil
 	}
 
-	// try to unmarshal JSON data into string
-	err = json.Unmarshal(data, &dst.string)
+	// try to unmarshal JSON data into String
+	err = json.Unmarshal(data, &dst.String)
 	if err == nil {
-		jsonstring, _ := json.Marshal(dst.string)
-		if string(jsonstring) == "{}" { // empty struct
-			dst.string = nil
+		jsonString, _ := json.Marshal(dst.String)
+		if string(jsonString) == "{}" { // empty struct
+			dst.String = nil
 		} else {
-			return nil // data stored in dst.string, return on the first match
+			return nil // data stored in dst.String, return on the first match
 		}
 	} else {
-		dst.string = nil
+		dst.String = nil
 	}
 
 	return fmt.Errorf("data failed to match schemas in anyOf(MetadatasInnerValue)")
@@ -83,20 +83,20 @@ func (dst *MetadatasInnerValue) UnmarshalJSON(data []byte) error {
 
 // Marshal data from the first non-nil pointers in the struct to JSON
 func (src *MetadatasInnerValue) MarshalJSON() ([]byte, error) {
-	if src.bool != nil {
-		return json.Marshal(&src.bool)
+	if src.Bool != nil {
+		return json.Marshal(&src.Bool)
 	}
 
-	if src.float32 != nil {
-		return json.Marshal(&src.float32)
+	if src.Float32 != nil {
+		return json.Marshal(&src.Float32)
 	}
 
-	if src.int32 != nil {
-		return json.Marshal(&src.int32)
+	if src.Int32 != nil {
+		return json.Marshal(&src.Int32)
 	}
 
-	if src.string != nil {
-		return json.Marshal(&src.string)
+	if src.String != nil {
+		return json.Marshal(&src.String)
 	}
 
 	return nil, nil // no data in anyOf schemas
