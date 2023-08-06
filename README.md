@@ -1,9 +1,12 @@
 # Chroma Go
 
-A simple Chroma Vector Database client written in go
+A simple Chroma Vector Database client written in Go
 
-| Note: This is my first code in go so don't judge me for newb mistakes
+Works with Chroma Version:
 
+- v0.4.3
+- v0.4.4
+- v0.4.5
 
 ## Feature Parity with ChromaDB API
 

@@ -17,7 +17,7 @@ paths:
             application/json:
               schema:
                 additionalProperties:
-                  type: integer
+                  type: number
                 type: object
                 title: Response Root Api V1 Get
   /api/v1/reset:

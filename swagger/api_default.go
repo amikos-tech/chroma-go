@@ -1268,7 +1268,7 @@ type ApiRootRequest struct {
 	ApiService *DefaultApiService
 }
 
-func (r ApiRootRequest) Execute() (map[string]int32, *http.Response, error) {
+func (r ApiRootRequest) Execute() (map[string]float32, *http.Response, error) {
 	return r.ApiService.RootExecute(r)
 }
 
@@ -1287,13 +1287,13 @@ func (a *DefaultApiService) Root(ctx context.Context) ApiRootRequest {
 
 // Execute executes the request
 //
-//	@return map[string]int32
-func (a *DefaultApiService) RootExecute(r ApiRootRequest) (map[string]int32, *http.Response, error) {
+//	@return map[string]float32
+func (a *DefaultApiService) RootExecute(r ApiRootRequest) (map[string]float32, *http.Response, error) {
 	var (
 		localVarHTTPMethod  = http.MethodGet
 		localVarPostBody    interface{}
 		formFiles           []formFile
-		localVarReturnValue map[string]int32
+		localVarReturnValue map[string]float32
 	)
 
 	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultApiService.Root")
