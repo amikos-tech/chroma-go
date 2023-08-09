@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -163,6 +164,76 @@ func Test_chroma_client(t *testing.T) {
 		require.NotNil(t, getCollection)
 		assert.Equal(t, 3, len(getCollection.CollectionData.Documents))
 		assert.Equal(t, []string{"ID1", "ID2", "ID5"}, getCollection.CollectionData.Ids)
+	})
+
+	t.Run("Test Modify Collection Documents", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]string{}
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		collection, err := client.CreateCollection(collectionName, chroma.MapToApi(metadata), true, embeddingFunction, distanceFunction)
+		require.Nil(t, err)
+		require.NotNil(t, collection)
+		assert.Equal(t, collectionName, collection.Name)
+		fmt.Printf("resp: %v\n", collection.EmbeddingFunction)
+		assert.Equal(t, 2, len(collection.Metadata))
+
+		//assert the metadata contains key embedding_function
+		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		documents := []string{
+			"Document 1 content here",
+			"Document 2 content here",
+		}
+		ids := []string{
+			"ID1",
+			"ID2",
+		}
+
+		metadatas := []map[string]string{
+			{"key1": "value1"},
+			{"key2": "value2"},
+		}
+		_, addError := collection.Add(nil, chroma.MapListToApi(metadatas), documents, ids)
+		require.Nil(t, addError)
+
+		documentsNew := []string{
+			"Document 1 updated content",
+		}
+		idsNew := []string{
+			"ID1",
+		}
+
+		metadatasNew := []map[string]string{
+			{"key1": "updated1"},
+		}
+		_, upError := collection.Modify(nil, chroma.MapListToApi(metadatasNew), documentsNew, idsNew)
+		require.Nil(t, upError)
+		getCollection, getError := collection.Get(nil, nil, nil)
+		require.Nil(t, getError)
+		require.NotNil(t, getCollection)
+		assert.Equal(t, 2, len(getCollection.CollectionData.Documents))
+		assert.Equal(t, []string{"ID1", "ID2"}, getCollection.CollectionData.Ids)
+		assert.Equal(t, []string{"Document 1 updated content", "Document 2 content here"}, getCollection.CollectionData.Documents)
+		if data, ok := getCollection.CollectionData.Metadatas[0]["key1"].([]uint8); ok {
+			str := string(data)
+			str = strings.Replace(str, `"`, "", -1)
+			assert.Equal(t, "updated1", str)
+		} else {
+			fmt.Println("Value is not a []uint8")
+		}
+
 	})
 
 	t.Run("Test Get Collection Documents", func(t *testing.T) {

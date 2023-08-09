@@ -13,7 +13,6 @@ Works with Chroma Version:
 - ✅ Reset
 - ✅ Heartbeat
 - ✅ List Collections
-- 🚫 Raw SQL
 - ✅ Get Version
 - ✅ Create Collection
 - ✅ Delete Collection
@@ -21,10 +20,9 @@ Works with Chroma Version:
 - ✅ Collection Get (partial without additional parameters)
 - ✅ Collection Count
 - ✅ Collection Query
-- 🚫 Collection Modify  Embeddings
+- ✅ Collection Modify Embeddings
 - ✅ Collection Update
 - ✅ Collection Upsert
-- 🚫 Collection Create Index
 - ✅ Collection Delete - delete documents in collection
 
 ## Embedding Functions Support
@@ -66,7 +64,7 @@ minikube start --profile chromago
 minikube profile chromago
 helm repo add chroma https://amikos-tech.github.io/chromadb-chart/
 helm repo update
-helm install chroma chroma/chromadb --set chromadb.allowReset=true,chromadb.apiVersion=0.4.4
+helm install chroma chroma/chromadb --set chromadb.allowReset=true,chromadb.apiVersion=0.4.5
 ```
 
 |**Note:** To delete the minikube cluster: `minikube delete --profile chromago`
