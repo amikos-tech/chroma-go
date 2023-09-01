@@ -7,6 +7,7 @@ package test
 import (
 	"fmt"
 	chroma "github.com/amikos-tech/chroma-go"
+	"github.com/amikos-tech/chroma-go/cohere"
 	"github.com/amikos-tech/chroma-go/openai"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
@@ -655,6 +656,49 @@ func Test_chroma_client(t *testing.T) {
 		require.Nil(t, dellErr)
 		assert.Equal(t, 1, len(deletedIds))
 		assert.Equal(t, "ID1", deletedIds[0])
+	})
+
+	t.Run("Test Add Documents with Cohere EF", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]string{}
+		apiKey := os.Getenv("COHERE_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
+			apiKey = os.Getenv("COHERE_API_KEY")
+		}
+		embeddingFunction := cohere.NewCohereEmbeddingFunction(apiKey)
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		resp, err := client.CreateCollection(collectionName, chroma.MapToApi(metadata), true, embeddingFunction, distanceFunction)
+		require.Nil(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, collectionName, resp.Name)
+		fmt.Printf("resp: %v\n", resp.Metadata)
+		assert.Equal(t, 2, len(resp.Metadata))
+		//assert the metadata contains key embedding_function
+		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), resp.Metadata["embedding_function"])
+		documents := []string{
+			"Document 1 content here",
+			"Document 2 content here",
+		}
+		ids := []string{
+			"ID1",
+			"ID2",
+		}
+
+		metadatas := []map[string]string{
+			{"key1": "value1"},
+			{"key2": "value2"},
+		}
+		//_, _ := embeddingFunction.CreateEmbedding(documents)
+		_, addError := resp.Add(nil, chroma.MapListToApi(metadatas), documents, ids)
+		require.Nil(t, addError)
 	})
 
 }
