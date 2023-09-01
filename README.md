@@ -28,7 +28,7 @@ Works with Chroma Version:
 ## Embedding Functions Support
 
 - ✅ OpenAI API
-- 🚫 Cohere API (including Multi-language support)
+- ✅ Cohere API (including Multi-language support)
 - 🚫 Sentence Transformers (HuggingFace Inference API)
 - 🚫 PaLM API
 - 🚫 Custom Embedding Function
