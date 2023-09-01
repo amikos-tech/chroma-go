@@ -63,4 +63,5 @@ jobs:
       run: go test -v ./... -cover
       env:
         OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
+        COHERE_API_KEY:  ${{ secrets.COHERE_API_KEY }}
         CHROMA_URL: ${{steps.wait-and-set.outputs.chroma-url}}
