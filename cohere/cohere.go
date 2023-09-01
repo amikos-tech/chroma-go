@@ -15,7 +15,7 @@ type CohereClient struct {
 	Client     *http.Client
 }
 
-func NewOpenAIClient(apiKey string) *CohereClient {
+func NewCohereClient(apiKey string) *CohereClient {
 	return &CohereClient{
 		BaseURL:    "https://api.cohere.ai/",
 		Client:     &http.Client{},
@@ -114,7 +114,7 @@ type CohereEmbeddingFunction struct {
 
 func NewCohereEmbeddingFunction(apiKey string) *CohereEmbeddingFunction {
 	cli := &CohereEmbeddingFunction{
-		apiClient: NewOpenAIClient(apiKey),
+		apiClient: NewCohereClient(apiKey),
 	}
 
 	return cli

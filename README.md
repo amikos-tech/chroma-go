@@ -29,7 +29,7 @@ Works with Chroma Version:
 
 - ✅ OpenAI API
 - ✅ Cohere API (including Multi-language support)
-- 🚫 Sentence Transformers (HuggingFace Inference API)
+- ✅ Sentence Transformers (HuggingFace Inference API)
 - 🚫 PaLM API
 - 🚫 Custom Embedding Function
 
