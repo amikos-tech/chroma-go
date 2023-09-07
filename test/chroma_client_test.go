@@ -6,6 +6,11 @@ package test
 
 import (
 	"fmt"
+	"os"
+	"regexp"
+	"strings"
+	"testing"
+
 	chroma "github.com/amikos-tech/chroma-go"
 	"github.com/amikos-tech/chroma-go/cohere"
 	"github.com/amikos-tech/chroma-go/hf"
@@ -13,10 +18,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"os"
-	"regexp"
-	"strings"
-	"testing"
 )
 
 func Test_chroma_client(t *testing.T) {

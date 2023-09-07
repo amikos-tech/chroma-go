@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	openapiclient "github.com/amikos-tech/chroma-go/swagger"
 	"log"
 	"reflect"
 	"strings"
+
+	openapiclient "github.com/amikos-tech/chroma-go/swagger"
 )
 
 type ClientConfiguration struct {
@@ -297,14 +298,19 @@ func (c *Collection) Get(where map[string]interface{}, whereDocuments map[string
 		Where:         where,
 		WhereDocument: whereDocuments,
 	}).Execute()
-
 	if err != nil {
 		return c, err
 	}
+
+	metadatas, err := getMetadatasListFromAPI(cd.Metadatas)
+	if err != nil {
+		return c, err
+	}
+
 	cdata := CollectionData{
 		Ids:       cd.Ids,
 		Documents: cd.Documents,
-		Metadatas: getMetadatasListFromAPI(cd.Metadatas),
+		Metadatas: metadatas,
 	}
 	c.CollectionData = &cdata
 	fmt.Printf("Add: %v\n", httpResp)
@@ -327,7 +333,7 @@ type QueryResults struct {
 	Distances [][]float32                `json:"distances,omitempty"`
 }
 
-func getMetadatasListFromAPI(metadatas []map[string]openapiclient.MetadatasInnerValue) []map[string]interface{} {
+func getMetadatasListFromAPI(metadatas []map[string]openapiclient.MetadatasInnerValue) ([]map[string]interface{}, error) {
 	// Initialize the result slice
 	result := make([]map[string]interface{}, len(metadatas))
 	// Iterate over the inner map
@@ -338,7 +344,7 @@ func getMetadatasListFromAPI(metadatas []map[string]openapiclient.MetadatasInner
 			var rawValue interface{}
 			b, e := value.MarshalJSON()
 			if e != nil {
-				rawValue = nil
+				return nil, e
 			}
 			rawValue = b
 			// Store in the result map
@@ -347,10 +353,10 @@ func getMetadatasListFromAPI(metadatas []map[string]openapiclient.MetadatasInner
 		result[j] = resultMap
 	}
 
-	return result
+	return result, nil
 }
 
-func getMetadatasFromAPI(metadatas [][]map[string]openapiclient.MetadatasInnerValue) [][]map[string]interface{} {
+func getMetadatasFromAPI(metadatas [][]map[string]openapiclient.MetadatasInnerValue) ([][]map[string]interface{}, error) {
 	// Initialize the result slice
 	result := make([][]map[string]interface{}, len(metadatas))
 
@@ -366,7 +372,7 @@ func getMetadatasFromAPI(metadatas [][]map[string]openapiclient.MetadatasInnerVa
 				var rawValue interface{}
 				b, e := value.MarshalJSON()
 				if e != nil {
-					rawValue = nil
+					return nil, e
 				}
 				rawValue = b
 				// Store in the result map
@@ -376,7 +382,7 @@ func getMetadatasFromAPI(metadatas [][]map[string]openapiclient.MetadatasInnerVa
 		}
 	}
 
-	return result
+	return result, nil
 }
 func ConvertEmbeds(embeds [][]float32) []interface{} {
 	_embeddings := make([]interface{}, len(embeds))
@@ -414,10 +420,14 @@ func (c *Collection) Query(queryTexts []string, nResults int32, where map[string
 		return nil, err
 	}
 
+	metadatas, err := getMetadatasFromAPI(qr.Metadatas)
+	if err != nil {
+		return nil, err
+	}
 	qresults := QueryResults{
 		Documents: qr.Documents,
 		Ids:       qr.Ids,
-		Metadatas: getMetadatasFromAPI(qr.Metadatas),
+		Metadatas: metadatas,
 		Distances: qr.Distances,
 	}
 	fmt.Printf("Query: %v\n", httpResp)

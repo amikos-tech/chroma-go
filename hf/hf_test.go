@@ -2,11 +2,12 @@ package hf
 
 import (
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"os"
-	"testing"
 )
 
 func Test_huggingface_client(t *testing.T) {

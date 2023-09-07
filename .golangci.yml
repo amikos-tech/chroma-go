@@ -1,0 +1,74 @@
+# based on https://github.com/kubernetes/kubernetes/blame/e6218f3d3bede036b2d67a4349dd761aac06ae97/hack/golangci-strict.yaml
+
+run:
+  timeout: 30m
+  skip-files:
+    - "swagger/*.go"
+
+issues:
+  max-same-issues: 0
+  # Excluding configuration per-path, per-linter, per-text and per-source
+  exclude-rules:
+    # exclude ineffassign linter for generated files for conversion
+    - path: conversion\.go
+      linters:
+        - ineffassign
+    # The Kubernetes naming convention for conversion functions uses underscores
+    # and intentionally deviates from normal Go conventions to make those function
+    # names more readable. Same for SetDefaults_*.
+    - linters:
+        - stylecheck
+      text: "ST1003: should not use underscores in Go names; func (Convert_.*_To_.*|SetDefaults_)"
+    # This check currently has some false positives (https://github.com/nunnatsa/ginkgolinter/issues/91).
+    - linters:
+        - ginkgolinter
+      text: use a function call in (Eventually|Consistently)
+
+linters:
+  disable-all: false # in contrast to golangci.yaml, the default set of linters remains enabled
+  enable: # please keep this alphabetized and in sync with golangci.yaml
+    - dupword # add by kubeagi
+    - ginkgolinter
+    - gci # add by kubeagi
+    - gocritic
+    - govet
+    - ineffassign
+    #     - logcheck  # we do not need this linter
+    - mirror # add by kubeagi
+    - staticcheck
+    - stylecheck
+    - unused
+    - whitespace
+
+linters-settings: # please keep this alphabetized
+  # we do not import logcheck source code and package
+  #   custom:
+  #     logcheck:
+  #       # Installed there by hack/verify-golangci-lint.sh.
+  #       path: ../_output/local/bin/logcheck.so
+  #       description: structured logging checker
+  #       original-url: k8s.io/logtools/logcheck
+  gocritic:
+  staticcheck:
+    checks:
+      - "all"
+  stylecheck:
+  gci:
+    # Section configuration to compare against.
+    # Section names are case-insensitive and may contain parameters in ().
+    # The default order of sections is `standard > default > custom > blank > dot`,
+    # If `custom-order` is `true`, it follows the order of `sections` option.
+    # Default: ["standard", "default"]
+    sections:
+      - standard # Standard section: captures all standard packages.
+      - default # Default section: contains all imports that could not be matched to another section type.
+      - prefix(github.com/amikos-tech/chroma-go) # Custom section: groups all imports with the specified Prefix.
+      - blank # Blank section: contains all blank imports. This section is not present unless explicitly enabled.
+      - dot # Dot section: contains all dot imports. This section is not present unless explicitly enabled.
+    # Skip generated files.
+    # Default: true
+    skip-generated: true
+    # Enable custom order of sections.
+    # If `true`, make the section order the same as the order of `sections`.
+    # Default: false
+    custom-order: true

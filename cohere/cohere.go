@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 )
 
@@ -95,7 +95,7 @@ func (c *CohereClient) CreateEmbedding(req *CreateEmbeddingRequest) (*CreateEmbe
 		return nil, fmt.Errorf("unexpected code %v", resp.Status)
 	}
 
-	respData, err := ioutil.ReadAll(resp.Body)
+	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
