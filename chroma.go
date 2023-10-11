@@ -2,7 +2,6 @@ package chroma_go
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"reflect"
@@ -68,7 +67,6 @@ func NewClient(basePath string) *Client {
 		},
 	}
 	configuration.Debug = true
-	fmt.Printf("Configuration: %v\n", configuration)
 	apiClient := openapiclient.NewAPIClient(configuration)
 	return &Client{
 		ApiClient: apiClient,
@@ -87,8 +85,7 @@ func (c *Client) GetCollection(collectionName string, embeddingFunction Embeddin
 }
 
 func (c *Client) Heartbeat() (map[string]float32, error) {
-	resp, httpResp, err := c.ApiClient.DefaultApi.Heartbeat(context.Background()).Execute()
-	fmt.Printf("Heartbeat: %v\n", httpResp)
+	resp, _, err := c.ApiClient.DefaultApi.Heartbeat(context.Background()).Execute()
 	return resp, err
 }
 
@@ -124,13 +121,10 @@ func (c *Client) CreateCollection(collectionName string, metadata map[string]int
 		GetOrCreate: &createOrGet,
 		Metadata:    _metadata,
 	}
-	resp, httpResp, err := c.ApiClient.DefaultApi.CreateCollection(context.Background()).CreateCollection(col).Execute()
+	resp, _, err := c.ApiClient.DefaultApi.CreateCollection(context.Background()).CreateCollection(col).Execute()
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("CreateCollection: %v\n", httpResp.Body)
-	respJSON, _ := json.Marshal(resp)
-	fmt.Println(string(respJSON))
 	mtd := resp.Metadata
 	return NewCollection(c.ApiClient, resp.Id, resp.Name, mtd, embeddingFunction), nil
 }
@@ -143,10 +137,9 @@ func (c *Client) DeleteCollection(collectionName string) (*Collection, error) {
 	}
 	deletedCol, httpResp, err := c.ApiClient.DefaultApi.DeleteCollection(context.Background(), collectionName).Execute()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(httpResp, err)
 		return nil, err
 	}
-	fmt.Printf("DeleteCollection: %v\n", httpResp)
 	if deletedCol == nil {
 		return NewCollection(c.ApiClient, col.Id, col.Name, col.Metadata, nil), nil
 	} else {
@@ -156,15 +149,13 @@ func (c *Client) DeleteCollection(collectionName string) (*Collection, error) {
 }
 
 func (c *Client) Reset() (bool, error) {
-	resp, httpResp, err := c.ApiClient.DefaultApi.Reset(context.Background()).Execute()
-	fmt.Printf("Reset: %v\n", httpResp)
+	resp, _, err := c.ApiClient.DefaultApi.Reset(context.Background()).Execute()
 	return resp, err
 }
 
 func (c *Client) ListCollections() ([]*Collection, error) {
 	req := c.ApiClient.DefaultApi.ListCollections(context.Background())
-	resp, httpResp, err := req.Execute()
-	fmt.Printf("ListCollections: %v\n", httpResp)
+	resp, _, err := req.Execute()
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +167,7 @@ func (c *Client) ListCollections() ([]*Collection, error) {
 }
 
 func (c *Client) Version() (string, error) {
-	resp, httpResp, err := c.ApiClient.DefaultApi.Version(context.Background()).Execute()
-	fmt.Printf("Version: %v\n", httpResp)
+	resp, _, err := c.ApiClient.DefaultApi.Version(context.Background()).Execute()
 	version := strings.Replace(resp, `"`, "", -1)
 	return version, err
 }
@@ -226,11 +216,10 @@ func (c *Collection) Add(embeddings [][]float32, metadatas []map[string]interfac
 		Documents:  documents,
 		Ids:        ids,
 	}
-	_, httpResp, err := c.ApiClient.DefaultApi.Add(context.Background(), c.id).AddEmbedding(addEmbedding).Execute()
+	_, _, err := c.ApiClient.DefaultApi.Add(context.Background(), c.id).AddEmbedding(addEmbedding).Execute()
 	if err != nil {
 		return c, err
 	}
-	fmt.Printf("Add: %v\n", httpResp)
 	return c, nil
 }
 
@@ -254,12 +243,11 @@ func (c *Collection) Upsert(embeddings [][]float32, metadatas []map[string]inter
 		Ids:        ids,
 	}
 
-	_, httpResp, err := c.ApiClient.DefaultApi.Upsert(context.Background(), c.id).AddEmbedding(addEmbedding).Execute()
+	_, _, err := c.ApiClient.DefaultApi.Upsert(context.Background(), c.id).AddEmbedding(addEmbedding).Execute()
 
 	if err != nil {
 		return c, err
 	}
-	fmt.Printf("Add: %v\n", httpResp)
 	return c, nil
 }
 
@@ -283,17 +271,16 @@ func (c *Collection) Modify(embeddings [][]float32, metadatas []map[string]inter
 		Ids:        ids,
 	}
 
-	_, httpResp, err := c.ApiClient.DefaultApi.Update(context.Background(), c.id).UpdateEmbedding(updateEmbedding).Execute()
+	_, _, err := c.ApiClient.DefaultApi.Update(context.Background(), c.id).UpdateEmbedding(updateEmbedding).Execute()
 
 	if err != nil {
 		return c, err
 	}
-	fmt.Printf("Add: %v\n", httpResp)
 	return c, nil
 }
 
 func (c *Collection) Get(where map[string]interface{}, whereDocuments map[string]interface{}, ids []string) (*Collection, error) {
-	cd, httpResp, err := c.ApiClient.DefaultApi.Get(context.Background(), c.id).GetEmbedding(openapiclient.GetEmbedding{
+	cd, _, err := c.ApiClient.DefaultApi.Get(context.Background(), c.id).GetEmbedding(openapiclient.GetEmbedding{
 		Ids:           ids,
 		Where:         where,
 		WhereDocument: whereDocuments,
@@ -313,7 +300,6 @@ func (c *Collection) Get(where map[string]interface{}, whereDocuments map[string
 		Metadatas: metadatas,
 	}
 	c.CollectionData = &cdata
-	fmt.Printf("Add: %v\n", httpResp)
 	return c, nil
 }
 
@@ -408,7 +394,7 @@ func (c *Collection) Query(queryTexts []string, nResults int32, where map[string
 	if embErr != nil {
 		return nil, embErr
 	}
-	qr, httpResp, err := c.ApiClient.DefaultApi.GetNearestNeighbors(context.Background(), c.id).QueryEmbedding(openapiclient.QueryEmbedding{
+	qr, _, err := c.ApiClient.DefaultApi.GetNearestNeighbors(context.Background(), c.id).QueryEmbedding(openapiclient.QueryEmbedding{
 		Where:           where,
 		WhereDocument:   whereDocuments,
 		NResults:        &nResults,
@@ -430,7 +416,6 @@ func (c *Collection) Query(queryTexts []string, nResults int32, where map[string
 		Metadatas: metadatas,
 		Distances: qr.Distances,
 	}
-	fmt.Printf("Query: %v\n", httpResp)
 	return &qresults, nil
 
 }
@@ -438,13 +423,11 @@ func (c *Collection) Query(queryTexts []string, nResults int32, where map[string
 func (c *Collection) Count() (int32, error) {
 	req := c.ApiClient.DefaultApi.Count(context.Background(), c.id)
 
-	cd, httpResp, err := req.Execute()
+	cd, _, err := req.Execute()
 
 	if err != nil {
 		return -1, err
 	}
-
-	fmt.Printf("Count: %v\n", httpResp)
 
 	return cd, nil
 }
