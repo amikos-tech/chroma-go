@@ -52,8 +52,8 @@ import (
 
 Ensure you have a running instance of Chroma running. We recommend one of the two following options:
 
-- Official documentation - https://docs.trychroma.com/usage-guide#running-chroma-in-clientserver-mode
-- If you are a fan of Kubernetes, you can use the Helm chart - https://github.com/amikos-tech/chromadb-chart (Note: You
+- [Official documentation](https://docs.trychroma.com/usage-guide#running-chroma-in-clientserver-mode)
+- If you are a fan of Kubernetes, you can use the [Helm chart](https://github.com/amikos-tech/chromadb-chart) (Note: You
   will need `Docker`, `minikube` and `kubectl` installed)
 
 
@@ -80,15 +80,18 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+
 	chroma "github.com/amikos-tech/chroma-go"
 	openai "github.com/amikos-tech/chroma-go/openai"
 	godotenv "github.com/joho/godotenv"
-	"os"
 )
-func main(){
+
+func main() {
 	client := chroma.NewClient("http://localhost:8000")
 	collectionName := "test-collection"
-	metadata := map[string]string{}
+	metadata := map[string]interface{}{}
 	err := godotenv.Load(".env")
 	if err != nil {
 		fmt.Printf("Error loading .env file: %s", err)
@@ -98,10 +101,13 @@ func main(){
 	distanceFunction := chroma.L2
 	_, errRest := client.Reset() //reset the database
 	if errRest != nil {
-		fmt.Printf("Error resetting database: %s", errRest)
-		return
+		log.Fatalf("Error resetting database: %s \n", errRest.Error())
 	}
 	col, err := client.CreateCollection(collectionName, metadata, true, embeddingFunction, distanceFunction)
+	if err != nil {
+		fmt.Printf("Error create collection: %s \n", err.Error())
+		return
+	}
 	documents := []string{
 		"This is a document about cats. Cats are great.",
 		"this is a document about dogs. Dogs are great.",
@@ -111,31 +117,28 @@ func main(){
 		"ID2",
 	}
 
-	metadatas := []map[string]string{
+	metadatas := []map[string]interface{}{
 		{"key1": "value1"},
 		{"key2": "value2"},
 	}
 	_, addError := col.Add(nil, metadatas, documents, ids)
 	if addError != nil {
-		fmt.Printf("Error adding documents: %s", addError)
-        return 
-    }
+		log.Fatalf("Error adding documents: %s \n", addError)
+	}
 	countDocs, qrerr := col.Count()
 	if qrerr != nil {
-		fmt.Printf("Error counting documents: %s", qrerr)
-        return
+		log.Fatalf("Error counting documents: %s \n", qrerr)
 	}
 	fmt.Printf("countDocs: %v\n", countDocs) //this should result in 2
 	qr, qrerr := col.Query([]string{"I love dogs"}, 5, nil, nil, nil)
 	if qrerr != nil {
-        fmt.Printf("Error querying documents: %s", qrerr)
-        return
-    }
+		log.Fatalf("Error querying documents: %s \n", qrerr)
+	}
 	fmt.Printf("qr: %v\n", qr.Documents[0][0]) //this should result in the document about dogs
 }
 ```
 
 ## References
 
-- https://docs.trychroma.com/ - Official Chroma documentation
-- https://github.com/amikos-tech/chromadb-chart - Chroma Helm chart for cloud-native deployments
+- [Official Chroma documentation](https://docs.trychroma.com/)
+- [Chroma Helm chart](https://github.com/amikos-tech/chromadb-chart) for cloud-native deployments

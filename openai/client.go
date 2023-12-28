@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 )
 
@@ -124,7 +124,7 @@ func (c *OpenAIClient) CreateEmbedding(req *CreateEmbeddingRequest) (*CreateEmbe
 		return nil, fmt.Errorf("unexpected code %v", resp.Status)
 	}
 
-	respData, err := ioutil.ReadAll(resp.Body)
+	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,6 @@ func ConvertToMatrix(response *CreateEmbeddingResponse) [][]float32 {
 }
 
 func (e *OpenAIEmbeddingFunction) CreateEmbedding(documents []string) ([][]float32, error) {
-
 	response, err := e.apiClient.CreateEmbedding(&CreateEmbeddingRequest{
 		Model: "text-embedding-ada-002",
 		User:  "chroma-go-client",
