@@ -11,7 +11,6 @@ import (
 )
 
 func Test_huggingface_client(t *testing.T) {
-
 	apiKey := os.Getenv("HF_API_KEY")
 	if apiKey == "" {
 		err := godotenv.Load("../.env")
@@ -34,7 +33,6 @@ func Test_huggingface_client(t *testing.T) {
 		require.NotNil(t, resp)
 		fmt.Printf("resp: %v\n", resp)
 		assert.Equal(t, 2, len(resp))
-		//assert.Equal(t, 201, httpRes.StatusCode)
+		// assert.Equal(t, 201, httpRes.StatusCode)
 	})
-
 }

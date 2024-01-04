@@ -56,7 +56,7 @@ type CreateEmbeddingRequest struct {
 }
 
 type CreateEmbeddingResponse struct {
-	Id         string                 `json:"id"`
+	ID         string                 `json:"id"`
 	Texts      []string               `json:"texts"`
 	Embeddings [][]float32            `json:"embeddings"`
 	Meta       map[string]interface{} `json:"meta"`
@@ -121,7 +121,6 @@ func NewCohereEmbeddingFunction(apiKey string) *CohereEmbeddingFunction {
 }
 
 func (e *CohereEmbeddingFunction) CreateEmbedding(documents []string) ([][]float32, error) {
-
 	response, err := e.apiClient.CreateEmbedding(&CreateEmbeddingRequest{
 		Texts: documents,
 	})

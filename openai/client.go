@@ -16,15 +16,16 @@ type Input struct {
 }
 
 func (i *Input) MarshalJSON() ([]byte, error) {
-	if i.Text != "" {
+	switch {
+	case i.Text != "":
 		return json.Marshal(i.Text)
-	} else if i.Texts != nil {
+	case i.Texts != nil:
 		return json.Marshal(i.Texts)
-	} else if i.Integers != nil {
+	case i.Integers != nil:
 		return json.Marshal(i.Integers)
-	} else if i.ListOfListOfIntegers != nil {
+	case i.ListOfListOfIntegers != nil:
 		return json.Marshal(i.ListOfListOfIntegers)
-	} else {
+	default:
 		return nil, fmt.Errorf("invalid input")
 	}
 }

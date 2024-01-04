@@ -11,7 +11,6 @@ import (
 )
 
 func Test_cohere_client(t *testing.T) {
-
 	apiKey := os.Getenv("COHERE_API_KEY")
 	if apiKey == "" {
 		err := godotenv.Load("../.env")
@@ -29,11 +28,9 @@ func Test_cohere_client(t *testing.T) {
 			// Add more documents as needed
 		}
 		resp, rerr := ef.CreateEmbedding(documents)
-
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		fmt.Printf("resp: %v\n", resp)
-		//assert.Equal(t, 201, httpRes.StatusCode)
+		// assert.Equal(t, 201, httpRes.StatusCode)
 	})
-
 }

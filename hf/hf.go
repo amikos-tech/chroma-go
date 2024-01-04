@@ -113,7 +113,6 @@ func NewHuggingFaceEmbeddingFunction(apiKey string, model string) *HuggingFaceEm
 }
 
 func (e *HuggingFaceEmbeddingFunction) CreateEmbedding(documents []string) ([][]float32, error) {
-
 	response, err := e.apiClient.CreateEmbedding(&CreateEmbeddingRequest{
 		Inputs: documents,
 	})
