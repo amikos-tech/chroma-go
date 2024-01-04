@@ -1,4 +1,4 @@
-package chroma_go
+package chroma
 
 import (
 	"context"
@@ -21,7 +21,7 @@ type EmbeddingFunction interface {
 	CreateEmbeddingWithModel(documents []string, model string) ([][]float32, error)
 }
 
-func MapToApi(inmap map[string]string) map[string]interface{} {
+func MapToAPI(inmap map[string]string) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range inmap {
 		result[k] = v
@@ -29,33 +29,33 @@ func MapToApi(inmap map[string]string) map[string]interface{} {
 	return result
 }
 
-func MapListToApi(inmap []map[string]string) []map[string]interface{} {
+func MapListToAPI(inmap []map[string]string) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(inmap))
 	for i, v := range inmap {
-		result[i] = MapToApi(v)
+		result[i] = MapToAPI(v)
 	}
 	return result
 }
 
-func MapFromApi(inmap map[string]interface{}) map[string]string {
-	result := make(map[string]string)
-	for k, v := range inmap {
-		result[k] = v.(string)
-	}
-	return result
-}
+// func MapFromApi(inmap map[string]interface{}) map[string]string {
+//	result := make(map[string]string)
+//	for k, v := range inmap {
+//		result[k] = v.(string)
+//	}
+//	return result
+// }
 
-func MapListFromApi(inmap []map[string]interface{}) []map[string]string {
-	result := make([]map[string]string, len(inmap))
-	for i, v := range inmap {
-		result[i] = MapFromApi(v)
-	}
-	return result
-}
+// func MapListFromApi(inmap []map[string]interface{}) []map[string]string {
+//	result := make([]map[string]string, len(inmap))
+//	for i, v := range inmap {
+//		result[i] = MapFromApi(v)
+//	}
+//	return result
+// }
 
 // Client represents the ChromaDB Client
 type Client struct {
-	ApiClient *openapiclient.APIClient
+	ApiClient *openapiclient.APIClient //nolint
 }
 
 func NewClient(basePath string) *Client {
@@ -145,7 +145,6 @@ func (c *Client) DeleteCollection(collectionName string) (*Collection, error) {
 	} else {
 		return NewCollection(c.ApiClient, deletedCol.Id, deletedCol.Name, deletedCol.Metadata, nil), nil
 	}
-
 }
 
 func (c *Client) Reset() (bool, error) {
@@ -168,7 +167,7 @@ func (c *Client) ListCollections() ([]*Collection, error) {
 
 func (c *Client) Version() (string, error) {
 	resp, _, err := c.ApiClient.DefaultApi.Version(context.Background()).Execute()
-	version := strings.Replace(resp, `"`, "", -1)
+	version := strings.ReplaceAll(resp, `"`, "")
 	return version, err
 }
 
@@ -181,7 +180,7 @@ type CollectionData struct {
 type Collection struct {
 	Name              string
 	EmbeddingFunction EmbeddingFunction
-	ApiClient         *openapiclient.APIClient
+	ApiClient         *openapiclient.APIClient //nolint
 	Metadata          map[string]interface{}
 	id                string
 	CollectionData    *CollectionData
@@ -198,7 +197,6 @@ func NewCollection(apiClient *openapiclient.APIClient, id string, name string, m
 }
 
 func (c *Collection) Add(embeddings [][]float32, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
-
 	var _embeddings []interface{}
 
 	if len(embeddings) == 0 {
@@ -378,12 +376,12 @@ func ConvertEmbeds(embeds [][]float32) []interface{} {
 	return _embeddings
 }
 func (c *Collection) Query(queryTexts []string, nResults int32, where map[string]interface{}, whereDocuments map[string]interface{}, include []QueryEnum) (*QueryResults, error) {
-	var _local_include []QueryEnum = include
+	var localInclude = include
 	if len(include) == 0 {
-		_local_include = []QueryEnum{documents, metadatas, distances}
+		localInclude = []QueryEnum{documents, metadatas, distances}
 	}
-	_includes := make([]openapiclient.IncludeInner, len(_local_include))
-	for i, v := range _local_include {
+	_includes := make([]openapiclient.IncludeInner, len(localInclude))
+	for i, v := range localInclude {
 		_v := string(v)
 		_includes[i] = openapiclient.IncludeInner{
 			String: &_v,
@@ -417,12 +415,9 @@ func (c *Collection) Query(queryTexts []string, nResults int32, where map[string
 		Distances: qr.Distances,
 	}
 	return &qresults, nil
-
 }
-
 func (c *Collection) Count() (int32, error) {
 	req := c.ApiClient.DefaultApi.Count(context.Background(), c.id)
-
 	cd, _, err := req.Execute()
 
 	if err != nil {
@@ -433,7 +428,6 @@ func (c *Collection) Count() (int32, error) {
 }
 
 func (c *Collection) Update(newName string, newMetadata map[string]interface{}) (*Collection, error) {
-
 	_, httpResp, err := c.ApiClient.DefaultApi.UpdateCollection(context.Background(), c.id).UpdateCollection(openapiclient.UpdateCollection{NewName: &newName, NewMetadata: newMetadata}).Execute()
 	if err != nil {
 		log.Fatal(httpResp, err)
@@ -445,12 +439,10 @@ func (c *Collection) Update(newName string, newMetadata map[string]interface{}) 
 }
 
 func (c *Collection) Delete(ids []string, where map[string]interface{}, whereDocuments map[string]interface{}) ([]string, error) {
-
 	dr, httpResp, err := c.ApiClient.DefaultApi.Delete(context.Background(), c.id).DeleteEmbedding(openapiclient.DeleteEmbedding{Where: where, WhereDocument: whereDocuments, Ids: ids}).Execute()
 	if err != nil {
 		log.Fatal(httpResp, err)
 		return nil, err
 	}
 	return dr, nil
-
 }
