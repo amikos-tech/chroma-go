@@ -13,6 +13,9 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chroma-version: [0.4.8, 0.4.21]
     environment: Test
     steps:
     - uses: actions/checkout@v3
