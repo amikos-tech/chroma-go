@@ -2,11 +2,7 @@
 
 A simple Chroma Vector Database client written in Go
 
-Works with Chroma Version:
-
-- v0.4.3
-- v0.4.4
-- v0.4.5
+Works with Chroma Version: v0.4.3 - v0.4.21
 
 ## Feature Parity with ChromaDB API
 
@@ -24,6 +20,7 @@ Works with Chroma Version:
 - ✅ Collection Update
 - ✅ Collection Upsert
 - ✅ Collection Delete - delete documents in collection
+- 🚫 Authentication (Basic, Token with Authorization header, Token with X-Chroma-Token header)
 
 ## Embedding Functions Support
 
@@ -32,6 +29,7 @@ Works with Chroma Version:
 - ✅ Sentence Transformers (HuggingFace Inference API)
 - 🚫 PaLM API
 - 🚫 Custom Embedding Function
+- 🚫 Hugging Face Inference Embedding Function
 
 ## Installation
 
@@ -137,6 +135,27 @@ func main() {
 	fmt.Printf("qr: %v\n", qr.Documents[0][0]) //this should result in the document about dogs
 }
 ```
+
+## Development
+
+### Build
+
+```bash
+make build
+```
+
+### Test
+
+```bash
+make gotest
+```
+
+### Generate ChromaDB API Client
+
+```bash
+make generate 
+```
+
 
 ## References
 
