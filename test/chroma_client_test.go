@@ -22,6 +22,9 @@ import (
 )
 
 func Test_chroma_client(t *testing.T) {
+	if os.Getenv("CHROMA_TEST_AUTH_BASIC") == "TRUE" || os.Getenv("CHROMA_TEST_AUTH_AUTHORIZATION_TOKEN") == "TRUE" || os.Getenv("CHROMA_TEST_AUTH_X_TOKEN") == "TRUE" {
+		t.Skip("Skipping Chroma Client tests during auth tests.")
+	}
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = "http://localhost:8000"
@@ -750,6 +753,9 @@ func Test_chroma_client(t *testing.T) {
 }
 
 func Test_chroma_client_with_basic(t *testing.T) {
+	if os.Getenv("CHROMA_TEST_AUTH_BASIC") != "TRUE" {
+		t.Skip("Skipping Test_chroma_client_with_basic")
+	}
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = "http://localhost:8003"
@@ -769,6 +775,9 @@ func Test_chroma_client_with_basic(t *testing.T) {
 }
 
 func Test_chroma_client_with_authorization_token(t *testing.T) {
+	if os.Getenv("CHROMA_TEST_AUTH_AUTHORIZATION_TOKEN") != "TRUE" {
+		t.Skip("Skipping Test_chroma_client_with_authorization_token")
+	}
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = "http://localhost:8001"
@@ -811,6 +820,9 @@ func Test_chroma_client_with_authorization_token(t *testing.T) {
 }
 
 func Test_chroma_client_with_x_token(t *testing.T) {
+	if os.Getenv("CHROMA_TEST_AUTH_X_TOKEN") != "TRUE" {
+		t.Skip("Skipping Test_chroma_client_with_x_token")
+	}
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = "http://localhost:8002"
