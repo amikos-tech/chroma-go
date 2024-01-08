@@ -58,11 +58,129 @@ type Client struct {
 	ApiClient *openapiclient.APIClient //nolint
 }
 
-func NewClient(basePath string) *Client {
+type AuthType string
+
+const (
+	BASIC              AuthType = "basic"
+	TokenAuthorization AuthType = "authorization"
+	TokenXChromaToken  AuthType = "xchromatoken"
+)
+
+type AuthMethod interface {
+	GetCredentials() map[string]string
+	GetType() AuthType
+}
+
+type BasicAuth struct {
+	Username string
+	Password string
+}
+
+func (b BasicAuth) GetCredentials() map[string]string {
+	return map[string]string{
+		"username": b.Username,
+		"password": b.Password,
+	}
+}
+
+func (b BasicAuth) GetType() AuthType {
+	return BASIC
+}
+
+func NewBasicAuth(username string, password string) ClientAuthCredentials {
+	return ClientAuthCredentials{
+		AuthMethod: BasicAuth{
+			Username: username,
+			Password: password,
+		},
+	}
+}
+
+type AuthorizationTokenAuth struct {
+	Token string
+}
+
+func (t AuthorizationTokenAuth) GetType() AuthType {
+	return TokenAuthorization
+}
+
+func (t AuthorizationTokenAuth) GetCredentials() map[string]string {
+	return map[string]string{
+		"Authorization": "Bearer " + t.Token,
+	}
+}
+
+type XChromaTokenAuth struct {
+	Token string
+}
+
+func (t XChromaTokenAuth) GetType() AuthType {
+	return TokenXChromaToken
+}
+
+func (t XChromaTokenAuth) GetCredentials() map[string]string {
+	return map[string]string{
+		"X-Chroma-Token": t.Token,
+	}
+}
+
+type ClientAuthCredentials struct {
+	AuthMethod AuthMethod
+}
+
+func NewTokenAuth(token string, authType AuthType) ClientAuthCredentials {
+	switch {
+	case authType == TokenAuthorization:
+		return ClientAuthCredentials{
+			AuthMethod: AuthorizationTokenAuth{
+				Token: token,
+			},
+		}
+	case authType == TokenXChromaToken:
+		return ClientAuthCredentials{
+			AuthMethod: XChromaTokenAuth{
+				Token: token,
+			},
+		}
+	default:
+		panic("Invalid auth type")
+	}
+}
+
+type ClientConfig struct {
+	BasePath              string
+	DefaultHeaders        *map[string]string
+	ClientAuthCredentials *ClientAuthCredentials
+}
+
+func NewClientConfig(basePath string, defaultHeaders *map[string]string, clientAuthCredentials *ClientAuthCredentials) ClientConfig {
+	return ClientConfig{
+		BasePath:              basePath,
+		DefaultHeaders:        defaultHeaders,
+		ClientAuthCredentials: clientAuthCredentials,
+	}
+}
+
+func NewClient(config ClientConfig) *Client {
 	configuration := openapiclient.NewConfiguration()
+	if config.ClientAuthCredentials != nil {
+		// combine config.DefaultHeaders and config.AuthMethod.GetCredentials() maps
+		var headers = make(map[string]string)
+		if config.DefaultHeaders != nil {
+			for k, v := range *config.DefaultHeaders {
+				headers[k] = v
+			}
+		}
+		for k, v := range config.ClientAuthCredentials.AuthMethod.GetCredentials() {
+			headers[k] = v
+		}
+		configuration.DefaultHeader = headers
+	} else if config.DefaultHeaders != nil {
+		configuration.DefaultHeader = *config.DefaultHeaders
+	}
 	configuration.Servers = openapiclient.ServerConfigurations{
 		{
-			URL:         basePath,
+			URL:         config.BasePath,
 			Description: "No description provided",
 		},
 	}

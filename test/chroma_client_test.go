@@ -22,11 +22,16 @@ import (
 )
 
 func Test_chroma_client(t *testing.T) {
+	if os.Getenv("CHROMA_TEST_AUTH_BASIC") == "TRUE" || os.Getenv("CHROMA_TEST_AUTH_AUTHORIZATION_TOKEN") == "TRUE" || os.Getenv("CHROMA_TEST_AUTH_X_TOKEN") == "TRUE" {
+		t.Skip("Skipping Chroma Client tests during auth tests.")
+	}
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = "http://localhost:8000"
 	}
-	client := chroma.NewClient(chromaURL)
+
+	clientConfig := chroma.NewClientConfig(chromaURL, nil, nil)
+	client := chroma.NewClient(clientConfig)
 
 	t.Run("Test Heartbeat", func(t *testing.T) {
 		resp, err := client.Heartbeat()
@@ -744,5 +749,117 @@ func Test_chroma_client(t *testing.T) {
 		// _, _ := embeddingFunction.CreateEmbedding(documents)
 		_, addError := resp.Add(nil, chroma.MapListToAPI(metadatas), documents, ids)
 		require.Nil(t, addError)
+	})
+}
+
+func Test_chroma_client_with_basic(t *testing.T) {
+	if os.Getenv("CHROMA_TEST_AUTH_BASIC") != "TRUE" {
+		t.Skip("Skipping Test_chroma_client_with_basic")
+	}
+	chromaURL := os.Getenv("CHROMA_URL")
+	if chromaURL == "" {
+		chromaURL = "http://localhost:8003"
+	}
+	clientAuth := chroma.NewBasicAuth("test", "test")
+
+	clientConfig := chroma.NewClientConfig(chromaURL, nil, &clientAuth)
+	client := chroma.NewClient(clientConfig)
+
+	t.Run("Test Heartbeat", func(t *testing.T) {
+		resp, err := client.Heartbeat()
+
+		require.Nil(t, err)
+		require.NotNil(t, resp)
+		assert.Truef(t, resp["nanosecond heartbeat"] > 0, "Heartbeat should be greater than 0")
+	})
+}
+
+func Test_chroma_client_with_authorization_token(t *testing.T) {
+	if os.Getenv("CHROMA_TEST_AUTH_AUTHORIZATION_TOKEN") != "TRUE" {
+		t.Skip("Skipping Test_chroma_client_with_authorization_token")
+	}
+	chromaURL := os.Getenv("CHROMA_URL")
+	if chromaURL == "" {
+		chromaURL = "http://localhost:8001"
+	}
+	clientAuth := chroma.NewTokenAuth("test", chroma.TokenAuthorization)
+
+	clientConfig := chroma.NewClientConfig(chromaURL, nil, &clientAuth)
+	client := chroma.NewClient(clientConfig)
+
+	t.Run("Test List Collections", func(t *testing.T) {
+		collectionName1 := "test-collection1"
+		collectionName2 := "test-collection2"
+		metadata := map[string]string{}
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		_, _ = client.CreateCollection(collectionName1, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
+		_, _ = client.CreateCollection(collectionName2, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
+		collections, gcerr := client.ListCollections()
+		require.Nil(t, gcerr)
+		assert.Equal(t, 2, len(collections))
+		names := make([]string, len(collections))
+		for i, person := range collections {
+			names[i] = person.Name
+		}
+		assert.Contains(t, names, collectionName1)
+		assert.Contains(t, names, collectionName2)
+	})
+}
+
+func Test_chroma_client_with_x_token(t *testing.T) {
+	if os.Getenv("CHROMA_TEST_AUTH_X_TOKEN") != "TRUE" {
+		t.Skip("Skipping Test_chroma_client_with_x_token")
+	}
+	chromaURL := os.Getenv("CHROMA_URL")
+	if chromaURL == "" {
+		chromaURL = "http://localhost:8002"
+	}
+	clientAuth := chroma.NewTokenAuth("test", chroma.TokenXChromaToken)
+
+	clientConfig := chroma.NewClientConfig(chromaURL, nil, &clientAuth)
+	client := chroma.NewClient(clientConfig)
+
+	t.Run("Test List Collections", func(t *testing.T) {
+		collectionName1 := "test-collection1"
+		collectionName2 := "test-collection2"
+		metadata := map[string]string{}
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			err := godotenv.Load("../.env")
+			if err != nil {
+				assert.Failf(t, "Error loading .env file", "%s", err)
+			}
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
+		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		distanceFunction := chroma.L2
+		_, errRest := client.Reset()
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		_, _ = client.CreateCollection(collectionName1, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
+		_, _ = client.CreateCollection(collectionName2, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
+		collections, gcerr := client.ListCollections()
+		require.Nil(t, gcerr)
+		assert.Equal(t, 2, len(collections))
+		names := make([]string, len(collections))
+		for i, person := range collections {
+			names[i] = person.Name
+		}
+		assert.Contains(t, names, collectionName1)
+		assert.Contains(t, names, collectionName2)
 	})
 }
