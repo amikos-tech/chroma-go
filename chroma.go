@@ -17,8 +17,10 @@ type ClientConfiguration struct {
 }
 
 type EmbeddingFunction interface {
-	CreateEmbedding(documents []string) ([][]float32, error)
-	CreateEmbeddingWithModel(documents []string, model string) ([][]float32, error)
+	// EmbedDocuments returns a vector for each text.
+	EmbedDocuments(ctx context.Context, texts []string) ([][]float32, error)
+	// EmbedQuery embeds a single text.
+	EmbedQuery(ctx context.Context, text string) ([]float32, error)
 }
 
 func MapToAPI(inmap map[string]string) map[string]interface{} {
@@ -73,8 +75,8 @@ func NewClient(basePath string) *Client {
 	}
 }
 
-func (c *Client) GetCollection(collectionName string, embeddingFunction EmbeddingFunction) (*Collection, error) {
-	col, httpResp, err := c.ApiClient.DefaultApi.GetCollection(context.Background(), collectionName).Execute()
+func (c *Client) GetCollection(ctx context.Context, collectionName string, embeddingFunction EmbeddingFunction) (*Collection, error) {
+	col, httpResp, err := c.ApiClient.DefaultApi.GetCollection(ctx, collectionName).Execute()
 	if err != nil {
 		return nil, err
 	}
@@ -84,8 +86,8 @@ func (c *Client) GetCollection(collectionName string, embeddingFunction Embeddin
 	return NewCollection(c.ApiClient, col.Id, col.Name, col.Metadata, embeddingFunction), nil
 }
 
-func (c *Client) Heartbeat() (map[string]float32, error) {
-	resp, _, err := c.ApiClient.DefaultApi.Heartbeat(context.Background()).Execute()
+func (c *Client) Heartbeat(ctx context.Context) (map[string]float32, error) {
+	resp, _, err := c.ApiClient.DefaultApi.Heartbeat(ctx).Execute()
 	return resp, err
 }
 
@@ -105,7 +107,7 @@ func GetStringTypeOfEmbeddingFunction(ef EmbeddingFunction) string {
 	return typ.String()
 }
 
-func (c *Client) CreateCollection(collectionName string, metadata map[string]interface{}, createOrGet bool, embeddingFunction EmbeddingFunction, distanceFunction DistanceFunction) (*Collection, error) {
+func (c *Client) CreateCollection(ctx context.Context, collectionName string, metadata map[string]interface{}, createOrGet bool, embeddingFunction EmbeddingFunction, distanceFunction DistanceFunction) (*Collection, error) {
 	_metadata := metadata
 	if metadata["embedding_function"] == nil {
 		_metadata["embedding_function"] = GetStringTypeOfEmbeddingFunction(embeddingFunction)
@@ -121,7 +123,7 @@ func (c *Client) CreateCollection(collectionName string, metadata map[string]int
 		GetOrCreate: &createOrGet,
 		Metadata:    _metadata,
 	}
-	resp, _, err := c.ApiClient.DefaultApi.CreateCollection(context.Background()).CreateCollection(col).Execute()
+	resp, _, err := c.ApiClient.DefaultApi.CreateCollection(ctx).CreateCollection(col).Execute()
 	if err != nil {
 		return nil, err
 	}
@@ -129,13 +131,13 @@ func (c *Client) CreateCollection(collectionName string, metadata map[string]int
 	return NewCollection(c.ApiClient, resp.Id, resp.Name, mtd, embeddingFunction), nil
 }
 
-func (c *Client) DeleteCollection(collectionName string) (*Collection, error) {
-	col, httpResp, gcerr := c.ApiClient.DefaultApi.GetCollection(context.Background(), collectionName).Execute()
+func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*Collection, error) {
+	col, httpResp, gcerr := c.ApiClient.DefaultApi.GetCollection(ctx, collectionName).Execute()
 	if gcerr != nil {
 		log.Fatal(httpResp, gcerr)
 		return nil, gcerr
 	}
-	deletedCol, httpResp, err := c.ApiClient.DefaultApi.DeleteCollection(context.Background(), collectionName).Execute()
+	deletedCol, httpResp, err := c.ApiClient.DefaultApi.DeleteCollection(ctx, collectionName).Execute()
 	if err != nil {
 		log.Fatal(httpResp, err)
 		return nil, err
@@ -147,13 +149,13 @@ func (c *Client) DeleteCollection(collectionName string) (*Collection, error) {
 	}
 }
 
-func (c *Client) Reset() (bool, error) {
-	resp, _, err := c.ApiClient.DefaultApi.Reset(context.Background()).Execute()
+func (c *Client) Reset(ctx context.Context) (bool, error) {
+	resp, _, err := c.ApiClient.DefaultApi.Reset(ctx).Execute()
 	return resp, err
 }
 
-func (c *Client) ListCollections() ([]*Collection, error) {
-	req := c.ApiClient.DefaultApi.ListCollections(context.Background())
+func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
+	req := c.ApiClient.DefaultApi.ListCollections(ctx)
 	resp, _, err := req.Execute()
 	if err != nil {
 		return nil, err
@@ -165,8 +167,8 @@ func (c *Client) ListCollections() ([]*Collection, error) {
 	return collections, nil
 }
 
-func (c *Client) Version() (string, error) {
-	resp, _, err := c.ApiClient.DefaultApi.Version(context.Background()).Execute()
+func (c *Client) Version(ctx context.Context) (string, error) {
+	resp, _, err := c.ApiClient.DefaultApi.Version(ctx).Execute()
 	version := strings.ReplaceAll(resp, `"`, "")
 	return version, err
 }
@@ -196,11 +198,11 @@ func NewCollection(apiClient *openapiclient.APIClient, id string, name string, m
 	}
 }
 
-func (c *Collection) Add(embeddings [][]float32, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
+func (c *Collection) Add(ctx context.Context, embeddings [][]float32, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
 	var _embeddings []interface{}
 
 	if len(embeddings) == 0 {
-		embds, embErr := c.EmbeddingFunction.CreateEmbedding(documents)
+		embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, documents)
 		if embErr != nil {
 			return c, embErr
 		}
@@ -214,18 +216,18 @@ func (c *Collection) Add(embeddings [][]float32, metadatas []map[string]interfac
 		Documents:  documents,
 		Ids:        ids,
 	}
-	_, _, err := c.ApiClient.DefaultApi.Add(context.Background(), c.id).AddEmbedding(addEmbedding).Execute()
+	_, _, err := c.ApiClient.DefaultApi.Add(ctx, c.id).AddEmbedding(addEmbedding).Execute()
 	if err != nil {
 		return c, err
 	}
 	return c, nil
 }
 
-func (c *Collection) Upsert(embeddings [][]float32, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
+func (c *Collection) Upsert(ctx context.Context, embeddings [][]float32, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
 	var _embeddings []interface{}
 
 	if len(embeddings) == 0 {
-		embds, embErr := c.EmbeddingFunction.CreateEmbedding(documents)
+		embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, documents)
 		if embErr != nil {
 			return c, embErr
 		}
@@ -241,7 +243,7 @@ func (c *Collection) Upsert(embeddings [][]float32, metadatas []map[string]inter
 		Ids:        ids,
 	}
 
-	_, _, err := c.ApiClient.DefaultApi.Upsert(context.Background(), c.id).AddEmbedding(addEmbedding).Execute()
+	_, _, err := c.ApiClient.DefaultApi.Upsert(ctx, c.id).AddEmbedding(addEmbedding).Execute()
 
 	if err != nil {
 		return c, err
@@ -249,11 +251,11 @@ func (c *Collection) Upsert(embeddings [][]float32, metadatas []map[string]inter
 	return c, nil
 }
 
-func (c *Collection) Modify(embeddings [][]float32, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
+func (c *Collection) Modify(ctx context.Context, embeddings [][]float32, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
 	var _embeddings []interface{}
 
 	if len(embeddings) == 0 {
-		embds, embErr := c.EmbeddingFunction.CreateEmbedding(documents)
+		embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, documents)
 		if embErr != nil {
 			return c, embErr
 		}
@@ -269,7 +271,7 @@ func (c *Collection) Modify(embeddings [][]float32, metadatas []map[string]inter
 		Ids:        ids,
 	}
 
-	_, _, err := c.ApiClient.DefaultApi.Update(context.Background(), c.id).UpdateEmbedding(updateEmbedding).Execute()
+	_, _, err := c.ApiClient.DefaultApi.Update(ctx, c.id).UpdateEmbedding(updateEmbedding).Execute()
 
 	if err != nil {
 		return c, err
@@ -277,8 +279,8 @@ func (c *Collection) Modify(embeddings [][]float32, metadatas []map[string]inter
 	return c, nil
 }
 
-func (c *Collection) Get(where map[string]interface{}, whereDocuments map[string]interface{}, ids []string) (*Collection, error) {
-	cd, _, err := c.ApiClient.DefaultApi.Get(context.Background(), c.id).GetEmbedding(openapiclient.GetEmbedding{
+func (c *Collection) Get(ctx context.Context, where map[string]interface{}, whereDocuments map[string]interface{}, ids []string) (*Collection, error) {
+	cd, _, err := c.ApiClient.DefaultApi.Get(ctx, c.id).GetEmbedding(openapiclient.GetEmbedding{
 		Ids:           ids,
 		Where:         where,
 		WhereDocument: whereDocuments,
@@ -375,7 +377,7 @@ func ConvertEmbeds(embeds [][]float32) []interface{} {
 	}
 	return _embeddings
 }
-func (c *Collection) Query(queryTexts []string, nResults int32, where map[string]interface{}, whereDocuments map[string]interface{}, include []QueryEnum) (*QueryResults, error) {
+func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults int32, where map[string]interface{}, whereDocuments map[string]interface{}, include []QueryEnum) (*QueryResults, error) {
 	var localInclude = include
 	if len(include) == 0 {
 		localInclude = []QueryEnum{documents, metadatas, distances}
@@ -388,11 +390,11 @@ func (c *Collection) Query(queryTexts []string, nResults int32, where map[string
 		}
 	}
 
-	embds, embErr := c.EmbeddingFunction.CreateEmbedding(queryTexts)
+	embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, queryTexts)
 	if embErr != nil {
 		return nil, embErr
 	}
-	qr, _, err := c.ApiClient.DefaultApi.GetNearestNeighbors(context.Background(), c.id).QueryEmbedding(openapiclient.QueryEmbedding{
+	qr, _, err := c.ApiClient.DefaultApi.GetNearestNeighbors(ctx, c.id).QueryEmbedding(openapiclient.QueryEmbedding{
 		Where:           where,
 		WhereDocument:   whereDocuments,
 		NResults:        &nResults,
@@ -416,8 +418,8 @@ func (c *Collection) Query(queryTexts []string, nResults int32, where map[string
 	}
 	return &qresults, nil
 }
-func (c *Collection) Count() (int32, error) {
-	req := c.ApiClient.DefaultApi.Count(context.Background(), c.id)
+func (c *Collection) Count(ctx context.Context) (int32, error) {
+	req := c.ApiClient.DefaultApi.Count(ctx, c.id)
 	cd, _, err := req.Execute()
 
 	if err != nil {
@@ -427,8 +429,8 @@ func (c *Collection) Count() (int32, error) {
 	return cd, nil
 }
 
-func (c *Collection) Update(newName string, newMetadata map[string]interface{}) (*Collection, error) {
-	_, httpResp, err := c.ApiClient.DefaultApi.UpdateCollection(context.Background(), c.id).UpdateCollection(openapiclient.UpdateCollection{NewName: &newName, NewMetadata: newMetadata}).Execute()
+func (c *Collection) Update(ctx context.Context, newName string, newMetadata map[string]interface{}) (*Collection, error) {
+	_, httpResp, err := c.ApiClient.DefaultApi.UpdateCollection(ctx, c.id).UpdateCollection(openapiclient.UpdateCollection{NewName: &newName, NewMetadata: newMetadata}).Execute()
 	if err != nil {
 		log.Fatal(httpResp, err)
 		return c, err
@@ -438,8 +440,8 @@ func (c *Collection) Update(newName string, newMetadata map[string]interface{}) 
 	return c, nil
 }
 
-func (c *Collection) Delete(ids []string, where map[string]interface{}, whereDocuments map[string]interface{}) ([]string, error) {
-	dr, httpResp, err := c.ApiClient.DefaultApi.Delete(context.Background(), c.id).DeleteEmbedding(openapiclient.DeleteEmbedding{Where: where, WhereDocument: whereDocuments, Ids: ids}).Execute()
+func (c *Collection) Delete(ctx context.Context, ids []string, where map[string]interface{}, whereDocuments map[string]interface{}) ([]string, error) {
+	dr, httpResp, err := c.ApiClient.DefaultApi.Delete(ctx, c.id).DeleteEmbedding(openapiclient.DeleteEmbedding{Where: where, WhereDocument: whereDocuments, Ids: ids}).Execute()
 	if err != nil {
 		log.Fatal(httpResp, err)
 		return nil, err

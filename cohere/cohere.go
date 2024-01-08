@@ -2,10 +2,13 @@ package cohere
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/amikos-tech/chroma-go"
 )
 
 type CohereClient struct {
@@ -70,13 +73,13 @@ func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	return string(data), nil
 }
 
-func (c *CohereClient) CreateEmbedding(req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
+func (c *CohereClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequest("POST", c.BaseURL+c.APIVersion+"/embed", bytes.NewBufferString(reqJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+c.APIVersion+"/embed", bytes.NewBufferString(reqJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +111,8 @@ func (c *CohereClient) CreateEmbedding(req *CreateEmbeddingRequest) (*CreateEmbe
 	return &createEmbeddingResponse, nil
 }
 
+var _ chroma.EmbeddingFunction = (*CohereEmbeddingFunction)(nil)
+
 type CohereEmbeddingFunction struct {
 	apiClient *CohereClient
 }
@@ -120,8 +125,8 @@ func NewCohereEmbeddingFunction(apiKey string) *CohereEmbeddingFunction {
 	return cli
 }
 
-func (e *CohereEmbeddingFunction) CreateEmbedding(documents []string) ([][]float32, error) {
-	response, err := e.apiClient.CreateEmbedding(&CreateEmbeddingRequest{
+func (e *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([][]float32, error) {
+	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Texts: documents,
 	})
 	if err != nil {
@@ -130,13 +135,12 @@ func (e *CohereEmbeddingFunction) CreateEmbedding(documents []string) ([][]float
 	return response.Embeddings, nil
 }
 
-func (e *CohereEmbeddingFunction) CreateEmbeddingWithModel(documents []string, model string) ([][]float32, error) {
-	response, err := e.apiClient.CreateEmbedding(&CreateEmbeddingRequest{
-		Model: model,
-		Texts: documents,
+func (e *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document string) ([]float32, error) {
+	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
+		Texts: []string{document},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return response.Embeddings, nil
+	return response.Embeddings[0], nil
 }
