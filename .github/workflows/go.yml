@@ -9,62 +9,121 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  BASIC_AUTH_NS: chroma-auth-basic
+  TOKEN_BEARER_AUTH_NS: chroma-auth-token-bearer
+  TOKEN_XTOKEN_AUTH_NS: chroma-auth-token-xtoken
 jobs:
-
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        chroma-version: [0.4.8, 0.4.20]
+        chroma-version: [ 0.4.8, 0.4.20 ]
     environment: Test
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version-file: 'go.mod'
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v3
-      with:
-        version: latest
-    - name: Build
-      run: make build
-    - name: Install Helm
-      uses: azure/setup-helm@v1
-      with:
-        version: v3.4.0
-    - name: start minikube
-      id: minikube
-      uses: medyagh/setup-minikube@latest
-      with:
-        kubernetes-version: 1.27.3
-    - name: Add helm repo
-      run: |
-        set -e
-        helm repo add chromadb https://amikos-tech.github.io/chromadb-chart/
-        helm repo update
-    - name: Install chromadb
-      run: |
-        set -e
-        helm install chromadb chromadb/chromadb --set chromadb.allowReset=true,chromadb.apiVersion=${{ matrix.chroma-version }},chromadb.auth.enabled=false
-    - name: Wait for deployment to be ready
-      id: wait-and-set
-      run: |
-        set -e
-        kubectl wait \
-        --for=condition=ready pod \
-        --selector=app.kubernetes.io/name=chromadb \
-        --timeout=120s
-        echo "chroma-url=$(minikube service chromadb --url)" >> $GITHUB_OUTPUT
-    - name: Hearthbeat
-      run: |
-        set -e
-        kubectl get svc -A
-        curl $(minikube service chromadb --url)/api/v1
-    - name: Test
-      run: make gotest
-      env:
-        OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
-        COHERE_API_KEY:  ${{ secrets.COHERE_API_KEY }}
-        HF_API_KEY:  ${{ secrets.HF_API_KEY }}
-        CHROMA_URL: ${{steps.wait-and-set.outputs.chroma-url}}
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+      - name: Build
+        run: make build
+      - name: Install Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: v3.4.0
+      - name: start minikube
+        id: minikube
+        uses: medyagh/setup-minikube@latest
+        with:
+          kubernetes-version: 1.27.3
+      - name: Add helm repo
+        run: |
+          set -e
+          helm repo add chromadb https://amikos-tech.github.io/chromadb-chart/
+          helm repo update
+      - name: Install chromadb
+        run: |
+          set -e
+          helm install chromadb chromadb/chromadb --set chromadb.allowReset=true,chromadb.apiVersion=${{ matrix.chroma-version }},chromadb.auth.enabled=false
+          kubectl create namespace ${{ env.BASIC_AUTH_NS }}
+          kubectl create namespace ${{ env.TOKEN_BEARER_AUTH_NS }}
+          kubectl create namespace ${{ env.TOKEN_XTOKEN_AUTH_NS }}
+          helm install chromadb chromadb/chromadb --namespace ${{ env.BASIC_AUTH_NS }} --set chromadb.allowReset=true,chromadb.apiVersion=${{ matrix.chroma-version }},chromadb.auth.enabled=true,chromadb.auth.type=basic
+          helm install chromadb chromadb/chromadb --namespace ${{ env.TOKEN_BEARER_AUTH_NS }} --set chromadb.allowReset=true,chromadb.apiVersion=${{ matrix.chroma-version }},chromadb.auth.enabled=true,chromadb.auth.type=token,chromadb.auth.token.tokenHeader=AUTHORIZATION
+          helm install chromadb chromadb/chromadb --namespace ${{ env.TOKEN_XTOKEN_AUTH_NS }} --set chromadb.allowReset=true,chromadb.apiVersion=${{ matrix.chroma-version }},chromadb.auth.enabled=true,chromadb.auth.type=token,chromadb.auth.token.tokenHeader=X-CHROMA-TOKEN
+      - name: Wait for deployment to be ready
+        id: wait-and-set
+        run: |
+          set -e
+          kubectl wait \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/name=chromadb \
+          --timeout=120s
+          kubectl wait \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/name=chromadb \
+          --namespace ${{ env.BASIC_AUTH_NS }} \
+          --timeout=120s
+          kubectl wait \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/name=chromadb \
+          --namespace ${{ env.TOKEN_BEARER_AUTH_NS }} \
+          --timeout=120s
+          kubectl wait \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/name=chromadb \
+          --namespace ${{ env.TOKEN_XTOKEN_AUTH_NS }} \
+          --timeout=120s
+          echo "chroma-url=$(minikube service chromadb --url)" >> $GITHUB_OUTPUT
+          echo "chroma-basic-auth-url=$(minikube service chromadb --url -n ${{ env.BASIC_AUTH_NS }})" >> $GITHUB_OUTPUT
+          echo "chroma-token-auth-url=$(minikube service chromadb --url -n ${{ env.TOKEN_BEARER_AUTH_NS }})" >> $GITHUB_OUTPUT
+          echo "chroma-token-xtoken-url=$(minikube service chromadb --url -n ${{ env.TOKEN_XTOKEN_AUTH_NS }})" >> $GITHUB_OUTPUT
+          echo "chroma-basic-user=$(kubectl --namespace ${{ env.BASIC_AUTH_NS }} get secret chromadb-auth -o jsonpath="{.data.username}" | base64 --decode)" >> $GITHUB_OUTPUT
+          echo "chroma-basic-password=$(kubectl --namespace ${{ env.BASIC_AUTH_NS }} get secret chromadb-auth -o jsonpath="{.data.password}" | base64 --decode)" >> $GITHUB_OUTPUT
+          echo "chroma-bearer-token=$(kubectl --namespace ${{ env.TOKEN_BEARER_AUTH_NS }} get secret chromadb-auth -o jsonpath="{.data.token}" | base64 --decode)" >> $GITHUB_OUTPUT
+          echo "chroma-x-token=$(kubectl --namespace ${{ env.TOKEN_XTOKEN_AUTH_NS }} get secret chromadb-auth -o jsonpath="{.data.token}" | base64 --decode)" >> $GITHUB_OUTPUT
+      - name: Hearthbeat
+        run: |
+          set -e
+          kubectl get svc -A
+          curl $(minikube service chromadb --url)/api/v1
+      - name: Test
+        run: make gotest
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          CHROMA_URL: ${{steps.wait-and-set.outputs.chroma-url}}
+      - name: Test Auth - Basic
+        run: make gotest
+        env:
+          CHROMA_AUTH_BASIC_USERNAME: ${{steps.wait-and-set.outputs.chroma-basic-user}}
+          CHROMA_AUTH_BASIC_PASSWORD: ${{steps.wait-and-set.outputs.chroma-basic-password}}
+          CHROMA_TEST_AUTH_BASIC: TRUE
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          CHROMA_URL: ${{steps.wait-and-set.outputs.chroma-basic-auth-url}}
+      - name: Test Auth - Bearer Authorization
+        run: make gotest
+        env:
+          CHROMA_AUTH_TOKEN: ${{ steps.wait-and-set.outputs.chroma-bearer-token }}
+          CHROMA_TEST_AUTH_AUTHORIZATION_TOKEN: TRUE
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          CHROMA_URL: ${{ steps.wait-and-set.outputs.chroma-token-auth-url }}
+      - name: Test Auth - Bearer Authorization
+        run: make gotest
+        env:
+          CHROMA_AUTH_TOKEN: ${{ steps.wait-and-set.outputs.chroma-x-token }}
+          CHROMA_TEST_AUTH_X_TOKEN: TRUE
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          CHROMA_URL: ${{ steps.wait-and-set.outputs.chroma-token-xtoken-url }}

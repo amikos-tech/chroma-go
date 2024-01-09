@@ -759,9 +759,9 @@ func Test_chroma_client_with_basic(t *testing.T) {
 	}
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
-		chromaURL = "http://localhost:8003"
+		chromaURL = "http://localhost:8000"
 	}
-	clientAuth := chroma.NewBasicAuth("test", "test")
+	clientAuth := chroma.NewBasicAuth(os.Getenv("CHROMA_AUTH_BASIC_USERNAME"), os.Getenv("CHROMA_AUTH_BASIC_PASSWORD"))
 
 	clientConfig := chroma.NewClientConfig(chromaURL, nil, &clientAuth)
 	client := chroma.NewClient(clientConfig)
@@ -781,9 +781,9 @@ func Test_chroma_client_with_authorization_token(t *testing.T) {
 	}
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
-		chromaURL = "http://localhost:8001"
+		chromaURL = "http://localhost:8000"
 	}
-	clientAuth := chroma.NewTokenAuth("test", chroma.TokenAuthorization)
+	clientAuth := chroma.NewTokenAuth(os.Getenv("CHROMA_AUTH_TOKEN"), chroma.TokenAuthorization)
 
 	clientConfig := chroma.NewClientConfig(chromaURL, nil, &clientAuth)
 	client := chroma.NewClient(clientConfig)
