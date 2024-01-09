@@ -1,6 +1,7 @@
 package hf
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -27,7 +28,7 @@ func Test_huggingface_client(t *testing.T) {
 			"Document 2 content here",
 			// Add more documents as needed
 		}
-		resp, rerr := ef.CreateEmbedding(documents)
+		resp, rerr := ef.EmbedDocuments(context.Background(), documents)
 
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)

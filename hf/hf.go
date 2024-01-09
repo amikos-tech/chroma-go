@@ -2,10 +2,13 @@ package hf
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/amikos-tech/chroma-go"
 )
 
 type HuggingFaceClient struct {
@@ -60,13 +63,13 @@ func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	return string(data), nil
 }
 
-func (c *HuggingFaceClient) CreateEmbedding(req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
+func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequest("POST", c.BaseURL+c.Model, bytes.NewBufferString(reqJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+c.Model, bytes.NewBufferString(reqJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +103,8 @@ func (c *HuggingFaceClient) CreateEmbedding(req *CreateEmbeddingRequest) (*Creat
 	return &createEmbeddingResponse, nil
 }
 
+var _ chroma.EmbeddingFunction = (*HuggingFaceEmbeddingFunction)(nil)
+
 type HuggingFaceEmbeddingFunction struct {
 	apiClient *HuggingFaceClient
 }
@@ -112,8 +117,8 @@ func NewHuggingFaceEmbeddingFunction(apiKey string, model string) *HuggingFaceEm
 	return cli
 }
 
-func (e *HuggingFaceEmbeddingFunction) CreateEmbedding(documents []string) ([][]float32, error) {
-	response, err := e.apiClient.CreateEmbedding(&CreateEmbeddingRequest{
+func (e *HuggingFaceEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([][]float32, error) {
+	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Inputs: documents,
 	})
 	if err != nil {
@@ -122,13 +127,12 @@ func (e *HuggingFaceEmbeddingFunction) CreateEmbedding(documents []string) ([][]
 	return response.Embeddings, nil
 }
 
-func (e *HuggingFaceEmbeddingFunction) CreateEmbeddingWithModel(documents []string, model string) ([][]float32, error) {
-	e.apiClient.Model = model
-	response, err := e.apiClient.CreateEmbedding(&CreateEmbeddingRequest{
-		Inputs: documents,
+func (e *HuggingFaceEmbeddingFunction) EmbedQuery(ctx context.Context, document string) ([]float32, error) {
+	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
+		Inputs: []string{document},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return response.Embeddings, nil
+	return response.Embeddings[0], nil
 }

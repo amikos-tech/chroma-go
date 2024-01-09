@@ -2,10 +2,13 @@ package openai
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/amikos-tech/chroma-go"
 )
 
 type Input struct {
@@ -101,13 +104,13 @@ func (c *OpenAIClient) getAPIKey() string {
 	return c.APIKey
 }
 
-func (c *OpenAIClient) CreateEmbedding(req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
+func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequest("POST", c.BaseURL+"embeddings", bytes.NewBufferString(reqJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"embeddings", bytes.NewBufferString(reqJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +141,8 @@ func (c *OpenAIClient) CreateEmbedding(req *CreateEmbeddingRequest) (*CreateEmbe
 	return &createEmbeddingResponse, nil
 }
 
+var _ chroma.EmbeddingFunction = (*OpenAIEmbeddingFunction)(nil)
+
 type OpenAIEmbeddingFunction struct {
 	apiClient *OpenAIClient
 }
@@ -160,8 +165,8 @@ func ConvertToMatrix(response *CreateEmbeddingResponse) [][]float32 {
 	return matrix
 }
 
-func (e *OpenAIEmbeddingFunction) CreateEmbedding(documents []string) ([][]float32, error) {
-	response, err := e.apiClient.CreateEmbedding(&CreateEmbeddingRequest{
+func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([][]float32, error) {
+	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Model: "text-embedding-ada-002",
 		User:  "chroma-go-client",
 		Input: &Input{
@@ -174,16 +179,16 @@ func (e *OpenAIEmbeddingFunction) CreateEmbedding(documents []string) ([][]float
 	return ConvertToMatrix(response), nil
 }
 
-func (e *OpenAIEmbeddingFunction) CreateEmbeddingWithModel(documents []string, model string) ([][]float32, error) {
-	response, err := e.apiClient.CreateEmbedding(&CreateEmbeddingRequest{
-		Model: model,
+func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) ([]float32, error) {
+	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
+		Model: "text-embedding-ada-002",
 		User:  "chroma-go-client",
 		Input: &Input{
-			Texts: documents,
+			Texts: []string{document},
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return ConvertToMatrix(response), nil
+	return ConvertToMatrix(response)[0], nil
 }
