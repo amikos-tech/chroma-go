@@ -767,7 +767,7 @@ func Test_chroma_client_with_basic(t *testing.T) {
 	client := chroma.NewClient(clientConfig)
 
 	t.Run("Test Heartbeat", func(t *testing.T) {
-		resp, err := client.Heartbeat()
+		resp, err := client.Heartbeat(context.Background())
 
 		require.Nil(t, err)
 		require.NotNil(t, resp)
@@ -802,13 +802,13 @@ func Test_chroma_client_with_authorization_token(t *testing.T) {
 		}
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
-		_, errRest := client.Reset()
+		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		_, _ = client.CreateCollection(collectionName1, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
-		_, _ = client.CreateCollection(collectionName2, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
-		collections, gcerr := client.ListCollections()
+		_, _ = client.CreateCollection(context.Background(), collectionName1, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
+		_, _ = client.CreateCollection(context.Background(), collectionName2, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
+		collections, gcerr := client.ListCollections(context.Background())
 		require.Nil(t, gcerr)
 		assert.Equal(t, 2, len(collections))
 		names := make([]string, len(collections))
@@ -847,13 +847,13 @@ func Test_chroma_client_with_x_token(t *testing.T) {
 		}
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
 		distanceFunction := chroma.L2
-		_, errRest := client.Reset()
+		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		_, _ = client.CreateCollection(collectionName1, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
-		_, _ = client.CreateCollection(collectionName2, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
-		collections, gcerr := client.ListCollections()
+		_, _ = client.CreateCollection(context.Background(), collectionName1, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
+		_, _ = client.CreateCollection(context.Background(), collectionName2, chroma.MapToAPI(metadata), true, embeddingFunction, distanceFunction)
+		collections, gcerr := client.ListCollections(context.Background())
 		require.Nil(t, gcerr)
 		assert.Equal(t, 2, len(collections))
 		names := make([]string, len(collections))
