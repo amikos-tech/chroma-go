@@ -2,7 +2,6 @@ package hf
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -32,7 +31,6 @@ func Test_huggingface_client(t *testing.T) {
 
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		fmt.Printf("resp: %v\n", resp)
 		assert.Equal(t, 2, len(resp))
 		// assert.Equal(t, 201, httpRes.StatusCode)
 	})

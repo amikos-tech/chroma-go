@@ -37,7 +37,7 @@ Works with Chroma Version: v0.4.3 - v0.4.21
 go get github.com/amikos-tech/chroma-go
 ```
 
-or:
+Import:
 
 ```go
 import (

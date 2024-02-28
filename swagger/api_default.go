@@ -257,14 +257,142 @@ func (a *DefaultApiService) CountExecute(r ApiCountRequest) (int32, *http.Respon
 	return localVarReturnValue, localVarHTTPResponse, nil
 }
 
+type ApiCountCollectionsRequest struct {
+	ctx        context.Context
+	ApiService *DefaultApiService
+	tenant     *string
+	database   *string
+}
+
+func (r ApiCountCollectionsRequest) Tenant(tenant string) ApiCountCollectionsRequest {
+	r.tenant = &tenant
+	return r
+}
+
+func (r ApiCountCollectionsRequest) Database(database string) ApiCountCollectionsRequest {
+	r.database = &database
+	return r
+}
+
+func (r ApiCountCollectionsRequest) Execute() (int32, *http.Response, error) {
+	return r.ApiService.CountCollectionsExecute(r)
+}
+
+/*
+CountCollections Count Collections
+
+	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+	@return ApiCountCollectionsRequest
+*/
+func (a *DefaultApiService) CountCollections(ctx context.Context) ApiCountCollectionsRequest {
+	return ApiCountCollectionsRequest{
+		ApiService: a,
+		ctx:        ctx,
+	}
+}
+
+// Execute executes the request
+//
+//	@return int32
+func (a *DefaultApiService) CountCollectionsExecute(r ApiCountCollectionsRequest) (int32, *http.Response, error) {
+	var (
+		localVarHTTPMethod  = http.MethodGet
+		localVarPostBody    interface{}
+		formFiles           []formFile
+		localVarReturnValue int32
+	)
+
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultApiService.CountCollections")
+	if err != nil {
+		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
+	}
+
+	localVarPath := localBasePath + "/api/v1/count_collections"
+
+	localVarHeaderParams := make(map[string]string)
+	localVarQueryParams := url.Values{}
+	localVarFormParams := url.Values{}
+
+	if r.tenant != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "tenant", r.tenant, "")
+	}
+	if r.database != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "database", r.database, "")
+	}
+	// to determine the Content-Type header
+	localVarHTTPContentTypes := []string{}
+
+	// set Content-Type header
+	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
+	if localVarHTTPContentType != "" {
+		localVarHeaderParams["Content-Type"] = localVarHTTPContentType
+	}
+
+	// to determine the Accept header
+	localVarHTTPHeaderAccepts := []string{"application/json"}
+
+	// set Accept header
+	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
+	if localVarHTTPHeaderAccept != "" {
+		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
+	}
+	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
+	if err != nil {
+		return localVarReturnValue, nil, err
+	}
+
+	localVarHTTPResponse, err := a.client.callAPI(req)
+	if err != nil || localVarHTTPResponse == nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	localVarBody, err := io.ReadAll(localVarHTTPResponse.Body)
+	localVarHTTPResponse.Body.Close()
+	localVarHTTPResponse.Body = io.NopCloser(bytes.NewBuffer(localVarBody))
+	if err != nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	if localVarHTTPResponse.StatusCode >= 300 {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: localVarHTTPResponse.Status,
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	err = a.client.decode(&localVarReturnValue, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+	if err != nil {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: err.Error(),
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	return localVarReturnValue, localVarHTTPResponse, nil
+}
+
 type ApiCreateCollectionRequest struct {
 	ctx              context.Context
 	ApiService       *DefaultApiService
 	createCollection *CreateCollection
+	tenant           *string
+	database         *string
 }
 
 func (r ApiCreateCollectionRequest) CreateCollection(createCollection CreateCollection) ApiCreateCollectionRequest {
 	r.createCollection = &createCollection
+	return r
+}
+
+func (r ApiCreateCollectionRequest) Tenant(tenant string) ApiCreateCollectionRequest {
+	r.tenant = &tenant
+	return r
+}
+
+func (r ApiCreateCollectionRequest) Database(database string) ApiCreateCollectionRequest {
+	r.database = &database
 	return r
 }
 
@@ -310,6 +438,12 @@ func (a *DefaultApiService) CreateCollectionExecute(r ApiCreateCollectionRequest
 		return localVarReturnValue, nil, reportError("createCollection is required and must be specified")
 	}
 
+	if r.tenant != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "tenant", r.tenant, "")
+	}
+	if r.database != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "database", r.database, "")
+	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{"application/json"}
 
@@ -329,6 +463,253 @@ func (a *DefaultApiService) CreateCollectionExecute(r ApiCreateCollectionRequest
 	}
 	// body params
 	localVarPostBody = r.createCollection
+	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
+	if err != nil {
+		return localVarReturnValue, nil, err
+	}
+
+	localVarHTTPResponse, err := a.client.callAPI(req)
+	if err != nil || localVarHTTPResponse == nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	localVarBody, err := io.ReadAll(localVarHTTPResponse.Body)
+	localVarHTTPResponse.Body.Close()
+	localVarHTTPResponse.Body = io.NopCloser(bytes.NewBuffer(localVarBody))
+	if err != nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	if localVarHTTPResponse.StatusCode >= 300 {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: localVarHTTPResponse.Status,
+		}
+		if localVarHTTPResponse.StatusCode == 422 {
+			var v HTTPValidationError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+			newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+			newErr.model = v
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	err = a.client.decode(&localVarReturnValue, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+	if err != nil {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: err.Error(),
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	return localVarReturnValue, localVarHTTPResponse, nil
+}
+
+type ApiCreateDatabaseRequest struct {
+	ctx            context.Context
+	ApiService     *DefaultApiService
+	createDatabase *CreateDatabase
+	tenant         *string
+}
+
+func (r ApiCreateDatabaseRequest) CreateDatabase(createDatabase CreateDatabase) ApiCreateDatabaseRequest {
+	r.createDatabase = &createDatabase
+	return r
+}
+
+func (r ApiCreateDatabaseRequest) Tenant(tenant string) ApiCreateDatabaseRequest {
+	r.tenant = &tenant
+	return r
+}
+
+func (r ApiCreateDatabaseRequest) Execute() (*Database, *http.Response, error) {
+	return r.ApiService.CreateDatabaseExecute(r)
+}
+
+/*
+CreateDatabase Create Database
+
+	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+	@return ApiCreateDatabaseRequest
+*/
+func (a *DefaultApiService) CreateDatabase(ctx context.Context) ApiCreateDatabaseRequest {
+	return ApiCreateDatabaseRequest{
+		ApiService: a,
+		ctx:        ctx,
+	}
+}
+
+// Execute executes the request
+//
+//	@return Database
+func (a *DefaultApiService) CreateDatabaseExecute(r ApiCreateDatabaseRequest) (*Database, *http.Response, error) {
+	var (
+		localVarHTTPMethod  = http.MethodPost
+		localVarPostBody    interface{}
+		formFiles           []formFile
+		localVarReturnValue *Database
+	)
+
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultApiService.CreateDatabase")
+	if err != nil {
+		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
+	}
+
+	localVarPath := localBasePath + "/api/v1/databases"
+
+	localVarHeaderParams := make(map[string]string)
+	localVarQueryParams := url.Values{}
+	localVarFormParams := url.Values{}
+	if r.createDatabase == nil {
+		return localVarReturnValue, nil, reportError("createDatabase is required and must be specified")
+	}
+
+	if r.tenant != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "tenant", r.tenant, "")
+	}
+	// to determine the Content-Type header
+	localVarHTTPContentTypes := []string{"application/json"}
+
+	// set Content-Type header
+	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
+	if localVarHTTPContentType != "" {
+		localVarHeaderParams["Content-Type"] = localVarHTTPContentType
+	}
+
+	// to determine the Accept header
+	localVarHTTPHeaderAccepts := []string{"application/json"}
+
+	// set Accept header
+	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
+	if localVarHTTPHeaderAccept != "" {
+		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
+	}
+	// body params
+	localVarPostBody = r.createDatabase
+	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
+	if err != nil {
+		return localVarReturnValue, nil, err
+	}
+
+	localVarHTTPResponse, err := a.client.callAPI(req)
+	if err != nil || localVarHTTPResponse == nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	localVarBody, err := io.ReadAll(localVarHTTPResponse.Body)
+	localVarHTTPResponse.Body.Close()
+	localVarHTTPResponse.Body = io.NopCloser(bytes.NewBuffer(localVarBody))
+	if err != nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	if localVarHTTPResponse.StatusCode >= 300 {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: localVarHTTPResponse.Status,
+		}
+		if localVarHTTPResponse.StatusCode == 422 {
+			var v HTTPValidationError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+			newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+			newErr.model = v
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	err = a.client.decode(&localVarReturnValue, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+	if err != nil {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: err.Error(),
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	return localVarReturnValue, localVarHTTPResponse, nil
+}
+
+type ApiCreateTenantRequest struct {
+	ctx          context.Context
+	ApiService   *DefaultApiService
+	createTenant *CreateTenant
+}
+
+func (r ApiCreateTenantRequest) CreateTenant(createTenant CreateTenant) ApiCreateTenantRequest {
+	r.createTenant = &createTenant
+	return r
+}
+
+func (r ApiCreateTenantRequest) Execute() (*Tenant, *http.Response, error) {
+	return r.ApiService.CreateTenantExecute(r)
+}
+
+/*
+CreateTenant Create Tenant
+
+	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+	@return ApiCreateTenantRequest
+*/
+func (a *DefaultApiService) CreateTenant(ctx context.Context) ApiCreateTenantRequest {
+	return ApiCreateTenantRequest{
+		ApiService: a,
+		ctx:        ctx,
+	}
+}
+
+// Execute executes the request
+//
+//	@return Tenant
+func (a *DefaultApiService) CreateTenantExecute(r ApiCreateTenantRequest) (*Tenant, *http.Response, error) {
+	var (
+		localVarHTTPMethod  = http.MethodPost
+		localVarPostBody    interface{}
+		formFiles           []formFile
+		localVarReturnValue *Tenant
+	)
+
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultApiService.CreateTenant")
+	if err != nil {
+		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
+	}
+
+	localVarPath := localBasePath + "/api/v1/tenants"
+
+	localVarHeaderParams := make(map[string]string)
+	localVarQueryParams := url.Values{}
+	localVarFormParams := url.Values{}
+	if r.createTenant == nil {
+		return localVarReturnValue, nil, reportError("createTenant is required and must be specified")
+	}
+
+	// to determine the Content-Type header
+	localVarHTTPContentTypes := []string{"application/json"}
+
+	// set Content-Type header
+	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
+	if localVarHTTPContentType != "" {
+		localVarHeaderParams["Content-Type"] = localVarHTTPContentType
+	}
+
+	// to determine the Accept header
+	localVarHTTPHeaderAccepts := []string{"application/json"}
+
+	// set Accept header
+	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
+	if localVarHTTPHeaderAccept != "" {
+		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
+	}
+	// body params
+	localVarPostBody = r.createTenant
 	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
 	if err != nil {
 		return localVarReturnValue, nil, err
@@ -503,6 +884,18 @@ type ApiDeleteCollectionRequest struct {
 	ctx            context.Context
 	ApiService     *DefaultApiService
 	collectionName string
+	tenant         *string
+	database       *string
+}
+
+func (r ApiDeleteCollectionRequest) Tenant(tenant string) ApiDeleteCollectionRequest {
+	r.tenant = &tenant
+	return r
+}
+
+func (r ApiDeleteCollectionRequest) Database(database string) ApiDeleteCollectionRequest {
+	r.database = &database
+	return r
 }
 
 func (r ApiDeleteCollectionRequest) Execute() (*Collection, *http.Response, error) {
@@ -547,6 +940,12 @@ func (a *DefaultApiService) DeleteCollectionExecute(r ApiDeleteCollectionRequest
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
+	if r.tenant != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "tenant", r.tenant, "")
+	}
+	if r.database != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "database", r.database, "")
+	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
 
@@ -738,6 +1137,18 @@ type ApiGetCollectionRequest struct {
 	ctx            context.Context
 	ApiService     *DefaultApiService
 	collectionName string
+	tenant         *string
+	database       *string
+}
+
+func (r ApiGetCollectionRequest) Tenant(tenant string) ApiGetCollectionRequest {
+	r.tenant = &tenant
+	return r
+}
+
+func (r ApiGetCollectionRequest) Database(database string) ApiGetCollectionRequest {
+	r.database = &database
+	return r
 }
 
 func (r ApiGetCollectionRequest) Execute() (*Collection, *http.Response, error) {
@@ -782,6 +1193,133 @@ func (a *DefaultApiService) GetCollectionExecute(r ApiGetCollectionRequest) (*Co
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
+	if r.tenant != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "tenant", r.tenant, "")
+	}
+	if r.database != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "database", r.database, "")
+	}
+	// to determine the Content-Type header
+	localVarHTTPContentTypes := []string{}
+
+	// set Content-Type header
+	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
+	if localVarHTTPContentType != "" {
+		localVarHeaderParams["Content-Type"] = localVarHTTPContentType
+	}
+
+	// to determine the Accept header
+	localVarHTTPHeaderAccepts := []string{"application/json"}
+
+	// set Accept header
+	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
+	if localVarHTTPHeaderAccept != "" {
+		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
+	}
+	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
+	if err != nil {
+		return localVarReturnValue, nil, err
+	}
+
+	localVarHTTPResponse, err := a.client.callAPI(req)
+	if err != nil || localVarHTTPResponse == nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	localVarBody, err := io.ReadAll(localVarHTTPResponse.Body)
+	localVarHTTPResponse.Body.Close()
+	localVarHTTPResponse.Body = io.NopCloser(bytes.NewBuffer(localVarBody))
+	if err != nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	if localVarHTTPResponse.StatusCode >= 300 {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: localVarHTTPResponse.Status,
+		}
+		if localVarHTTPResponse.StatusCode == 422 {
+			var v HTTPValidationError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+			newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+			newErr.model = v
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	err = a.client.decode(&localVarReturnValue, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+	if err != nil {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: err.Error(),
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	return localVarReturnValue, localVarHTTPResponse, nil
+}
+
+type ApiGetDatabaseRequest struct {
+	ctx        context.Context
+	ApiService *DefaultApiService
+	database   string
+	tenant     *string
+}
+
+func (r ApiGetDatabaseRequest) Tenant(tenant string) ApiGetDatabaseRequest {
+	r.tenant = &tenant
+	return r
+}
+
+func (r ApiGetDatabaseRequest) Execute() (*Database, *http.Response, error) {
+	return r.ApiService.GetDatabaseExecute(r)
+}
+
+/*
+GetDatabase Get Database
+
+	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+	@param database
+	@return ApiGetDatabaseRequest
+*/
+func (a *DefaultApiService) GetDatabase(ctx context.Context, database string) ApiGetDatabaseRequest {
+	return ApiGetDatabaseRequest{
+		ApiService: a,
+		ctx:        ctx,
+		database:   database,
+	}
+}
+
+// Execute executes the request
+//
+//	@return Database
+func (a *DefaultApiService) GetDatabaseExecute(r ApiGetDatabaseRequest) (*Database, *http.Response, error) {
+	var (
+		localVarHTTPMethod  = http.MethodGet
+		localVarPostBody    interface{}
+		formFiles           []formFile
+		localVarReturnValue *Database
+	)
+
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultApiService.GetDatabase")
+	if err != nil {
+		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
+	}
+
+	localVarPath := localBasePath + "/api/v1/databases/{database}"
+	localVarPath = strings.Replace(localVarPath, "{"+"database"+"}", url.PathEscape(parameterValueToString(r.database, "database")), -1)
+
+	localVarHeaderParams := make(map[string]string)
+	localVarQueryParams := url.Values{}
+	localVarFormParams := url.Values{}
+
+	if r.tenant != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "tenant", r.tenant, "")
+	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
 
@@ -969,6 +1507,118 @@ func (a *DefaultApiService) GetNearestNeighborsExecute(r ApiGetNearestNeighborsR
 	return localVarReturnValue, localVarHTTPResponse, nil
 }
 
+type ApiGetTenantRequest struct {
+	ctx        context.Context
+	ApiService *DefaultApiService
+	tenant     string
+}
+
+func (r ApiGetTenantRequest) Execute() (*Tenant, *http.Response, error) {
+	return r.ApiService.GetTenantExecute(r)
+}
+
+/*
+GetTenant Get Tenant
+
+	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+	@param tenant
+	@return ApiGetTenantRequest
+*/
+func (a *DefaultApiService) GetTenant(ctx context.Context, tenant string) ApiGetTenantRequest {
+	return ApiGetTenantRequest{
+		ApiService: a,
+		ctx:        ctx,
+		tenant:     tenant,
+	}
+}
+
+// Execute executes the request
+//
+//	@return Tenant
+func (a *DefaultApiService) GetTenantExecute(r ApiGetTenantRequest) (*Tenant, *http.Response, error) {
+	var (
+		localVarHTTPMethod  = http.MethodGet
+		localVarPostBody    interface{}
+		formFiles           []formFile
+		localVarReturnValue *Tenant
+	)
+
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultApiService.GetTenant")
+	if err != nil {
+		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
+	}
+
+	localVarPath := localBasePath + "/api/v1/tenants/{tenant}"
+	localVarPath = strings.Replace(localVarPath, "{"+"tenant"+"}", url.PathEscape(parameterValueToString(r.tenant, "tenant")), -1)
+
+	localVarHeaderParams := make(map[string]string)
+	localVarQueryParams := url.Values{}
+	localVarFormParams := url.Values{}
+
+	// to determine the Content-Type header
+	localVarHTTPContentTypes := []string{}
+
+	// set Content-Type header
+	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
+	if localVarHTTPContentType != "" {
+		localVarHeaderParams["Content-Type"] = localVarHTTPContentType
+	}
+
+	// to determine the Accept header
+	localVarHTTPHeaderAccepts := []string{"application/json"}
+
+	// set Accept header
+	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
+	if localVarHTTPHeaderAccept != "" {
+		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
+	}
+	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
+	if err != nil {
+		return localVarReturnValue, nil, err
+	}
+
+	localVarHTTPResponse, err := a.client.callAPI(req)
+	if err != nil || localVarHTTPResponse == nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	localVarBody, err := io.ReadAll(localVarHTTPResponse.Body)
+	localVarHTTPResponse.Body.Close()
+	localVarHTTPResponse.Body = io.NopCloser(bytes.NewBuffer(localVarBody))
+	if err != nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	if localVarHTTPResponse.StatusCode >= 300 {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: localVarHTTPResponse.Status,
+		}
+		if localVarHTTPResponse.StatusCode == 422 {
+			var v HTTPValidationError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+			newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+			newErr.model = v
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	err = a.client.decode(&localVarReturnValue, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+	if err != nil {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: err.Error(),
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	return localVarReturnValue, localVarHTTPResponse, nil
+}
+
 type ApiHeartbeatRequest struct {
 	ctx        context.Context
 	ApiService *DefaultApiService
@@ -1070,6 +1720,18 @@ func (a *DefaultApiService) HeartbeatExecute(r ApiHeartbeatRequest) (map[string]
 type ApiListCollectionsRequest struct {
 	ctx        context.Context
 	ApiService *DefaultApiService
+	tenant     *string
+	database   *string
+}
+
+func (r ApiListCollectionsRequest) Tenant(tenant string) ApiListCollectionsRequest {
+	r.tenant = &tenant
+	return r
+}
+
+func (r ApiListCollectionsRequest) Database(database string) ApiListCollectionsRequest {
+	r.database = &database
+	return r
 }
 
 func (r ApiListCollectionsRequest) Execute() ([]Collection, *http.Response, error) {
@@ -1106,6 +1768,110 @@ func (a *DefaultApiService) ListCollectionsExecute(r ApiListCollectionsRequest) 
 	}
 
 	localVarPath := localBasePath + "/api/v1/collections"
+
+	localVarHeaderParams := make(map[string]string)
+	localVarQueryParams := url.Values{}
+	localVarFormParams := url.Values{}
+
+	if r.tenant != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "tenant", r.tenant, "")
+	}
+	if r.database != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "database", r.database, "")
+	}
+	// to determine the Content-Type header
+	localVarHTTPContentTypes := []string{}
+
+	// set Content-Type header
+	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
+	if localVarHTTPContentType != "" {
+		localVarHeaderParams["Content-Type"] = localVarHTTPContentType
+	}
+
+	// to determine the Accept header
+	localVarHTTPHeaderAccepts := []string{"application/json"}
+
+	// set Accept header
+	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
+	if localVarHTTPHeaderAccept != "" {
+		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
+	}
+	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
+	if err != nil {
+		return localVarReturnValue, nil, err
+	}
+
+	localVarHTTPResponse, err := a.client.callAPI(req)
+	if err != nil || localVarHTTPResponse == nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	localVarBody, err := io.ReadAll(localVarHTTPResponse.Body)
+	localVarHTTPResponse.Body.Close()
+	localVarHTTPResponse.Body = io.NopCloser(bytes.NewBuffer(localVarBody))
+	if err != nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	if localVarHTTPResponse.StatusCode >= 300 {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: localVarHTTPResponse.Status,
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	err = a.client.decode(&localVarReturnValue, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+	if err != nil {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: err.Error(),
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	return localVarReturnValue, localVarHTTPResponse, nil
+}
+
+type ApiPreFlightChecksRequest struct {
+	ctx        context.Context
+	ApiService *DefaultApiService
+}
+
+func (r ApiPreFlightChecksRequest) Execute() (map[string]interface{}, *http.Response, error) {
+	return r.ApiService.PreFlightChecksExecute(r)
+}
+
+/*
+PreFlightChecks Pre Flight Checks
+
+	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+	@return ApiPreFlightChecksRequest
+*/
+func (a *DefaultApiService) PreFlightChecks(ctx context.Context) ApiPreFlightChecksRequest {
+	return ApiPreFlightChecksRequest{
+		ApiService: a,
+		ctx:        ctx,
+	}
+}
+
+// Execute executes the request
+//
+//	@return map[string]interface{}
+func (a *DefaultApiService) PreFlightChecksExecute(r ApiPreFlightChecksRequest) (map[string]interface{}, *http.Response, error) {
+	var (
+		localVarHTTPMethod  = http.MethodGet
+		localVarPostBody    interface{}
+		formFiles           []formFile
+		localVarReturnValue map[string]interface{}
+	)
+
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultApiService.PreFlightChecks")
+	if err != nil {
+		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
+	}
+
+	localVarPath := localBasePath + "/api/v1/pre-flight-checks"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
