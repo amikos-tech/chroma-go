@@ -2,7 +2,6 @@ package cohere
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -31,7 +30,5 @@ func Test_cohere_client(t *testing.T) {
 		resp, rerr := ef.EmbedDocuments(context.Background(), documents)
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		fmt.Printf("resp: %v\n", resp)
-		// assert.Equal(t, 201, httpRes.StatusCode)
 	})
 }

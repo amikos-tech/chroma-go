@@ -19,7 +19,7 @@ var _ MappedNullable = &AddEmbedding{}
 
 // AddEmbedding struct for AddEmbedding
 type AddEmbedding struct {
-	Embeddings []interface{}            `json:"embeddings,omitempty"`
+	Embeddings []EmbeddingsInner        `json:"embeddings,omitempty"`
 	Metadatas  []map[string]interface{} `json:"metadatas,omitempty"`
 	Documents  []string                 `json:"documents,omitempty"`
 	Ids        []string                 `json:"ids"`
@@ -44,9 +44,9 @@ func NewAddEmbeddingWithDefaults() *AddEmbedding {
 }
 
 // GetEmbeddings returns the Embeddings field value if set, zero value otherwise.
-func (o *AddEmbedding) GetEmbeddings() []interface{} {
+func (o *AddEmbedding) GetEmbeddings() []EmbeddingsInner {
 	if o == nil || IsNil(o.Embeddings) {
-		var ret []interface{}
+		var ret []EmbeddingsInner
 		return ret
 	}
 	return o.Embeddings
@@ -54,7 +54,7 @@ func (o *AddEmbedding) GetEmbeddings() []interface{} {
 
 // GetEmbeddingsOk returns a tuple with the Embeddings field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *AddEmbedding) GetEmbeddingsOk() ([]interface{}, bool) {
+func (o *AddEmbedding) GetEmbeddingsOk() ([]EmbeddingsInner, bool) {
 	if o == nil || IsNil(o.Embeddings) {
 		return nil, false
 	}
@@ -70,8 +70,8 @@ func (o *AddEmbedding) HasEmbeddings() bool {
 	return false
 }
 
-// SetEmbeddings gets a reference to the given []interface{} and assigns it to the Embeddings field.
-func (o *AddEmbedding) SetEmbeddings(v []interface{}) {
+// SetEmbeddings gets a reference to the given []EmbeddingsInner and assigns it to the Embeddings field.
+func (o *AddEmbedding) SetEmbeddings(v []EmbeddingsInner) {
 	o.Embeddings = v
 }
 

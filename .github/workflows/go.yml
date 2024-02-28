@@ -63,7 +63,7 @@ jobs:
         echo "chroma-url=$(minikube service chromadb --url)" >> $GITHUB_OUTPUT
         curl $(minikube service chromadb --url)/api/v1
     - name: Test
-      run: make gotest
+      run: make test
       env:
         OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
         COHERE_API_KEY:  ${{ secrets.COHERE_API_KEY }}
