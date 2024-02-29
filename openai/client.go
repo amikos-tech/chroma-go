@@ -78,19 +78,27 @@ func (c *CreateEmbeddingResponse) String() string {
 type OpenAIClient struct {
 	BaseURL string
 	APIKey  string
+	OrgID   string
 	Client  *http.Client
 }
 
-func NewOpenAIClient(apiKey string) *OpenAIClient {
-	return &OpenAIClient{
+func NewOpenAIClient(apiKey string, opts ...Option) *OpenAIClient {
+	client := &OpenAIClient{
 		BaseURL: "https://api.openai.com/v1/",
 		Client:  &http.Client{},
 		APIKey:  apiKey,
 	}
+	applyClientOptions(client, opts...)
+
+	return client
 }
 
 func (c *OpenAIClient) SetAPIKey(apiKey string) {
 	c.APIKey = apiKey
+}
+
+func (c *OpenAIClient) SetOrgID(orgID string) {
+	c.OrgID = orgID
 }
 
 func (c *OpenAIClient) SetBaseURL(baseURL string) {
@@ -117,6 +125,11 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.getAPIKey())
+
+	// OpenAI Organization ID (Optional)
+	if c.OrgID != "" {
+		httpReq.Header.Set("OpenAI-Organization", c.OrgID)
+	}
 
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
@@ -147,9 +160,9 @@ type OpenAIEmbeddingFunction struct {
 	apiClient *OpenAIClient
 }
 
-func NewOpenAIEmbeddingFunction(apiKey string) *OpenAIEmbeddingFunction {
+func NewOpenAIEmbeddingFunction(apiKey string, opts ...Option) *OpenAIEmbeddingFunction {
 	cli := &OpenAIEmbeddingFunction{
-		apiClient: NewOpenAIClient(apiKey),
+		apiClient: NewOpenAIClient(apiKey, opts...),
 	}
 
 	return cli
