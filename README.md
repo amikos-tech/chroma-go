@@ -89,7 +89,7 @@ import (
 func main() {
 	client := chroma.NewClient("http://localhost:8000")
 	collectionName := "test-collection"
-	metadata := map[string]interface{}{}
+	Metadata := map[string]interface{}{}
 	err := godotenv.Load(".env")
 	if err != nil {
 		fmt.Printf("Error loading .env file: %s", err)
@@ -101,7 +101,7 @@ func main() {
 	if errRest != nil {
 		log.Fatalf("Error resetting database: %s \n", errRest.Error())
 	}
-	col, err := client.CreateCollection(collectionName, metadata, true, embeddingFunction, distanceFunction)
+	col, err := client.CreateCollection(collectionName, Metadata, true, embeddingFunction, distanceFunction)
 	if err != nil {
 		fmt.Printf("Error create collection: %s \n", err.Error())
 		return

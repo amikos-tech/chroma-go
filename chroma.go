@@ -3,25 +3,19 @@ package chroma
 import (
 	"context"
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
 
 	"github.com/Masterminds/semver" //nolint:gci
+	"github.com/amikos-tech/chroma-go/collection"
 	openapiclient "github.com/amikos-tech/chroma-go/swagger"
+	"github.com/amikos-tech/chroma-go/types"
 )
 
 type ClientConfiguration struct {
-	BasePath          string            `json:"basePath,omitempty"`
-	DefaultHeaders    map[string]string `json:"defaultHeader,omitempty"`
-	EmbeddingFunction EmbeddingFunction `json:"embeddingFunction,omitempty"`
-}
-
-type EmbeddingFunction interface {
-	// EmbedDocuments returns a vector for each text.
-	EmbedDocuments(ctx context.Context, texts []string) ([][]float32, error)
-	// EmbedQuery embeds a single text.
-	EmbedQuery(ctx context.Context, text string) ([]float32, error)
+	BasePath          string                  `json:"basePath,omitempty"`
+	DefaultHeaders    map[string]string       `json:"defaultHeader,omitempty"`
+	EmbeddingFunction types.EmbeddingFunction `json:"embeddingFunction,omitempty"`
 }
 
 func APIMetadataToMap(metadata map[string]openapiclient.MetadatasInnerValue) map[string]interface{} {
@@ -119,27 +113,35 @@ type Client struct {
 	preFlightConfig    map[string]interface{}
 	preFlightCompleted bool
 }
-type Option func(p *Client)
 
-func WithTenant(tenant string) Option {
-	return func(c *Client) {
+type ClientOption func(p *Client) error
+
+func WithTenant(tenant string) ClientOption {
+	return func(c *Client) error {
+		// TODO validate here?
 		c.Tenant = tenant
+		return nil
 	}
 }
 
-func WithDatabase(database string) Option {
-	return func(c *Client) {
+func WithDatabase(database string) ClientOption {
+	return func(c *Client) error {
+		// TODO validate here?
 		c.Database = database
+		return nil
 	}
 }
 
-func applyOptions(c *Client, options ...Option) {
+func applyOptions(c *Client, options ...ClientOption) error {
 	for _, opt := range options {
-		opt(c)
+		if err := opt(c); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func NewClient(basePath string, options ...Option) *Client {
+func NewClient(basePath string, options ...ClientOption) *Client {
 	configuration := openapiclient.NewConfiguration()
 	configuration.Servers = openapiclient.ServerConfigurations{
 		{
@@ -152,10 +154,13 @@ func NewClient(basePath string, options ...Option) *Client {
 
 	c := &Client{
 		ApiClient: apiClient,
-		Tenant:    DefaultTenant,
-		Database:  DefaultDatabase,
+		Tenant:    types.DefaultTenant,
+		Database:  types.DefaultDatabase,
 	}
-	applyOptions(c, options...)
+	err := applyOptions(c, options...)
+	if err != nil {
+		panic(err)
+	}
 	return c
 }
 
@@ -179,6 +184,8 @@ func (c *Client) preFlightChecks(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	c.APIVersion = *version
 	multiTenantAPIVersion, _ := semver.NewConstraint(">=0.4.15")
 
@@ -202,13 +209,15 @@ func (c *Client) preFlightChecks(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) GetCollection(ctx context.Context, collectionName string, embeddingFunction EmbeddingFunction) (*Collection, error) {
+func (c *Client) GetCollection(ctx context.Context, collectionName string, embeddingFunction types.EmbeddingFunction) (*Collection, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	err := c.preFlightChecks(ctx)
 	if err != nil {
 		return nil, err
 	}
-	tenantName := DefaultTenant
-	databaseName := DefaultDatabase
+	tenantName := types.DefaultTenant
+	databaseName := types.DefaultDatabase
 	col, httpResp, err := c.ApiClient.DefaultApi.GetCollection(ctx, collectionName).Tenant(c.Tenant).Database(c.Database).Execute()
 	if err != nil {
 		return nil, err
@@ -220,21 +229,13 @@ func (c *Client) GetCollection(ctx context.Context, collectionName string, embed
 }
 
 func (c *Client) Heartbeat(ctx context.Context) (map[string]float32, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.Heartbeat(ctx).Execute()
 	return resp, err
 }
 
-type DistanceFunction string
-
-const (
-	L2              DistanceFunction = "l2"
-	COSINE          DistanceFunction = "cosine"
-	IP              DistanceFunction = "ip"
-	DefaultTenant                    = "default_tenant"
-	DefaultDatabase                  = "default_database"
-)
-
-func GetStringTypeOfEmbeddingFunction(ef EmbeddingFunction) string {
+func GetStringTypeOfEmbeddingFunction(ef types.EmbeddingFunction) string {
 	typ := reflect.TypeOf(ef)
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem() // Dereference if it's a pointer
@@ -243,11 +244,15 @@ func GetStringTypeOfEmbeddingFunction(ef EmbeddingFunction) string {
 }
 
 func (c *Client) CreateTenant(ctx context.Context, tenantName string) (*openapiclient.Tenant, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.CreateTenant(ctx).CreateTenant(openapiclient.CreateTenant{Name: tenantName}).Execute()
 	return resp, err
 }
 
 func (c *Client) GetTenant(ctx context.Context, tenantName string) (*openapiclient.Tenant, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.GetTenant(ctx, tenantName).Execute()
 	return resp, err
 }
@@ -256,6 +261,8 @@ func (c *Client) CreateDatabase(ctx context.Context, databaseName string, tenant
 	if tenantName == nil {
 		tenantName = &c.Tenant
 	}
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.CreateDatabase(ctx).Tenant(*tenantName).CreateDatabase(openapiclient.CreateDatabase{Name: databaseName}).Execute()
 	return resp, err
 }
@@ -264,11 +271,15 @@ func (c *Client) GetDatabase(ctx context.Context, databaseName string, tenantNam
 	if tenantName == nil {
 		tenantName = &c.Tenant
 	}
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.GetDatabase(ctx, databaseName).Tenant(*tenantName).Execute()
 	return resp, err
 }
 
-func (c *Client) CreateCollection(ctx context.Context, collectionName string, metadata map[string]interface{}, createOrGet bool, embeddingFunction EmbeddingFunction, distanceFunction DistanceFunction) (*Collection, error) {
+func (c *Client) CreateCollection(ctx context.Context, collectionName string, metadata map[string]interface{}, createOrGet bool, embeddingFunction types.EmbeddingFunction, distanceFunction types.DistanceFunction) (*Collection, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	err := c.preFlightChecks(ctx)
 	if err != nil {
 		return nil, err
@@ -278,7 +289,7 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 		_metadata["embedding_function"] = GetStringTypeOfEmbeddingFunction(embeddingFunction)
 	}
 	if distanceFunction == "" {
-		_metadata["hnsw:space"] = strings.ToLower(string(L2))
+		_metadata["hnsw:space"] = strings.ToLower(string(types.L2))
 	} else {
 		_metadata["hnsw:space"] = strings.ToLower(string(distanceFunction))
 	}
@@ -296,19 +307,38 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 	return NewCollection(c.ApiClient, resp.Id, resp.Name, mtd, embeddingFunction, c.Tenant, c.Database), nil
 }
 
+func (c *Client) NewCollection(ctx context.Context, options ...collection.Option) (*Collection, error) {
+	b := &collection.Builder{}
+	for _, option := range options {
+		if err := option(b); err != nil {
+			return nil, err
+		}
+	}
+	if b.Name == "" {
+		return nil, fmt.Errorf("collection name cannot be empty")
+	}
+
+	if b.Metadata["hnsw:space"] == nil {
+		b.Metadata["hnsw:space"] = types.L2
+	}
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
+	return c.CreateCollection(ctx, b.Name, b.Metadata, b.CreateIfNotExist, b.EmbeddingFunction, b.Metadata["hnsw:space"].(types.DistanceFunction))
+}
+
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*Collection, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	err := c.preFlightChecks(ctx)
 	if err != nil {
 		return nil, err
 	}
-	col, httpResp, gcerr := c.ApiClient.DefaultApi.GetCollection(ctx, collectionName).Execute()
+	col, _, gcerr := c.ApiClient.DefaultApi.GetCollection(ctx, collectionName).Execute()
 	if gcerr != nil {
-		log.Fatal(httpResp, gcerr)
 		return nil, gcerr
 	}
-	deletedCol, httpResp, err := c.ApiClient.DefaultApi.DeleteCollection(ctx, collectionName).Execute()
+	deletedCol, _, err := c.ApiClient.DefaultApi.DeleteCollection(ctx, collectionName).Execute()
 	if err != nil {
-		log.Fatal(httpResp, err)
 		return nil, err
 	}
 	if deletedCol == nil {
@@ -319,11 +349,15 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*
 }
 
 func (c *Client) Reset(ctx context.Context) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.Reset(ctx).Execute()
 	return resp, err
 }
 
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	err := c.preFlightChecks(ctx)
 	if err != nil {
 		return nil, err
@@ -341,6 +375,8 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 }
 
 func (c *Client) CountCollections(ctx context.Context) (int32, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	err := c.preFlightChecks(ctx)
 	if err != nil {
 		return -1, err
@@ -350,11 +386,15 @@ func (c *Client) CountCollections(ctx context.Context) (int32, error) {
 }
 
 func (c *Client) PreflightChecks(ctx context.Context) (map[string]interface{}, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.PreFlightChecks(ctx).Execute()
 	return resp, err
 }
 
 func (c *Client) Version(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.Version(ctx).Execute()
 	version := strings.ReplaceAll(resp, `"`, "")
 	return version, err
@@ -375,7 +415,7 @@ type GetResults struct {
 
 type Collection struct {
 	Name              string
-	EmbeddingFunction EmbeddingFunction
+	EmbeddingFunction types.EmbeddingFunction
 	ApiClient         *openapiclient.APIClient //nolint
 	Metadata          map[string]interface{}
 	ID                string
@@ -383,7 +423,7 @@ type Collection struct {
 	Database          string
 }
 
-func NewCollection(apiClient *openapiclient.APIClient, id string, name string, metadata map[string]interface{}, embeddingFunction EmbeddingFunction, tenant string, database string) *Collection {
+func NewCollection(apiClient *openapiclient.APIClient, id string, name string, metadata map[string]interface{}, embeddingFunction types.EmbeddingFunction, tenant string, database string) *Collection {
 	return &Collection{
 		Name:              name,
 		EmbeddingFunction: embeddingFunction,
@@ -395,18 +435,29 @@ func NewCollection(apiClient *openapiclient.APIClient, id string, name string, m
 	}
 }
 
-func (c *Collection) Add(ctx context.Context, embeddings [][]float32, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
+func (c *Collection) Add(ctx context.Context, embeddings []*types.Embedding, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
 	var _embeddings []openapiclient.EmbeddingsInner
+
+	if len(ids) != len(documents) && len(documents) != len(metadatas) {
+		return c, fmt.Errorf("ids and embeddings must have the same length")
+	}
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 
 	if len(embeddings) == 0 {
 		embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, documents)
 		if embErr != nil {
 			return c, embErr
 		}
-		_embeddings = EmbeddingsToAPIEmbeddings(nil, &embds)
+		_embeddings = types.ToAPIEmbeddings(embds)
 	} else {
-		_embeddings = EmbeddingsToAPIEmbeddings(nil, &embeddings)
+		_embeddings = types.ToAPIEmbeddings(embeddings)
 	}
+
+	if len(ids) == 0 {
+		return c, fmt.Errorf("ids cannot be empty")
+	}
+
 	var addEmbedding = openapiclient.AddEmbedding{
 		Embeddings: _embeddings,
 		Metadatas:  metadatas,
@@ -420,17 +471,29 @@ func (c *Collection) Add(ctx context.Context, embeddings [][]float32, metadatas 
 	return c, nil
 }
 
-func (c *Collection) Upsert(ctx context.Context, embeddings [][]float32, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
+func (c *Collection) AddRecords(ctx context.Context, recordSet *types.RecordSet) (*Collection, error) {
+	return c.Add(ctx, recordSet.GetEmbeddings(), recordSet.GetMetadatas(), recordSet.GetDocuments(), recordSet.GetIDs())
+}
+
+func (c *Collection) Upsert(ctx context.Context, embeddings []*types.Embedding, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
 	var _embeddings []openapiclient.EmbeddingsInner
 
+	if len(ids) != len(documents) && len(documents) != len(metadatas) {
+		return c, fmt.Errorf("ids and embeddings must have the same length")
+	}
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	if len(embeddings) == 0 {
 		embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, documents)
 		if embErr != nil {
 			return c, embErr
 		}
-		_embeddings = EmbeddingsToAPIEmbeddings(nil, &embds)
+		_embeddings = types.ToAPIEmbeddings(embds)
 	} else {
-		_embeddings = EmbeddingsToAPIEmbeddings(nil, &embeddings)
+		_embeddings = types.ToAPIEmbeddings(embeddings)
+	}
+	if len(ids) == 0 {
+		return c, fmt.Errorf("ids cannot be empty")
 	}
 
 	var addEmbedding = openapiclient.AddEmbedding{
@@ -448,17 +511,18 @@ func (c *Collection) Upsert(ctx context.Context, embeddings [][]float32, metadat
 	return c, nil
 }
 
-func (c *Collection) Modify(ctx context.Context, embeddings [][]float32, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
+func (c *Collection) Modify(ctx context.Context, embeddings []*types.Embedding, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
 	var _embeddings []openapiclient.EmbeddingsInner
-
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	if len(embeddings) == 0 {
 		embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, documents)
 		if embErr != nil {
 			return c, embErr
 		}
-		_embeddings = EmbeddingsToAPIEmbeddings(nil, &embds)
+		_embeddings = types.ToAPIEmbeddings(embds)
 	} else {
-		_embeddings = EmbeddingsToAPIEmbeddings(nil, &embeddings)
+		_embeddings = types.ToAPIEmbeddings(embeddings)
 	}
 
 	var updateEmbedding = openapiclient.UpdateEmbedding{
@@ -476,60 +540,16 @@ func (c *Collection) Modify(ctx context.Context, embeddings [][]float32, metadat
 	return c, nil
 }
 
-type GetQuery struct {
-	Where         map[string]interface{}
-	WhereDocument map[string]interface{}
-	Ids           []string
-	Include       []QueryEnum
-	Offset        int32
-	Limit         int32
-}
-
-type GetQueryOptions func(*GetQuery)
-
-func WithWhere(where map[string]interface{}) GetQueryOptions {
-	return func(q *GetQuery) {
-		q.Where = where
-	}
-}
-
-func WithWhereDocument(whereDocument map[string]interface{}) GetQueryOptions {
-	return func(q *GetQuery) {
-		q.WhereDocument = whereDocument
-	}
-}
-
-func WithIds(ids []string) GetQueryOptions {
-	return func(q *GetQuery) {
-		q.Ids = ids
-	}
-}
-
-func WithInclude(include ...QueryEnum) GetQueryOptions {
-	return func(q *GetQuery) {
-		q.Include = include
-	}
-}
-
-func WithOffset(offset int32) GetQueryOptions {
-	return func(q *GetQuery) {
-		q.Offset = offset
-	}
-}
-
-func WithLimit(limit int32) GetQueryOptions {
-	return func(q *GetQuery) {
-		q.Limit = limit
-	}
-}
-
-func (c *Collection) GetWithOptions(ctx context.Context, options ...GetQueryOptions) (*GetResults, error) {
-	query := &GetQuery{}
+func (c *Collection) GetWithOptions(ctx context.Context, options ...CollectionQueryOption) (*GetResults, error) {
+	query := &CollectionQueryBuilder{}
 	for _, opt := range options {
-		opt(query)
+		err := opt(query)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if query.Include == nil {
-		query.Include = []QueryEnum{documents, metadatas}
+		query.Include = []types.QueryEnum{types.IDocuments, types.IMetadatas}
 	}
 	inc := make([]openapiclient.IncludeInner, len(query.Include))
 	for i, v := range query.Include {
@@ -538,6 +558,8 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...GetQueryOpti
 			String: &_v,
 		}
 	}
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	cd, _, err := c.ApiClient.DefaultApi.Get(ctx, c.ID).GetEmbedding(openapiclient.GetEmbedding{
 		Ids:           query.Ids,
 		Where:         query.Where,
@@ -559,18 +581,9 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...GetQueryOpti
 	return results, nil
 }
 
-func (c *Collection) Get(ctx context.Context, where map[string]interface{}, whereDocuments map[string]interface{}, ids []string, include []QueryEnum) (*GetResults, error) {
+func (c *Collection) Get(ctx context.Context, where map[string]interface{}, whereDocuments map[string]interface{}, ids []string, include []types.QueryEnum) (*GetResults, error) {
 	return c.GetWithOptions(ctx, WithWhere(where), WithWhereDocument(whereDocuments), WithIds(ids), WithInclude(include...))
 }
-
-type QueryEnum string
-
-const (
-	documents  QueryEnum = "documents"
-	embeddings QueryEnum = "embeddings"
-	metadatas  QueryEnum = "metadatas"
-	distances  QueryEnum = "distances"
-)
 
 type QueryResults struct {
 	Documents [][]string                 `json:"documents,omitempty"`
@@ -614,10 +627,24 @@ func ConvertEmbeds(embeds [][]float32) []interface{} {
 	}
 	return _embeddings
 }
-func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults int32, where map[string]interface{}, whereDocuments map[string]interface{}, include []QueryEnum) (*QueryResults, error) {
-	var localInclude = include
-	if len(include) == 0 {
-		localInclude = []QueryEnum{documents, metadatas, distances}
+func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults int32, where map[string]interface{}, whereDocuments map[string]interface{}, include []types.QueryEnum) (*QueryResults, error) {
+	return c.QueryWithOptions(ctx, WithQueryTexts(queryTexts), WithNResults(nResults), WithWhere(where), WithWhereDocument(whereDocuments), WithInclude(include...))
+}
+func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...CollectionQueryOption) (*QueryResults, error) {
+	b := &CollectionQueryBuilder{
+		QueryTexts:      make([]string, 0),
+		QueryEmbeddings: make([]*types.Embedding, 0),
+		Where:           make(map[string]interface{}),
+		WhereDocument:   make(map[string]interface{}),
+	}
+	for _, opt := range queryOptions {
+		if err := opt(b); err != nil {
+			return nil, err
+		}
+	}
+	var localInclude = b.Include
+	if len(b.Include) == 0 {
+		localInclude = []types.QueryEnum{types.IDocuments, types.IMetadatas}
 	}
 	_includes := make([]openapiclient.IncludeInner, len(localInclude))
 	for i, v := range localInclude {
@@ -626,17 +653,24 @@ func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults in
 			String: &_v,
 		}
 	}
-
-	embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, queryTexts)
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
+	embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, b.QueryTexts)
 	if embErr != nil {
 		return nil, embErr
 	}
+
+	fmt.Printf("QueryEmbeddings %v\n", embds[0].ArrayOfFloat32)
+
+	var queryEmbeds = make([]openapiclient.EmbeddingsInner, 0)
+	queryEmbeds = append(queryEmbeds, types.ToAPIEmbeddings(b.QueryEmbeddings)...)
+	queryEmbeds = append(queryEmbeds, types.ToAPIEmbeddings(embds)...)
 	qr, _, err := c.ApiClient.DefaultApi.GetNearestNeighbors(ctx, c.ID).QueryEmbedding(openapiclient.QueryEmbedding{
-		Where:           where,
-		WhereDocument:   whereDocuments,
-		NResults:        &nResults,
+		Where:           b.Where,
+		WhereDocument:   b.WhereDocument,
+		NResults:        &b.NResults,
 		Include:         _includes,
-		QueryEmbeddings: ConvertEmbeds(embds),
+		QueryEmbeddings: queryEmbeds,
 	}).Execute()
 
 	if err != nil {
@@ -656,6 +690,8 @@ func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults in
 	return &qresults, nil
 }
 func (c *Collection) Count(ctx context.Context) (int32, error) {
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
 	req := c.ApiClient.DefaultApi.Count(ctx, c.ID)
 	cd, _, err := req.Execute()
 
@@ -667,9 +703,10 @@ func (c *Collection) Count(ctx context.Context) (int32, error) {
 }
 
 func (c *Collection) Update(ctx context.Context, newName string, newMetadata map[string]interface{}) (*Collection, error) {
-	_, httpResp, err := c.ApiClient.DefaultApi.UpdateCollection(ctx, c.ID).UpdateCollection(openapiclient.UpdateCollection{NewName: &newName, NewMetadata: newMetadata}).Execute()
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
+	_, _, err := c.ApiClient.DefaultApi.UpdateCollection(ctx, c.ID).UpdateCollection(openapiclient.UpdateCollection{NewName: &newName, NewMetadata: newMetadata}).Execute()
 	if err != nil {
-		log.Fatal(httpResp, err)
 		return c, err
 	}
 	c.Name = newName
@@ -678,9 +715,10 @@ func (c *Collection) Update(ctx context.Context, newName string, newMetadata map
 }
 
 func (c *Collection) Delete(ctx context.Context, ids []string, where map[string]interface{}, whereDocuments map[string]interface{}) ([]string, error) {
-	dr, httpResp, err := c.ApiClient.DefaultApi.Delete(ctx, c.ID).DeleteEmbedding(openapiclient.DeleteEmbedding{Where: where, WhereDocument: whereDocuments, Ids: ids}).Execute()
+	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	defer cancel()
+	dr, _, err := c.ApiClient.DefaultApi.Delete(ctx, c.ID).DeleteEmbedding(openapiclient.DeleteEmbedding{Where: where, WhereDocument: whereDocuments, Ids: ids}).Execute()
 	if err != nil {
-		log.Fatal(httpResp, err)
 		return nil, err
 	}
 	return dr, nil

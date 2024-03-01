@@ -20,6 +20,7 @@ import (
 	"github.com/amikos-tech/chroma-go/cohere"
 	"github.com/amikos-tech/chroma-go/hf"
 	"github.com/amikos-tech/chroma-go/openai"
+	"github.com/amikos-tech/chroma-go/types"
 )
 
 func getAPIKey() string {
@@ -43,7 +44,7 @@ func Test_chroma_client(t *testing.T) {
 	client := chroma.NewClient(chromaURL)
 
 	t.Run("Test client with default tenant", func(t *testing.T) {
-		tenant := chroma.DefaultTenant
+		tenant := types.DefaultTenant
 		clientWithTenant := chroma.NewClient(chromaURL, chroma.WithTenant(tenant))
 		require.NotNil(t, clientWithTenant)
 		assert.Equal(t, tenant, clientWithTenant.Tenant)
@@ -54,8 +55,8 @@ func Test_chroma_client(t *testing.T) {
 	})
 
 	t.Run("Test client with default tenant and db", func(t *testing.T) {
-		tenant := chroma.DefaultTenant
-		database := chroma.DefaultDatabase
+		tenant := types.DefaultTenant
+		database := types.DefaultDatabase
 		clientWithTenant := chroma.NewClient(chromaURL, chroma.WithTenant(tenant), chroma.WithDatabase(database))
 		require.NotNil(t, clientWithTenant)
 		assert.Equal(t, tenant, clientWithTenant.Tenant)
@@ -131,12 +132,11 @@ func Test_chroma_client(t *testing.T) {
 		var metadata = map[string]interface{}{}
 		apiKey := getAPIKey()
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Equal(t, collectionName, resp.Name)
@@ -145,17 +145,36 @@ func Test_chroma_client(t *testing.T) {
 		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), resp.Metadata["embedding_function"])
 	})
 
-	t.Run("Test Add Documents", func(t *testing.T) {
+	t.Run("Test Count Collections", func(t *testing.T) {
 		collectionName := "test-collection"
 		var metadata = map[string]interface{}{}
 		apiKey := getAPIKey()
 		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, collectionName, resp.Name)
+		require.Len(t, resp.Metadata, 2)
+		colCount, err := client.CountCollections(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, int32(1), colCount)
+		// assert the metadata contains key embedding_function
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), resp.Metadata["embedding_function"])
+	})
+
+	t.Run("Test Add Documents", func(t *testing.T) {
+		collectionName := "test-collection"
+		var metadata = map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Equal(t, collectionName, resp.Name)
@@ -183,14 +202,12 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Upsert Documents", func(t *testing.T) {
 		collectionName := "test-collection"
 		var metadata = map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, collection)
 		require.Equal(t, collectionName, collection.Name)
@@ -239,14 +256,12 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Modify Collection Documents", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, collection)
 		require.Equal(t, collectionName, collection.Name)
@@ -300,14 +315,12 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Get Collection Documents", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Equal(t, collectionName, resp.Name)
@@ -340,20 +353,18 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Query Collection Documents", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.Equal(t, collectionName, resp.Name)
-		require.Equal(t, 2, len(resp.Metadata))
+		require.NotNil(t, collection)
+		require.Equal(t, collectionName, collection.Name)
+		require.Equal(t, 2, len(collection.Metadata))
 		// assert the metadata contains key embedding_function
-		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), resp.Metadata["embedding_function"])
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
 		documents := []string{
 			"This is a document about cats. Cats are great.",
 			"this is a document about dogs. Dogs are great.",
@@ -367,7 +378,7 @@ func Test_chroma_client(t *testing.T) {
 			{"key1": "value1"},
 			{"key2": "value2"},
 		}
-		col, addError := resp.Add(context.Background(), nil, metadatas, documents, ids)
+		col, addError := collection.Add(context.Background(), nil, metadatas, documents, ids)
 		require.NoError(t, addError)
 
 		colGet, getErr := col.Count(context.Background())
@@ -383,14 +394,12 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Count Collection Documents", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Equal(t, collectionName, resp.Name)
@@ -422,15 +431,13 @@ func Test_chroma_client(t *testing.T) {
 		collectionName1 := "test-collection1"
 		collectionName2 := "test-collection2"
 		metadata := map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		_, _ = client.CreateCollection(context.Background(), collectionName1, metadata, true, embeddingFunction, distanceFunction)
-		_, _ = client.CreateCollection(context.Background(), collectionName2, metadata, true, embeddingFunction, distanceFunction)
+		_, _ = client.CreateCollection(context.Background(), collectionName1, metadata, true, embeddingFunction, types.L2)
+		_, _ = client.CreateCollection(context.Background(), collectionName2, metadata, true, embeddingFunction, types.L2)
 		collections, gcerr := client.ListCollections(context.Background())
 		require.NoError(t, gcerr)
 		require.Len(t, collections, 2)
@@ -460,15 +467,13 @@ func Test_chroma_client(t *testing.T) {
 		collectionName1 := "test-collection1"
 		collectionName2 := "test-collection2"
 		metadata := map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		_, _ = client.CreateCollection(context.Background(), collectionName1, metadata, true, embeddingFunction, distanceFunction)
-		_, _ = client.CreateCollection(context.Background(), collectionName2, metadata, true, embeddingFunction, distanceFunction)
+		_, _ = client.CreateCollection(context.Background(), collectionName1, metadata, true, embeddingFunction, types.L2)
+		_, _ = client.CreateCollection(context.Background(), collectionName2, metadata, true, embeddingFunction, types.L2)
 		collections, gcerr := client.ListCollections(context.Background())
 		require.NoError(t, gcerr)
 		require.Len(t, collections, 2)
@@ -493,14 +498,12 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Update Collection Name and Metadata", func(t *testing.T) {
 		collectionName1 := "test-collection1"
 		metadata := map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		col, ccerr := client.CreateCollection(context.Background(), collectionName1, metadata, true, embeddingFunction, distanceFunction)
+		col, ccerr := client.CreateCollection(context.Background(), collectionName1, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, ccerr)
 		// update collection
 		newMetadata := map[string]interface{}{"new": "metadata"}
@@ -513,34 +516,18 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Delete Embeddings by ID", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, collection)
 		require.Equal(t, collectionName, collection.Name)
 		require.Equal(t, 2, len(collection.Metadata))
-		// assert the metadata contains key embedding_function
-		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
-		documents := []string{
-			"Document 1 content here",
-			"Document 2 content here",
-		}
-		ids := []string{
-			"ID1",
-			"ID2",
-		}
-
-		metadatas := []map[string]interface{}{
-			{"key1": "value1"},
-			{"key2": "value2"},
-		}
-		_, addError := collection.Add(context.Background(), nil, metadatas, documents, ids)
+		docs, ids, docMetadata, embeds := GetTestDocumentTest()
+		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
 		deletedIds, dellErr := collection.Delete(context.Background(), []string{"ID1"}, nil, nil)
 		require.NoError(t, dellErr)
@@ -551,34 +538,18 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Delete Embeddings by Where", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, collection)
 		require.Equal(t, collectionName, collection.Name)
 		require.Equal(t, 2, len(collection.Metadata))
-		// assert the metadata contains key embedding_function
-		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
-		documents := []string{
-			"Document 1 content here",
-			"Document 2 content here",
-		}
-		ids := []string{
-			"ID1",
-			"ID2",
-		}
-
-		metadatas := []map[string]interface{}{
-			{"key1": "value1"},
-			{"key2": "value2"},
-		}
-		_, addError := collection.Add(context.Background(), nil, metadatas, documents, ids)
+		docs, ids, docMetadata, embeds := GetTestDocumentTest()
+		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
 		deletedIds, dellErr := collection.Delete(context.Background(), nil, map[string]interface{}{"key2": "value2"}, nil)
 		require.NoError(t, dellErr)
@@ -589,34 +560,18 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Delete Embeddings by Where Document Contains", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, collection)
 		require.Equal(t, collectionName, collection.Name)
 		require.Equal(t, 2, len(collection.Metadata))
-		// assert the metadata contains key embedding_function
-		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
-		documents := []string{
-			"Document 1 content here",
-			"Document 2 content here",
-		}
-		ids := []string{
-			"ID1",
-			"ID2",
-		}
-
-		metadatas := []map[string]interface{}{
-			{"key1": "value1"},
-			{"key2": "value2"},
-		}
-		_, addError := collection.Add(context.Background(), nil, metadatas, documents, ids)
+		docs, ids, docMetadata, embeds := GetTestDocumentTest()
+		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
 		deletedIds, dellErr := collection.Delete(context.Background(), nil, nil, map[string]interface{}{"$contains": "Document 1"})
 		require.NoError(t, dellErr)
@@ -636,33 +591,19 @@ func Test_chroma_client(t *testing.T) {
 			apiKey = os.Getenv("COHERE_API_KEY")
 		}
 		embeddingFunction := cohere.NewCohereEmbeddingFunction(apiKey)
-		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.COSINE)
 		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.Equal(t, collectionName, resp.Name)
-		require.Equal(t, 2, len(resp.Metadata))
+		require.NotNil(t, collection)
+		require.Equal(t, collectionName, collection.Name)
+		require.Equal(t, 2, len(collection.Metadata))
 		// assert the metadata contains key embedding_function
-		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), resp.Metadata["embedding_function"])
-		documents := []string{
-			"Document 1 content here",
-			"Document 2 content here",
-		}
-		ids := []string{
-			"ID1",
-			"ID2",
-		}
-
-		metadatas := []map[string]interface{}{
-			{"key1": "value1"},
-			{"key2": "value2"},
-		}
-		// _, _ := embeddingFunction.CreateEmbedding(documents)
-		_, addError := resp.Add(context.Background(), nil, metadatas, documents, ids)
+		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		docs, ids, docMetadata, embeds := GetTestDocumentTest()
+		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.Nil(t, addError)
 	})
 
@@ -678,33 +619,90 @@ func Test_chroma_client(t *testing.T) {
 			apiKey = os.Getenv("HF_API_KEY")
 		}
 		embeddingFunction := hf.NewHuggingFaceEmbeddingFunction(apiKey, "sentence-transformers/paraphrase-MiniLM-L6-v2")
-		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
 		}
-		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, distanceFunction)
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.IP)
 		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.Equal(t, collectionName, resp.Name)
-		require.Equal(t, 2, len(resp.Metadata))
-		// assert the metadata contains key embedding_function
-		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), resp.Metadata["embedding_function"])
-		documents := []string{
-			"Document 1 content here",
-			"Document 2 content here",
-		}
-		ids := []string{
-			"ID1",
-			"ID2",
-		}
-
-		metadatas := []map[string]interface{}{
-			{"key1": "value1"},
-			{"key2": "value2"},
-		}
-		// _, _ := embeddingFunction.CreateEmbedding(documents)
-		_, addError := resp.Add(context.Background(), nil, metadatas, documents, ids)
+		require.NotNil(t, collection)
+		require.Equal(t, collectionName, collection.Name)
+		require.Equal(t, 2, len(collection.Metadata))
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		docs, ids, docMetadata, embeds := GetTestDocumentTest()
+		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.Nil(t, addError)
+	})
+
+	t.Run("Test Collection Get Include Embeddings", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+		require.Equal(t, collectionName, collection.Name)
+		require.Equal(t, 2, len(collection.Metadata))
+		docs, ids, docMetadata, embeds := GetTestDocumentTest()
+		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		require.NoError(t, addError)
+		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), chroma.WithInclude(types.IEmbeddings))
+		require.NoError(t, dellErr)
+		require.Len(t, getEmbeddings.Ids, 2)
+		require.Len(t, getEmbeddings.Embeddings, 2)
+		require.Len(t, getEmbeddings.Documents, 0)
+		require.Len(t, getEmbeddings.Metadatas, 0)
+	})
+
+	t.Run("Test Collection Get Include Documents", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+		require.Equal(t, collectionName, collection.Name)
+		require.Equal(t, 2, len(collection.Metadata))
+		docs, ids, docMetadata, embeds := GetTestDocumentTest()
+		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		require.NoError(t, addError)
+		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), chroma.WithInclude(types.IDocuments))
+		require.NoError(t, dellErr)
+		require.Len(t, getEmbeddings.Ids, 2)
+		require.Len(t, getEmbeddings.Embeddings, 0)
+		require.Len(t, getEmbeddings.Documents, 2)
+		require.Len(t, getEmbeddings.Metadatas, 0)
+	})
+
+	t.Run("Test Collection Get Include Metadatas", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		if errRest != nil {
+			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
+		}
+		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+		require.Equal(t, collectionName, collection.Name)
+		require.Equal(t, 2, len(collection.Metadata))
+		docs, ids, docMetadata, embeds := GetTestDocumentTest()
+		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		require.NoError(t, addError)
+		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), chroma.WithInclude(types.IMetadatas))
+		require.NoError(t, dellErr)
+		require.Len(t, getEmbeddings.Ids, 2)
+		require.Len(t, getEmbeddings.Embeddings, 0)
+		require.Len(t, getEmbeddings.Documents, 0)
+		require.Len(t, getEmbeddings.Metadatas, 2)
 	})
 }

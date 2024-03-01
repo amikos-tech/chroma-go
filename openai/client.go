@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/amikos-tech/chroma-go"
+	"github.com/amikos-tech/chroma-go/types"
 )
 
 type Input struct {
@@ -168,7 +168,7 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	return &createEmbeddingResponse, nil
 }
 
-var _ chroma.EmbeddingFunction = (*OpenAIEmbeddingFunction)(nil)
+var _ types.EmbeddingFunction = (*OpenAIEmbeddingFunction)(nil)
 
 type OpenAIEmbeddingFunction struct {
 	apiClient *OpenAIClient
@@ -196,7 +196,7 @@ func ConvertToMatrix(response *CreateEmbeddingResponse) [][]float32 {
 	return matrix
 }
 
-func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([][]float32, error) {
+func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		User: "chroma-go-client",
 		Input: &Input{
@@ -206,10 +206,10 @@ func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 	if err != nil {
 		return nil, err
 	}
-	return ConvertToMatrix(response), nil
+	return types.NewEmbeddingsFromFloat32(ConvertToMatrix(response)), nil
 }
 
-func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) ([]float32, error) {
+func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Model: "text-embedding-ada-002",
 		User:  "chroma-go-client",
@@ -220,5 +220,9 @@ func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	if err != nil {
 		return nil, err
 	}
-	return ConvertToMatrix(response)[0], nil
+	return types.NewEmbeddingFromFloat32(ConvertToMatrix(response)[0]), nil
+}
+
+func (e *OpenAIEmbeddingFunction) EmbedRecords(ctx context.Context, records []types.Record, force bool) error {
+	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }

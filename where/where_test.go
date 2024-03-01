@@ -1,9 +1,10 @@
-package utils
+package where
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
+
+	"github.com/amikos-tech/chroma-go/test"
 )
 
 func TestWhereBuilder(t *testing.T) {
@@ -313,237 +314,139 @@ func TestWhereBuilder(t *testing.T) {
 		}
 	})
 }
-func TestNewMetadataBuilder(t *testing.T) {
-	t.Run("Test invalid metadata", func(t *testing.T) {
-		builder := NewMetadataBuilder().ForValue("testKey", map[string]interface{}{"invalid": "value"})
-		_, err := builder.Build()
-		if err == nil {
-			t.Errorf("Expected error, but got nil")
+
+func TestWhereBuilderWithOptions(t *testing.T) {
+	t.Run("Eq", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(Eq("a", 1))
+		var actual = map[string]interface{}{
+			"a": map[string]interface{}{"$eq": 1},
 		}
+		test.Compare(t, x, actual)
 	})
 
-	t.Run("Test int", func(t *testing.T) {
-		builder := NewMetadataBuilder().ForValue("testKey", 1)
-
-		expected := map[string]interface{}{
-			"testKey": 1,
+	t.Run("Ne", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(Ne("a", 1))
+		var actual = map[string]interface{}{
+			"a": map[string]interface{}{"$ne": 1},
 		}
-		builtExpr, err := builder.Build()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if !reflect.DeepEqual(builtExpr, expected) {
-			t.Errorf("Expected %v, but got %v", expected, builtExpr)
-		}
-	})
-	t.Run("Test float32", func(t *testing.T) {
-		builder := NewMetadataBuilder().ForValue("testKey", float32(1.1))
-
-		expected := map[string]interface{}{
-			"testKey": float32(1.1),
-		}
-		builtExpr, err := builder.Build()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if !reflect.DeepEqual(builtExpr, expected) {
-			t.Errorf("Expected %v, but got %v", expected, builtExpr)
-		}
+		test.Compare(t, x, actual)
 	})
 
-	t.Run("Test bool", func(t *testing.T) {
-		builder := NewMetadataBuilder().ForValue("testKey", true)
-
-		expected := map[string]interface{}{
-			"testKey": true,
+	t.Run("Gt", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(Gt("a", 1))
+		var actual = map[string]interface{}{
+			"a": map[string]interface{}{"$gt": 1},
 		}
-		builtExpr, err := builder.Build()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if !reflect.DeepEqual(builtExpr, expected) {
-			t.Errorf("Expected %v, but got %v", expected, builtExpr)
-		}
+		test.Compare(t, x, actual)
 	})
 
-	t.Run("Test string", func(t *testing.T) {
-		builder := NewMetadataBuilder().ForValue("testKey", "value")
-
-		expected := map[string]interface{}{
-			"testKey": "value",
+	t.Run("Gte", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(Gte("a", 1))
+		var actual = map[string]interface{}{
+			"a": map[string]interface{}{"$gte": 1},
 		}
-		builtExpr, err := builder.Build()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if !reflect.DeepEqual(builtExpr, expected) {
-			t.Errorf("Expected %v, but got %v", expected, builtExpr)
-		}
+		test.Compare(t, x, actual)
 	})
 
-	t.Run("Test multiple KV", func(t *testing.T) {
-		builder := NewMetadataBuilder().ForValue("testKey", "value").ForValue("testKey2", 1).ForValue("testKey3", true).ForValue("testKey4", float32(1.1))
-
-		expected := map[string]interface{}{
-			"testKey":  "value",
-			"testKey2": 1,
-			"testKey3": true,
-			"testKey4": float32(1.1),
+	t.Run("Lt", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(Lt("a", 1))
+		var actual = map[string]interface{}{
+			"a": map[string]interface{}{"$lt": 1},
 		}
-		builtExpr, err := builder.Build()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if !reflect.DeepEqual(builtExpr, expected) {
-			t.Errorf("Expected %v, but got %v", expected, builtExpr)
-		}
-	})
-}
-
-func TestNewWhereDocumentBuilder(t *testing.T) {
-	t.Run("Test contains with invalid value", func(t *testing.T) {
-		builder := NewWhereDocumentBuilder().Contains(1)
-		_, err := builder.Build()
-		if err == nil {
-			t.Errorf("Expected error, but got nil")
-		}
+		test.Compare(t, x, actual)
 	})
 
-	t.Run("Test not_contains with invalid value", func(t *testing.T) {
-		builder := NewWhereDocumentBuilder().NotContains(1.1)
-		_, err := builder.Build()
-		if err == nil {
-			t.Errorf("Expected error, but got nil")
+	t.Run("Lte", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(Lte("a", 1))
+		var actual = map[string]interface{}{
+			"a": map[string]interface{}{"$lte": 1},
 		}
+		test.Compare(t, x, actual)
 	})
 
-	t.Run("Test contains", func(t *testing.T) {
-		builder := NewWhereDocumentBuilder().Contains("testValue")
-
-		expected := map[string]interface{}{
-			"$contains": "testValue",
+	t.Run("In", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(In("a", []interface{}{1, 2, 3}))
+		var actual = map[string]interface{}{
+			"a": map[string]interface{}{"$in": []interface{}{1, 2, 3}},
 		}
-		builtExpr, err := builder.Build()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if !reflect.DeepEqual(builtExpr, expected) {
-			t.Errorf("Expected %v, but got %v", expected, builtExpr)
-		}
+		test.Compare(t, x, actual)
 	})
 
-	t.Run("Test not_contains", func(t *testing.T) {
-		builder := NewWhereDocumentBuilder().NotContains("testValue")
-
-		expected := map[string]interface{}{
-			"$not_contains": "testValue",
+	t.Run("Nin", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(Nin("a", []interface{}{1, 2, 3}))
+		var actual = map[string]interface{}{
+			"a": map[string]interface{}{"$nin": []interface{}{1, 2, 3}},
 		}
-		builtExpr, err := builder.Build()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if !reflect.DeepEqual(builtExpr, expected) {
-			t.Errorf("Expected %v, but got %v", expected, builtExpr)
-		}
+		test.Compare(t, x, actual)
 	})
 
-	t.Run("Test and", func(t *testing.T) {
-		builder := NewWhereDocumentBuilder().And(
-			NewWhereDocumentBuilder().Contains("Noah"),
-			NewWhereDocumentBuilder().NotContains("Joana"),
-		)
-
-		expected := map[string]interface{}{
-			"$and": []interface{}{
-				map[string]interface{}{
-					"$contains": "Noah",
+	t.Run("And", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(And(Eq("a", 1), Ne("b", 2)))
+		var actual = map[string]interface{}{
+			"$and": []map[string]interface{}{
+				{
+					"a": map[string]interface{}{"$eq": 1},
 				},
-				map[string]interface{}{
-					"$not_contains": "Joana",
+				{
+					"b": map[string]interface{}{"$ne": 2},
 				},
 			},
 		}
-
-		builtExpr, err := builder.Build()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		// print both maps as JSONs
-		builtExprJSON, _ := json.Marshal(builtExpr)
-		expectedJSON, _ := json.Marshal(expected)
-
-		if string(builtExprJSON) != string(expectedJSON) {
-			t.Errorf("Expected %v, but got %v", string(expectedJSON), string(builtExprJSON))
-		}
+		test.Compare(t, x, actual)
 	})
 
-	t.Run("Test or", func(t *testing.T) {
-		builder := NewWhereDocumentBuilder().Or(
-			NewWhereDocumentBuilder().Contains("Noah"),
-			NewWhereDocumentBuilder().NotContains("Joana"),
-		)
-
-		expected := map[string]interface{}{
-			"$or": []interface{}{
-				map[string]interface{}{
-					"$contains": "Noah",
+	t.Run("Or", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(Or(Eq("a", 1), Ne("b", 2)))
+		var actual = map[string]interface{}{
+			"$or": []map[string]interface{}{
+				{
+					"a": map[string]interface{}{"$eq": 1},
 				},
-				map[string]interface{}{
-					"$not_contains": "Joana",
+				{
+					"b": map[string]interface{}{"$ne": 2},
 				},
 			},
 		}
-
-		builtExpr, err := builder.Build()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		// print both maps as JSONs
-		builtExprJSON, _ := json.Marshal(builtExpr)
-		expectedJSON, _ := json.Marshal(expected)
-
-		if string(builtExprJSON) != string(expectedJSON) {
-			t.Errorf("Expected %v, but got %v", string(expectedJSON), string(builtExprJSON))
-		}
+		test.Compare(t, x, actual)
 	})
-
-	t.Run("Test nested and/or", func(t *testing.T) {
-		builder := NewWhereDocumentBuilder().And(
-			NewWhereDocumentBuilder().Or(
-				NewWhereDocumentBuilder().Contains("Noah"),
-				NewWhereDocumentBuilder().NotContains("Joana"),
+	t.Run("Test nested where", func(t *testing.T) {
+		t.Parallel()
+		var x = Where(
+			And(
+				Eq("a", 1),
+				Or(
+					Ne("b", -1),
+					Gt("c", 3),
+				),
 			),
-			NewWhereDocumentBuilder().NotContains("Jane"),
 		)
-
-		expected := map[string]interface{}{
-			"$and": []interface{}{
-				map[string]interface{}{
-					"$or": []interface{}{
-						map[string]interface{}{
-							"$contains": "Noah",
+		var actual = map[string]interface{}{
+			"$and": []map[string]interface{}{
+				{
+					"a": map[string]interface{}{"$eq": 1},
+				},
+				{
+					"$or": []map[string]interface{}{
+						{
+							"b": map[string]interface{}{"$ne": -1},
 						},
-						map[string]interface{}{
-							"$not_contains": "Joana",
+						{
+							"c": map[string]interface{}{"$gt": 3},
 						},
 					},
 				},
-				map[string]interface{}{
-					"$not_contains": "Jane",
-				},
 			},
 		}
-
-		builtExpr, err := builder.Build()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		// print both maps as JSONs
-		builtExprJSON, _ := json.Marshal(builtExpr)
-		expectedJSON, _ := json.Marshal(expected)
-
-		if string(builtExprJSON) != string(expectedJSON) {
-			t.Errorf("Expected %v, but got %v", string(expectedJSON), string(builtExprJSON))
-		}
+		test.Compare(t, x, actual)
 	})
 }
