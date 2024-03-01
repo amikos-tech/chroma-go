@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/amikos-tech/chroma-go"
+	"github.com/amikos-tech/chroma-go/types"
 )
 
 type HuggingFaceClient struct {
@@ -103,7 +103,7 @@ func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbe
 	return &createEmbeddingResponse, nil
 }
 
-var _ chroma.EmbeddingFunction = (*HuggingFaceEmbeddingFunction)(nil)
+var _ types.EmbeddingFunction = (*HuggingFaceEmbeddingFunction)(nil)
 
 type HuggingFaceEmbeddingFunction struct {
 	apiClient *HuggingFaceClient
@@ -117,22 +117,26 @@ func NewHuggingFaceEmbeddingFunction(apiKey string, model string) *HuggingFaceEm
 	return cli
 }
 
-func (e *HuggingFaceEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([][]float32, error) {
+func (e *HuggingFaceEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Inputs: documents,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return response.Embeddings, nil
+	return types.NewEmbeddingsFromFloat32(response.Embeddings), nil
 }
 
-func (e *HuggingFaceEmbeddingFunction) EmbedQuery(ctx context.Context, document string) ([]float32, error) {
+func (e *HuggingFaceEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Inputs: []string{document},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return response.Embeddings[0], nil
+	return types.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
+}
+
+func (e *HuggingFaceEmbeddingFunction) EmbedRecords(ctx context.Context, records []types.Record, force bool) error {
+	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }

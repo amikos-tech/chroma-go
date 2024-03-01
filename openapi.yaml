@@ -774,7 +774,14 @@ components:
           title: Where Document
           default: { }
         query_embeddings:
-          items: { }
+          items:
+            anyOf:
+              - items:
+                  type: number
+                type: array
+              - items:
+                  type: integer
+                type: array
           type: array
           title: Query Embeddings
         n_results:

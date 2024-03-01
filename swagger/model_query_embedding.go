@@ -21,7 +21,7 @@ var _ MappedNullable = &QueryEmbedding{}
 type QueryEmbedding struct {
 	Where           map[string]interface{} `json:"where,omitempty"`
 	WhereDocument   map[string]interface{} `json:"where_document,omitempty"`
-	QueryEmbeddings []interface{}          `json:"query_embeddings"`
+	QueryEmbeddings []EmbeddingsInner      `json:"query_embeddings"`
 	NResults        *int32                 `json:"n_results,omitempty"`
 	Include         []IncludeInner         `json:"include,omitempty"`
 }
@@ -30,7 +30,7 @@ type QueryEmbedding struct {
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewQueryEmbedding(queryEmbeddings []interface{}) *QueryEmbedding {
+func NewQueryEmbedding(queryEmbeddings []EmbeddingsInner) *QueryEmbedding {
 	this := QueryEmbedding{}
 	this.QueryEmbeddings = queryEmbeddings
 	var nResults int32 = 10
@@ -113,9 +113,9 @@ func (o *QueryEmbedding) SetWhereDocument(v map[string]interface{}) {
 }
 
 // GetQueryEmbeddings returns the QueryEmbeddings field value
-func (o *QueryEmbedding) GetQueryEmbeddings() []interface{} {
+func (o *QueryEmbedding) GetQueryEmbeddings() []EmbeddingsInner {
 	if o == nil {
-		var ret []interface{}
+		var ret []EmbeddingsInner
 		return ret
 	}
 
@@ -124,7 +124,7 @@ func (o *QueryEmbedding) GetQueryEmbeddings() []interface{} {
 
 // GetQueryEmbeddingsOk returns a tuple with the QueryEmbeddings field value
 // and a boolean to check if the value has been set.
-func (o *QueryEmbedding) GetQueryEmbeddingsOk() ([]interface{}, bool) {
+func (o *QueryEmbedding) GetQueryEmbeddingsOk() ([]EmbeddingsInner, bool) {
 	if o == nil {
 		return nil, false
 	}
@@ -132,7 +132,7 @@ func (o *QueryEmbedding) GetQueryEmbeddingsOk() ([]interface{}, bool) {
 }
 
 // SetQueryEmbeddings sets field value
-func (o *QueryEmbedding) SetQueryEmbeddings(v []interface{}) {
+func (o *QueryEmbedding) SetQueryEmbeddings(v []EmbeddingsInner) {
 	o.QueryEmbeddings = v
 }
 

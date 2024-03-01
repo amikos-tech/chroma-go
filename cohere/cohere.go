@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/amikos-tech/chroma-go"
+	"github.com/amikos-tech/chroma-go/types"
 )
 
 type CohereClient struct {
@@ -111,7 +111,7 @@ func (c *CohereClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	return &createEmbeddingResponse, nil
 }
 
-var _ chroma.EmbeddingFunction = (*CohereEmbeddingFunction)(nil)
+var _ types.EmbeddingFunction = (*CohereEmbeddingFunction)(nil)
 
 type CohereEmbeddingFunction struct {
 	apiClient *CohereClient
@@ -125,22 +125,26 @@ func NewCohereEmbeddingFunction(apiKey string) *CohereEmbeddingFunction {
 	return cli
 }
 
-func (e *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([][]float32, error) {
+func (e *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Texts: documents,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return response.Embeddings, nil
+	return types.NewEmbeddingsFromFloat32(response.Embeddings), nil
 }
 
-func (e *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document string) ([]float32, error) {
+func (e *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Texts: []string{document},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return response.Embeddings[0], nil
+	return types.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
+}
+
+func (e *CohereEmbeddingFunction) EmbedRecords(ctx context.Context, records []types.Record, force bool) error {
+	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }
