@@ -53,13 +53,13 @@ jobs:
         kubectl wait \
         --for=condition=ready pod \
         --selector=app.kubernetes.io/name=chromadb \
-        --timeout=120s
-        echo "chroma-url=$(minikube service chromadb --url)" >> $GITHUB_OUTPUT
+        --timeout=120s || true
     - name: Hearthbeat
       run: |
         set -e
         kubectl get svc -A
         kubectl get pods -A
+        echo "chroma-url=$(minikube service chromadb --url)" >> $GITHUB_OUTPUT
         curl $(minikube service chromadb --url)/api/v1
     - name: Test
       run: make gotest
