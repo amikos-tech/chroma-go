@@ -32,7 +32,6 @@ func Test_openai_client(t *testing.T) {
 		resp, reqErr := ef.EmbedDocuments(context.Background(), documents)
 		require.NoError(t, reqErr)
 		require.NotNil(t, resp)
-		// assert.Equal(t, 201, httpRes.StatusCode)
 		require.Empty(t, ef.apiClient.OrgID)
 	})
 

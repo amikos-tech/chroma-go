@@ -19,7 +19,6 @@ import (
 	chroma "github.com/amikos-tech/chroma-go"
 	"github.com/amikos-tech/chroma-go/cohere"
 	"github.com/amikos-tech/chroma-go/hf"
-	"github.com/amikos-tech/chroma-go/openai"
 	"github.com/amikos-tech/chroma-go/types"
 )
 
@@ -130,8 +129,7 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test CreateCollection", func(t *testing.T) {
 		collectionName := "test-collection"
 		var metadata = map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
@@ -148,8 +146,7 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Count Collections", func(t *testing.T) {
 		collectionName := "test-collection"
 		var metadata = map[string]interface{}{}
-		apiKey := getAPIKey()
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
 			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
