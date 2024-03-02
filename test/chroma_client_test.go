@@ -22,18 +22,6 @@ import (
 	"github.com/amikos-tech/chroma-go/types"
 )
 
-func getAPIKey() string {
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		err := godotenv.Load("../.env")
-		if err != nil {
-			fmt.Println("Error loading .env file")
-		}
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
-	return apiKey
-}
-
 func Test_chroma_client(t *testing.T) {
 	t.Parallel()
 	chromaURL := os.Getenv("CHROMA_URL")
@@ -647,7 +635,7 @@ func Test_chroma_client(t *testing.T) {
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
 		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), chroma.WithInclude(types.IEmbeddings))
+		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), types.WithInclude(types.IEmbeddings))
 		require.NoError(t, dellErr)
 		require.Len(t, getEmbeddings.Ids, 2)
 		require.Len(t, getEmbeddings.Embeddings, 2)
@@ -671,7 +659,7 @@ func Test_chroma_client(t *testing.T) {
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
 		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), chroma.WithInclude(types.IDocuments))
+		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), types.WithInclude(types.IDocuments))
 		require.NoError(t, dellErr)
 		require.Len(t, getEmbeddings.Ids, 2)
 		require.Len(t, getEmbeddings.Embeddings, 0)
@@ -695,7 +683,7 @@ func Test_chroma_client(t *testing.T) {
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
 		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), chroma.WithInclude(types.IMetadatas))
+		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), types.WithInclude(types.IMetadatas))
 		require.NoError(t, dellErr)
 		require.Len(t, getEmbeddings.Ids, 2)
 		require.Len(t, getEmbeddings.Embeddings, 0)
