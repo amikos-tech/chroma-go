@@ -48,7 +48,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -75,7 +76,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -118,7 +120,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -182,7 +185,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -251,7 +255,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -298,7 +303,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -350,7 +356,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -397,7 +404,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -442,7 +450,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -482,7 +491,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -534,7 +544,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -580,7 +591,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {
@@ -626,7 +638,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		embeddingFunction := openai.NewOpenAIEmbeddingFunction(apiKey)
+		embeddingFunction, efErr := openai.NewOpenAIEmbeddingFunction(apiKey)
+		require.NoError(t, efErr)
 		distanceFunction := chroma.L2
 		_, errRest := client.Reset(context.Background())
 		if errRest != nil {

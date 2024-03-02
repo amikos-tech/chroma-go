@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/amikos-tech/chroma-go"
@@ -80,17 +81,22 @@ type OpenAIClient struct {
 	APIKey  string
 	OrgID   string
 	Client  *http.Client
+	Model   string
 }
 
-func NewOpenAIClient(apiKey string, opts ...Option) *OpenAIClient {
+func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
 	client := &OpenAIClient{
 		BaseURL: "https://api.openai.com/v1/",
 		Client:  &http.Client{},
 		APIKey:  apiKey,
+		Model:   string(TextEmbeddingAda002),
 	}
-	applyClientOptions(client, opts...)
+	err := applyClientOptions(client, opts...)
+	if err != nil {
+		return nil, err
+	}
 
-	return client
+	return client, nil
 }
 
 func (c *OpenAIClient) SetAPIKey(apiKey string) {
@@ -113,6 +119,9 @@ func (c *OpenAIClient) getAPIKey() string {
 }
 
 func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
+	if req.Model == "" {
+		req.Model = c.Model
+	}
 	reqJSON, err := req.JSON()
 	if err != nil {
 		return nil, err
@@ -135,7 +144,12 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected code %v", resp.Status)
@@ -160,12 +174,16 @@ type OpenAIEmbeddingFunction struct {
 	apiClient *OpenAIClient
 }
 
-func NewOpenAIEmbeddingFunction(apiKey string, opts ...Option) *OpenAIEmbeddingFunction {
+func NewOpenAIEmbeddingFunction(apiKey string, opts ...Option) (*OpenAIEmbeddingFunction, error) {
+	apiClient, err := NewOpenAIClient(apiKey, opts...)
+	if err != nil {
+		return nil, err
+	}
 	cli := &OpenAIEmbeddingFunction{
-		apiClient: NewOpenAIClient(apiKey, opts...),
+		apiClient: apiClient,
 	}
 
-	return cli
+	return cli, nil
 }
 
 func ConvertToMatrix(response *CreateEmbeddingResponse) [][]float32 {
@@ -180,8 +198,7 @@ func ConvertToMatrix(response *CreateEmbeddingResponse) [][]float32 {
 
 func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([][]float32, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
-		Model: "text-embedding-ada-002",
-		User:  "chroma-go-client",
+		User: "chroma-go-client",
 		Input: &Input{
 			Texts: documents,
 		},
