@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        chroma-version: [0.4.8, 0.4.20]
+        chroma-version: [0.4.8, 0.4.24]
     environment: Test
     steps:
     - uses: actions/checkout@v3
@@ -37,7 +37,7 @@ jobs:
       id: minikube
       uses: medyagh/setup-minikube@latest
       with:
-        kubernetes-version: 1.27.3
+        kubernetes-version: 1.28.7
     - name: Add helm repo
       run: |
         set -e
