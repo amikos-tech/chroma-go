@@ -540,8 +540,8 @@ func (c *Collection) Modify(ctx context.Context, embeddings []*types.Embedding, 
 	return c, nil
 }
 
-func (c *Collection) GetWithOptions(ctx context.Context, options ...CollectionQueryOption) (*GetResults, error) {
-	query := &CollectionQueryBuilder{}
+func (c *Collection) GetWithOptions(ctx context.Context, options ...types.CollectionQueryOption) (*GetResults, error) {
+	query := &types.CollectionQueryBuilder{}
 	for _, opt := range options {
 		err := opt(query)
 		if err != nil {
@@ -582,7 +582,7 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...CollectionQu
 }
 
 func (c *Collection) Get(ctx context.Context, where map[string]interface{}, whereDocuments map[string]interface{}, ids []string, include []types.QueryEnum) (*GetResults, error) {
-	return c.GetWithOptions(ctx, WithWhere(where), WithWhereDocument(whereDocuments), WithIds(ids), WithInclude(include...))
+	return c.GetWithOptions(ctx, types.WithWhere(where), types.WithWhereDocument(whereDocuments), types.WithIds(ids), types.WithInclude(include...))
 }
 
 type QueryResults struct {
@@ -628,10 +628,10 @@ func ConvertEmbeds(embeds [][]float32) []interface{} {
 	return _embeddings
 }
 func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults int32, where map[string]interface{}, whereDocuments map[string]interface{}, include []types.QueryEnum) (*QueryResults, error) {
-	return c.QueryWithOptions(ctx, WithQueryTexts(queryTexts), WithNResults(nResults), WithWhere(where), WithWhereDocument(whereDocuments), WithInclude(include...))
+	return c.QueryWithOptions(ctx, types.WithQueryTexts(queryTexts), types.WithNResults(nResults), types.WithWhere(where), types.WithWhereDocument(whereDocuments), types.WithInclude(include...))
 }
-func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...CollectionQueryOption) (*QueryResults, error) {
-	b := &CollectionQueryBuilder{
+func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types.CollectionQueryOption) (*QueryResults, error) {
+	b := &types.CollectionQueryBuilder{
 		QueryTexts:      make([]string, 0),
 		QueryEmbeddings: make([]*types.Embedding, 0),
 		Where:           make(map[string]interface{}),
