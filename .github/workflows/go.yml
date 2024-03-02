@@ -55,6 +55,7 @@ jobs:
         --selector=app.kubernetes.io/name=chromadb \
         --timeout=120s || true
     - name: Hearthbeat
+      id: heartbeat
       run: |
         set -e
         kubectl get svc -A
@@ -67,4 +68,4 @@ jobs:
         OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
         COHERE_API_KEY:  ${{ secrets.COHERE_API_KEY }}
         HF_API_KEY:  ${{ secrets.HF_API_KEY }}
-        CHROMA_URL: ${{steps.wait-and-set.outputs.chroma-url}}
+        CHROMA_URL: ${{steps.heartbeat.outputs.chroma-url}}
