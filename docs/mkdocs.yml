@@ -1,0 +1,70 @@
+site_name: ChromaDB Cookbook | The Unofficial Guide to ChromaDB
+site_url: https://go-client.chromadb.dev
+repo_url: https://github.com/amikos-tech/chroma-go
+copyright: "Amikos Tech LTD, 2024 (core ChromaDB contributors)"
+theme:
+  name: material
+  palette:
+    primary: black
+  logo: assets/images/logo.png
+  favicon: assets/images/favicon.png
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - content.code.annotate
+    - content.code.copy
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.indexes
+extra:
+  homepage: https://www.trychroma.com
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/chroma-core/chroma
+      name: Chroma on GitHub
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/trychroma
+      name: Chroma on Twitter
+    - icon: fontawesome/brands/github
+      link: https://github.com/amikos-tech
+      name: Amikos on GitHub
+    - icon: fontawesome/brands/medium
+      link: https://medium.com/@amikostech
+      name: Amikos on Medium
+  analytics:
+    provider: google
+    property: G-NNN722BJKE
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies for analytics purposes. By continuing to use this website, you agree to their use.
+extra_javascript:
+  - javascripts/gtag.js
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - md_in_html
+  - markdown.extensions.extra
+  - toc:
+      permalink: true
+      title: On this page
+      toc_depth: 3
+  - tables
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: assets/snippets/
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+plugins:
+  - tags
+  - search
