@@ -7,7 +7,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/amikos-tech/chroma-go/collection"
 	"os"
 	"regexp"
 	"strings"
@@ -19,6 +18,7 @@ import (
 
 	chroma "github.com/amikos-tech/chroma-go"
 	"github.com/amikos-tech/chroma-go/cohere"
+	"github.com/amikos-tech/chroma-go/collection"
 	"github.com/amikos-tech/chroma-go/hf"
 	"github.com/amikos-tech/chroma-go/types"
 )
