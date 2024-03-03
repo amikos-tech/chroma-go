@@ -59,7 +59,8 @@ func Test_openai_client(t *testing.T) {
 		require.Nil(t, reqErr)
 		require.NotNil(t, resp)
 		require.Empty(t, ef.apiClient.OrgID)
-		require.Len(t, resp[0], 1536)
+		require.Len(t, resp, 1)
+		require.Len(t, *resp[0].GetFloat32(), 1536)
 	})
 
 	t.Run("Test With Model text-embedding-3-large", func(t *testing.T) {
@@ -72,7 +73,7 @@ func Test_openai_client(t *testing.T) {
 		require.Nil(t, reqErr)
 		require.NotNil(t, resp)
 		require.Empty(t, ef.apiClient.OrgID)
-		require.Len(t, resp[0], 3072)
+		require.Len(t, *resp[0].GetFloat32(), 3072)
 	})
 
 	t.Run("Test With Invalid Model", func(t *testing.T) {

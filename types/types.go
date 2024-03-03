@@ -149,10 +149,10 @@ type EmbeddingFunction interface {
 	EmbedDocuments(ctx context.Context, texts []string) ([]*Embedding, error)
 	// EmbedQuery embeds a single text.
 	EmbedQuery(ctx context.Context, text string) (*Embedding, error)
-	EmbedRecords(ctx context.Context, records []Record, force bool) error
+	EmbedRecords(ctx context.Context, records []*Record, force bool) error
 }
 
-func EmbedRecordsDefaultImpl(e EmbeddingFunction, ctx context.Context, records []Record, force bool) error {
+func EmbedRecordsDefaultImpl(e EmbeddingFunction, ctx context.Context, records []*Record, force bool) error {
 	m := make(map[string]int)
 	keys := make([]string, 0)
 	for i, r := range records {
@@ -269,7 +269,7 @@ func (e *ConsistentHashEmbeddingFunction) EmbedDocuments(ctx context.Context, do
 	return embeddings, nil
 }
 
-func (e *ConsistentHashEmbeddingFunction) EmbedRecords(ctx context.Context, records []Record, force bool) error {
+func (e *ConsistentHashEmbeddingFunction) EmbedRecords(ctx context.Context, records []*Record, force bool) error {
 	return EmbedRecordsDefaultImpl(e, ctx, records, force)
 }
 
