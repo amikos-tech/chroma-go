@@ -145,7 +145,7 @@ func (rs *RecordSet) WithRecord(recordOpts ...Option) *RecordSet {
 		err := opt(record)
 		if err != nil {
 			record.err = err
-			//TODO optionally write error to log
+			// TODO optionally write error to log
 		}
 	}
 	if record.ID == "" && rs.IDGenerator == nil {
