@@ -145,6 +145,6 @@ func (e *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	return types.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
 }
 
-func (e *CohereEmbeddingFunction) EmbedRecords(ctx context.Context, records []types.Record, force bool) error {
+func (e *CohereEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
 	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }

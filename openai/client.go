@@ -223,6 +223,6 @@ func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	return types.NewEmbeddingFromFloat32(ConvertToMatrix(response)[0]), nil
 }
 
-func (e *OpenAIEmbeddingFunction) EmbedRecords(ctx context.Context, records []types.Record, force bool) error {
+func (e *OpenAIEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
 	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }

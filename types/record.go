@@ -100,75 +100,28 @@ func (r *Record) Validate() error {
 	return nil
 }
 
-type RecordProducer struct {
-	IDGenerator              IDGenerator
-	InPlaceEmbeddingFunction EmbeddingFunction
-}
+type RecordSetOption func(*RecordSet) error
 
-type ProducerOption func(*RecordProducer) error
-
-func NewRecordProducer(opts ...ProducerOption) (*RecordProducer, error) {
-	p := &RecordProducer{}
-	for _, opt := range opts {
-		err := opt(p)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return p, nil
-}
-
-func WithIDGenerator(idGenerator IDGenerator) ProducerOption {
-	return func(p *RecordProducer) error {
+func WithIDGenerator(idGenerator IDGenerator) RecordSetOption {
+	return func(p *RecordSet) error {
 		p.IDGenerator = idGenerator
 		return nil
 	}
 }
 
-// WithInPlaceEmbeddingFunction sets the embedding function to be used for in place embedding.
-// IMPORTANT: This is very inefficient and should be used only for testing
-func WithInPlaceEmbeddingFunction(embeddingFunction EmbeddingFunction) ProducerOption {
-	return func(p *RecordProducer) error {
-		p.InPlaceEmbeddingFunction = embeddingFunction
+// WithEmbeddingFunction sets the embedding function to be used for in place embedding.
+func WithEmbeddingFunction(embeddingFunction EmbeddingFunction) RecordSetOption {
+	return func(p *RecordSet) error {
+		p.EmbeddingFunction = embeddingFunction
 		return nil
 	}
 }
 
-func (p *RecordProducer) Produce(recordOptions ...Option) (*Record, error) {
-	r := &Record{}
-	for _, opt := range recordOptions {
-		err := opt(r)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if !r.Embedding.IsDefined() && r.Document == "" && p.InPlaceEmbeddingFunction == nil {
-		return nil, fmt.Errorf("document or embedding or InPlace EmbeddingFunction must be provided")
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel() // cancel the context to release resources
-	if !r.Embedding.IsDefined() && r.Document != "" && p.InPlaceEmbeddingFunction != nil {
-		embedding, err := p.InPlaceEmbeddingFunction.EmbedQuery(ctx, r.Document)
-		if err != nil {
-			return nil, err
-		}
-		r.Embedding = *embedding
-	}
-	if r.ID == "" && p.IDGenerator == nil {
-		return nil, fmt.Errorf("either id or id generator is required. Use producer.WithIDGenerator or record.ID to set id")
-	}
-	if r.ID == "" {
-		r.ID = p.IDGenerator.Generate(r.Document)
-	}
-	return r, nil
-}
-
 type RecordSet struct {
-	Records []*Record
+	Records           []*Record
+	IDGenerator       IDGenerator
+	EmbeddingFunction EmbeddingFunction
 }
-
-type RecordSetOption func(*RecordSet) error
 
 func NewRecordSet(opts ...RecordSetOption) (*RecordSet, error) {
 	rs := &RecordSet{Records: make([]*Record, 0)}
@@ -181,18 +134,29 @@ func NewRecordSet(opts ...RecordSetOption) (*RecordSet, error) {
 	return rs, nil
 }
 
-func WithRecords(records []*Record) RecordSetOption {
-	return func(rs *RecordSet) error {
-		rs.Records = append(rs.Records, records...)
-		return nil
-	}
+func (rs *RecordSet) WithRecords(records []*Record) *RecordSet {
+	rs.Records = append(rs.Records, records...)
+	return rs
 }
 
-func WithRecord(record *Record) RecordSetOption {
-	return func(rs *RecordSet) error {
-		rs.Records = append(rs.Records, record)
-		return nil
+func (rs *RecordSet) WithRecord(recordOpts ...Option) *RecordSet {
+	record := &Record{}
+	for _, opt := range recordOpts {
+		err := opt(record)
+		if err != nil {
+			record.err = err
+			//TODO optionally write error to log
+		}
 	}
+	if record.ID == "" && rs.IDGenerator == nil {
+		record.err = fmt.Errorf("either id or id generator is required. Use producer.WithIDGenerator or record.ID to set id")
+	}
+
+	if record.ID == "" && rs.IDGenerator != nil {
+		record.ID = rs.IDGenerator.Generate(record.Document)
+	}
+	rs.Records = append(rs.Records, record)
+	return rs
 }
 
 func (rs *RecordSet) GetDocuments() []string {
@@ -235,11 +199,30 @@ func (rs *RecordSet) GetMetadatas() []map[string]interface{} {
 	return metadatas
 }
 
+// Validate the whole record set by calling record.Validate
 func (rs *RecordSet) Validate() error {
 	for _, record := range rs.Records {
-		if record.err != nil {
-			return record.err
+		err := record.Validate()
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (rs *RecordSet) BuildAndValidate(ctx context.Context) ([]*Record, error) {
+	err := rs.Validate()
+	if err != nil {
+		return nil, err
+	}
+	err = rs.EmbeddingFunction.EmbedRecords(ctx, rs.Records, false)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := rs.Validate(); err != nil {
+		return nil, err
+	}
+	return rs.Records, nil
 }

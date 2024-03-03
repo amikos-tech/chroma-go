@@ -443,7 +443,6 @@ func (c *Collection) Add(ctx context.Context, embeddings []*types.Embedding, met
 	}
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
-
 	if len(embeddings) == 0 {
 		embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, documents)
 		if embErr != nil {
@@ -457,7 +456,6 @@ func (c *Collection) Add(ctx context.Context, embeddings []*types.Embedding, met
 	if len(ids) == 0 {
 		return c, fmt.Errorf("ids cannot be empty")
 	}
-
 	var addEmbedding = openapiclient.AddEmbedding{
 		Embeddings: _embeddings,
 		Metadatas:  metadatas,

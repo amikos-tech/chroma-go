@@ -7,6 +7,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/amikos-tech/chroma-go/collection"
 	"os"
 	"regexp"
 	"strings"
@@ -119,9 +120,7 @@ func Test_chroma_client(t *testing.T) {
 		var metadata = map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
+		require.NoError(t, errRest)
 		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -136,9 +135,7 @@ func Test_chroma_client(t *testing.T) {
 		var metadata = map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
+		require.NoError(t, errRest)
 		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -156,9 +153,7 @@ func Test_chroma_client(t *testing.T) {
 		var metadata = map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
+		require.NoError(t, errRest)
 		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -189,17 +184,15 @@ func Test_chroma_client(t *testing.T) {
 		var metadata = map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
 
 		// assert the metadata contains key embedding_function
-		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
 		documents := []string{
 			"Document 1 content here",
 			"Document 2 content here",
@@ -213,7 +206,7 @@ func Test_chroma_client(t *testing.T) {
 			{"key1": "value1"},
 			{"key2": "value2"},
 		}
-		_, addError := collection.Add(context.Background(), nil, metadatas, documents, ids)
+		_, addError := newCollection.Add(context.Background(), nil, metadatas, documents, ids)
 		require.NoError(t, addError)
 
 		documentsNew := []string{
@@ -229,9 +222,9 @@ func Test_chroma_client(t *testing.T) {
 			{"key1": "value1"},
 			{"key2": "value2"},
 		}
-		_, upError := collection.Upsert(context.Background(), nil, metadatasNew, documentsNew, idsNew)
+		_, upError := newCollection.Upsert(context.Background(), nil, metadatasNew, documentsNew, idsNew)
 		require.NoError(t, upError)
-		getCollection, getError := collection.Get(context.Background(), nil, nil, nil, nil)
+		getCollection, getError := newCollection.Get(context.Background(), nil, nil, nil, nil)
 		require.NoError(t, getError)
 		require.NotNil(t, getCollection)
 		require.Equal(t, 3, len(getCollection.Documents))
@@ -243,17 +236,15 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
 
 		// assert the metadata contains key embedding_function
-		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
 		documents := []string{
 			"Document 1 content here",
 			"Document 2 content here",
@@ -267,7 +258,7 @@ func Test_chroma_client(t *testing.T) {
 			{"key1": "value1"},
 			{"key2": "value2"},
 		}
-		_, addError := collection.Add(context.Background(), nil, metadatas, documents, ids)
+		_, addError := newCollection.Add(context.Background(), nil, metadatas, documents, ids)
 		require.Nil(t, addError)
 
 		documentsNew := []string{
@@ -280,9 +271,9 @@ func Test_chroma_client(t *testing.T) {
 		metadatasNew := []map[string]interface{}{
 			{"key1": "updated1"},
 		}
-		_, upError := collection.Modify(context.Background(), nil, metadatasNew, documentsNew, idsNew)
+		_, upError := newCollection.Modify(context.Background(), nil, metadatasNew, documentsNew, idsNew)
 		require.NoError(t, upError)
-		getCollection, getError := collection.Get(context.Background(), nil, nil, nil, nil)
+		getCollection, getError := newCollection.Get(context.Background(), nil, nil, nil, nil)
 		require.NoError(t, getError)
 		require.NotNil(t, getCollection)
 		require.Equal(t, 2, len(getCollection.Documents))
@@ -302,9 +293,7 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
+		require.NoError(t, errRest)
 		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -340,16 +329,14 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
 		// assert the metadata contains key embedding_function
-		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
 		documents := []string{
 			"This is a document about cats. Cats are great.",
 			"this is a document about dogs. Dogs are great.",
@@ -363,7 +350,7 @@ func Test_chroma_client(t *testing.T) {
 			{"key1": "value1"},
 			{"key2": "value2"},
 		}
-		col, addError := collection.Add(context.Background(), nil, metadatas, documents, ids)
+		col, addError := newCollection.Add(context.Background(), nil, metadatas, documents, ids)
 		require.NoError(t, addError)
 
 		colGet, getErr := col.Count(context.Background())
@@ -381,9 +368,7 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
+		require.NoError(t, errRest)
 		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -418,9 +403,7 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
+		require.NoError(t, errRest)
 		_, _ = client.CreateCollection(context.Background(), collectionName1, metadata, true, embeddingFunction, types.L2)
 		_, _ = client.CreateCollection(context.Background(), collectionName2, metadata, true, embeddingFunction, types.L2)
 		collections, gcerr := client.ListCollections(context.Background())
@@ -454,9 +437,7 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
+		require.NoError(t, errRest)
 		_, _ = client.CreateCollection(context.Background(), collectionName1, metadata, true, embeddingFunction, types.L2)
 		_, _ = client.CreateCollection(context.Background(), collectionName2, metadata, true, embeddingFunction, types.L2)
 		collections, gcerr := client.ListCollections(context.Background())
@@ -485,9 +466,7 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
+		require.NoError(t, errRest)
 		col, ccerr := client.CreateCollection(context.Background(), collectionName1, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, ccerr)
 		// update collection
@@ -503,18 +482,16 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
-		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		deletedIds, dellErr := collection.Delete(context.Background(), []string{"ID1"}, nil, nil)
+		deletedIds, dellErr := newCollection.Delete(context.Background(), []string{"ID1"}, nil, nil)
 		require.NoError(t, dellErr)
 		require.Equal(t, 1, len(deletedIds))
 		require.Equal(t, "ID1", deletedIds[0])
@@ -525,18 +502,16 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
-		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		deletedIds, dellErr := collection.Delete(context.Background(), nil, map[string]interface{}{"key2": "value2"}, nil)
+		deletedIds, dellErr := newCollection.Delete(context.Background(), nil, map[string]interface{}{"key2": "value2"}, nil)
 		require.NoError(t, dellErr)
 		require.Equal(t, 1, len(deletedIds))
 		require.Equal(t, "ID2", deletedIds[0])
@@ -547,18 +522,16 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
-		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		deletedIds, dellErr := collection.Delete(context.Background(), nil, nil, map[string]interface{}{"$contains": "Document 1"})
+		deletedIds, dellErr := newCollection.Delete(context.Background(), nil, nil, map[string]interface{}{"$contains": "Document 1"})
 		require.NoError(t, dellErr)
 		require.Equal(t, 1, len(deletedIds))
 		require.Equal(t, "ID1", deletedIds[0])
@@ -577,18 +550,16 @@ func Test_chroma_client(t *testing.T) {
 		}
 		embeddingFunction := cohere.NewCohereEmbeddingFunction(apiKey)
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.COSINE)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.COSINE)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
 		// assert the metadata contains key embedding_function
-		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
-		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.Nil(t, addError)
 	})
 
@@ -605,17 +576,15 @@ func Test_chroma_client(t *testing.T) {
 		}
 		embeddingFunction := hf.NewHuggingFaceEmbeddingFunction(apiKey, "sentence-transformers/paraphrase-MiniLM-L6-v2")
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.IP)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.IP)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
-		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), collection.Metadata["embedding_function"])
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
-		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.Nil(t, addError)
 	})
 
@@ -624,18 +593,16 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
-		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), types.WithInclude(types.IEmbeddings))
+		getEmbeddings, dellErr := newCollection.GetWithOptions(context.Background(), types.WithInclude(types.IEmbeddings))
 		require.NoError(t, dellErr)
 		require.Len(t, getEmbeddings.Ids, 2)
 		require.Len(t, getEmbeddings.Embeddings, 2)
@@ -648,18 +615,16 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
-		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), types.WithInclude(types.IDocuments))
+		getEmbeddings, dellErr := newCollection.GetWithOptions(context.Background(), types.WithInclude(types.IDocuments))
 		require.NoError(t, dellErr)
 		require.Len(t, getEmbeddings.Ids, 2)
 		require.Len(t, getEmbeddings.Embeddings, 0)
@@ -672,22 +637,51 @@ func Test_chroma_client(t *testing.T) {
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
-		if errRest != nil {
-			assert.Fail(t, fmt.Sprintf("Error resetting database: %s", errRest))
-		}
-		collection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
-		require.NotNil(t, collection)
-		require.Equal(t, collectionName, collection.Name)
-		require.Equal(t, 2, len(collection.Metadata))
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
-		_, addError := collection.Add(context.Background(), embeds, docMetadata, docs, ids)
+		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		getEmbeddings, dellErr := collection.GetWithOptions(context.Background(), types.WithInclude(types.IMetadatas))
+		getEmbeddings, dellErr := newCollection.GetWithOptions(context.Background(), types.WithInclude(types.IMetadatas))
 		require.NoError(t, dellErr)
 		require.Len(t, getEmbeddings.Ids, 2)
 		require.Len(t, getEmbeddings.Embeddings, 0)
 		require.Len(t, getEmbeddings.Documents, 0)
 		require.Len(t, getEmbeddings.Metadatas, 2)
+	})
+
+	t.Run("Test With Collection Builder", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.NewCollection(
+			context.Background(),
+			collection.WithName("test-collection"),
+			collection.WithMetadata("key1", "value1"),
+			collection.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+			collection.WithHNSWDistanceFunction(types.L2),
+		)
+		require.NoError(t, err)
+		// let's create a record set
+		rs, rerr := types.NewRecordSet(
+			types.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+			types.WithIDGenerator(types.NewULIDGenerator()),
+		)
+		require.NoError(t, rerr)
+		// you can loop here to add multiple records
+		rs.WithRecord(types.WithDocument("Document 1 content"), types.WithMetadata("key1", "value1"))
+		rs.WithRecord(types.WithDocument("Document 2 content"), types.WithMetadata("key2", "value2"))
+		_, err = rs.BuildAndValidate(context.Background())
+		require.NoError(t, err)
+		_, err = newCollection.AddRecords(context.Background(), rs)
+		require.NoError(t, err)
+		require.NoError(t, err)
+		require.NotNil(t, newCollection)
+		require.Equal(t, "test-collection", newCollection.Name)
+		require.Equal(t, "value1", newCollection.Metadata["key1"])
+		require.Equal(t, string(types.L2), newCollection.Metadata[types.HNSWSpace])
 	})
 }
