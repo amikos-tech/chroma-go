@@ -2,7 +2,7 @@
 
 A simple Chroma Vector Database client written in Go
 
-Works with Chroma Version: v0.4.3 - v0.4.21
+Works with Chroma Version: v0.4.3 - v0.4.24
 
 ## Feature Parity with ChromaDB API
 
@@ -67,6 +67,8 @@ helm install chroma chroma/chromadb --set chromadb.allowReset=true,chromadb.apiV
 
 |**Note:** To delete the minikube cluster: `minikube delete --profile chromago`
 
+### Getting Started
+
 Consider the following example where:
 
 - We create a new collection
@@ -83,18 +85,10 @@ import (
 
 	chroma "github.com/amikos-tech/chroma-go"
 	openai "github.com/amikos-tech/chroma-go/openai"
-	godotenv "github.com/joho/godotenv"
 )
 
 func main() {
 	client := chroma.NewClient("http://localhost:8000")
-	collectionName := "test-collection"
-	Metadata := map[string]interface{}{}
-	err := godotenv.Load(".env")
-	if err != nil {
-		fmt.Printf("Error loading .env file: %s", err)
-		return
-	}
 	embeddingFunction := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY")) //create a new OpenAI Embedding function
 	distanceFunction := chroma.L2
 	_, errRest := client.Reset() //reset the database
