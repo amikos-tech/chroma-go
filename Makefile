@@ -19,3 +19,8 @@ lint-fix:
 .PHONY: clean-lint-cache
 clean-lint-cache:
 	golangci-lint cache clean
+
+
+.PHONY: server
+server:
+	sh ./scripts/chroma_server.sh
