@@ -12,11 +12,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Masterminds/semver"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	chroma "github.com/amikos-tech/chroma-go"
+	"github.com/amikos-tech/chroma-go"
 	"github.com/amikos-tech/chroma-go/cohere"
 	"github.com/amikos-tech/chroma-go/collection"
 	"github.com/amikos-tech/chroma-go/hf"
@@ -64,6 +65,15 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Create Tenant", func(t *testing.T) {
 		_, err := client.Reset(context.Background())
 		require.NoError(t, err)
+		multiTenantAPIVersion, err := semver.NewConstraint(">=0.4.15")
+		require.NoError(t, err)
+		_version, err := client.Version(context.Background())
+		require.NoError(t, err)
+		version, err := semver.NewVersion(strings.ReplaceAll(_version, `"`, ""))
+		require.NoError(t, err)
+		if !multiTenantAPIVersion.Check(version) {
+			t.Skipf("Skipping test for version %s", version.String())
+		}
 		_, err = client.CreateTenant(context.Background(), "test-tenant")
 		require.NoError(t, err)
 	})
@@ -71,6 +81,15 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test Get Tenant", func(t *testing.T) {
 		_, err := client.Reset(context.Background())
 		require.NoError(t, err)
+		multiTenantAPIVersion, err := semver.NewConstraint(">=0.4.15")
+		require.NoError(t, err)
+		_version, err := client.Version(context.Background())
+		require.NoError(t, err)
+		version, err := semver.NewVersion(strings.ReplaceAll(_version, `"`, ""))
+		require.NoError(t, err)
+		if !multiTenantAPIVersion.Check(version) {
+			t.Skipf("Skipping test for version %s", version.String())
+		}
 		_, err = client.CreateTenant(context.Background(), "test-tenant")
 		require.NoError(t, err)
 		resp, err := client.GetTenant(context.Background(), "test-tenant")
@@ -82,6 +101,15 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test create database", func(t *testing.T) {
 		_, err := client.Reset(context.Background())
 		require.NoError(t, err)
+		multiTenantAPIVersion, err := semver.NewConstraint(">=0.4.15")
+		require.NoError(t, err)
+		_version, err := client.Version(context.Background())
+		require.NoError(t, err)
+		version, err := semver.NewVersion(strings.ReplaceAll(_version, `"`, ""))
+		require.NoError(t, err)
+		if !multiTenantAPIVersion.Check(version) {
+			t.Skipf("Skipping test for version %s", version.String())
+		}
 		_, err = client.CreateDatabase(context.Background(), "test db", nil)
 		require.NoError(t, err)
 	})
@@ -89,6 +117,15 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test get database", func(t *testing.T) {
 		_, err := client.Reset(context.Background())
 		require.NoError(t, err)
+		multiTenantAPIVersion, err := semver.NewConstraint(">=0.4.15")
+		require.NoError(t, err)
+		_version, err := client.Version(context.Background())
+		require.NoError(t, err)
+		version, err := semver.NewVersion(strings.ReplaceAll(_version, `"`, ""))
+		require.NoError(t, err)
+		if !multiTenantAPIVersion.Check(version) {
+			t.Skipf("Skipping test for version %s", version.String())
+		}
 		_, err = client.CreateDatabase(context.Background(), "test db", nil)
 		require.NoError(t, err)
 		resp, err := client.GetDatabase(context.Background(), "test db", nil)
@@ -102,6 +139,15 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test create database with custom tenant", func(t *testing.T) {
 		_, err := client.Reset(context.Background())
 		require.NoError(t, err)
+		multiTenantAPIVersion, err := semver.NewConstraint(">=0.4.15")
+		require.NoError(t, err)
+		_version, err := client.Version(context.Background())
+		require.NoError(t, err)
+		version, err := semver.NewVersion(strings.ReplaceAll(_version, `"`, ""))
+		require.NoError(t, err)
+		if !multiTenantAPIVersion.Check(version) {
+			t.Skipf("Skipping test for version %s", version.String())
+		}
 		var tenant = "test-tenant"
 		_, err = client.CreateTenant(context.Background(), tenant)
 		require.NoError(t, err)
@@ -135,6 +181,15 @@ func Test_chroma_client(t *testing.T) {
 		var metadata = map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
 		_, errRest := client.Reset(context.Background())
+		supportedVersion, err := semver.NewConstraint(">=0.4.20")
+		require.NoError(t, err)
+		_version, err := client.Version(context.Background())
+		require.NoError(t, err)
+		version, err := semver.NewVersion(strings.ReplaceAll(_version, `"`, ""))
+		require.NoError(t, err)
+		if !supportedVersion.Check(version) {
+			t.Skipf("Skipping test for version %s", version.String())
+		}
 		require.NoError(t, errRest)
 		resp, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
 		require.NoError(t, err)
