@@ -2,7 +2,6 @@
 
 An experimental Go client for ChromaDB.
 
-
 ## Installation
 
 Add the library to your project:
@@ -19,14 +18,18 @@ Import the library:
 package main
 
 import (
-    chroma "github.com/amikos-tech/chroma-go"
-    "github.com/amikos-tech/chroma-go/collection"
-    openai "github.com/amikos-tech/chroma-go/openai"
-    "github.com/amikos-tech/chroma-go/types"
+	chroma "github.com/amikos-tech/chroma-go"
+	"github.com/amikos-tech/chroma-go/collection"
+	openai "github.com/amikos-tech/chroma-go/openai"
+	"github.com/amikos-tech/chroma-go/types"
 )
 ```
 
-### Create a new collection
+### CRUD Operations
+
+Ensure you have a running instance of Chroma running.
+See [this doc](https://cookbook.chromadb.dev/running/running-chroma/#running-chroma) for more info how to run local
+Chroma instance.
 
 Here's a simple example of creating a new collection:
 
@@ -54,11 +57,28 @@ func main() {
 	}
 
 	// Create a new collection with OpenAI embedding function, L2 distance function and metadata
-	collection, err := client.CreateCollection(ctx, "my-collection", map[string]interface{}{"key1": "value1"}, true, openaiEf, types.L2)
+	_, err = client.CreateCollection(ctx, "my-collection", map[string]interface{}{"key1": "value1"}, true, openaiEf, types.L2)
 	if err != nil {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
-	fmt.Printf("Collection created: %v\n", collection)
+	
+	// Get collection
+	collection, err := client.GetCollection(ctx, "my-collection", openaiEf)
+	if err != nil {
+        log.Fatalf("Failed to get collection: %v", err)
+    }
+	
+	// Modify collection
+	_, err = collection.Update(ctx, "new-collection",nil)
+	if err != nil {
+        log.Fatalf("Failed to update collection: %v", err)
+    }
+	
+	// Delete collection
+	_, err = client.DeleteCollection(ctx, "new-collection")
+	if err != nil {
+        log.Fatalf("Failed to delete collection: %v", err)
+    }
 }
 ```
 
@@ -117,36 +137,36 @@ Here's a simple example of querying documents in a collection:
 package main
 
 import (
-    "context"
-    "fmt"
-    "log"
-    "os"
+	"context"
+	"fmt"
+	"log"
+	"os"
 
-    chroma "github.com/amikos-tech/chroma-go"
-    "github.com/amikos-tech/chroma-go/openai"
+	chroma "github.com/amikos-tech/chroma-go"
+	"github.com/amikos-tech/chroma-go/openai"
 )
 
 func main() {
-    ctx := context.Background()
-    client := chroma.NewClient("localhost:8000")
+	ctx := context.Background()
+	client := chroma.NewClient("localhost:8000")
 
-    openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
-    if err != nil {
-        log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
-    }
-    // Get the collection we created earlier
-    collection, err := client.GetCollection(ctx, "my-collection", openaiEf)
-    if err != nil {
-        log.Fatalf("Failed to create collection: %v", err)
-        return
-    }
-    data, err := collection.Query(context.TODO(), []string{"I love dogs"}, 5, nil, nil, nil)
-    if err != nil {
-        log.Fatalf("Error querying documents: %v\n", err)
-        return
-    }
+	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+	if err != nil {
+		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
+	}
+	// Get the collection we created earlier
+	collection, err := client.GetCollection(ctx, "my-collection", openaiEf)
+	if err != nil {
+		log.Fatalf("Failed to create collection: %v", err)
+		return
+	}
+	data, err := collection.Query(context.TODO(), []string{"I love dogs"}, 5, nil, nil, nil)
+	if err != nil {
+		log.Fatalf("Error querying documents: %v\n", err)
+		return
+	}
 	// see QueryResults struct for more details
-    fmt.Printf("Collection data: %v\n", data)
+	fmt.Printf("Collection data: %v\n", data)
 }
 ```
 
@@ -158,34 +178,34 @@ Here's a simple example of deleting documents from a collection:
 package main
 
 import (
-    "context"
-    "fmt"
-    "log"
-    "os"
+	"context"
+	"fmt"
+	"log"
+	"os"
 
-    chroma "github.com/amikos-tech/chroma-go"
-    "github.com/amikos-tech/chroma-go/openai"
+	chroma "github.com/amikos-tech/chroma-go"
+	"github.com/amikos-tech/chroma-go/openai"
 )
 
 func main() {
-    ctx := context.Background()
-    client := chroma.NewClient("localhost:8000")
+	ctx := context.Background()
+	client := chroma.NewClient("localhost:8000")
 
-    openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
-    if err != nil {
-        log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
-    }
-    // Get the collection we created earlier
-    collection, err := client.GetCollection(ctx, "my-collection", openaiEf)
-    if err != nil {
-        log.Fatalf("Failed to create collection: %v", err)
-        return
-    }
-    _, err = collection.Delete(context.TODO(), []string{"ID1"},nil,nil)
-    if err != nil {
-        log.Fatalf("Error deleting documents: %v\n", err)
-        return
-    }
-    fmt.Printf("Documents deleted\n")
+	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+	if err != nil {
+		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
+	}
+	// Get the collection we created earlier
+	collection, err := client.GetCollection(ctx, "my-collection", openaiEf)
+	if err != nil {
+		log.Fatalf("Failed to create collection: %v", err)
+		return
+	}
+	_, err = collection.Delete(context.TODO(), []string{"ID1"}, nil, nil)
+	if err != nil {
+		log.Fatalf("Error deleting documents: %v\n", err)
+		return
+	}
+	fmt.Printf("Documents deleted\n")
 }
 ```
