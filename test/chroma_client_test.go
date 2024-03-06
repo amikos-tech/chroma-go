@@ -30,14 +30,16 @@ func Test_chroma_client(t *testing.T) {
 	if chromaURL == "" {
 		chromaURL = "http://localhost:8000"
 	}
-	client := chroma.NewClient(chromaURL)
+	client, err := chroma.NewClient(chromaURL)
+	require.NoError(t, err)
 
 	t.Run("Test client with default tenant", func(t *testing.T) {
 		tenant := types.DefaultTenant
-		clientWithTenant := chroma.NewClient(chromaURL, chroma.WithTenant(tenant))
+		clientWithTenant, err := chroma.NewClient(chromaURL, chroma.WithTenant(tenant))
+		require.NoError(t, err)
 		require.NotNil(t, clientWithTenant)
 		assert.Equal(t, tenant, clientWithTenant.Tenant)
-		_, err := clientWithTenant.Reset(context.Background())
+		_, err = clientWithTenant.Reset(context.Background())
 		require.NoError(t, err)
 		_, err = clientWithTenant.ListCollections(context.Background())
 		require.NoError(t, err)
@@ -46,10 +48,11 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test client with default tenant and db", func(t *testing.T) {
 		tenant := types.DefaultTenant
 		database := types.DefaultDatabase
-		clientWithTenant := chroma.NewClient(chromaURL, chroma.WithTenant(tenant), chroma.WithDatabase(database))
+		clientWithTenant, err := chroma.NewClient(chromaURL, chroma.WithTenant(tenant), chroma.WithDatabase(database))
+		require.NoError(t, err)
 		require.NotNil(t, clientWithTenant)
 		assert.Equal(t, tenant, clientWithTenant.Tenant)
-		_, err := clientWithTenant.Reset(context.Background())
+		_, err = clientWithTenant.Reset(context.Background())
 		require.NoError(t, err)
 		_, err = clientWithTenant.ListCollections(context.Background())
 		require.NoError(t, err)
