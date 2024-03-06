@@ -112,6 +112,7 @@ type Client struct {
 	APIVersion         semver.Version
 	preFlightConfig    map[string]interface{}
 	preFlightCompleted bool
+	apiConfiguration   *openapiclient.Configuration
 }
 
 type ClientOption func(p *Client) error
@@ -132,6 +133,25 @@ func WithDatabase(database string) ClientOption {
 	}
 }
 
+func WithDebug(debug bool) ClientOption {
+	return func(c *Client) error {
+		if c.apiConfiguration == nil {
+			c.apiConfiguration = openapiclient.NewConfiguration()
+		}
+		c.apiConfiguration.Debug = debug
+		return nil
+	}
+}
+func WithDefaultHeaders(headers map[string]string) ClientOption {
+	return func(c *Client) error {
+		if c.apiConfiguration == nil {
+			c.apiConfiguration = openapiclient.NewConfiguration()
+		}
+		c.apiConfiguration.DefaultHeader = headers
+		return nil
+	}
+}
+
 func applyOptions(c *Client, options ...ClientOption) error {
 	for _, opt := range options {
 		if err := opt(c); err != nil {
@@ -141,27 +161,25 @@ func applyOptions(c *Client, options ...ClientOption) error {
 	return nil
 }
 
-func NewClient(basePath string, options ...ClientOption) *Client {
-	configuration := openapiclient.NewConfiguration()
-	configuration.Servers = openapiclient.ServerConfigurations{
+func NewClient(basePath string, options ...ClientOption) (*Client, error) {
+	c := &Client{
+		Tenant:           types.DefaultTenant,
+		Database:         types.DefaultDatabase,
+		apiConfiguration: openapiclient.NewConfiguration(),
+	}
+
+	c.apiConfiguration.Servers = openapiclient.ServerConfigurations{
 		{
 			URL:         basePath,
 			Description: "No description provided",
 		},
 	}
-	configuration.Debug = true
-	apiClient := openapiclient.NewAPIClient(configuration)
-
-	c := &Client{
-		ApiClient: apiClient,
-		Tenant:    types.DefaultTenant,
-		Database:  types.DefaultDatabase,
-	}
 	err := applyOptions(c, options...)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return c
+	c.ApiClient = openapiclient.NewAPIClient(c.apiConfiguration)
+	return c, nil
 }
 
 func (c *Client) SetTenant(tenant string) {
@@ -400,12 +418,6 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 	return version, err
 }
 
-type CollectionData struct {
-	Ids       []string                 `json:"ids,omitempty"`
-	Documents []string                 `json:"documents,omitempty"`
-	Metadatas []map[string]interface{} `json:"metadatas,omitempty"`
-}
-
 type GetResults struct {
 	Ids        []string
 	Documents  []string
@@ -421,6 +433,11 @@ type Collection struct {
 	ID                string
 	Tenant            string
 	Database          string
+}
+
+func (c *Collection) String() string {
+	return fmt.Sprintf("Collection{ Name: %s, ID: %s, Tenant: %s, Database: %s, Metadata: %v }",
+		c.Name, c.ID, c.Tenant, c.Database, c.Metadata)
 }
 
 func NewCollection(apiClient *openapiclient.APIClient, id string, name string, metadata map[string]interface{}, embeddingFunction types.EmbeddingFunction, tenant string, database string) *Collection {
