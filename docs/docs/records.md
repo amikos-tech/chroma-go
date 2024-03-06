@@ -1,6 +1,15 @@
 # Records
 
-Records are a coherency mechanism that allows you to manage Chroma data in a structured way.
+Records are a mechanism that allows you to manage Chroma documents as a cohesive unit. This has several advantages over
+the traditional approach of managing documents, ids, embeddings, and metadata separately.
+
+Two concepts are important to keep in mind here:
+
+- Record - corresponds to a single document in Chroma which includes id, embedding, metadata, the document or URI
+- RecordSet - a single unit of work to insert, upsert, update or delete records.
+
+
+## Record
 
 A Record contains the following fields:
 
@@ -24,3 +33,7 @@ type Record struct {
 	err       error // indicating whether the record is valid
 }
 ```
+
+## RecordSet
+
+TBD
