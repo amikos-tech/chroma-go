@@ -36,7 +36,7 @@ func main() {
 		chroma.WithTenant("my_tenant"), 
 		chroma.WithDatabase("my_db"), 
 		chroma.WithDebug(true), 
-		chroma.WithDefaultHeaders(map[string]string{"Authorization": "Bearer my token"})
+		chroma.WithDefaultHeaders(map[string]string{"Authorization": "Bearer my token"}),
 		)
     if err != nil {
         fmt.Printf("Failed to create client: %v", err)
