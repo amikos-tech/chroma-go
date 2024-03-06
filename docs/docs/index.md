@@ -25,6 +25,29 @@ import (
 )
 ```
 
+New client:
+
+!!! note Client Options
+    
+    Check [Client Options](client.md) for more details.
+
+```go
+package main
+
+import (
+	chroma "github.com/amikos-tech/chroma-go"
+	"fmt"
+)
+
+func main() {
+    client,err := chroma.NewClient("localhost:8000")
+    if err != nil {
+        fmt.Printf("Failed to create client: %v", err)
+    }
+	// do something with client
+}
+```
+
 ### CRUD Operations
 
 Ensure you have a running instance of Chroma running.
