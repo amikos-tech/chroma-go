@@ -10,7 +10,7 @@ Add the library to your project:
 go get github.com/amikos-tech/chroma-go
 ```
 
-## Usage
+## Getting Started
 
 Import the library:
 
@@ -47,6 +47,10 @@ func main() {
 	// do something with client
 }
 ```
+
+### Embedding Functions
+
+The client supports a number of embedding wrapper functions. See [Embeddings](embeddings.md) for more details.
 
 ### CRUD Operations
 
