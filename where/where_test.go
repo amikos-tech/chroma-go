@@ -4,8 +4,15 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/amikos-tech/chroma-go/test"
+	"github.com/stretchr/testify/require"
 )
+
+func Compare(t *testing.T, actual, expected map[string]interface{}) bool {
+	builtExprJSON, _ := json.Marshal(actual)
+	expectedJSON, _ := json.Marshal(expected)
+	require.Equal(t, string(expectedJSON), string(builtExprJSON))
+	return true
+}
 
 func TestWhereBuilder(t *testing.T) {
 	t.Run("Test eq with invalid value", func(t *testing.T) {
@@ -318,79 +325,88 @@ func TestWhereBuilder(t *testing.T) {
 func TestWhereBuilderWithOptions(t *testing.T) {
 	t.Run("Eq", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(Eq("a", 1))
+		var x, err = Where(Eq("a", 1))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"a": map[string]interface{}{"$eq": 1},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("Ne", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(Ne("a", 1))
+		var x, err = Where(Ne("a", 1))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"a": map[string]interface{}{"$ne": 1},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("Gt", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(Gt("a", 1))
+		var x, err = Where(Gt("a", 1))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"a": map[string]interface{}{"$gt": 1},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("Gte", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(Gte("a", 1))
+		var x, err = Where(Gte("a", 1))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"a": map[string]interface{}{"$gte": 1},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("Lt", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(Lt("a", 1))
+		var x, err = Where(Lt("a", 1))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"a": map[string]interface{}{"$lt": 1},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("Lte", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(Lte("a", 1))
+		var x, err = Where(Lte("a", 1))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"a": map[string]interface{}{"$lte": 1},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("In", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(In("a", []interface{}{1, 2, 3}))
+		var x, err = Where(In("a", []interface{}{1, 2, 3}))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"a": map[string]interface{}{"$in": []interface{}{1, 2, 3}},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("Nin", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(Nin("a", []interface{}{1, 2, 3}))
+		var x, err = Where(Nin("a", []interface{}{1, 2, 3}))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"a": map[string]interface{}{"$nin": []interface{}{1, 2, 3}},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("And", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(And(Eq("a", 1), Ne("b", 2)))
+		var x, err = Where(And(Eq("a", 1), Ne("b", 2)))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"$and": []map[string]interface{}{
 				{
@@ -401,12 +417,13 @@ func TestWhereBuilderWithOptions(t *testing.T) {
 				},
 			},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("Or", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(Or(Eq("a", 1), Ne("b", 2)))
+		var x, err = Where(Or(Eq("a", 1), Ne("b", 2)))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"$or": []map[string]interface{}{
 				{
@@ -417,11 +434,11 @@ func TestWhereBuilderWithOptions(t *testing.T) {
 				},
 			},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 	t.Run("Test nested where", func(t *testing.T) {
 		t.Parallel()
-		var x = Where(
+		var x, err = Where(
 			And(
 				Eq("a", 1),
 				Or(
@@ -430,6 +447,7 @@ func TestWhereBuilderWithOptions(t *testing.T) {
 				),
 			),
 		)
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"$and": []map[string]interface{}{
 				{
@@ -447,6 +465,6 @@ func TestWhereBuilderWithOptions(t *testing.T) {
 				},
 			},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 }

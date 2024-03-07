@@ -22,6 +22,8 @@ import (
 	"github.com/amikos-tech/chroma-go/collection"
 	"github.com/amikos-tech/chroma-go/hf"
 	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/where"
+	wheredoc "github.com/amikos-tech/chroma-go/where_document"
 )
 
 func Test_chroma_client(t *testing.T) {
@@ -736,10 +738,78 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, err)
 		_, err = newCollection.AddRecords(context.Background(), rs)
 		require.NoError(t, err)
-		require.NoError(t, err)
 		require.NotNil(t, newCollection)
 		require.Equal(t, "test-collection", newCollection.Name)
 		require.Equal(t, "value1", newCollection.Metadata["key1"])
 		require.Equal(t, string(types.L2), newCollection.Metadata[types.HNSWSpace])
+	})
+
+	t.Run("Test Get With Where Option", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.NewCollection(
+			context.Background(),
+			collection.WithName("test-collection"),
+			collection.WithMetadata("key1", "value1"),
+			collection.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+			collection.WithHNSWDistanceFunction(types.L2),
+		)
+		require.NoError(t, err)
+		// let's create a record set
+		rs, rerr := types.NewRecordSet(
+			types.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+			types.WithIDGenerator(types.NewULIDGenerator()),
+		)
+		require.NoError(t, rerr)
+		// you can loop here to add multiple records
+		rs.WithRecord(types.WithDocument("Document 1 content"), types.WithMetadata("key1", "value1"))
+		rs.WithRecord(types.WithDocument("Document 2 content"), types.WithMetadata("key2", "value2"))
+		rs.WithRecord(types.WithDocument("Document 3 content"), types.WithMetadata("key3", "value3"))
+		_, err = rs.BuildAndValidate(context.Background())
+		require.NoError(t, err)
+		newCollection, err = newCollection.AddRecords(context.Background(), rs)
+		require.NoError(t, err)
+
+		result, err := newCollection.GetWithOptions(context.Background(), types.WithWhere(where.Or(where.Eq("key1", "value1"), where.Eq("key2", "value2"))))
+		require.NoError(t, err)
+		require.Len(t, result.Ids, 2)
+		require.Contains(t, result.Documents, "Document 1 content")
+		require.Contains(t, result.Documents, "Document 2 content")
+		require.NotContains(t, result.Documents, "Document 3 content")
+	})
+
+	t.Run("Test Get With WhereDocument Option", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.NewCollection(
+			context.Background(),
+			collection.WithName("test-collection"),
+			collection.WithMetadata("key1", "value1"),
+			collection.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+			collection.WithHNSWDistanceFunction(types.L2),
+		)
+		require.NoError(t, err)
+		// let's create a record set
+		rs, rerr := types.NewRecordSet(
+			types.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+			types.WithIDGenerator(types.NewULIDGenerator()),
+		)
+		require.NoError(t, rerr)
+		// you can loop here to add multiple records
+		rs.WithRecord(types.WithDocument("Document 1 content"), types.WithMetadata("key1", "value1"))
+		rs.WithRecord(types.WithDocument("Document 2 content"), types.WithMetadata("key2", "value2"))
+		rs.WithRecord(types.WithDocument("Document 3 content"), types.WithMetadata("key3", "value3"))
+		_, err = rs.BuildAndValidate(context.Background())
+		require.NoError(t, err)
+		newCollection, err = newCollection.AddRecords(context.Background(), rs)
+		require.NoError(t, err)
+
+		result, err := newCollection.GetWithOptions(context.Background(), types.WithWhereDocument(wheredoc.Or(wheredoc.Contains("Document 1"), wheredoc.Contains("Document 2"))))
+		require.NoError(t, err)
+		require.Len(t, result.Ids, 2)
+		fmt.Printf("Result: %v\n", result)
+		require.Contains(t, result.Documents, "Document 1 content")
+		require.Contains(t, result.Documents, "Document 2 content")
+		require.NotContains(t, result.Documents, "Document 3 content")
 	})
 }

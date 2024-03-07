@@ -14,6 +14,8 @@ import (
 	"github.com/oklog/ulid"
 
 	openapi "github.com/amikos-tech/chroma-go/swagger"
+	"github.com/amikos-tech/chroma-go/where"
+	wheredoc "github.com/amikos-tech/chroma-go/where_document"
 )
 
 type DistanceFunction string
@@ -47,23 +49,6 @@ type InvalidMetadataValueError struct {
 
 func (e *InvalidMetadataValueError) Error() string {
 	return fmt.Sprintf("Invalid metadata value type for key %s: %T", e.Key, e.Value)
-}
-
-type InvalidWhereValueError struct {
-	Key   string
-	Value interface{}
-}
-
-func (e *InvalidWhereValueError) Error() string {
-	return fmt.Sprintf("Invalid value for where clause for key %s: %v. Allowed values are string, int, float, bool", e.Key, e.Value)
-}
-
-type InvalidWhereDocumentValueError struct {
-	Value interface{}
-}
-
-func (e *InvalidWhereDocumentValueError) Error() string {
-	return fmt.Sprintf("Invalid value for where document clause for value %v. Allowed values are string", e.Value)
 }
 
 type InvalidEmbeddingValueError struct {
@@ -291,7 +276,7 @@ type CollectionQueryBuilder struct {
 
 type CollectionQueryOption func(*CollectionQueryBuilder) error
 
-func WithWhere(where map[string]interface{}) CollectionQueryOption {
+func WithWhereMap(where map[string]interface{}) CollectionQueryOption {
 	return func(c *CollectionQueryBuilder) error {
 		// TODO validate where
 		c.Where = where
@@ -299,10 +284,31 @@ func WithWhere(where map[string]interface{}) CollectionQueryOption {
 	}
 }
 
-func WithWhereDocument(where map[string]interface{}) CollectionQueryOption {
+func WithWhere(operation where.WhereOperation) CollectionQueryOption {
+	return func(c *CollectionQueryBuilder) error {
+		expr, err := where.Where(operation)
+		if err != nil {
+			return err
+		}
+		c.Where = expr
+		return nil
+	}
+}
+
+func WithWhereDocumentMap(where map[string]interface{}) CollectionQueryOption {
 	return func(c *CollectionQueryBuilder) error {
 		// TODO validate where
 		c.WhereDocument = where
+		return nil
+	}
+}
+func WithWhereDocument(operation wheredoc.WhereDocumentOperation) CollectionQueryOption {
+	return func(c *CollectionQueryBuilder) error {
+		expr, err := wheredoc.WhereDocument(operation)
+		if err != nil {
+			return err
+		}
+		c.WhereDocument = expr
 		return nil
 	}
 }
