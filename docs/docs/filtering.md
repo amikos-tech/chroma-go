@@ -1,7 +1,9 @@
 # Filtering
 
-TODO - describe what is filtering, what it can be used for and why the implementation aims to maximum efficiency and API
-ergonomics.
+Chroma offers two types of filters:
+
+- Metadata - filtering based on metadata attribute values
+- Documents - filtering based on document content (contains or not contains)
 
 ## Metadata
 
