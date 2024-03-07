@@ -631,22 +631,6 @@ func getMetadataFromAPI(metadata *map[string]openapiclient.Metadata) map[string]
 	return result
 }
 
-func getMetadataInnerFromAPI(metadata *map[string]openapiclient.Metadata) map[string]interface{} {
-	result := make(map[string]interface{})
-	for key, value := range *metadata {
-		if value.String != nil {
-			result[key] = *value.String
-		} else if value.Bool != nil {
-			result[key] = *value.Bool
-		} else if value.Float32 != nil {
-			result[key] = *value.Float32
-		} else if value.Int32 != nil {
-			result[key] = *value.Int32
-		}
-	}
-	return result
-}
-
 func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults int32, where map[string]interface{}, whereDocuments map[string]interface{}, include []types.QueryEnum) (*QueryResults, error) {
 	return c.QueryWithOptions(ctx, types.WithQueryTexts(queryTexts), types.WithNResults(nResults), types.WithWhereMap(where), types.WithWhereDocumentMap(whereDocuments), types.WithInclude(include...))
 }
