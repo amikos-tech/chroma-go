@@ -15,8 +15,8 @@ import (
 	"fmt"
 )
 
-// MetadatasInnerValue struct for MetadatasInnerValue
-type MetadatasInnerValue struct {
+// Metadata struct for Metadata
+type Metadata struct {
 	Bool    *bool
 	Float32 *float32
 	Int32   *int32
@@ -24,7 +24,7 @@ type MetadatasInnerValue struct {
 }
 
 // Unmarshal JSON data into any of the pointers in the struct
-func (dst *MetadatasInnerValue) UnmarshalJSON(data []byte) error {
+func (dst *Metadata) UnmarshalJSON(data []byte) error {
 	var err error
 	// try to unmarshal JSON data into Bool
 	err = json.Unmarshal(data, &dst.Bool)
@@ -39,19 +39,6 @@ func (dst *MetadatasInnerValue) UnmarshalJSON(data []byte) error {
 		dst.Bool = nil
 	}
 
-	// try to unmarshal JSON data into Float32
-	err = json.Unmarshal(data, &dst.Float32)
-	if err == nil {
-		jsonFloat32, _ := json.Marshal(dst.Float32)
-		if string(jsonFloat32) == "{}" { // empty struct
-			dst.Float32 = nil
-		} else {
-			return nil // data stored in dst.Float32, return on the first match
-		}
-	} else {
-		dst.Float32 = nil
-	}
-
 	// try to unmarshal JSON data into Int32
 	err = json.Unmarshal(data, &dst.Int32)
 	if err == nil {
@@ -63,6 +50,18 @@ func (dst *MetadatasInnerValue) UnmarshalJSON(data []byte) error {
 		}
 	} else {
 		dst.Int32 = nil
+	}
+	// try to unmarshal JSON data into Float32
+	err = json.Unmarshal(data, &dst.Float32)
+	if err == nil {
+		jsonFloat32, _ := json.Marshal(dst.Float32)
+		if string(jsonFloat32) == "{}" { // empty struct
+			dst.Float32 = nil
+		} else {
+			return nil // data stored in dst.Float32, return on the first match
+		}
+	} else {
+		dst.Float32 = nil
 	}
 
 	// try to unmarshal JSON data into String
@@ -78,11 +77,11 @@ func (dst *MetadatasInnerValue) UnmarshalJSON(data []byte) error {
 		dst.String = nil
 	}
 
-	return fmt.Errorf("data failed to match schemas in anyOf(MetadatasInnerValue)")
+	return fmt.Errorf("data failed to match schemas in anyOf(Metadata)")
 }
 
 // Marshal data from the first non-nil pointers in the struct to JSON
-func (src *MetadatasInnerValue) MarshalJSON() ([]byte, error) {
+func (src *Metadata) MarshalJSON() ([]byte, error) {
 	if src.Bool != nil {
 		return json.Marshal(&src.Bool)
 	}
@@ -102,38 +101,38 @@ func (src *MetadatasInnerValue) MarshalJSON() ([]byte, error) {
 	return nil, nil // no data in anyOf schemas
 }
 
-type NullableMetadatasInnerValue struct {
-	value *MetadatasInnerValue
+type NullableMetadata struct {
+	value *Metadata
 	isSet bool
 }
 
-func (v NullableMetadatasInnerValue) Get() *MetadatasInnerValue {
+func (v NullableMetadata) Get() *Metadata {
 	return v.value
 }
 
-func (v *NullableMetadatasInnerValue) Set(val *MetadatasInnerValue) {
+func (v *NullableMetadata) Set(val *Metadata) {
 	v.value = val
 	v.isSet = true
 }
 
-func (v NullableMetadatasInnerValue) IsSet() bool {
+func (v NullableMetadata) IsSet() bool {
 	return v.isSet
 }
 
-func (v *NullableMetadatasInnerValue) Unset() {
+func (v *NullableMetadata) Unset() {
 	v.value = nil
 	v.isSet = false
 }
 
-func NewNullableMetadatasInnerValue(val *MetadatasInnerValue) *NullableMetadatasInnerValue {
-	return &NullableMetadatasInnerValue{value: val, isSet: true}
+func NewNullableMetadata(val *Metadata) *NullableMetadata {
+	return &NullableMetadata{value: val, isSet: true}
 }
 
-func (v NullableMetadatasInnerValue) MarshalJSON() ([]byte, error) {
+func (v NullableMetadata) MarshalJSON() ([]byte, error) {
 	return json.Marshal(v.value)
 }
 
-func (v *NullableMetadatasInnerValue) UnmarshalJSON(src []byte) error {
+func (v *NullableMetadata) UnmarshalJSON(src []byte) error {
 	v.isSet = true
 	return json.Unmarshal(src, &v.value)
 }

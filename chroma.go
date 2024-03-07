@@ -19,7 +19,7 @@ type ClientConfiguration struct {
 	EmbeddingFunction types.EmbeddingFunction `json:"embeddingFunction,omitempty"`
 }
 
-func APIMetadataToMap(metadata map[string]openapiclient.MetadatasInnerValue) map[string]interface{} {
+func APIMetadataToMap(metadata map[string]openapiclient.Metadata) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range metadata {
 		result[k] = v
@@ -27,7 +27,7 @@ func APIMetadataToMap(metadata map[string]openapiclient.MetadatasInnerValue) map
 	return result
 }
 
-func APIMetadatasToMaps(metadatas []map[string]openapiclient.MetadatasInnerValue) []map[string]interface{} {
+func APIMetadatasToMaps(metadatas []map[string]openapiclient.Metadata) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(metadatas))
 	for i, v := range metadatas {
 		result[i] = APIMetadataToMap(v)
@@ -244,7 +244,7 @@ func (c *Client) GetCollection(ctx context.Context, collectionName string, embed
 	if httpResp.StatusCode != 200 {
 		return nil, fmt.Errorf("error getting collection: %v", httpResp)
 	}
-	return NewCollection(c.ApiClient, col.Id, col.Name, col.Metadata, embeddingFunction, tenantName, databaseName), nil
+	return NewCollection(c.ApiClient, col.Id, col.Name, getMetadataFromAPI(col.Metadata), embeddingFunction, tenantName, databaseName), nil
 }
 
 func (c *Client) Heartbeat(ctx context.Context) (map[string]float32, error) {
@@ -329,7 +329,7 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 		return nil, err
 	}
 	mtd := resp.Metadata
-	return NewCollection(c.ApiClient, resp.Id, resp.Name, mtd, embeddingFunction, c.Tenant, c.Database), nil
+	return NewCollection(c.ApiClient, resp.Id, resp.Name, getMetadataFromAPI(mtd), embeddingFunction, c.Tenant, c.Database), nil
 }
 
 func (c *Client) NewCollection(ctx context.Context, options ...collection.Option) (*Collection, error) {
@@ -367,9 +367,9 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*
 		return nil, err
 	}
 	if deletedCol == nil {
-		return NewCollection(c.ApiClient, col.Id, col.Name, col.Metadata, nil, c.Tenant, c.Database), nil
+		return NewCollection(c.ApiClient, col.Id, col.Name, getMetadataFromAPI(col.Metadata), nil, c.Tenant, c.Database), nil
 	} else {
-		return NewCollection(c.ApiClient, deletedCol.Id, deletedCol.Name, deletedCol.Metadata, nil, c.Tenant, c.Database), nil
+		return NewCollection(c.ApiClient, deletedCol.Id, deletedCol.Name, getMetadataFromAPI(deletedCol.Metadata), nil, c.Tenant, c.Database), nil
 	}
 }
 
@@ -394,7 +394,7 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	}
 	collections := make([]*Collection, len(resp))
 	for i, col := range resp {
-		collections[i] = NewCollection(c.ApiClient, col.Id, col.Name, col.Metadata, nil, c.Tenant, c.Database)
+		collections[i] = NewCollection(c.ApiClient, col.Id, col.Name, getMetadataFromAPI(col.Metadata), nil, c.Tenant, c.Database)
 	}
 	return collections, nil
 }
@@ -494,7 +494,6 @@ func (c *Collection) Add(ctx context.Context, embeddings []*types.Embedding, met
 }
 
 func (c *Collection) AddRecords(ctx context.Context, recordSet *types.RecordSet) (*Collection, error) {
-	fmt.Printf("AddRecords %v\n", recordSet.GetDocuments())
 	return c.Add(ctx, recordSet.GetEmbeddings(), recordSet.GetMetadatas(), recordSet.GetDocuments(), recordSet.GetIDs())
 }
 
@@ -598,7 +597,7 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 	results := &GetResults{
 		Ids:        cd.Ids,
 		Documents:  cd.Documents,
-		Metadatas:  APIMetadatasToMaps(cd.Metadatas),
+		Metadatas:  cd.Metadatas,
 		Embeddings: APIEmbeddingsToEmbeddings(cd.Embeddings),
 	}
 	return results, nil
@@ -615,41 +614,39 @@ type QueryResults struct {
 	Distances [][]float32                `json:"distances,omitempty"`
 }
 
-func getMetadatasFromAPI(metadatas [][]map[string]openapiclient.MetadatasInnerValue) ([][]map[string]interface{}, error) {
-	// Initialize the result slice
-	result := make([][]map[string]interface{}, len(metadatas))
-
-	// Iterate over the outer slice
-	for i, outerItem := range metadatas {
-		result[i] = make([]map[string]interface{}, len(outerItem))
-
-		// Iterate over the inner map
-		for j, metadataMap := range outerItem {
-			resultMap := make(map[string]interface{})
-			for key, value := range metadataMap {
-				// Convert MetadatasInnerValue to interface{}
-				var rawValue interface{}
-				b, e := value.MarshalJSON()
-				if e != nil {
-					return nil, e
-				}
-				rawValue = b
-				// Store in the result map
-				resultMap[key] = rawValue
-			}
-			result[i][j] = resultMap
+func getMetadataFromAPI(metadata *map[string]openapiclient.Metadata) map[string]interface{} {
+	result := make(map[string]interface{})
+	for key, value := range *metadata {
+		switch {
+		case value.String != nil:
+			result[key] = *value.String
+		case value.Bool != nil:
+			result[key] = *value.Bool
+		case value.Float32 != nil:
+			result[key] = *value.Float32
+		case value.Int32 != nil:
+			result[key] = *value.Int32
 		}
 	}
+	return result
+}
 
-	return result, nil
-}
-func ConvertEmbeds(embeds [][]float32) []interface{} {
-	_embeddings := make([]interface{}, len(embeds))
-	for i, v := range embeds {
-		_embeddings[i] = v
+func getMetadataInnerFromAPI(metadata *map[string]openapiclient.Metadata) map[string]interface{} {
+	result := make(map[string]interface{})
+	for key, value := range *metadata {
+		if value.String != nil {
+			result[key] = *value.String
+		} else if value.Bool != nil {
+			result[key] = *value.Bool
+		} else if value.Float32 != nil {
+			result[key] = *value.Float32
+		} else if value.Int32 != nil {
+			result[key] = *value.Int32
+		}
 	}
-	return _embeddings
+	return result
 }
+
 func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults int32, where map[string]interface{}, whereDocuments map[string]interface{}, include []types.QueryEnum) (*QueryResults, error) {
 	return c.QueryWithOptions(ctx, types.WithQueryTexts(queryTexts), types.WithNResults(nResults), types.WithWhereMap(where), types.WithWhereDocumentMap(whereDocuments), types.WithInclude(include...))
 }
@@ -682,9 +679,6 @@ func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types
 	if embErr != nil {
 		return nil, embErr
 	}
-
-	fmt.Printf("QueryEmbeddings %v\n", embds[0].ArrayOfFloat32)
-
 	var queryEmbeds = make([]openapiclient.EmbeddingsInner, 0)
 	queryEmbeds = append(queryEmbeds, types.ToAPIEmbeddings(b.QueryEmbeddings)...)
 	queryEmbeds = append(queryEmbeds, types.ToAPIEmbeddings(embds)...)
@@ -700,14 +694,10 @@ func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types
 		return nil, err
 	}
 
-	metadatas, err := getMetadatasFromAPI(qr.Metadatas)
-	if err != nil {
-		return nil, err
-	}
 	qresults := QueryResults{
 		Documents: qr.Documents,
 		Ids:       qr.Ids,
-		Metadatas: metadatas,
+		Metadatas: qr.Metadatas,
 		Distances: qr.Distances,
 	}
 	return &qresults, nil

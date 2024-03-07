@@ -32,7 +32,7 @@ func Test_chroma_client(t *testing.T) {
 	if chromaURL == "" {
 		chromaURL = "http://localhost:8000"
 	}
-	client, err := chroma.NewClient(chromaURL)
+	client, err := chroma.NewClient(chromaURL, chroma.WithDebug(true))
 	require.NoError(t, err)
 
 	t.Run("Test client with default tenant", func(t *testing.T) {

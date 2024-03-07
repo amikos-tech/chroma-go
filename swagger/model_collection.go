@@ -19,9 +19,9 @@ var _ MappedNullable = &Collection{}
 
 // Collection struct for Collection
 type Collection struct {
-	Name     string                 `json:"name"`
-	Id       string                 `json:"id"`
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	Name     string               `json:"name"`
+	Id       string               `json:"id"`
+	Metadata *map[string]Metadata `json:"metadata,omitempty"`
 }
 
 // NewCollection instantiates a new Collection object
@@ -92,19 +92,19 @@ func (o *Collection) SetId(v string) {
 }
 
 // GetMetadata returns the Metadata field value if set, zero value otherwise.
-func (o *Collection) GetMetadata() map[string]interface{} {
+func (o *Collection) GetMetadata() map[string]Metadata {
 	if o == nil || IsNil(o.Metadata) {
-		var ret map[string]interface{}
+		var ret map[string]Metadata
 		return ret
 	}
-	return o.Metadata
+	return *o.Metadata
 }
 
 // GetMetadataOk returns a tuple with the Metadata field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *Collection) GetMetadataOk() (map[string]interface{}, bool) {
+func (o *Collection) GetMetadataOk() (*map[string]Metadata, bool) {
 	if o == nil || IsNil(o.Metadata) {
-		return map[string]interface{}{}, false
+		return nil, false
 	}
 	return o.Metadata, true
 }
@@ -118,9 +118,9 @@ func (o *Collection) HasMetadata() bool {
 	return false
 }
 
-// SetMetadata gets a reference to the given map[string]interface{} and assigns it to the Metadata field.
-func (o *Collection) SetMetadata(v map[string]interface{}) {
-	o.Metadata = v
+// SetMetadata gets a reference to the given map[string]Metadata and assigns it to the Metadata field.
+func (o *Collection) SetMetadata(v map[string]Metadata) {
+	o.Metadata = &v
 }
 
 func (o Collection) MarshalJSON() ([]byte, error) {

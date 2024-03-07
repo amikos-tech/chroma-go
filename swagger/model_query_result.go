@@ -19,18 +19,18 @@ var _ MappedNullable = &QueryResult{}
 
 // QueryResult struct for QueryResult
 type QueryResult struct {
-	Ids        [][]string                         `json:"ids"`
-	Embeddings [][]EmbeddingsInner                `json:"embeddings"`
-	Documents  [][]string                         `json:"documents"`
-	Metadatas  [][]map[string]MetadatasInnerValue `json:"metadatas"`
-	Distances  [][]float32                        `json:"distances"`
+	Ids        [][]string                 `json:"ids"`
+	Embeddings [][]EmbeddingsInner        `json:"embeddings"`
+	Documents  [][]string                 `json:"documents"`
+	Metadatas  [][]map[string]interface{} `json:"metadatas"`
+	Distances  [][]float32                `json:"distances"`
 }
 
 // NewQueryResult instantiates a new QueryResult object
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewQueryResult(ids [][]string, embeddings [][]EmbeddingsInner, documents [][]string, metadatas [][]map[string]MetadatasInnerValue, distances [][]float32) *QueryResult {
+func NewQueryResult(ids [][]string, embeddings [][]EmbeddingsInner, documents [][]string, metadatas [][]map[string]interface{}, distances [][]float32) *QueryResult {
 	this := QueryResult{}
 	this.Ids = ids
 	this.Embeddings = embeddings
@@ -121,9 +121,9 @@ func (o *QueryResult) SetDocuments(v [][]string) {
 }
 
 // GetMetadatas returns the Metadatas field value
-func (o *QueryResult) GetMetadatas() [][]map[string]MetadatasInnerValue {
+func (o *QueryResult) GetMetadatas() [][]map[string]interface{} {
 	if o == nil {
-		var ret [][]map[string]MetadatasInnerValue
+		var ret [][]map[string]interface{}
 		return ret
 	}
 
@@ -132,7 +132,7 @@ func (o *QueryResult) GetMetadatas() [][]map[string]MetadatasInnerValue {
 
 // GetMetadatasOk returns a tuple with the Metadatas field value
 // and a boolean to check if the value has been set.
-func (o *QueryResult) GetMetadatasOk() ([][]map[string]MetadatasInnerValue, bool) {
+func (o *QueryResult) GetMetadatasOk() ([][]map[string]interface{}, bool) {
 	if o == nil {
 		return nil, false
 	}
@@ -140,7 +140,7 @@ func (o *QueryResult) GetMetadatasOk() ([][]map[string]MetadatasInnerValue, bool
 }
 
 // SetMetadatas sets field value
-func (o *QueryResult) SetMetadatas(v [][]map[string]MetadatasInnerValue) {
+func (o *QueryResult) SetMetadatas(v [][]map[string]interface{}) {
 	o.Metadatas = v
 }
 
