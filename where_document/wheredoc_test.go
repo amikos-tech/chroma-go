@@ -1,11 +1,19 @@
 package wheredoc
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
-	"github.com/amikos-tech/chroma-go/test"
+	"github.com/stretchr/testify/require"
 )
+
+func Compare(t *testing.T, actual, expected map[string]interface{}) bool {
+	builtExprJSON, _ := json.Marshal(actual)
+	expectedJSON, _ := json.Marshal(expected)
+	require.Equal(t, string(expectedJSON), string(builtExprJSON))
+	return true
+}
 
 func TestNewWhereDocumentBuilder(t *testing.T) {
 	t.Run("Test contains with invalid value", func(t *testing.T) {
@@ -75,7 +83,7 @@ func TestNewWhereDocumentBuilder(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
-		test.Compare(t, builtExpr, expected)
+		Compare(t, builtExpr, expected)
 	})
 
 	t.Run("Test or", func(t *testing.T) {
@@ -99,7 +107,7 @@ func TestNewWhereDocumentBuilder(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
-		test.Compare(t, builtExpr, expected)
+		Compare(t, builtExpr, expected)
 	})
 
 	t.Run("Test nested and/or", func(t *testing.T) {
@@ -134,50 +142,54 @@ func TestNewWhereDocumentBuilder(t *testing.T) {
 			t.Errorf("Unexpected error: %v", err)
 		}
 		// print both maps as JSONs
-		test.Compare(t, builtExpr, expected)
+		Compare(t, builtExpr, expected)
 	})
 }
 
 func TestWhereDocumentBuilderWithOptions(t *testing.T) {
 	t.Run("Test Contains", func(t *testing.T) {
 		t.Parallel()
-		var x = WhereDocument(Contains("something"))
+		var x, err = WhereDocument(Contains("something"))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"$contains": "something",
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("Test NotContains", func(t *testing.T) {
 		t.Parallel()
-		var x = WhereDocument(NotContains("something"))
+		var x, err = WhereDocument(NotContains("something"))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"$not_contains": "something",
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("Test And", func(t *testing.T) {
 		t.Parallel()
-		var x = WhereDocument(And(Contains("something"), NotContains("something")))
+		var x, err = WhereDocument(And(Contains("something"), NotContains("something")))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"$and": []map[string]interface{}{
 				{"$contains": "something"},
 				{"$not_contains": "something"},
 			},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 
 	t.Run("Test Or", func(t *testing.T) {
 		t.Parallel()
-		var x = WhereDocument(Or(Contains("something"), NotContains("something")))
+		var x, err = WhereDocument(Or(Contains("something"), NotContains("something")))
+		require.NoError(t, err)
 		var actual = map[string]interface{}{
 			"$or": []map[string]interface{}{
 				{"$contains": "something"},
 				{"$not_contains": "something"},
 			},
 		}
-		test.Compare(t, x, actual)
+		Compare(t, x, actual)
 	})
 }

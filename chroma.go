@@ -487,6 +487,7 @@ func (c *Collection) Add(ctx context.Context, embeddings []*types.Embedding, met
 }
 
 func (c *Collection) AddRecords(ctx context.Context, recordSet *types.RecordSet) (*Collection, error) {
+	fmt.Printf("AddRecords %v\n", recordSet.GetDocuments())
 	return c.Add(ctx, recordSet.GetEmbeddings(), recordSet.GetMetadatas(), recordSet.GetDocuments(), recordSet.GetIDs())
 }
 
@@ -597,7 +598,7 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 }
 
 func (c *Collection) Get(ctx context.Context, where map[string]interface{}, whereDocuments map[string]interface{}, ids []string, include []types.QueryEnum) (*GetResults, error) {
-	return c.GetWithOptions(ctx, types.WithWhere(where), types.WithWhereDocument(whereDocuments), types.WithIds(ids), types.WithInclude(include...))
+	return c.GetWithOptions(ctx, types.WithWhereMap(where), types.WithWhereDocumentMap(whereDocuments), types.WithIds(ids), types.WithInclude(include...))
 }
 
 type QueryResults struct {
@@ -643,7 +644,7 @@ func ConvertEmbeds(embeds [][]float32) []interface{} {
 	return _embeddings
 }
 func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults int32, where map[string]interface{}, whereDocuments map[string]interface{}, include []types.QueryEnum) (*QueryResults, error) {
-	return c.QueryWithOptions(ctx, types.WithQueryTexts(queryTexts), types.WithNResults(nResults), types.WithWhere(where), types.WithWhereDocument(whereDocuments), types.WithInclude(include...))
+	return c.QueryWithOptions(ctx, types.WithQueryTexts(queryTexts), types.WithNResults(nResults), types.WithWhereMap(where), types.WithWhereDocumentMap(whereDocuments), types.WithInclude(include...))
 }
 func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types.CollectionQueryOption) (*QueryResults, error) {
 	b := &types.CollectionQueryBuilder{

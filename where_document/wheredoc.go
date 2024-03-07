@@ -1,8 +1,16 @@
 package wheredoc
 
 import (
-	"github.com/amikos-tech/chroma-go/types"
+	"fmt"
 )
+
+type InvalidWhereDocumentValueError struct {
+	Value interface{}
+}
+
+func (e *InvalidWhereDocumentValueError) Error() string {
+	return fmt.Sprintf("Invalid value for where document clause for value %v. Allowed values are string", e.Value)
+}
 
 type Builder struct {
 	WhereClause map[string]interface{}
@@ -22,7 +30,7 @@ func (w *Builder) operation(operation string, value interface{}) *Builder {
 	switch value.(type) {
 	case string:
 	default:
-		w.err = &types.InvalidWhereDocumentValueError{Value: value}
+		w.err = &InvalidWhereDocumentValueError{Value: value}
 		return w
 	}
 	inner[operation] = value
@@ -125,11 +133,10 @@ func Or(ops ...WhereDocumentOperation) WhereDocumentOperation {
 	}
 }
 
-func WhereDocument(operation WhereDocumentOperation) map[string]interface{} {
+func WhereDocument(operation WhereDocumentOperation) (map[string]interface{}, error) {
 	w := NewWhereDocumentBuilder()
 	if err := operation(w); err != nil {
-		return nil
+		return nil, err
 	}
-	where, _ := w.Build()
-	return where
+	return w.Build()
 }

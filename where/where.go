@@ -1,12 +1,20 @@
 package where
 
 import (
-	"github.com/amikos-tech/chroma-go/types"
+	"fmt"
 )
 
 type Builder struct {
 	WhereClause map[string]interface{}
 	err         error
+}
+type InvalidWhereValueError struct {
+	Key   string
+	Value interface{}
+}
+
+func (e *InvalidWhereValueError) Error() string {
+	return fmt.Sprintf("Invalid value for where clause for key %s: %v. Allowed values are string, int, float, bool", e.Key, e.Value)
 }
 
 func NewWhereBuilder() *Builder {
@@ -24,7 +32,7 @@ func (w *Builder) operation(operation string, field string, value interface{}) *
 		switch value.(type) {
 		case string, int, float32, bool:
 		default:
-			w.err = &types.InvalidWhereValueError{Key: field, Value: value}
+			w.err = &InvalidWhereValueError{Key: field, Value: value}
 			return w
 		}
 		inner[operation] = value
@@ -183,12 +191,11 @@ func Or(ops ...WhereOperation) WhereOperation {
 	}
 }
 
-func Where(operation WhereOperation) map[string]interface{} {
+func Where(operation WhereOperation) (map[string]interface{}, error) {
 	w := NewWhereBuilder()
 
 	if err := operation(w); err != nil {
-		return nil
+		return nil, err
 	}
-	where, _ := w.Build()
-	return where
+	return w.Build()
 }
