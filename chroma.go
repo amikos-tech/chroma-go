@@ -3,6 +3,7 @@ package chroma
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 	"strings"
 
@@ -305,9 +306,9 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 	if err != nil {
 		return nil, err
 	}
-	var _metadata map[string]interface{}
-	if metadata == nil {
-		_metadata = make(map[string]interface{})
+	var _metadata = make(map[string]interface{})
+	if metadata != nil {
+		maps.Copy(_metadata, metadata)
 	}
 	if metadata["embedding_function"] == nil && embeddingFunction != nil {
 		_metadata["embedding_function"] = GetStringTypeOfEmbeddingFunction(embeddingFunction)
