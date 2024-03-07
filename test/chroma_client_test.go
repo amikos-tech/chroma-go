@@ -807,9 +807,27 @@ func Test_chroma_client(t *testing.T) {
 		result, err := newCollection.GetWithOptions(context.Background(), types.WithWhereDocument(wheredoc.Or(wheredoc.Contains("Document 1"), wheredoc.Contains("Document 2"))))
 		require.NoError(t, err)
 		require.Len(t, result.Ids, 2)
-		fmt.Printf("Result: %v\n", result)
 		require.Contains(t, result.Documents, "Document 1 content")
 		require.Contains(t, result.Documents, "Document 2 content")
 		require.NotContains(t, result.Documents, "Document 3 content")
+	})
+
+	t.Run("Test create collection with nil EF", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		_, err := client.CreateCollection(context.Background(), "test-collection", nil, true, nil, types.L2)
+		require.NoError(t, err)
+	})
+
+	t.Run("Test get collection with nil EF", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		_, err := client.CreateCollection(context.Background(), "test-collection", nil, true, nil, types.L2)
+		require.NoError(t, err)
+		resp, err := client.GetCollection(context.Background(), "test-collection", nil)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, "test-collection", resp.Name, "Collection name should be test-collection")
+		require.NotNil(t, resp.ID, "Collection id should not be nil")
 	})
 }

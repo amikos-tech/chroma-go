@@ -254,6 +254,9 @@ func (c *Client) Heartbeat(ctx context.Context) (map[string]float32, error) {
 }
 
 func GetStringTypeOfEmbeddingFunction(ef types.EmbeddingFunction) string {
+	if ef == nil {
+		return ""
+	}
 	typ := reflect.TypeOf(ef)
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem() // Dereference if it's a pointer
@@ -302,8 +305,11 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 	if err != nil {
 		return nil, err
 	}
-	_metadata := metadata
-	if metadata["embedding_function"] == nil {
+	var _metadata map[string]interface{}
+	if metadata == nil {
+		_metadata = make(map[string]interface{})
+	}
+	if metadata["embedding_function"] == nil && embeddingFunction != nil {
 		_metadata["embedding_function"] = GetStringTypeOfEmbeddingFunction(embeddingFunction)
 	}
 	if distanceFunction == "" {
@@ -326,7 +332,7 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 }
 
 func (c *Client) NewCollection(ctx context.Context, options ...collection.Option) (*Collection, error) {
-	b := &collection.Builder{}
+	b := &collection.Builder{Metadata: make(map[string]interface{})}
 	for _, option := range options {
 		if err := option(b); err != nil {
 			return nil, err
