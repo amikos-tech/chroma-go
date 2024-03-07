@@ -1,7 +1,12 @@
 # Filtering
 
+TODO - describe what is filtering, what it can be used for and why the implementation aims to maximum efficiency and API
+ergonomics.
 
 ## Metadata
+
+* TODO - Add builder example
+* TODO - Describe all available operations
 
 ```go
 package main
@@ -16,43 +21,46 @@ import (
 )
 
 func main() {
-	embeddingF,err := openai.NewOpenAIEmbeddingFunction("sk-xxxx")
+	embeddingF, err := openai.NewOpenAIEmbeddingFunction("sk-xxxx")
 	if err != nil {
-        fmt.Println(err)
-        return
-    }
+		fmt.Println(err)
+		return
+	}
 	client, err := chroma.NewClient("http://localhost:8000")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	collection,err := client.GetCollection(context.TODO(), "my-collection",embeddingF)
+	collection, err := client.GetCollection(context.TODO(), "my-collection", embeddingF)
 	if err != nil {
-        fmt.Println(err)
-        return
-    }
-    // Filter by metadata
+		fmt.Println(err)
+		return
+	}
+	// Filter by metadata
 
 	result, err := collection.GetWithOptions(
-		context.Background(), 
+		context.Background(),
 		types.WithWhere(
 			where.Or(
-				where.Eq("category", "Chroma"), 
+				where.Eq("category", "Chroma"),
 				where.Eq("type", "vector database"),
-				),
 			),
-		)
+		),
+	)
 	if err != nil {
-        fmt.Println(err)
-        return
-    }
+		fmt.Println(err)
+		return
+	}
 	// do something with result
-    fmt.Println(result)
+	fmt.Println(result)
 }
 
 ```
 
 ## Document
+
+* TODO - Add builder example
+* TODO - Describe all available operations
 
 ```go
 package main
@@ -67,38 +75,38 @@ import (
 )
 
 func main() {
-	embeddingF,err := openai.NewOpenAIEmbeddingFunction("sk-xxxx")
+	embeddingF, err := openai.NewOpenAIEmbeddingFunction("sk-xxxx")
 	if err != nil {
-        fmt.Println(err)
-        return
-    }
+		fmt.Println(err)
+		return
+	}
 	client, err := chroma.NewClient("http://localhost:8000")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	collection,err := client.GetCollection(context.TODO(), "my-collection",embeddingF)
+	collection, err := client.GetCollection(context.TODO(), "my-collection", embeddingF)
 	if err != nil {
-        fmt.Println(err)
-        return
-    }
-    // Filter by metadata
+		fmt.Println(err)
+		return
+	}
+	// Filter by metadata
 
 	result, err := collection.GetWithOptions(
-		context.Background(), 
+		context.Background(),
 		types.WithWhereDocument(
 			wheredoc.Or(
-				wheredoc.Contains("Vector database"), 
+				wheredoc.Contains("Vector database"),
 				wheredoc.Contains("Chroma"),
-				),
-            ),
-		)
+			),
+		),
+	)
 
 	if err != nil {
-        fmt.Println(err)
-        return
-    }
+		fmt.Println(err)
+		return
+	}
 	// do something with result
-    fmt.Println(result)
+	fmt.Println(result)
 }
 ```
