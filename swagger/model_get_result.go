@@ -19,17 +19,17 @@ var _ MappedNullable = &GetResult{}
 
 // GetResult struct for GetResult
 type GetResult struct {
-	Ids        []string                         `json:"ids"`
-	Embeddings []EmbeddingsInner                `json:"embeddings"`
-	Documents  []string                         `json:"documents"`
-	Metadatas  []map[string]MetadatasInnerValue `json:"metadatas"`
+	Ids        []string                 `json:"ids"`
+	Embeddings []EmbeddingsInner        `json:"embeddings"`
+	Documents  []string                 `json:"documents"`
+	Metadatas  []map[string]interface{} `json:"metadatas"`
 }
 
 // NewGetResult instantiates a new GetResult object
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewGetResult(ids []string, embeddings []EmbeddingsInner, documents []string, metadatas []map[string]MetadatasInnerValue) *GetResult {
+func NewGetResult(ids []string, embeddings []EmbeddingsInner, documents []string, metadatas []map[string]interface{}) *GetResult {
 	this := GetResult{}
 	this.Ids = ids
 	this.Embeddings = embeddings
@@ -119,9 +119,9 @@ func (o *GetResult) SetDocuments(v []string) {
 }
 
 // GetMetadatas returns the Metadatas field value
-func (o *GetResult) GetMetadatas() []map[string]MetadatasInnerValue {
+func (o *GetResult) GetMetadatas() []map[string]interface{} {
 	if o == nil {
-		var ret []map[string]MetadatasInnerValue
+		var ret []map[string]interface{}
 		return ret
 	}
 
@@ -130,7 +130,7 @@ func (o *GetResult) GetMetadatas() []map[string]MetadatasInnerValue {
 
 // GetMetadatasOk returns a tuple with the Metadatas field value
 // and a boolean to check if the value has been set.
-func (o *GetResult) GetMetadatasOk() ([]map[string]MetadatasInnerValue, bool) {
+func (o *GetResult) GetMetadatasOk() ([]map[string]interface{}, bool) {
 	if o == nil {
 		return nil, false
 	}
@@ -138,7 +138,7 @@ func (o *GetResult) GetMetadatasOk() ([]map[string]MetadatasInnerValue, bool) {
 }
 
 // SetMetadatas sets field value
-func (o *GetResult) SetMetadatas(v []map[string]MetadatasInnerValue) {
+func (o *GetResult) SetMetadatas(v []map[string]interface{}) {
 	o.Metadatas = v
 }
 

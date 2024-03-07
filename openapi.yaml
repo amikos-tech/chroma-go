@@ -631,6 +631,14 @@ components:
           format: uuid
           title: Id
         metadata:
+          additionalProperties:
+            anyOf:
+              - type: string
+              - type: integer
+                format: int32
+              - type: number
+                format: float
+              - type: boolean
           type: object
           title: Metadata
       type: object
@@ -644,6 +652,7 @@ components:
           type: string
           title: Name
         metadata:
+          additionalProperties: true
           type: object
           title: Metadata
         get_or_create:
@@ -709,7 +718,7 @@ components:
           type: array
           title: Include
           default:
-            - metadatas
+            - ns
             - documents
       type: object
       title: GetEmbedding
@@ -738,12 +747,7 @@ components:
           title: Documents
         metadatas:
           items:
-            additionalProperties:
-              anyOf:
-                - type: string
-                - type: integer
-                - type: number
-                - type: boolean
+            additionalProperties: true
             type: object
           type: array
           title: Metadatas
@@ -845,12 +849,7 @@ components:
         metadatas:
           items:
             items:
-              additionalProperties:
-                anyOf:
-                  - type: string
-                  - type: integer
-                  - type: number
-                  - type: boolean
+              additionalProperties: true
               type: object
             type: array
           type: array
