@@ -42,6 +42,30 @@ const (
 	DefaultTimeout                      = 30 * time.Second
 )
 
+func ToDistanceFunction(str any) (DistanceFunction, error) {
+	switch str {
+	case L2:
+		return L2, nil
+	case COSINE:
+		return COSINE, nil
+	case IP:
+		return IP, nil
+	}
+	if str == "" {
+		return L2, nil
+	}
+	switch str {
+	case "l2":
+		return L2, nil
+	case "cosine":
+		return COSINE, nil
+	case "ip":
+		return IP, nil
+	default:
+		return "", fmt.Errorf("invalid distance function: %s", str)
+	}
+}
+
 type InvalidMetadataValueError struct {
 	Key   string
 	Value interface{}

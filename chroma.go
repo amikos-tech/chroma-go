@@ -27,27 +27,19 @@ func APIMetadataToMap(metadata map[string]openapiclient.Metadata) map[string]int
 	return result
 }
 
-func APIMetadatasToMaps(metadatas []map[string]openapiclient.Metadata) []map[string]interface{} {
-	result := make([]map[string]interface{}, len(metadatas))
-	for i, v := range metadatas {
-		result[i] = APIMetadataToMap(v)
-	}
-	return result
-}
-
-func APIEmbeddingToEmbedding(embedding openapiclient.EmbeddingsInner) types.Embedding {
+func APIEmbeddingToEmbedding(embedding openapiclient.EmbeddingsInner) *types.Embedding {
 	switch {
 	case embedding.ArrayOfInt32 != nil:
-		return *types.NewEmbeddingFromInt32(*embedding.ArrayOfInt32)
+		return types.NewEmbeddingFromInt32(*embedding.ArrayOfInt32)
 		// result := make([]interface{}, len(*embedding.ArrayOfInt32))
-		//for i, v := range *embedding.ArrayOfInt32 {
+		// for i, v := range *embedding.ArrayOfInt32 {
 		//	result[i] = v
 		//}
-		//return result
+		// return result
 	case embedding.ArrayOfFloat32 != nil:
-		return *types.NewEmbeddingFromFloat32(*embedding.ArrayOfFloat32)
+		return types.NewEmbeddingFromFloat32(*embedding.ArrayOfFloat32)
 	default:
-		return types.Embedding{}
+		return &types.Embedding{}
 	}
 }
 
@@ -94,10 +86,10 @@ func EmbeddingsToAPIEmbeddings(embeddings *[][]interface{}, embeddingsF32 *[][]f
 	}
 }
 
-func APIEmbeddingsToEmbeddings(embeddings []openapiclient.EmbeddingsInner) []types.Embedding {
-	result := make([]types.Embedding, len(embeddings))
-	for i, v := range embeddings {
-		result[i] = APIEmbeddingToEmbedding(v)
+func APIEmbeddingsToEmbeddings(embeddings []openapiclient.EmbeddingsInner) []*types.Embedding {
+	result := make([]*types.Embedding, 0)
+	for _, v := range embeddings {
+		result = append(result, APIEmbeddingToEmbedding(v))
 	}
 	return result
 }
@@ -311,9 +303,9 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 		_metadata["embedding_function"] = GetStringTypeOfEmbeddingFunction(embeddingFunction)
 	}
 	if distanceFunction == "" {
-		_metadata["hnsw:space"] = strings.ToLower(string(types.L2))
+		_metadata[types.HNSWSpace] = strings.ToLower(string(types.L2))
 	} else {
-		_metadata["hnsw:space"] = strings.ToLower(string(distanceFunction))
+		_metadata[types.HNSWSpace] = strings.ToLower(string(distanceFunction))
 	}
 
 	col := openapiclient.CreateCollection{
@@ -340,12 +332,27 @@ func (c *Client) NewCollection(ctx context.Context, options ...collection.Option
 		return nil, fmt.Errorf("collection name cannot be empty")
 	}
 
-	if b.Metadata["hnsw:space"] == nil {
-		b.Metadata["hnsw:space"] = types.L2
+	var df types.DistanceFunction
+	var terr error
+	df, terr = types.ToDistanceFunction(b.Metadata[types.HNSWSpace])
+	if terr != nil {
+		return nil, terr
 	}
+	// switch b.Metadata[types.HNSWSpace].(type) {
+	// case string:
+	//	df, terr = types.ToDistanceFunction(b.Metadata[types.HNSWSpace].(string))
+	//	if terr != nil {
+	//		return nil, terr
+	//	}
+	// case types.DistanceFunction:
+	//	df = b.Metadata[types.HNSWSpace].(types.DistanceFunction)
+	//default:
+	//	df = types.L2 // Optimized default assignment
+	//}
+
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
-	return c.CreateCollection(ctx, b.Name, b.Metadata, b.CreateIfNotExist, b.EmbeddingFunction, b.Metadata["hnsw:space"].(types.DistanceFunction))
+	return c.CreateCollection(ctx, b.Name, b.Metadata, b.CreateIfNotExist, b.EmbeddingFunction, df)
 }
 
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*Collection, error) {
@@ -426,7 +433,7 @@ type GetResults struct {
 	Ids        []string
 	Documents  []string
 	Metadatas  []map[string]interface{}
-	Embeddings []types.Embedding
+	Embeddings []*types.Embedding
 }
 
 type Collection struct {
