@@ -35,22 +35,19 @@ func APIMetadatasToMaps(metadatas []map[string]openapiclient.Metadata) []map[str
 	return result
 }
 
-func APIEmbeddingToEmbedding(embedding openapiclient.EmbeddingsInner) []interface{} {
+func APIEmbeddingToEmbedding(embedding openapiclient.EmbeddingsInner) types.Embedding {
 	switch {
 	case embedding.ArrayOfInt32 != nil:
-		result := make([]interface{}, len(*embedding.ArrayOfInt32))
-		for i, v := range *embedding.ArrayOfInt32 {
-			result[i] = v
-		}
-		return result
+		return *types.NewEmbeddingFromInt32(*embedding.ArrayOfInt32)
+		// result := make([]interface{}, len(*embedding.ArrayOfInt32))
+		//for i, v := range *embedding.ArrayOfInt32 {
+		//	result[i] = v
+		//}
+		//return result
 	case embedding.ArrayOfFloat32 != nil:
-		result := make([]interface{}, len(*embedding.ArrayOfFloat32))
-		for i, v := range *embedding.ArrayOfFloat32 {
-			result[i] = v
-		}
-		return result
+		return *types.NewEmbeddingFromFloat32(*embedding.ArrayOfFloat32)
 	default:
-		return nil
+		return types.Embedding{}
 	}
 }
 
@@ -97,8 +94,8 @@ func EmbeddingsToAPIEmbeddings(embeddings *[][]interface{}, embeddingsF32 *[][]f
 	}
 }
 
-func APIEmbeddingsToEmbeddings(embeddings []openapiclient.EmbeddingsInner) [][]interface{} {
-	result := make([][]interface{}, len(embeddings))
+func APIEmbeddingsToEmbeddings(embeddings []openapiclient.EmbeddingsInner) []types.Embedding {
+	result := make([]types.Embedding, len(embeddings))
 	for i, v := range embeddings {
 		result[i] = APIEmbeddingToEmbedding(v)
 	}
@@ -429,7 +426,7 @@ type GetResults struct {
 	Ids        []string
 	Documents  []string
 	Metadatas  []map[string]interface{}
-	Embeddings [][]interface{}
+	Embeddings []types.Embedding
 }
 
 type Collection struct {

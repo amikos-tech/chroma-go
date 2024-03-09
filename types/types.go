@@ -99,6 +99,13 @@ func NewEmbeddingFromFloat32(embedding []float32) *Embedding {
 	}
 }
 
+func NewEmbeddingFromInt32(embedding []int32) *Embedding {
+	return &Embedding{
+		ArrayOfFloat32: nil,
+		ArrayOfInt32:   &embedding,
+	}
+}
+
 func NewEmbeddingsFromFloat32(embeddings [][]float32) []*Embedding {
 	var embeddingsArray []*Embedding
 	for _, embedding := range embeddings {
