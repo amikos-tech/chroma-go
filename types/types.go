@@ -258,6 +258,9 @@ func NewULIDGenerator() *ULIDGenerator {
 type ConsistentHashEmbeddingFunction struct{ dim int }
 
 func (e *ConsistentHashEmbeddingFunction) EmbedQuery(_ context.Context, document string) (*Embedding, error) {
+	if document == "" {
+		return nil, fmt.Errorf("document must not be empty")
+	}
 	hasher := sha256.New()
 	hasher.Write([]byte(document))
 	hashedText := fmt.Sprintf("%x", hasher.Sum(nil))
