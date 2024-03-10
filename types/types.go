@@ -3,11 +3,10 @@ package types
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"math"
 	"math/rand"
+	"strconv"
 	time "time"
 
 	"github.com/google/uuid"
@@ -256,21 +255,29 @@ func NewULIDGenerator() *ULIDGenerator {
 	return &ULIDGenerator{}
 }
 
-type ConsistentHashEmbeddingFunction struct{}
+type ConsistentHashEmbeddingFunction struct{ dim int }
 
 func (e *ConsistentHashEmbeddingFunction) EmbedQuery(_ context.Context, document string) (*Embedding, error) {
 	hasher := sha256.New()
 	hasher.Write([]byte(document))
-	hashBytes := hasher.Sum(nil) // Get the SHA-256 hash as a byte slice
+	hashedText := fmt.Sprintf("%x", hasher.Sum(nil))
 
-	// Interpret groups of bytes as float32 values
-	floatArray := make([]float32, len(hashBytes)/4) // Assuming 32-bit floats
-	for i := range floatArray {
-		bits := binary.LittleEndian.Uint32(hashBytes[i*4 : (i+1)*4])
-		floatArray[i] = math.Float32frombits(bits)
+	// Pad or truncate
+	repeat := e.dim / len(hashedText)
+	remainder := e.dim % len(hashedText)
+	paddedText := fmt.Sprintf("%s%s",
+		fmt.Sprintf("%.*s", repeat*len(hashedText), hashedText), // Repeat pattern
+		hashedText[:remainder], // Append any remaining characters
+	)
+
+	// Convert to embedding
+	var embedding = make([]float32, e.dim)
+	for i, char := range paddedText {
+		val, _ := strconv.ParseInt(string(char), 16, 64)
+		embedding[i] = float32(val) / 15.0
 	}
 
-	return NewEmbeddingFromFloat32(floatArray), nil
+	return NewEmbeddingFromFloat32(embedding), nil
 }
 
 func (e *ConsistentHashEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*Embedding, error) {
@@ -290,7 +297,7 @@ func (e *ConsistentHashEmbeddingFunction) EmbedRecords(ctx context.Context, reco
 }
 
 func NewConsistentHashEmbeddingFunction() EmbeddingFunction {
-	return &ConsistentHashEmbeddingFunction{}
+	return &ConsistentHashEmbeddingFunction{dim: 378}
 }
 
 type CollectionQueryBuilder struct {

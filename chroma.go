@@ -338,17 +338,6 @@ func (c *Client) NewCollection(ctx context.Context, options ...collection.Option
 	if terr != nil {
 		return nil, terr
 	}
-	// switch b.Metadata[types.HNSWSpace].(type) {
-	// case string:
-	//	df, terr = types.ToDistanceFunction(b.Metadata[types.HNSWSpace].(string))
-	//	if terr != nil {
-	//		return nil, terr
-	//	}
-	// case types.DistanceFunction:
-	//	df = b.Metadata[types.HNSWSpace].(types.DistanceFunction)
-	//default:
-	//	df = types.L2 // Optimized default assignment
-	//}
 
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
