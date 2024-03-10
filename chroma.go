@@ -307,7 +307,6 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 	} else {
 		_metadata[types.HNSWSpace] = strings.ToLower(string(distanceFunction))
 	}
-
 	col := openapiclient.CreateCollection{
 		Name:        collectionName,
 		GetOrCreate: &createOrGet,
@@ -332,16 +331,19 @@ func (c *Client) NewCollection(ctx context.Context, options ...collection.Option
 		return nil, fmt.Errorf("collection name cannot be empty")
 	}
 
-	var df types.DistanceFunction
-	var terr error
-	df, terr = types.ToDistanceFunction(b.Metadata[types.HNSWSpace])
-	if terr != nil {
-		return nil, terr
+	var distanceFunction types.DistanceFunction
+	if df := b.Metadata[types.HNSWSpace]; df == nil {
+		b.Metadata[types.HNSWSpace] = types.L2
+	} else {
+		var derr error
+		distanceFunction, derr = types.ToDistanceFunction(df)
+		if derr != nil {
+			return nil, derr
+		}
 	}
-
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
-	return c.CreateCollection(ctx, b.Name, b.Metadata, b.CreateIfNotExist, b.EmbeddingFunction, df)
+	return c.CreateCollection(ctx, b.Name, b.Metadata, b.CreateIfNotExist, b.EmbeddingFunction, distanceFunction)
 }
 
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*Collection, error) {
