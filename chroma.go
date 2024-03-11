@@ -1,4 +1,4 @@
-package chroma
+package chromago
 
 import (
 	"context"
@@ -19,14 +19,6 @@ type ClientConfiguration struct {
 	EmbeddingFunction types.EmbeddingFunction `json:"embeddingFunction,omitempty"`
 }
 
-func APIMetadataToMap(metadata map[string]openapiclient.Metadata) map[string]interface{} {
-	result := make(map[string]interface{})
-	for k, v := range metadata {
-		result[k] = v
-	}
-	return result
-}
-
 func APIEmbeddingToEmbedding(embedding openapiclient.EmbeddingsInner) *types.Embedding {
 	switch {
 	case embedding.ArrayOfInt32 != nil:
@@ -40,49 +32,6 @@ func APIEmbeddingToEmbedding(embedding openapiclient.EmbeddingsInner) *types.Emb
 		return types.NewEmbeddingFromFloat32(*embedding.ArrayOfFloat32)
 	default:
 		return &types.Embedding{}
-	}
-}
-
-func EmbeddingToAPIEmbedding(embedding []interface{}) openapiclient.EmbeddingsInner {
-	if len(embedding) == 0 {
-		return openapiclient.EmbeddingsInner{ArrayOfInt32: nil, ArrayOfFloat32: nil}
-	}
-	switch embedding[0].(type) {
-	case int32:
-		result := make([]int32, len(embedding))
-		for i, v := range embedding {
-			result[i] = v.(int32)
-		}
-		return openapiclient.EmbeddingsInner{ArrayOfInt32: &result, ArrayOfFloat32: nil}
-	case float32:
-		result := make([]float32, len(embedding))
-		for i, v := range embedding {
-			result[i] = v.(float32)
-		}
-		return openapiclient.EmbeddingsInner{ArrayOfInt32: nil, ArrayOfFloat32: &result}
-	default:
-		return openapiclient.EmbeddingsInner{ArrayOfInt32: nil, ArrayOfFloat32: nil}
-	}
-}
-
-func EmbeddingsToAPIEmbeddings(embeddings *[][]interface{}, embeddingsF32 *[][]float32) []openapiclient.EmbeddingsInner {
-	switch {
-	case embeddings != nil:
-		result := make([]openapiclient.EmbeddingsInner, len(*embeddings))
-		for i, v := range *embeddings {
-			result[i] = EmbeddingToAPIEmbedding(v)
-		}
-		return result
-	case embeddingsF32 != nil:
-		result := make([]openapiclient.EmbeddingsInner, len(*embeddingsF32))
-		for i, v := range *embeddingsF32 {
-			copyOfV := make([]float32, len(v)) // Create a new slice
-			copy(copyOfV, v)                   // Copy the data
-			result[i] = openapiclient.EmbeddingsInner{ArrayOfInt32: nil, ArrayOfFloat32: &copyOfV}
-		}
-		return result
-	default:
-		return nil
 	}
 }
 
