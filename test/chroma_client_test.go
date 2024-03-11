@@ -744,6 +744,67 @@ func Test_chroma_client(t *testing.T) {
 		require.Equal(t, string(types.L2), newCollection.Metadata[types.HNSWSpace])
 	})
 
+	t.Run("Test With Collection Builder - no DF", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.NewCollection(
+			context.Background(),
+			collection.WithName("test-collection"),
+			collection.WithMetadata("key1", "value1"),
+			collection.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+		)
+		require.NoError(t, err)
+		// let's create a record set
+		rs, rerr := types.NewRecordSet(
+			types.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+			types.WithIDGenerator(types.NewULIDGenerator()),
+		)
+		require.NoError(t, rerr)
+		// you can loop here to add multiple records
+		rs.WithRecord(types.WithDocument("Document 1 content"), types.WithMetadata("key1", "value1"))
+		rs.WithRecord(types.WithDocument("Document 2 content"), types.WithMetadata("key2", "value2"))
+		_, err = rs.BuildAndValidate(context.Background())
+		require.NoError(t, err)
+		_, err = newCollection.AddRecords(context.Background(), rs)
+		require.NoError(t, err)
+		require.NotNil(t, newCollection)
+		require.Equal(t, "test-collection", newCollection.Name)
+		require.Equal(t, "value1", newCollection.Metadata["key1"])
+		require.Equal(t, string(types.L2), newCollection.Metadata[types.HNSWSpace])
+	})
+
+	t.Run("[Err] Test With Collection Builder - no embedding function", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		_, err := client.NewCollection(
+			context.Background(),
+			collection.WithName("test-collection"),
+			collection.WithMetadata("key1", "value1"),
+		)
+		require.NoError(t, err)
+		// let's create a record set
+		rs, rerr := types.NewRecordSet(
+			types.WithIDGenerator(types.NewULIDGenerator()),
+		)
+		require.NoError(t, rerr)
+		// you can loop here to add multiple records
+		rs.WithRecord(types.WithDocument("Document 1 content"), types.WithMetadata("key1", "value1"))
+		rs.WithRecord(types.WithDocument("Document 2 content"), types.WithMetadata("key2", "value2"))
+		_, err = rs.BuildAndValidate(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "embedding function is required")
+	})
+
+	t.Run("[Err] Test With Collection Builder - no collection name", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		_, err := client.NewCollection(
+			context.Background(),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "collection name cannot be empty")
+	})
+
 	t.Run("Test Get With Where Option", func(t *testing.T) {
 		_, errRest := client.Reset(context.Background())
 		require.NoError(t, errRest)
