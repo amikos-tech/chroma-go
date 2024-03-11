@@ -12,6 +12,13 @@ go get github.com/amikos-tech/chroma-go
 
 ## Getting Started
 
+Concepts:
+
+- [Client Options](client.md) - How to configure chroma go client
+- [Embeddings](embeddings.md) - List of available embedding functions and how to use them
+- [Records](records.md) - How to work with records
+- [Filtering](filtering.md) - How to filter results
+
 Import the library:
 
 ```go
