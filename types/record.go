@@ -201,6 +201,9 @@ func (rs *RecordSet) GetMetadatas() []map[string]interface{} {
 
 // Validate the whole record set by calling record.Validate
 func (rs *RecordSet) Validate() error {
+	if rs.EmbeddingFunction == nil {
+		return fmt.Errorf("embedding function is required")
+	}
 	for _, record := range rs.Records {
 		err := record.Validate()
 		if err != nil {
