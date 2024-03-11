@@ -36,4 +36,24 @@ type Record struct {
 
 ## RecordSet
 
-TBD
+A record set is a cohesive unit of work, allowing the user to add, upsert, update, or delete records.
+
+
+!!! note "Operation support"
+
+    Currently the record set only supports add operation
+
+```go
+rs, rerr := types.NewRecordSet(
+			types.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+			types.WithIDGenerator(types.NewULIDGenerator()),
+		)
+if err != nil {
+    log.Fatalf("Error creating record set: %s", err)
+}
+// you can loop here to add multiple records
+rs.WithRecord(types.WithDocument("Document 1 content"), types.WithMetadata("key1", "value1"))
+rs.WithRecord(types.WithDocument("Document 2 content"), types.WithMetadata("key2", "value2"))
+records, err = rs.BuildAndValidate(context.Background())
+
+```
