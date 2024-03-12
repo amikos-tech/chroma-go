@@ -940,19 +940,74 @@ func TestWithQueryTexts(t *testing.T) {
 
 func TestWithWhere(t *testing.T) {
 	type args struct {
-		operation where.WhereOperation
+		operation    where.WhereOperation
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with where for eq int",
+			args: args{operation: where.Eq("test", 1), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$eq": 1}}},
+		},
+		{
+			name: "with where for eq string",
+			args: args{operation: where.Eq("test", "my string"), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$eq": "my string"}}},
+		},
+		{
+			name: "with where for eq bool",
+			args: args{operation: where.Eq("test", true), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$eq": true}}},
+		},
+		{
+			name: "with where for eq bool",
+			args: args{operation: where.Eq("test", float32(101.99)), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$eq": float32(101.99)}}},
+		},
+		{
+			name: "with where for ne string",
+			args: args{operation: where.Ne("test", "not equal"), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$ne": "not equal"}}},
+		},
+		{
+			name: "with where for gt int",
+			args: args{operation: where.Gt("test", 10), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$gt": 10}}},
+		},
+		{
+			name: "with where for gte float",
+			args: args{operation: where.Gte("test", float32(10.1)), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$gte": float32(10.1)}}},
+		},
+		{
+			name: "with where for lt int",
+			args: args{operation: where.Lt("test", 10), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$lt": 10}}},
+		},
+		{
+			name: "with where for lte float",
+			args: args{operation: where.Lte("test", float32(10.9)), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$lte": float32(10.9)}}},
+		},
+		{
+			name: "with where for in list of strings",
+			args: args{operation: where.In("test", []interface{}{"one", "two"}), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$in": []interface{}{"one", "two"}}}},
+		},
+		{
+			name: "with where for nin list of ints",
+			args: args{operation: where.Nin("test", []interface{}{1, 2, 3}), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": map[string]interface{}{"$nin": []interface{}{1, 2, 3}}}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithWhere(tt.args.operation); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithWhere() = %v, want %v", got, tt.want)
+			if _ = WithWhere(tt.args.operation)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithWhere() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
@@ -960,19 +1015,24 @@ func TestWithWhere(t *testing.T) {
 
 func TestWithWhereDocument(t *testing.T) {
 	type args struct {
-		operation wheredoc.WhereDocumentOperation
+		operation    wheredoc.WhereDocumentOperation
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with where document",
+			args: args{operation: wheredoc.Contains("test"), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{WhereDocument: map[string]interface{}{"$contains": "test"}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithWhereDocument(tt.args.operation); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithWhereDocument() = %v, want %v", got, tt.want)
+			if _ = WithWhereDocument(tt.args.operation)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithWhereDocument() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
