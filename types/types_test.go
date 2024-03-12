@@ -115,7 +115,18 @@ func TestConsistentHashEmbeddingFunction_EmbedDocuments1(t *testing.T) {
 		want    []*Embedding
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{name: "empty document list, expect empty embeddings list",
+			fields:  fields{dim: 10},
+			args:    args{documents: []string{}, ctx: context.TODO()},
+			want:    []*Embedding{},
+			wantErr: false,
+		},
+		{name: "with single document, expect single embedding",
+			fields:  fields{dim: 10},
+			args:    args{documents: []string{"test document"}, ctx: context.TODO()},
+			want:    []*Embedding{{ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}, ArrayOfInt32: nil}},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -139,7 +150,7 @@ func TestConsistentHashEmbeddingFunction_EmbedQuery1(t *testing.T) {
 		dim int
 	}
 	type args struct {
-		in0      context.Context
+		ctx      context.Context
 		document string
 	}
 	tests := []struct {
@@ -149,14 +160,25 @@ func TestConsistentHashEmbeddingFunction_EmbedQuery1(t *testing.T) {
 		want    *Embedding
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{name: "empty document list, expect empty embeddings list",
+			fields:  fields{dim: 10},
+			args:    args{document: "", ctx: context.TODO()},
+			want:    nil,
+			wantErr: true,
+		},
+		{name: "with single document, expect single embedding",
+			fields:  fields{dim: 10},
+			args:    args{document: "test document", ctx: context.TODO()},
+			want:    NewEmbeddingFromFloat32([]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}),
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &ConsistentHashEmbeddingFunction{
 				dim: tt.fields.dim,
 			}
-			got, err := e.EmbedQuery(tt.args.in0, tt.args.document)
+			got, err := e.EmbedQuery(tt.args.ctx, tt.args.document)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("EmbedQuery() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -183,7 +205,42 @@ func TestConsistentHashEmbeddingFunction_EmbedRecords(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name:   "empty document list, expect empty embeddings list",
+			fields: fields{dim: 10},
+			args: args{
+				ctx:     context.TODO(),
+				records: []*Record{},
+			},
+			wantErr: false,
+		},
+		{
+			name:   "with single document, expect single embedding",
+			fields: fields{dim: 10},
+			args: args{
+				ctx: context.TODO(),
+				records: []*Record{
+					{
+						Document: "test document",
+						ID:       "1",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:   "record without doc content",
+			fields: fields{dim: 10},
+			args: args{
+				ctx: context.TODO(),
+				records: []*Record{
+					{
+						ID: "1",
+					},
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -923,19 +980,24 @@ func TestWithWhereDocument(t *testing.T) {
 
 func TestWithWhereDocumentMap(t *testing.T) {
 	type args struct {
-		where map[string]interface{}
+		where        map[string]interface{}
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with where document map",
+			args: args{where: map[string]interface{}{"test": "test"}, queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{WhereDocument: map[string]interface{}{"test": "test"}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithWhereDocumentMap(tt.args.where); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithWhereDocumentMap() = %v, want %v", got, tt.want)
+			if _ = WithWhereDocumentMap(tt.args.where)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithWhereDocumentMap() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
@@ -943,19 +1005,24 @@ func TestWithWhereDocumentMap(t *testing.T) {
 
 func TestWithWhereMap(t *testing.T) {
 	type args struct {
-		where map[string]interface{}
+		where        map[string]interface{}
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with where map",
+			args: args{where: map[string]interface{}{"test": "test"}, queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Where: map[string]interface{}{"test": "test"}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithWhereMap(tt.args.where); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithWhereMap() = %v, want %v", got, tt.want)
+			if _ = WithWhereMap(tt.args.where)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithWhereMap() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
