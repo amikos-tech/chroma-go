@@ -7,6 +7,8 @@ package test
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"regexp"
 	"strings"
@@ -58,6 +60,22 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, err)
 		_, err = clientWithTenant.ListCollections(context.Background())
 		require.NoError(t, err)
+	})
+
+	t.Run("Test client with default headers", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			require.Equal(t, r.Header.Get("Authorization"), "Bearer my-custom-token")
+		}))
+		defer server.Close()
+		var defaultHeaders = map[string]string{"Authorization": "Bearer my-custom-token"}
+		clientWithTenant, err := chroma.NewClient(server.URL, chroma.WithDefaultHeaders(defaultHeaders))
+		require.NoError(t, err)
+		require.NotNil(t, clientWithTenant)
+		_, err = clientWithTenant.Heartbeat(context.Background())
+		if err != nil {
+			return
+		}
 	})
 
 	t.Run("Test Heartbeat", func(t *testing.T) { //nolint:paralleltest

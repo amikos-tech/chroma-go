@@ -236,7 +236,7 @@ func (c *Client) GetDatabase(ctx context.Context, databaseName string, tenantNam
 	return resp, err
 }
 
-// CopyMap returns a new map with the same key-value pairs as the original map, if the original is nil then returns a new empty map
+// copyMap returns a new map with the same key-value pairs as the original map, if the original is nil then returns a new empty map
 func copyMap(originalMap map[string]interface{}) map[string]interface{} {
 	newMap := make(map[string]interface{})
 	if originalMap == nil {
