@@ -103,6 +103,15 @@ func NewEmbeddings(embeddings []interface{}) (*Embedding, error) {
 	return &Embedding{ArrayOfFloat32: &arrayOfFloat32, ArrayOfInt32: &arrayOfInt32}, nil
 }
 
+func (e *Embedding) String() string {
+	if e.ArrayOfFloat32 != nil {
+		return fmt.Sprintf("%v", e.ArrayOfFloat32)
+	}
+	if e.ArrayOfInt32 != nil {
+		return fmt.Sprintf("%v", e.ArrayOfInt32)
+	}
+	return ""
+}
 func (e *Embedding) GetFloat32() *[]float32 {
 	return e.ArrayOfFloat32
 }
@@ -284,7 +293,7 @@ func (e *ConsistentHashEmbeddingFunction) EmbedQuery(_ context.Context, document
 }
 
 func (e *ConsistentHashEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*Embedding, error) {
-	var embeddings []*Embedding
+	var embeddings = make([]*Embedding, 0)
 	for _, document := range documents {
 		embedding, err := e.EmbedQuery(ctx, document)
 		if err != nil {
