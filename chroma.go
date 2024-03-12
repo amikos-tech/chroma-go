@@ -3,7 +3,6 @@ package chromago
 import (
 	"context"
 	"fmt"
-	"maps"
 	"reflect"
 	"strings"
 
@@ -237,6 +236,18 @@ func (c *Client) GetDatabase(ctx context.Context, databaseName string, tenantNam
 	return resp, err
 }
 
+// CopyMap returns a new map with the same key-value pairs as the original map, if the original is nil then returns a new empty map
+func copyMap(originalMap map[string]interface{}) map[string]interface{} {
+	newMap := make(map[string]interface{})
+	if originalMap == nil {
+		return newMap
+	}
+	for key, value := range originalMap {
+		newMap[key] = value
+	}
+	return newMap
+}
+
 func (c *Client) CreateCollection(ctx context.Context, collectionName string, metadata map[string]interface{}, createOrGet bool, embeddingFunction types.EmbeddingFunction, distanceFunction types.DistanceFunction) (*Collection, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -244,10 +255,7 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 	if err != nil {
 		return nil, err
 	}
-	var _metadata = make(map[string]interface{})
-	if metadata != nil {
-		maps.Copy(_metadata, metadata)
-	}
+	var _metadata = copyMap(metadata)
 	if metadata["embedding_function"] == nil && embeddingFunction != nil {
 		_metadata["embedding_function"] = GetStringTypeOfEmbeddingFunction(embeddingFunction)
 	}
