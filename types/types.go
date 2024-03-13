@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 	time "time"
 
 	"github.com/google/uuid"
@@ -53,7 +54,7 @@ func ToDistanceFunction(str any) (DistanceFunction, error) {
 	if str == "" {
 		return L2, nil
 	}
-	switch str {
+	switch strings.ToLower(str.(string)) {
 	case "l2":
 		return L2, nil
 	case "cosine":
@@ -88,14 +89,24 @@ type Embedding struct {
 }
 
 func NewEmbeddings(embeddings []interface{}) (*Embedding, error) {
-	var arrayOfFloat32 []float32
-	var arrayOfInt32 []int32
+	var arrayOfFloat32 = make([]float32, 0)
+	var arrayOfInt32 = make([]int32, 0)
+	if len(embeddings) == 0 {
+		return &Embedding{
+			ArrayOfFloat32: &[]float32{},
+			ArrayOfInt32:   &([]int32{}),
+		}, nil
+	}
 	for _, v := range embeddings {
 		switch val := v.(type) {
 		case int:
 			arrayOfInt32 = append(arrayOfInt32, int32(val))
+		case int32:
+			arrayOfInt32 = append(arrayOfInt32, val)
 		case float32:
 			arrayOfFloat32 = append(arrayOfFloat32, val)
+		case float64:
+			arrayOfFloat32 = append(arrayOfFloat32, float32(val))
 		default:
 			return nil, &InvalidEmbeddingValueError{Value: v}
 		}
@@ -121,7 +132,7 @@ func (e *Embedding) GetInt32() *[]int32 {
 }
 
 func (e *Embedding) IsDefined() bool {
-	return e.ArrayOfFloat32 != nil || e.ArrayOfInt32 != nil
+	return e.ArrayOfFloat32 != nil && len(*e.ArrayOfFloat32) > 0 || e.ArrayOfInt32 != nil && len(*e.ArrayOfInt32) > 0
 }
 
 func NewEmbeddingFromFloat32(embedding []float32) *Embedding {
@@ -139,7 +150,10 @@ func NewEmbeddingFromInt32(embedding []int32) *Embedding {
 }
 
 func NewEmbeddingsFromFloat32(embeddings [][]float32) []*Embedding {
-	var embeddingsArray []*Embedding
+	var embeddingsArray = make([]*Embedding, 0)
+	if len(embeddings) == 0 {
+		return embeddingsArray
+	}
 	for _, embedding := range embeddings {
 		embeddingsArray = append(embeddingsArray, NewEmbeddingFromFloat32(embedding))
 	}
@@ -161,7 +175,10 @@ func (e *Embedding) ToAPI() openapi.EmbeddingsInner {
 }
 
 func ToAPIEmbeddings(embeddings []*Embedding) []openapi.EmbeddingsInner {
-	var apiEmbeddings []openapi.EmbeddingsInner
+	var apiEmbeddings = make([]openapi.EmbeddingsInner, 0)
+	if len(embeddings) == 0 {
+		return apiEmbeddings
+	}
 	for _, embedding := range embeddings {
 		apiEmbeddings = append(apiEmbeddings, embedding.ToAPI())
 	}
@@ -204,23 +221,6 @@ func EmbedRecordsDefaultImpl(e EmbeddingFunction, ctx context.Context, records [
 		records[m[d]].Embedding = *embeddings[i]
 	}
 	return nil
-}
-
-func F32ToInterface(f []float32) []interface{} {
-	i := make([]interface{}, len(f))
-	for index, value := range f {
-		i[index] = value
-	}
-	return i
-}
-
-type EmbeddableContext struct {
-	Documents []string
-}
-type Embeddable func(document string) ([]float32, error)
-
-func (e *EmbeddableContext) Apply(ctx context.Context, embeddingFunction EmbeddingFunction) ([]*Embedding, error) {
-	return embeddingFunction.EmbedDocuments(ctx, e.Documents)
 }
 
 type IDGenerator interface {
