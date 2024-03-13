@@ -5,6 +5,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/oklog/ulid"
+
 	openapi "github.com/amikos-tech/chroma-go/swagger"
 	"github.com/amikos-tech/chroma-go/where"
 	wheredoc "github.com/amikos-tech/chroma-go/where_document"
@@ -266,46 +269,35 @@ func TestEmbedRecordsDefaultImpl(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty document list, expect empty embeddings list",
+			args: args{
+				e:       &ConsistentHashEmbeddingFunction{dim: 10},
+				ctx:     context.TODO(),
+				records: []*Record{},
+				force:   false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "with single document, expect single embedding",
+			args: args{
+				e:   &ConsistentHashEmbeddingFunction{dim: 10},
+				ctx: context.TODO(),
+				records: []*Record{
+					{
+						Document: "test document",
+					},
+				},
+				force: false,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := EmbedRecordsDefaultImpl(tt.args.e, tt.args.ctx, tt.args.records, tt.args.force); (err != nil) != tt.wantErr {
 				t.Errorf("EmbedRecordsDefaultImpl() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestEmbeddableContext_Apply(t *testing.T) {
-	type fields struct {
-		Documents []string
-	}
-	type args struct {
-		ctx               context.Context
-		embeddingFunction EmbeddingFunction
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    []*Embedding
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := &EmbeddableContext{
-				Documents: tt.fields.Documents,
-			}
-			got, err := e.Apply(tt.args.ctx, tt.args.embeddingFunction)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Apply() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Apply() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -321,7 +313,22 @@ func TestEmbedding_GetFloat32(t *testing.T) {
 		fields fields
 		want   *[]float32
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty embedding",
+			fields: fields{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{},
+			},
+			want: &[]float32{},
+		},
+		{
+			name: "embedding with 10 dims",
+			fields: fields{
+				ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+				ArrayOfInt32:   &[]int32{},
+			},
+			want: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -346,7 +353,22 @@ func TestEmbedding_GetInt32(t *testing.T) {
 		fields fields
 		want   *[]int32
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty embedding",
+			fields: fields{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{},
+			},
+			want: &[]int32{},
+		},
+		{
+			name: "embedding with 10 dims",
+			fields: fields{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			},
+			want: &[]int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -371,7 +393,30 @@ func TestEmbedding_IsDefined(t *testing.T) {
 		fields fields
 		want   bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty embedding",
+			fields: fields{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{},
+			},
+			want: false,
+		},
+		{
+			name: "embedding with 10 dims float32",
+			fields: fields{
+				ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+				ArrayOfInt32:   &[]int32{},
+			},
+			want: true,
+		},
+		{
+			name: "embedding with 10 dims int32",
+			fields: fields{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -396,7 +441,39 @@ func TestEmbedding_ToAPI(t *testing.T) {
 		fields fields
 		want   openapi.EmbeddingsInner
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty embedding",
+			fields: fields{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{},
+			},
+			want: openapi.EmbeddingsInner{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{},
+			},
+		},
+		{
+			name: "embedding with 10 dims float32",
+			fields: fields{
+				ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+				ArrayOfInt32:   &[]int32{},
+			},
+			want: openapi.EmbeddingsInner{
+				ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+				ArrayOfInt32:   &[]int32{},
+			},
+		},
+		{
+			name: "embedding with 10 dims int32",
+			fields: fields{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			},
+			want: openapi.EmbeddingsInner{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -411,80 +488,17 @@ func TestEmbedding_ToAPI(t *testing.T) {
 	}
 }
 
-func TestF32ToInterface(t *testing.T) {
-	type args struct {
-		f []float32
-	}
-	tests := []struct {
-		name string
-		args args
-		want []interface{}
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := F32ToInterface(tt.args.f); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("F32ToInterface() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestInvalidEmbeddingValueError_Error(t *testing.T) {
-	type fields struct {
-		Value interface{}
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := &InvalidEmbeddingValueError{
-				Value: tt.fields.Value,
-			}
-			if got := e.Error(); got != tt.want {
-				t.Errorf("Error() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestInvalidMetadataValueError_Error(t *testing.T) {
-	type fields struct {
-		Key   string
-		Value interface{}
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := &InvalidMetadataValueError{
-				Key:   tt.fields.Key,
-				Value: tt.fields.Value,
-			}
-			if got := e.Error(); got != tt.want {
-				t.Errorf("Error() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestNewConsistentHashEmbeddingFunction(t *testing.T) {
 	tests := []struct {
 		name string
 		want EmbeddingFunction
 	}{
-		// TODO: Add test cases.
+		{
+			name: "default consistent hash embedding function",
+			want: &ConsistentHashEmbeddingFunction{
+				dim: 378,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -504,7 +518,40 @@ func TestNewEmbeddingFromAPI(t *testing.T) {
 		args args
 		want *Embedding
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty embedding",
+			args: args{apiEmbedding: openapi.EmbeddingsInner{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{},
+			},
+			},
+			want: &Embedding{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{},
+			},
+		},
+		{
+			name: "embedding with 10 dims float32",
+			args: args{apiEmbedding: openapi.EmbeddingsInner{
+				ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+				ArrayOfInt32:   &[]int32{},
+			}},
+			want: &Embedding{
+				ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+				ArrayOfInt32:   &[]int32{},
+			},
+		},
+		{
+			name: "embedding with 10 dims int32",
+			args: args{apiEmbedding: openapi.EmbeddingsInner{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			}},
+			want: &Embedding{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -524,7 +571,20 @@ func TestNewEmbeddingFromFloat32(t *testing.T) {
 		args args
 		want *Embedding
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty embedding",
+			args: args{embedding: []float32{}},
+			want: &Embedding{
+				ArrayOfFloat32: &[]float32{},
+			},
+		},
+		{
+			name: "embedding with 10 dims",
+			args: args{embedding: []float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}},
+			want: &Embedding{
+				ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -544,7 +604,20 @@ func TestNewEmbeddingFromInt32(t *testing.T) {
 		args args
 		want *Embedding
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty embedding",
+			args: args{embedding: []int32{}},
+			want: &Embedding{
+				ArrayOfInt32: &[]int32{},
+			},
+		},
+		{
+			name: "embedding with 10 dims",
+			args: args{embedding: []int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}},
+			want: &Embedding{
+				ArrayOfInt32: &[]int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -565,7 +638,50 @@ func TestNewEmbeddings(t *testing.T) {
 		want    *Embedding
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty embedding",
+			args: args{embeddings: []interface{}{}},
+			want: &Embedding{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{},
+			},
+			wantErr: false,
+		},
+		{
+			name: "embedding with 10 dims float32",
+			args: args{
+				embeddings: func() []interface{} {
+					var floats = []float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}
+					var interfaces = make([]interface{}, len(floats))
+					for i, v := range floats {
+						interfaces[i] = v
+					}
+					return interfaces
+				}(),
+			},
+			want: &Embedding{
+				ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+				ArrayOfInt32:   &[]int32{},
+			},
+			wantErr: false,
+		},
+		{
+			name: "embedding with 10 dims int32",
+			args: args{
+				embeddings: func() []interface{} {
+					var ints = []int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+					var interfaces = make([]interface{}, len(ints))
+					for i, v := range ints {
+						interfaces[i] = v
+					}
+					return interfaces
+				}(),
+			},
+			want: &Embedding{
+				ArrayOfFloat32: &[]float32{},
+				ArrayOfInt32:   &[]int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -590,7 +706,21 @@ func TestNewEmbeddingsFromFloat32(t *testing.T) {
 		args args
 		want []*Embedding
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty embedding",
+			args: args{embeddings: [][]float32{}},
+			want: []*Embedding{},
+		},
+		{
+			name: "embedding with 10 dims float32",
+			args: args{embeddings: [][]float32{{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}}},
+			want: []*Embedding{{ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}}},
+		},
+		{
+			name: "embedding with 10 dims ints",
+			args: args{embeddings: [][]float32{{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}}},
+			want: []*Embedding{{ArrayOfFloat32: &[]float32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -606,7 +736,10 @@ func TestNewSHA256Generator(t *testing.T) {
 		name string
 		want *SHA256Generator
 	}{
-		// TODO: Add test cases.
+		{
+			name: "default sha256 generator",
+			want: NewSHA256Generator(),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -622,7 +755,10 @@ func TestNewULIDGenerator(t *testing.T) {
 		name string
 		want *ULIDGenerator
 	}{
-		// TODO: Add test cases.
+		{
+			name: "default ulid generator",
+			want: NewULIDGenerator(),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -638,7 +774,10 @@ func TestNewUUIDGenerator(t *testing.T) {
 		name string
 		want *UUIDGenerator
 	}{
-		// TODO: Add test cases.
+		{
+			name: "default uuid generator",
+			want: NewUUIDGenerator(),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -658,7 +797,16 @@ func TestSHA256Generator_Generate(t *testing.T) {
 		args args
 		want string
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty document",
+			args: args{document: ""},
+			want: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		},
+		{
+			name: "non-empty document",
+			args: args{document: "test document"},
+			want: "4837479125758add3ba4c99153bb855c8519f86a7f672b26b155bea6adcbb41a",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -679,7 +827,27 @@ func TestToAPIEmbeddings(t *testing.T) {
 		args args
 		want []openapi.EmbeddingsInner
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty embeddings",
+			args: args{embeddings: []*Embedding{}},
+			want: make([]openapi.EmbeddingsInner, 0),
+		},
+		{
+			name: "single embedding",
+			args: args{embeddings: []*Embedding{{ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}}}},
+			want: []openapi.EmbeddingsInner{{ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}}},
+		},
+		{
+			name: "multiple embeddings",
+			args: args{embeddings: []*Embedding{
+				{ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}},
+				{ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}},
+			}},
+			want: []openapi.EmbeddingsInner{
+				{ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}},
+				{ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -700,7 +868,42 @@ func TestToDistanceFunction(t *testing.T) {
 		want    DistanceFunction
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name:    "empty string, should get default L2",
+			args:    args{str: ""},
+			want:    L2,
+			wantErr: false,
+		},
+		{
+			name:    "L2 string, should get L2",
+			args:    args{str: "L2"},
+			want:    L2,
+			wantErr: false,
+		},
+		{
+			name:    "COSINE all caps string, should get COSINE",
+			args:    args{str: "COSINE"},
+			want:    COSINE,
+			wantErr: false,
+		},
+		{
+			name:    "COSINE lowecase string, should get COSINE",
+			args:    args{str: "cosine"},
+			want:    COSINE,
+			wantErr: false,
+		},
+		{
+			name:    "IP string, should get IP",
+			args:    args{str: "ip"},
+			want:    IP,
+			wantErr: false,
+		},
+		{
+			name:    "invliad string, should fail",
+			args:    args{str: "L1"},
+			want:    "",
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -723,15 +926,21 @@ func TestULIDGenerator_Generate(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want string
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty document",
+			args: args{in0: ""},
+		},
+		{
+			name: "non-empty document",
+			args: args{in0: "test document"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &ULIDGenerator{}
-			if got := u.Generate(tt.args.in0); got != tt.want {
-				t.Errorf("Generate() = %v, want %v", got, tt.want)
+			if got, err := ulid.Parse(u.Generate(tt.args.in0)); err != nil {
+				t.Errorf("Generate() did not produce valid ULID: %v", got)
 			}
 		})
 	}
@@ -744,15 +953,21 @@ func TestUUIDGenerator_Generate(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want string
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty document",
+			args: args{in0: ""},
+		},
+		{
+			name: "non-empty document",
+			args: args{in0: "test document"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &UUIDGenerator{}
-			if got := u.Generate(tt.args.in0); got != tt.want {
-				t.Errorf("Generate() = %v, want %v", got, tt.want)
+			if got, err := uuid.Parse(u.Generate(tt.args.in0)); err != nil {
+				t.Errorf("Generate() - created an invalid uuid %v", got)
 			}
 		})
 	}
@@ -760,19 +975,24 @@ func TestUUIDGenerator_Generate(t *testing.T) {
 
 func TestWithIds(t *testing.T) {
 	type args struct {
-		ids []string
+		ids          []string
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with ids",
+			args: args{ids: []string{"1", "2", "3"}, queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Ids: []string{"1", "2", "3"}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithIds(tt.args.ids); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithIds() = %v, want %v", got, tt.want)
+			if _ = WithIds(tt.args.ids)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithIds() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
@@ -780,19 +1000,24 @@ func TestWithIds(t *testing.T) {
 
 func TestWithInclude(t *testing.T) {
 	type args struct {
-		include []QueryEnum
+		include      []QueryEnum
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with include",
+			args: args{include: []QueryEnum{QueryEnum(IDistances)}, queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Include: []QueryEnum{QueryEnum(IDistances)}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithInclude(tt.args.include...); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithInclude() = %v, want %v", got, tt.want)
+			if _ = WithInclude(tt.args.include...)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithInclude() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
@@ -800,19 +1025,24 @@ func TestWithInclude(t *testing.T) {
 
 func TestWithLimit(t *testing.T) {
 	type args struct {
-		limit int32
+		limit        int32
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with limit",
+			args: args{limit: 10, queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Limit: 10},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithLimit(tt.args.limit); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithLimit() = %v, want %v", got, tt.want)
+			if _ = WithLimit(tt.args.limit)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithLimit() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
@@ -820,19 +1050,24 @@ func TestWithLimit(t *testing.T) {
 
 func TestWithNResults(t *testing.T) {
 	type args struct {
-		nResults int32
+		nResults     int32
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with n results",
+			args: args{nResults: 10, queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{NResults: 10},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithNResults(tt.args.nResults); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithNResults() = %v, want %v", got, tt.want)
+			if _ = WithNResults(tt.args.nResults)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithNResults() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
@@ -840,19 +1075,24 @@ func TestWithNResults(t *testing.T) {
 
 func TestWithOffset(t *testing.T) {
 	type args struct {
-		offset int32
+		offset       int32
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with offset",
+			args: args{offset: 10, queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{Offset: 10},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithOffset(tt.args.offset); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithOffset() = %v, want %v", got, tt.want)
+			if _ = WithOffset(tt.args.offset)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithOffset() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
@@ -861,18 +1101,23 @@ func TestWithOffset(t *testing.T) {
 func TestWithQueryEmbedding(t *testing.T) {
 	type args struct {
 		queryEmbedding *Embedding
+		queryBuilder   *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with query embedding",
+			args: args{queryEmbedding: NewEmbeddingFromFloat32([]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}), queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{QueryEmbeddings: NewEmbeddingsFromFloat32([][]float32{{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}})},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithQueryEmbedding(tt.args.queryEmbedding); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithQueryEmbedding() = %v, want %v", got, tt.want)
+			if _ = WithQueryEmbedding(tt.args.queryEmbedding)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithQueryEmbedding() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
@@ -881,18 +1126,28 @@ func TestWithQueryEmbedding(t *testing.T) {
 func TestWithQueryEmbeddings(t *testing.T) {
 	type args struct {
 		queryEmbeddings []*Embedding
+		queryBuilder    *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with query embeddings",
+			args: args{queryEmbeddings: []*Embedding{NewEmbeddingFromFloat32([]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334}), NewEmbeddingFromFloat32([]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334})}, queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{
+				QueryEmbeddings: NewEmbeddingsFromFloat32([][]float32{
+					{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+					{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithQueryEmbeddings(tt.args.queryEmbeddings); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithQueryEmbeddings() = %v, want %v", got, tt.want)
+			if _ = WithQueryEmbeddings(tt.args.queryEmbeddings)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithQueryEmbeddings() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
@@ -900,19 +1155,24 @@ func TestWithQueryEmbeddings(t *testing.T) {
 
 func TestWithQueryText(t *testing.T) {
 	type args struct {
-		queryText string
+		queryText    string
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with query text",
+			args: args{queryText: "test", queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{QueryTexts: []string{"test"}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithQueryText(tt.args.queryText); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithQueryText() = %v, want %v", got, tt.want)
+			if _ = WithQueryText(tt.args.queryText)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithQueryText() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
@@ -920,19 +1180,24 @@ func TestWithQueryText(t *testing.T) {
 
 func TestWithQueryTexts(t *testing.T) {
 	type args struct {
-		queryTexts []string
+		queryTexts   []string
+		queryBuilder *CollectionQueryBuilder
 	}
 	tests := []struct {
 		name string
 		args args
-		want CollectionQueryOption
+		want *CollectionQueryBuilder
 	}{
-		// TODO: Add test cases.
+		{
+			name: "with query texts",
+			args: args{queryTexts: []string{"test1", "test2"}, queryBuilder: &CollectionQueryBuilder{}},
+			want: &CollectionQueryBuilder{QueryTexts: []string{"test1", "test2"}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WithQueryTexts(tt.args.queryTexts); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WithQueryTexts() = %v, want %v", got, tt.want)
+			if _ = WithQueryTexts(tt.args.queryTexts)(tt.args.queryBuilder); !reflect.DeepEqual(tt.args.queryBuilder, tt.want) {
+				t.Errorf("WithQueryTexts() = %v, want %v", tt.args.queryBuilder, tt.want)
 			}
 		})
 	}
