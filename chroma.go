@@ -22,11 +22,6 @@ func APIEmbeddingToEmbedding(embedding openapiclient.EmbeddingsInner) *types.Emb
 	switch {
 	case embedding.ArrayOfInt32 != nil:
 		return types.NewEmbeddingFromInt32(*embedding.ArrayOfInt32)
-		// result := make([]interface{}, len(*embedding.ArrayOfInt32))
-		// for i, v := range *embedding.ArrayOfInt32 {
-		//	result[i] = v
-		//}
-		// return result
 	case embedding.ArrayOfFloat32 != nil:
 		return types.NewEmbeddingFromFloat32(*embedding.ArrayOfFloat32)
 	default:
@@ -87,6 +82,18 @@ func WithDefaultHeaders(headers map[string]string) ClientOption {
 		}
 		c.apiConfiguration.DefaultHeader = headers
 		return nil
+	}
+}
+
+func WithAuth(provider types.CredentialsProvider) ClientOption {
+	return func(c *Client) error {
+		if c == nil {
+			return fmt.Errorf("client is nil")
+		}
+		if c.apiConfiguration == nil {
+			return fmt.Errorf("api configuration is nil")
+		}
+		return provider.Authenticate(c.apiConfiguration)
 	}
 }
 

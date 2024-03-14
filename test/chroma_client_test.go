@@ -6,6 +6,7 @@ package test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -73,6 +74,57 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, clientWithTenant)
 		_, err = clientWithTenant.Heartbeat(context.Background())
+		if err != nil {
+			return
+		}
+	})
+
+	t.Run("Test with basic auth", func(t *testing.T) {
+		var user = "username"
+		var password = "password"
+		auth := user + ":" + password
+		encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			require.Equal(t, r.Header.Get("Authorization"), "Basic "+encodedAuth)
+		}))
+		defer server.Close()
+		clientWithAuth, err := chroma.NewClient(server.URL, chroma.WithAuth(types.NewBasicAuthCredentialsProvider(user, password)))
+		require.NoError(t, err)
+		require.NotNil(t, clientWithAuth)
+		_, err = clientWithAuth.Heartbeat(context.Background())
+		if err != nil {
+			return
+		}
+	})
+
+	t.Run("Test with token auth - Authorization Header", func(t *testing.T) {
+		var token = "mytoken"
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			require.Equal(t, r.Header.Get(string(types.AuthorizationTokenHeader)), "Bearer "+token)
+		}))
+		defer server.Close()
+		clientWithAuth, err := chroma.NewClient(server.URL, chroma.WithAuth(types.NewTokenAuthCredentialsProvider(token, types.AuthorizationTokenHeader)))
+		require.NoError(t, err)
+		require.NotNil(t, clientWithAuth)
+		_, err = clientWithAuth.Heartbeat(context.Background())
+		if err != nil {
+			return
+		}
+	})
+
+	t.Run("Test with token auth - X-Chroma-Token Header", func(t *testing.T) {
+		var token = "mytoken"
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			require.Equal(t, r.Header.Get(string(types.XChromaTokenHeader)), token)
+		}))
+		defer server.Close()
+		clientWithAuth, err := chroma.NewClient(server.URL, chroma.WithAuth(types.NewTokenAuthCredentialsProvider(token, types.XChromaTokenHeader)))
+		require.NoError(t, err)
+		require.NotNil(t, clientWithAuth)
+		_, err = clientWithAuth.Heartbeat(context.Background())
 		if err != nil {
 			return
 		}
