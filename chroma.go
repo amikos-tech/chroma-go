@@ -607,7 +607,7 @@ func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types
 	}
 	var localInclude = b.Include
 	if len(b.Include) == 0 {
-		localInclude = []types.QueryEnum{types.IDocuments, types.IMetadatas}
+		localInclude = []types.QueryEnum{types.IDocuments, types.IMetadatas, types.IDistances}
 	}
 	_includes := make([]openapiclient.IncludeInner, len(localInclude))
 	for i, v := range localInclude {

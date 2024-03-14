@@ -454,7 +454,7 @@ func Test_chroma_client(t *testing.T) {
 		require.Contains(t, res.Ids, "ID2")
 	})
 
-	t.Run("Test Query Collection Documents", func(t *testing.T) {
+	t.Run("Test Query Collection Documents - with Default includes", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]interface{}{}
 		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
@@ -487,9 +487,52 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, getErr)
 		assert.Equal(t, int32(2), colGet)
 
-		qr, qrerr := col.Query(context.Background(), []string{"Dogs are my favorite animals"}, 5, nil, nil, nil)
-		require.NoError(t, qrerr)
+		qr, err := col.Query(context.Background(), []string{"Dogs are my favorite animals"}, 5, nil, nil, nil)
+		require.NoError(t, err)
 		require.Equal(t, 2, len(qr.Documents[0]))
+		require.Equal(t, 2, len(qr.Metadatas[0]))
+		require.Equal(t, 2, len(qr.Distances[0]))
+		require.Equal(t, documents[1], qr.Documents[0][0]) // ensure that the first document is the one about dogs
+	})
+
+	t.Run("Test Query Collection Documents - with document only includes", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
+		// assert the metadata contains key embedding_function
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
+		documents := []string{
+			"This is a document about cats. Cats are great.",
+			"this is a document about dogs. Dogs are great.",
+		}
+		ids := []string{
+			"ID1",
+			"ID2",
+		}
+
+		metadatas := []map[string]interface{}{
+			{"key1": "value1"},
+			{"key2": "value2"},
+		}
+		col, addError := newCollection.Add(context.Background(), nil, metadatas, documents, ids)
+		require.NoError(t, addError)
+
+		colGet, getErr := col.Count(context.Background())
+		require.NoError(t, getErr)
+		assert.Equal(t, int32(2), colGet)
+
+		qr, err := col.Query(context.Background(), []string{"Dogs are my favorite animals"}, 5, nil, nil, []types.QueryEnum{types.IDocuments})
+		require.NoError(t, err)
+		require.Equal(t, 2, len(qr.Documents[0]))
+		require.Equal(t, 0, len(qr.Metadatas))
+		require.Equal(t, 0, len(qr.Distances))
 		require.Equal(t, documents[1], qr.Documents[0][0]) // ensure that the first document is the one about dogs
 	})
 
