@@ -6,6 +6,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://go-client.chromadb.dev/auth/</loc>
+         <lastmod>2024-03-14</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://go-client.chromadb.dev/client/</loc>
          <lastmod>2024-03-14</lastmod>
          <changefreq>daily</changefreq>
