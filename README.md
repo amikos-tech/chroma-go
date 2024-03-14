@@ -6,6 +6,10 @@ Works with Chroma Version: v0.4.3 - v0.4.24
 
 ## Feature Parity with ChromaDB API
 
+- ✅ Create Tenant
+- ✅ Get Tenant
+- ✅ Create Database
+- ✅ Get Database
 - ✅ Reset
 - ✅ Heartbeat
 - ✅ List Collections
@@ -20,7 +24,7 @@ Works with Chroma Version: v0.4.3 - v0.4.24
 - ✅ Collection Update
 - ✅ Collection Upsert
 - ✅ Collection Delete - delete documents in collection
-- 🚫 Authentication (Basic, Token with Authorization header, Token with X-Chroma-Token header)
+- ✅ Authentication (Basic, Token with Authorization header, Token with X-Chroma-Token header)
 
 ## Embedding Functions Support
 
@@ -163,7 +167,7 @@ make build
 ### Test
 
 ```bash
-make gotest
+make test
 ```
 
 ### Generate ChromaDB API Client
@@ -172,8 +176,22 @@ make gotest
 make generate 
 ```
 
+### Lint
+
+```bash
+make lint-fix
+```
+
+### Local Server
+
+> Note: Docker must be installed
+
+```bash
+make server
+```
 
 ## References
 
 - [Official Chroma documentation](https://docs.trychroma.com/)
 - [Chroma Helm chart](https://github.com/amikos-tech/chromadb-chart) for cloud-native deployments
+- [Chroma Cookbook](https://cookbook.chromadb.dev) for examples and recipes
