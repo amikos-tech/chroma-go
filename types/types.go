@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"math/rand"
@@ -446,5 +447,60 @@ func WithIds(ids []string) CollectionQueryOption {
 	return func(q *CollectionQueryBuilder) error {
 		q.Ids = ids
 		return nil
+	}
+}
+
+type CredentialsProvider interface {
+	Authenticate(apiClient *openapi.Configuration) error
+}
+
+type BasicAuthCredentialsProvider struct {
+	Username string
+	Password string
+}
+
+func NewBasicAuthCredentialsProvider(username, password string) *BasicAuthCredentialsProvider {
+	return &BasicAuthCredentialsProvider{
+		Username: username,
+		Password: password,
+	}
+}
+
+func (b *BasicAuthCredentialsProvider) Authenticate(config *openapi.Configuration) error {
+	auth := b.Username + ":" + b.Password
+	encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
+	config.DefaultHeader["Authorization"] = "Basic " + encodedAuth
+	return nil
+}
+
+type TokenTransportHeader string
+
+const (
+	AuthorizationTokenHeader TokenTransportHeader = "Authorization"
+	XChromaTokenHeader       TokenTransportHeader = "X-Chroma-Token"
+)
+
+type TokenAuthCredentialsProvider struct {
+	Token  string
+	Header TokenTransportHeader
+}
+
+func NewTokenAuthCredentialsProvider(token string, header TokenTransportHeader) *TokenAuthCredentialsProvider {
+	return &TokenAuthCredentialsProvider{
+		Token:  token,
+		Header: header,
+	}
+}
+
+func (t *TokenAuthCredentialsProvider) Authenticate(config *openapi.Configuration) error {
+	switch t.Header {
+	case AuthorizationTokenHeader:
+		config.DefaultHeader[string(t.Header)] = "Bearer " + t.Token
+		return nil
+	case XChromaTokenHeader:
+		config.DefaultHeader[string(t.Header)] = t.Token
+		return nil
+	default:
+		return fmt.Errorf("unsupported token header: %v", t.Header)
 	}
 }
