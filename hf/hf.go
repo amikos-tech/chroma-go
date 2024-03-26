@@ -5,10 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/amikos-tech/chroma-go/types"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/amikos-tech/chroma-go/types"
 )
 
 type HuggingFaceClient struct {
