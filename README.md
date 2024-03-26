@@ -33,7 +33,8 @@ Works with Chroma Version: v0.4.3 - v0.4.24
 - ✅ Sentence Transformers (HuggingFace Inference API)
 - 🚫 PaLM API
 - 🚫 Custom Embedding Function
-- 🚫 Hugging Face Inference Embedding Function
+- ✅ HuggingFace Embedding Inference Server Function
+- 🚫 Ollama Embedding Function Support
 
 ## Installation
 

@@ -5,17 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/amikos-tech/chroma-go/types"
 	"io"
 	"net/http"
-
-	"github.com/amikos-tech/chroma-go/types"
+	"strings"
 )
 
 type HuggingFaceClient struct {
-	BaseURL string
-	APIKey  string
-	Model   string
-	Client  *http.Client
+	BaseURL        string
+	APIKey         string
+	Model          string
+	Client         *http.Client
+	DefaultHeaders map[string]string
 }
 
 func NewHuggingFaceClient(apiKey string, model string) *HuggingFaceClient {
@@ -27,6 +28,20 @@ func NewHuggingFaceClient(apiKey string, model string) *HuggingFaceClient {
 	}
 }
 
+func NewHuggingFaceClientFromOptions(opts ...Option) (*HuggingFaceClient, error) {
+	c := &HuggingFaceClient{
+		BaseURL: "https://api-inference.huggingface.co/pipeline/feature-extraction/",
+		Client:  &http.Client{},
+	}
+
+	for _, opt := range opts {
+		if err := opt(c); err != nil {
+			return nil, err
+		}
+	}
+	return c, nil
+}
+
 func (c *HuggingFaceClient) SetAPIKey(apiKey string) {
 	c.APIKey = apiKey
 }
@@ -36,9 +51,6 @@ func (c *HuggingFaceClient) SetBaseURL(baseURL string) {
 }
 
 func (c *HuggingFaceClient) getAPIKey() string {
-	if c.APIKey == "" {
-		panic("API Key not set")
-	}
 	return c.APIKey
 }
 
@@ -68,23 +80,30 @@ func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbe
 	if err != nil {
 		return nil, err
 	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+c.Model, bytes.NewBufferString(reqJSON))
+	var url = c.BaseURL + c.Model
+	if !strings.HasSuffix(c.BaseURL, "/") && c.Model != "" {
+		url = c.BaseURL + "/" + c.Model
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBufferString(reqJSON))
 	if err != nil {
 		return nil, err
 	}
+	for k, v := range c.DefaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.getAPIKey())
+	if c.getAPIKey() != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.getAPIKey())
+	}
 
 	resp, err := c.Client.Do(httpReq)
-
 	if err != nil {
 		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected code %v", resp.Status)
+		return nil, fmt.Errorf("unexpected code [%v] while making a request to %v", resp.Status, url)
 	}
 
 	respData, err := io.ReadAll(resp.Body)
@@ -115,6 +134,29 @@ func NewHuggingFaceEmbeddingFunction(apiKey string, model string) *HuggingFaceEm
 	}
 
 	return cli
+}
+
+func NewHuggingFaceEmbeddingFunctionFromOptions(opts ...Option) (*HuggingFaceEmbeddingFunction, error) {
+	cli, err := NewHuggingFaceClientFromOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &HuggingFaceEmbeddingFunction{
+		apiClient: cli,
+	}, nil
+}
+
+func NewHuggingFaceEmbeddingInferenceFunction(baseURL string, opts ...Option) (*HuggingFaceEmbeddingFunction, error) {
+	opts = append(opts, WithBaseURL(baseURL))
+	cli, err := NewHuggingFaceClientFromOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &HuggingFaceEmbeddingFunction{
+		apiClient: cli,
+	}, nil
 }
 
 func (e *HuggingFaceEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
