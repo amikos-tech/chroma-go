@@ -1,0 +1,14 @@
+<head>
+    <script src="wasm_exec.js"></script>
+    <script>
+        if (WebAssembly) {
+            const go = new Go();
+            WebAssembly
+                .instantiateStreaming(fetch("chromago.wasm"), go.importObject)
+                .then((result) => {
+                    go.run(result.instance);
+            });                                             
+        }
+    </script>
+    <title></title> 
+</head>

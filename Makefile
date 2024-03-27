@@ -24,3 +24,7 @@ clean-lint-cache:
 .PHONY: server
 server:
 	sh ./scripts/chroma_server.sh
+
+.PHONY: build-wasm-client
+build-wasm-client:
+	GOOS=js GOARCH=wasm go build -o wasm/chromago.wasm wasm/main.go
