@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/amikos-tech/chroma-go/types"
 )
@@ -52,7 +53,13 @@ func (c *OllamaClient) createEmbedding(ctx context.Context, req *CreateEmbedding
 	if err != nil {
 		return nil, err
 	}
-	var url = c.BaseURL
+	var url string
+	if !strings.HasSuffix(c.BaseURL, "/") {
+		url = c.BaseURL + "/api/embeddings"
+	} else {
+		url = c.BaseURL + "api/embeddings"
+	}
+
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBufferString(reqJSON))
 	if err != nil {
 		return nil, err

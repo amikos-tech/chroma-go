@@ -26,7 +26,7 @@ func Test_ollama(t *testing.T) {
 	require.NoError(t, err)
 	connectionStr, err := ollamaContainer.ConnectionString(ctx)
 	require.NoError(t, err)
-	client, _ := NewOllamaClient(WithBaseURL(connectionStr+"/api/embeddings"), WithModel("nomic-embed-text"))
+	client, _ := NewOllamaClient(WithBaseURL(connectionStr), WithModel("nomic-embed-text"))
 	t.Run("Test Create Embed", func(t *testing.T) {
 		resp, rerr := client.createEmbedding(context.Background(), &CreateEmbeddingRequest{Model: "nomic-embed-text", Prompt: "Document 1 content here"})
 		require.Nil(t, rerr)
@@ -37,9 +37,8 @@ func Test_ollama(t *testing.T) {
 			"Document 1 content here",
 			"Document 2 content here",
 		}
-		ef, err := NewOllamaEmbeddingFunction(WithBaseURL(connectionStr+"/api/embeddings"), WithModel("nomic-embed-text"))
+		ef, err := NewOllamaEmbeddingFunction(WithBaseURL(connectionStr), WithModel("nomic-embed-text"))
 		require.NoError(t, err)
-
 		resp, rerr := ef.EmbedDocuments(context.Background(), documents)
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
