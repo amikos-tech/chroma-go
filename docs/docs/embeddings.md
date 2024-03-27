@@ -8,6 +8,7 @@ The following embedding wrappers are available:
 | Cohere                                 | Cohere embeddings API.<br/>All models are supported - see Cohere [API docs](https://docs.cohere.com/reference/embed) for more info.                         |
 | HuggingFace Inference API              | HuggingFace Inference API.<br/>All models supported by the API.                                                                                             |
 | HuggingFace Embedding Inference Server | HuggingFace Embedding Inference Server.<br/>[Models supported](https://github.com/huggingface/text-embeddings-inference) by the inference server.           |
+| Ollama                                 | Ollama embeddings API.<br/>All models are supported - see Ollama [models lib](https://ollama.com/library) for more info.                                    |
 
 ## OpenAI
 
@@ -118,6 +119,46 @@ func main() {
 	if reqErr != nil {
 		fmt.Printf("Error embedding documents: %s \n", reqErr)
 	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+## Ollama
+
+!!! note "Assumptions"
+    
+    The below example assumes that you have an Ollama server running locally on `http://127.0.0.1:11434`. Use the following command to start the Ollama server:
+
+    ```bash
+    docker run -d -v ./ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
+    docker exec -it ollama ollama run nomic-embed-text # press Ctrl+D to exit after model downloads successfully
+    # test it
+    curl http://localhost:11434/api/embeddings -d '{"model": "nomic-embed-text","prompt": "Here is an article about llamas..."}'
+     ```
+
+```go
+package main
+
+import (
+	"context"
+    "fmt"
+	ollama "github.com/amikos-tech/chroma-go/ollama"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// the `/api/embeddings` endpoint is automatically appended to the base URL
+	ef, err := ollama.NewOllamaEmbeddingFunction(ollama.WithBaseURL("http://127.0.0.1:11434"), ollama.WithModel("nomic-embed-text"))
+	if err != nil {
+        fmt.Printf("Error creating Ollama embedding function: %s \n", err)
+    }
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+        fmt.Printf("Error embedding documents: %s \n", err)
+    }
 	fmt.Printf("Embedding response: %v \n", resp)
 }
 ```
