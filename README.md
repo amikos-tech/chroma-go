@@ -34,7 +34,7 @@ Works with Chroma Version: v0.4.3 - v0.4.24
 - 🚫 PaLM API
 - 🚫 Custom Embedding Function
 - ✅ HuggingFace Embedding Inference Server Function
-- 🚫 Ollama Embedding Function Support
+- ✅ Ollama Embedding Function Support
 
 ## Installation
 
