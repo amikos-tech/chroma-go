@@ -406,12 +406,16 @@ func (c *Collection) String() string {
 		c.Name, c.ID, c.Tenant, c.Database, c.Metadata)
 }
 
-func NewCollection(apiClient *openapiclient.APIClient, id string, name string, metadata map[string]interface{}, embeddingFunction types.EmbeddingFunction, tenant string, database string) *Collection {
+func NewCollection(apiClient *openapiclient.APIClient, id string, name string, metadata *map[string]interface{}, embeddingFunction types.EmbeddingFunction, tenant string, database string) *Collection {
+	_metadata := make(map[string]interface{})
+	if metadata != nil {
+		_metadata = *metadata
+	}
 	return &Collection{
 		Name:              name,
 		EmbeddingFunction: embeddingFunction,
 		ApiClient:         apiClient,
-		Metadata:          metadata,
+		Metadata:          _metadata,
 		ID:                id,
 		Tenant:            tenant,
 		Database:          database,
@@ -573,7 +577,10 @@ type QueryResults struct {
 	Distances [][]float32                `json:"distances,omitempty"`
 }
 
-func getMetadataFromAPI(metadata *map[string]openapiclient.Metadata) map[string]interface{} {
+func getMetadataFromAPI(metadata *map[string]openapiclient.Metadata) *map[string]interface{} {
+	if metadata == nil {
+		return nil
+	}
 	result := make(map[string]interface{})
 	for key, value := range *metadata {
 		switch {
@@ -587,7 +594,7 @@ func getMetadataFromAPI(metadata *map[string]openapiclient.Metadata) map[string]
 			result[key] = *value.Int32
 		}
 	}
-	return result
+	return &result
 }
 
 func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults int32, where map[string]interface{}, whereDocuments map[string]interface{}, include []types.QueryEnum) (*QueryResults, error) {
@@ -658,15 +665,19 @@ func (c *Collection) Count(ctx context.Context) (int32, error) {
 	return cd, nil
 }
 
-func (c *Collection) Update(ctx context.Context, newName string, newMetadata map[string]interface{}) (*Collection, error) {
+func (c *Collection) Update(ctx context.Context, newName string, newMetadata *map[string]interface{}) (*Collection, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
-	_, _, err := c.ApiClient.DefaultApi.UpdateCollection(ctx, c.ID).UpdateCollection(openapiclient.UpdateCollection{NewName: &newName, NewMetadata: newMetadata}).Execute()
+	_newMetadata := make(map[string]interface{})
+	if newMetadata != nil {
+		_newMetadata = *newMetadata
+	}
+	_, _, err := c.ApiClient.DefaultApi.UpdateCollection(ctx, c.ID).UpdateCollection(openapiclient.UpdateCollection{NewName: &newName, NewMetadata: _newMetadata}).Execute()
 	if err != nil {
 		return c, err
 	}
 	c.Name = newName
-	c.Metadata = newMetadata
+	c.Metadata = _newMetadata
 	return c, nil
 }
 
