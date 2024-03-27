@@ -22,7 +22,7 @@
     
     
       
-        <title>Embedding Models - ChromaDB Cookbook | The Unofficial Guide to ChromaDB</title>
+        <title>Embedding Models - ChromaDB Go Client</title>
       
     
     
@@ -98,7 +98,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="https://www.trychroma.com" title="ChromaDB Cookbook | The Unofficial Guide to ChromaDB" class="md-header__button md-logo" aria-label="ChromaDB Cookbook | The Unofficial Guide to ChromaDB" data-md-component="logo">
+    <a href="https://www.trychroma.com" title="ChromaDB Go Client" class="md-header__button md-logo" aria-label="ChromaDB Go Client" data-md-component="logo">
       
   <img src="../assets/images/logo.png" alt="logo">
 
@@ -111,7 +111,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            ChromaDB Cookbook | The Unofficial Guide to ChromaDB
+            ChromaDB Go Client
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -204,12 +204,12 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="https://www.trychroma.com" title="ChromaDB Cookbook | The Unofficial Guide to ChromaDB" class="md-nav__button md-logo" aria-label="ChromaDB Cookbook | The Unofficial Guide to ChromaDB" data-md-component="logo">
+    <a href="https://www.trychroma.com" title="ChromaDB Go Client" class="md-nav__button md-logo" aria-label="ChromaDB Go Client" data-md-component="logo">
       
   <img src="../assets/images/logo.png" alt="logo">
 
     </a>
-    ChromaDB Cookbook | The Unofficial Guide to ChromaDB
+    ChromaDB Go Client
   </label>
   
     <div class="md-nav__source">
@@ -376,6 +376,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#ollama" class="md-nav__link">
+    <span class="md-ellipsis">
+      Ollama
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -488,6 +497,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#ollama" class="md-nav__link">
+    <span class="md-ellipsis">
+      Ollama
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -531,6 +549,10 @@
 <tr>
 <td>HuggingFace Embedding Inference Server</td>
 <td>HuggingFace Embedding Inference Server.<br/><a href="https://github.com/huggingface/text-embeddings-inference">Models supported</a> by the inference server.</td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td>Ollama embeddings API.<br/>All models are supported - see Ollama <a href="https://ollama.com/library">models lib</a> for more info.</td>
 </tr>
 </tbody>
 </table>
@@ -634,6 +656,41 @@ repository.</p>
 </span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Embedding response: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">resp</span><span class="p">)</span>
 </span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="p">}</span>
 </span></code></pre></div>
+<h2 id="ollama">Ollama<a class="headerlink" href="#ollama" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Assumptions</p>
+<p>The below example assumes that you have an Ollama server running locally on <code>http://127.0.0.1:11434</code>. Use the following command to start the Ollama server:</p>
+<p>```bash
+docker run -d -v ./ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
+docker exec -it ollama ollama run nomic-embed-text # press Ctrl+D to exit after model downloads successfully</p>
+<h1 id="test-it">test it<a class="headerlink" href="#test-it" title="Permanent link">&para;</a></h1>
+<p>curl http://localhost:11434/api/embeddings -d '{"model": "nomic-embed-text","prompt": "Here is an article about llamas..."}'
+ ```</p>
+</div>
+<p>```go
+package main</p>
+<p>import (
+    "context"
+    "fmt"
+    ollama "github.com/amikos-tech/chroma-go/ollama"
+)</p>
+<p>func main() {
+    documents := []string{
+        "Document 1 content here",
+        "Document 2 content here",
+    }
+    // the <code>/api/embeddings</code> endpoint is automatically appended to the base URL
+    ef, err := ollama.NewOllamaEmbeddingFunction(ollama.WithBaseURL("http://127.0.0.1:11434"), ollama.WithModel("nomic-embed-text"))
+    if err != nil {
+        fmt.Printf("Error creating Ollama embedding function: %s \n", err)
+    }
+    resp, err := ef.EmbedDocuments(context.Background(), documents)
+    if err != nil {
+        fmt.Printf("Error embedding documents: %s \n", err)
+    }
+    fmt.Printf("Embedding response: %v \n", resp)
+}
+```</p>
 
 
 
