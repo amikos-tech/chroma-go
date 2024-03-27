@@ -5,6 +5,7 @@ Testing Chroma Client
 package test
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -590,6 +591,42 @@ func Test_chroma_client(t *testing.T) {
 		require.Contains(t, names, collectionName2)
 	})
 
+	t.Run("Test List Collections no meta", func(t *testing.T) {
+		collectionName1 := "test-collection1"
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		_, _ = client.CreateCollection(context.Background(), collectionName1, nil, true, nil, types.L2)
+		collections, gcerr := client.ListCollections(context.Background())
+		require.NoError(t, gcerr)
+		require.Len(t, collections, 1)
+		names := make([]string, len(collections))
+		for i, person := range collections {
+			names[i] = person.Name
+		}
+		require.Contains(t, names, collectionName1)
+		require.Contains(t, collections[0].Metadata, "hnsw:space")
+	})
+
+	t.Run("Test List Collections created by other clients", func(t *testing.T) {
+		collectionName1 := "test-collection1"
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		data := []byte(`{"name":"` + collectionName1 + `"}`)
+		resp, err := http.Post(client.ApiClient.GetConfig().Servers[0].URL+"/api/v1/collections", "application/json", bytes.NewBuffer(data))
+		require.NoError(t, err)
+		fmt.Printf("Response: %v", resp)
+		collections, gcerr := client.ListCollections(context.Background())
+		require.NoError(t, gcerr)
+		require.Len(t, collections, 1)
+		names := make([]string, len(collections))
+		for i, person := range collections {
+			names[i] = person.Name
+		}
+		require.Contains(t, names, collectionName1)
+		_respMetadata := collections[0].Metadata
+		require.Len(t, _respMetadata, 0)
+	})
+
 	t.Run("Test Get Chroma Version", func(t *testing.T) {
 		version, verr := client.Version(context.Background())
 		require.NoError(t, verr)
@@ -645,7 +682,7 @@ func Test_chroma_client(t *testing.T) {
 		// update collection
 		newMetadata := map[string]interface{}{"new": "metadata"}
 
-		updatedCol, uerr := col.Update(context.Background(), "new-name", newMetadata)
+		updatedCol, uerr := col.Update(context.Background(), "new-name", &newMetadata)
 		require.NoError(t, uerr)
 		require.Equal(t, "new-name", updatedCol.Name)
 	})
