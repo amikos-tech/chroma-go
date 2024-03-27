@@ -1,4 +1,4 @@
-site_name: ChromaDB Cookbook | The Unofficial Guide to ChromaDB
+site_name: ChromaDB Go Client
 site_url: https://go-client.chromadb.dev
 repo_url: https://github.com/amikos-tech/chroma-go
 copyright: "Amikos Tech LTD, 2024 (core ChromaDB contributors)"
