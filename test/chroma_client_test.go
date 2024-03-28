@@ -1,3 +1,5 @@
+//go:build test
+
 /*
 Testing Chroma Client
 */
