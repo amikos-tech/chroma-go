@@ -27,4 +27,4 @@ server:
 
 .PHONY: build-wasm-client
 build-wasm-client:
-	GOOS=js GOARCH=wasm go build -o wasm/chromago.wasm wasm/main.go
+	GOOS=js GOARCH=wasm go build -tags=wasm -o wasm/chromago.wasm wasm/main.go

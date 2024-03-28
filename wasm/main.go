@@ -1,3 +1,5 @@
+//go:build wasm
+
 package main
 
 import (
@@ -24,7 +26,8 @@ func main() {
 	for _, collection := range collections {
 		collectionNames = append(collectionNames, collection.Name)
 	}
-
+	console := js.Global().Get("console")
+	console.Call("log", "Hello from Go WASM!")
 	js.Global().Call("alert", "Collections: "+strings.Join(collectionNames, ", "))
 	<-c
 }
