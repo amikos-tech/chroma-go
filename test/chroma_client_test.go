@@ -41,7 +41,7 @@ func Test_chroma_client(t *testing.T) {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
 	chromaContainer, err := tcchroma.RunContainer(ctx,
-		testcontainers.WithImage("chromadb/chroma:"+chromaVersion),
+		testcontainers.WithImage("ghcr.io/chroma-core/chroma:"+chromaVersion),
 		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
 	)
 	require.NoError(t, err)
