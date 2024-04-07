@@ -29,43 +29,10 @@ jobs:
         version: latest
     - name: Build
       run: make build
-    - name: Install Helm
-      uses: azure/setup-helm@v1
-      with:
-        version: v3.4.0
-    - name: start minikube
-      id: minikube
-      uses: medyagh/setup-minikube@latest
-      with:
-        kubernetes-version: 1.28.7
-    - name: Add helm repo
-      run: |
-        set -e
-        helm repo add chromadb https://amikos-tech.github.io/chromadb-chart/
-        helm repo update
-    - name: Install chromadb
-      run: |
-        set -e
-        helm install chromadb chromadb/chromadb --set chromadb.allowReset=true,chromadb.apiVersion=${{ matrix.chroma-version }},chromadb.auth.enabled=false
-    - name: Wait for deployment to be ready
-      id: wait-and-set
-      run: |
-        kubectl wait \
-        --for=condition=ready pod \
-        --selector=app.kubernetes.io/name=chromadb \
-        --timeout=120s || true
-    - name: Hearthbeat
-      id: heartbeat
-      run: |
-        set -e
-        kubectl get svc -A
-        kubectl get pods -A
-        echo "chroma-url=$(minikube service chromadb --url)" >> $GITHUB_OUTPUT
-        curl $(minikube service chromadb --url)/api/v1
     - name: Test
       run: make test
       env:
         OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
         COHERE_API_KEY:  ${{ secrets.COHERE_API_KEY }}
         HF_API_KEY:  ${{ secrets.HF_API_KEY }}
-        CHROMA_URL: ${{steps.heartbeat.outputs.chroma-url}}
+        CHROMA_VERSION: ${{ matrix.chroma-version }}

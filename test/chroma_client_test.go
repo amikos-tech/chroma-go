@@ -11,6 +11,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/testcontainers/testcontainers-go"
+	tcchroma "github.com/testcontainers/testcontainers-go/modules/chroma"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -33,10 +35,24 @@ import (
 )
 
 func Test_chroma_client(t *testing.T) {
-	t.Parallel()
+	ctx := context.Background()
+	var chromaVersion = "latest"
+	if os.Getenv("CHROMA_VERSION") != "" {
+		chromaVersion = os.Getenv("CHROMA_VERSION")
+	}
+	chromaContainer, err := tcchroma.RunContainer(ctx,
+		testcontainers.WithImage("chromadb/chroma:"+chromaVersion),
+		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, chromaContainer.Terminate(ctx))
+	})
+	endpoint, err := chromaContainer.RESTEndpoint(context.Background())
+	require.NoError(t, err)
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
-		chromaURL = "http://localhost:8000"
+		chromaURL = endpoint
 	}
 	client, err := chroma.NewClient(chromaURL, chroma.WithDebug(true))
 	require.NoError(t, err)
