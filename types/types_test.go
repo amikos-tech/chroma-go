@@ -4,6 +4,7 @@ package types
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"reflect"
 	"testing"
 
@@ -630,7 +631,7 @@ func TestNewEmbeddingFromInt32(t *testing.T) {
 	}
 }
 
-func TestNewEmbeddings(t *testing.T) {
+func TestNewEmbedding(t *testing.T) {
 	type args struct {
 		embeddings []interface{}
 	}
@@ -687,12 +688,80 @@ func TestNewEmbeddings(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewEmbedding(tt.args.embeddings)
+			if !tt.wantErr {
+				require.NoError(t, err)
+			}
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewEmbedding() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			require.True(t, got.Compare(tt.want), "NewEmbedding() got = %v, want %v", got, tt.want)
+		})
+	}
+}
+
+func TestNewEmbeddings(t *testing.T) {
+	type args struct {
+		embeddings []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []*Embedding
+		wantErr bool
+	}{
+		{
+			name:    "empty embedding",
+			args:    args{embeddings: []interface{}{}},
+			want:    make([]*Embedding, 0),
+			wantErr: false,
+		},
+		{
+			name: "float32 embeddings",
+			args: args{
+				embeddings: []interface{}{
+					[]interface{}{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+					[]interface{}{0.26666668, 0.5, .2, 0.46666667, 0.2, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.3},
+				},
+			},
+			want: []*Embedding{
+				{
+					ArrayOfFloat32: &[]float32{0.26666668, 0.53333336, .2, 0.46666667, 0.26666668, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.33333334},
+				},
+				{
+					ArrayOfFloat32: &[]float32{0.26666668, 0.5, .2, 0.46666667, 0.2, 0.46666667, 0.6, 0.06666667, 0.13333334, 0.3},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "int32 embeddings",
+			args: args{
+				embeddings: []interface{}{
+					[]interface{}{1, 2, 3, 4, 5, 6},
+					[]interface{}{6, 5, 4, 3, 2, 1},
+				},
+			},
+			want: []*Embedding{
+				{
+					ArrayOfInt32: &[]int32{1, 2, 3, 4, 5, 6},
+				},
+				{
+					ArrayOfInt32: &[]int32{6, 5, 4, 3, 2, 1},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			got, err := NewEmbeddings(tt.args.embeddings)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewEmbeddings() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if !CompareEmbeddings(got, tt.want) {
 				t.Errorf("NewEmbeddings() got = %v, want %v", got, tt.want)
 			}
 		})
