@@ -616,7 +616,7 @@ func Test_chroma_client(t *testing.T) {
 		data := []byte(`{"name":"` + collectionName1 + `"}`)
 		resp, err := http.Post(client.ApiClient.GetConfig().Servers[0].URL+"/api/v1/collections", "application/json", bytes.NewBuffer(data))
 		require.NoError(t, err)
-		fmt.Printf("Response: %v", resp)
+		require.NotNil(t, resp)
 		collections, gcerr := client.ListCollections(context.Background())
 		require.NoError(t, gcerr)
 		require.Len(t, collections, 1)
@@ -760,7 +760,8 @@ func Test_chroma_client(t *testing.T) {
 			}
 			apiKey = os.Getenv("COHERE_API_KEY")
 		}
-		embeddingFunction := cohere.NewCohereEmbeddingFunction(apiKey)
+		embeddingFunction, err := cohere.NewCohereEmbeddingFunction(apiKey)
+		require.NoError(t, err)
 		_, errRest := client.Reset(context.Background())
 		require.NoError(t, errRest)
 		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.COSINE)

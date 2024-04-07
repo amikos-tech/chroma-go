@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/joho/godotenv"
@@ -33,7 +34,9 @@ func Test_huggingface_client(t *testing.T) {
 			// Add more documents as needed
 		}
 		resp, rerr := ef.EmbedDocuments(context.Background(), documents)
-
+		if strings.Contains(rerr.Error(), "429 Too Many Requests") {
+			t.Skipf("Skipping test due to rate limiting")
+		}
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		assert.Equal(t, 2, len(resp))

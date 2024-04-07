@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -41,6 +42,7 @@ const (
 	HNSWNumThreads                      = "hnsw:num_threads"
 	HNSWResizeFactor                    = "hnsw:resize_factor"
 	DefaultTimeout                      = 30 * time.Second
+	EmbeddingsEpsilon                   = 1e-6
 )
 
 func ToDistanceFunction(str any) (DistanceFunction, error) {
@@ -89,30 +91,59 @@ type Embedding struct {
 	ArrayOfInt32   *[]int32
 }
 
-func NewEmbeddings(embeddings []interface{}) (*Embedding, error) {
-	var arrayOfFloat32 = make([]float32, 0)
-	var arrayOfInt32 = make([]int32, 0)
+func NewEmbedding(embeddings []interface{}) (*Embedding, error) {
 	if len(embeddings) == 0 {
 		return &Embedding{
 			ArrayOfFloat32: &[]float32{},
-			ArrayOfInt32:   &([]int32{}),
+			ArrayOfInt32:   &[]int32{},
 		}, nil
 	}
-	for _, v := range embeddings {
-		switch val := v.(type) {
-		case int:
-			arrayOfInt32 = append(arrayOfInt32, int32(val))
-		case int32:
-			arrayOfInt32 = append(arrayOfInt32, val)
-		case float32:
-			arrayOfFloat32 = append(arrayOfFloat32, val)
-		case float64:
-			arrayOfFloat32 = append(arrayOfFloat32, float32(val))
-		default:
-			return nil, &InvalidEmbeddingValueError{Value: v}
+	var arrayOfFloat32 []float32
+	var arrayOfInt32 []int32
+	switch embeddings[0].(type) {
+	case int:
+		arrayOfInt32 = make([]int32, len(embeddings))
+		for x, v := range embeddings {
+			arrayOfInt32[x] = int32(v.(int))
 		}
+		return &Embedding{ArrayOfInt32: &arrayOfInt32, ArrayOfFloat32: &[]float32{}}, nil
+	case int32:
+		arrayOfInt32 = make([]int32, len(embeddings))
+		for x, v := range embeddings {
+			arrayOfInt32[x] = v.(int32)
+		}
+		return &Embedding{ArrayOfInt32: &arrayOfInt32, ArrayOfFloat32: &[]float32{}}, nil
+	case float32:
+		arrayOfFloat32 = make([]float32, len(embeddings))
+		for x, v := range embeddings {
+			arrayOfFloat32[x] = v.(float32)
+		}
+		return &Embedding{ArrayOfFloat32: &arrayOfFloat32, ArrayOfInt32: &[]int32{}}, nil
+	case float64:
+		arrayOfFloat32 = make([]float32, len(embeddings))
+		for x, v := range embeddings {
+			arrayOfFloat32[x] = float32(v.(float64))
+		}
+		return &Embedding{ArrayOfFloat32: &arrayOfFloat32, ArrayOfInt32: &[]int32{}}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported type %T", embeddings[0])
 	}
-	return &Embedding{ArrayOfFloat32: &arrayOfFloat32, ArrayOfInt32: &arrayOfInt32}, nil
+}
+
+func NewEmbeddings(embeddings []interface{}) ([]*Embedding, error) {
+	var embeddingsArray = make([]*Embedding, 0)
+	if len(embeddings) == 0 {
+		return embeddingsArray, nil
+	}
+	for _, embedding := range embeddings {
+		embedding, err := NewEmbedding(embedding.([]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		embeddingsArray = append(embeddingsArray, embedding)
+	}
+	return embeddingsArray, nil
 }
 
 func (e *Embedding) String() string {
@@ -136,6 +167,44 @@ func (e *Embedding) IsDefined() bool {
 	return e.ArrayOfFloat32 != nil && len(*e.ArrayOfFloat32) > 0 || e.ArrayOfInt32 != nil && len(*e.ArrayOfInt32) > 0
 }
 
+func (e *Embedding) Compare(other *Embedding) bool {
+	if other == nil {
+		return false
+	}
+	if (e.ArrayOfFloat32 == nil && other.ArrayOfFloat32 == nil) || (e.ArrayOfInt32 == nil && other.ArrayOfInt32 == nil) {
+		return true
+	}
+	if e.ArrayOfFloat32 != nil && other.ArrayOfFloat32 != nil {
+		for i, v := range *e.ArrayOfFloat32 {
+			if math.Abs(float64(v-(*other.ArrayOfFloat32)[i])) > EmbeddingsEpsilon {
+				return false
+			}
+		}
+		return true
+	}
+	if e.ArrayOfInt32 != nil && other.ArrayOfInt32 != nil && len(*e.ArrayOfInt32) == len(*other.ArrayOfInt32) {
+		for i, v := range *e.ArrayOfInt32 {
+			if math.Abs(float64(v-(*other.ArrayOfInt32)[i])) > EmbeddingsEpsilon {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func CompareEmbeddings(embeddings []*Embedding, other []*Embedding) bool {
+	if len(embeddings) != len(other) {
+		return false
+	}
+	for i, e := range embeddings {
+		if v := e.Compare(other[i]); !v {
+			return false
+		}
+	}
+	return true
+}
+
 func NewEmbeddingFromFloat32(embedding []float32) *Embedding {
 	return &Embedding{
 		ArrayOfFloat32: &embedding,
@@ -157,6 +226,17 @@ func NewEmbeddingsFromFloat32(embeddings [][]float32) []*Embedding {
 	}
 	for _, embedding := range embeddings {
 		embeddingsArray = append(embeddingsArray, NewEmbeddingFromFloat32(embedding))
+	}
+	return embeddingsArray
+}
+
+func NewEmbeddingsFromInt32(embeddings [][]int32) []*Embedding {
+	var embeddingsArray = make([]*Embedding, 0)
+	if len(embeddings) == 0 {
+		return embeddingsArray
+	}
+	for _, embedding := range embeddings {
+		embeddingsArray = append(embeddingsArray, NewEmbeddingFromInt32(embedding))
 	}
 	return embeddingsArray
 }
