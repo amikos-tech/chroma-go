@@ -38,6 +38,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/auth/)
 - 🚫 Custom Embedding Function
 - ✅ HuggingFace Embedding Inference Server Function
 - ✅ Ollama Embedding Function Support
+- ✅ Cloudflare Workers AI Embedding Support
 
 ## Installation
 
