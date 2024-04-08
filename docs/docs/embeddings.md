@@ -9,6 +9,7 @@ The following embedding wrappers are available:
 | HuggingFace Inference API              | HuggingFace Inference API.<br/>All models supported by the API.                                                                                             |
 | HuggingFace Embedding Inference Server | HuggingFace Embedding Inference Server.<br/>[Models supported](https://github.com/huggingface/text-embeddings-inference) by the inference server.           |
 | Ollama                                 | Ollama embeddings API.<br/>All models are supported - see Ollama [models lib](https://ollama.com/library) for more info.                                    |
+| Cloudflare Workers AI                  | Cloudflare Workers AI Embedding.<br/> For more info see [CF API Docs](https://developers.cloudflare.com/workers-ai/models/embedding/).                      |
 
 ## OpenAI
 
@@ -126,7 +127,7 @@ func main() {
 ## Ollama
 
 !!! note "Assumptions"
-    
+
     The below example assumes that you have an Ollama server running locally on `http://127.0.0.1:11434`. Use the following command to start the Ollama server:
 
     ```bash
@@ -141,7 +142,7 @@ package main
 
 import (
 	"context"
-    "fmt"
+	"fmt"
 	ollama "github.com/amikos-tech/chroma-go/ollama"
 )
 
@@ -153,12 +154,44 @@ func main() {
 	// the `/api/embeddings` endpoint is automatically appended to the base URL
 	ef, err := ollama.NewOllamaEmbeddingFunction(ollama.WithBaseURL("http://127.0.0.1:11434"), ollama.WithModel("nomic-embed-text"))
 	if err != nil {
-        fmt.Printf("Error creating Ollama embedding function: %s \n", err)
-    }
+		fmt.Printf("Error creating Ollama embedding function: %s \n", err)
+	}
 	resp, err := ef.EmbedDocuments(context.Background(), documents)
 	if err != nil {
-        fmt.Printf("Error embedding documents: %s \n", err)
-    }
+		fmt.Printf("Error embedding documents: %s \n", err)
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+## Cloudflare Workers AI
+
+You will need to register for a Cloudflare account and create a API Token for Workers AI -
+see [docs](https://developers.cloudflare.com/workers-ai/get-started/rest-api/#1-get-an-api-token) for more info.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	cf "github.com/amikos-tech/chroma-go/embeddings/cloudflare"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `CF_API_TOKEN` and `CF_ACCOUNT_ID` set in your environment
+	ef, err := cf.NewCloudflareEmbeddingFunction(cf.WithEnvAPIToken(), cf.WithEnvAccountID(), cf.WithDefaultModel("@cf/baai/bge-small-en-v1.5"))
+	if err != nil {
+		fmt.Printf("Error creating Cloudflare embedding function: %s \n", err)
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+	}
 	fmt.Printf("Embedding response: %v \n", resp)
 }
 ```
