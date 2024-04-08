@@ -23,6 +23,7 @@ func Test_huggingface_client(t *testing.T) {
 		if err != nil {
 			assert.Failf(t, "Error loading .env file", "%s", err)
 		}
+		apiKey = os.Getenv("HF_API_KEY")
 	}
 	ef := NewHuggingFaceEmbeddingFunction(apiKey, "sentence-transformers/all-MiniLM-L6-v2")
 
