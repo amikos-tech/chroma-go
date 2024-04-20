@@ -15,7 +15,7 @@ import (
 func Test_client(t *testing.T) {
 	apiKey := os.Getenv("CF_API_TOKEN")
 	if apiKey == "" {
-		err := godotenv.Load("../../.env")
+		err := godotenv.Load("../../../.env")
 		if err != nil {
 			assert.Failf(t, "Error loading .env file", "%s", err)
 		}
@@ -41,7 +41,7 @@ func Test_client(t *testing.T) {
 func Test_cloudflare_embedding_function(t *testing.T) {
 	apiKey := os.Getenv("CF_API_TOKEN")
 	if apiKey == "" {
-		err := godotenv.Load("../../.env")
+		err := godotenv.Load("../../../.env")
 		if err != nil {
 			assert.Failf(t, "Error loading .env file", "%s", err)
 		}
