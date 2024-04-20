@@ -41,6 +41,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/auth/)
 - ✅ Ollama Embedding Support
 - ✅ Cloudflare Workers AI Embedding Support
 - ✅ TogetherAI Embedding Support
+- ✅ VoyageAI Embedding Support
 
 ## Installation
 

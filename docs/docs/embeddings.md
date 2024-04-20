@@ -10,6 +10,8 @@ The following embedding wrappers are available:
 | HuggingFace Embedding Inference Server | HuggingFace Embedding Inference Server.<br/>[Models supported](https://github.com/huggingface/text-embeddings-inference) by the inference server.           |
 | Ollama                                 | Ollama embeddings API.<br/>All models are supported - see Ollama [models lib](https://ollama.com/library) for more info.                                    |
 | Cloudflare Workers AI                  | Cloudflare Workers AI Embedding.<br/> For more info see [CF API Docs](https://developers.cloudflare.com/workers-ai/models/embedding/).                      |
+| TogetherAI                             | Together AI Embedding.<br/> For more info see [Together API Docs](https://docs.together.ai/reference/embeddings).                                           |
+| VoyageAI                               | Voyage AI Embedding.<br/> For more info see [Together API Docs](https://docs.voyageai.com/reference/embeddings-api).                                        |
 
 ## OpenAI
 
@@ -169,7 +171,9 @@ func main() {
 You will need to register for a Cloudflare account and create a API Token for Workers AI -
 see [docs](https://developers.cloudflare.com/workers-ai/get-started/rest-api/#1-get-an-api-token) for more info.
 
-Models can be found in the [Cloudflare Workers AI docs](https://developers.cloudflare.com/workers-ai/models/#text-embeddings). `@cf/baai/bge-base-en-v1.5` is the default model.
+Models can be found in
+the [Cloudflare Workers AI docs](https://developers.cloudflare.com/workers-ai/models/#text-embeddings). `@cf/baai/bge-base-en-v1.5`
+is the default model.
 
 ```go
 package main
@@ -224,6 +228,41 @@ func main() {
 	}
 	// Make sure that you have the `TOGETHER_API_KEY` set in your environment
 	ef, err := t.NewTogetherEmbeddingFunction(t.WithEnvAPIKey(), t.WithDefaultModel("togethercomputer/m2-bert-80M-2k-retrieval"))
+	if err != nil {
+		fmt.Printf("Error creating Together embedding function: %s \n", err)
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+## Voyage AI
+
+To use Voyage AI embeddings, you will need to register for a Voyage AI account and create
+an [API Key](https://dash.voyageai.com/api-keys).
+
+Available models can be
+in [Voyage AI docs](https://docs.voyageai.com/docs/embeddings). `voyage-2` is the default model.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	t "github.com/amikos-tech/chroma-go/pkg/embeddings/voyage"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `TOGETHER_API_KEY` set in your environment
+	ef, err := t.NewVoyageAIEmbeddingFunction(t.WithEnvAPIKey(), t.WithDefaultModel("voyage-large-2"))
 	if err != nil {
 		fmt.Printf("Error creating Together embedding function: %s \n", err)
 	}
