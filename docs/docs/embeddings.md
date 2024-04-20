@@ -184,7 +184,7 @@ func main() {
 		"Document 2 content here",
 	}
 	// Make sure that you have the `CF_API_TOKEN` and `CF_ACCOUNT_ID` set in your environment
-	ef, err := cf.NewCloudflareEmbeddingFunction(cf.WithEnvAPIToken(), cf.WithEnvAccountID(), cf.WithDefaultModel("@cf/baai/bge-small-en-v1.5"))
+	ef, err := cf.NewCloudflareEmbeddingFunction(cf.WithEnvAPIKey(), cf.WithEnvAccountID(), cf.WithDefaultModel("@cf/baai/bge-small-en-v1.5"))
 	if err != nil {
 		fmt.Printf("Error creating Cloudflare embedding function: %s \n", err)
 	}
