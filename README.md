@@ -16,6 +16,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/auth/)
 - ✅ Reset
 - ✅ Heartbeat
 - ✅ List Collections
+- ✅ Count Collections
 - ✅ Get Version
 - ✅ Create Collection
 - ✅ Delete Collection
@@ -31,14 +32,15 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/auth/)
 
 ## Embedding Functions Support
 
-- ✅ OpenAI API
+- ✅ OpenAI Embedding Support
 - ✅ Cohere API (including Multi-language support)
 - ✅ Sentence Transformers (HuggingFace Inference API)
 - 🚫 PaLM API
 - 🚫 Custom Embedding Function
 - ✅ HuggingFace Embedding Inference Server Function
-- ✅ Ollama Embedding Function Support
+- ✅ Ollama Embedding Support
 - ✅ Cloudflare Workers AI Embedding Support
+- ✅ TogetherAI Embedding Support
 
 ## Installation
 
