@@ -51,7 +51,7 @@ func Test_client(t *testing.T) {
 	})
 }
 
-func Test_together_embedding_function(t *testing.T) {
+func Test_voyage_embedding_function(t *testing.T) {
 	apiKey := os.Getenv("VOYAGE_API_KEY")
 	if apiKey == "" {
 		err := godotenv.Load("../../../.env")

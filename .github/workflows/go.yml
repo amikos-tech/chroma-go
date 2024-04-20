@@ -40,4 +40,5 @@ jobs:
         CF_ACCOUNT_ID:  ${{ secrets.CF_ACCOUNT_ID }}
         CF_GATEWAY_ENDPOINT:  ${{ secrets.CF_GATEWAY_ENDPOINT }}
         TOGETHER_API_KEY:  ${{ secrets.TOGETHER_API_KEY }}
+        VOYAGE_API_KEY:  ${{ secrets.VOYAGE_API_KEY }}
         CHROMA_VERSION: ${{ matrix.chroma-version }}
