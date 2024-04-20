@@ -385,6 +385,33 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#cloudflare-workers-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cloudflare Workers AI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#together-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      Together AI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#voyage-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      Voyage AI
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -501,6 +528,33 @@
   <a href="#ollama" class="md-nav__link">
     <span class="md-ellipsis">
       Ollama
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cloudflare-workers-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cloudflare Workers AI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#together-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      Together AI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#voyage-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      Voyage AI
     </span>
   </a>
   
@@ -671,84 +725,53 @@ repository.</p>
 <h2 id="ollama">Ollama<a class="headerlink" href="#ollama" title="Permanent link">&para;</a></h2>
 <div class="admonition note">
 <p class="admonition-title">Assumptions</p>
-<p>The below example assumes that you have an Ollama server running locally on <code>http://127.0.0.1:11434</code>. Use the following command to start the Ollama server:</p>
-<p>```bash
-docker run -d -v ./ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
-docker exec -it ollama ollama run nomic-embed-text # press Ctrl+D to exit after model downloads successfully</p>
-<h1 id="test-it">test it<a class="headerlink" href="#test-it" title="Permanent link">&para;</a></h1>
-<p>curl http://localhost:11434/api/embeddings -d '{"model": "nomic-embed-text","prompt": "Here is an article about llamas..."}'
- ```</p>
+<p>The below example assumes that you have an Ollama server running locally on <code>http://127.0.0.1:11434</code>.</p>
 </div>
-<p>```go
-package main</p>
-<p>import (
-    "context"
-    "fmt"
-    ollama "github.com/amikos-tech/chroma-go/ollama"
-)</p>
-<p>func main() {
-    documents := []string{
-        "Document 1 content here",
-        "Document 2 content here",
-    }
-    // the <code>/api/embeddings</code> endpoint is automatically appended to the base URL
-    ef, err := ollama.NewOllamaEmbeddingFunction(ollama.WithBaseURL("http://127.0.0.1:11434"), ollama.WithModel("nomic-embed-text"))
-    if err != nil {
-        fmt.Printf("Error creating Ollama embedding function: %s \n", err)
-    }
-    resp, err := ef.EmbedDocuments(context.Background(), documents)
-    if err != nil {
-        fmt.Printf("Error embedding documents: %s \n", err)
-    }
-    fmt.Printf("Embedding response: %v \n", resp)
-}
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>## Cloudflare Workers AI
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>You will need to register for a Cloudflare account and create a API Token for Workers AI -
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>see [docs](https://developers.cloudflare.com/workers-ai/get-started/rest-api/#1-get-an-api-token) for more info.
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>Models can be found in
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>the [Cloudflare Workers AI docs](https://developers.cloudflare.com/workers-ai/models/#text-embeddings). `@cf/baai/bge-base-en-v1.5`
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>is the default model.
+<p>Use the following command to start the Ollama server:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="w">    </span>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>-v<span class="w"> </span>./ollama:/root/.ollama<span class="w"> </span>-p<span class="w"> </span><span class="m">11434</span>:11434<span class="w"> </span>--name<span class="w"> </span>ollama<span class="w"> </span>ollama/ollama
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>ollama<span class="w"> </span>ollama<span class="w"> </span>run<span class="w"> </span>nomic-embed-text<span class="w"> </span><span class="c1"># press Ctrl+D to exit after model downloads successfully</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="c1"># test it</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span>curl<span class="w"> </span>http://localhost:11434/api/embeddings<span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;model&quot;: &quot;nomic-embed-text&quot;,&quot;prompt&quot;: &quot;Here is an article about llamas...&quot;}&#39;</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w"> </span><span class="sb">```</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="sb">```</span>go
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>package<span class="w"> </span>main
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>```go
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>package main
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>import (
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    &quot;context&quot;
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    &quot;fmt&quot;
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    cf &quot;github.com/amikos-tech/chroma-go/pkg/embeddings/cloudflare&quot;
-</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>)
-</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>
-</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>func main() {
-</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>    documents := []string{
-</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>        &quot;Document 1 content here&quot;,
-</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>        &quot;Document 2 content here&quot;,
-</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>    }
-</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>    // Make sure that you have the `CF_API_TOKEN` and `CF_ACCOUNT_ID` set in your environment
-</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>    ef, err := cf.NewCloudflareEmbeddingFunction(cf.WithEnvAPIToken(), cf.WithEnvAccountID(), cf.WithDefaultModel(&quot;@cf/baai/bge-small-en-v1.5&quot;))
-</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>    if err != nil {
-</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>        fmt.Printf(&quot;Error creating Cloudflare embedding function: %s \n&quot;, err)
-</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>    }
-</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>    resp, err := ef.EmbedDocuments(context.Background(), documents)
-</span><span id="__span-4-30"><a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>    if err != nil {
-</span><span id="__span-4-31"><a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a>        fmt.Printf(&quot;Error embedding documents: %s \n&quot;, err)
-</span><span id="__span-4-32"><a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>    }
-</span><span id="__span-4-33"><a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>    fmt.Printf(&quot;Embedding response: %v \n&quot;, resp)
-</span><span id="__span-4-34"><a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a>}
-</span></code></pre></div></p>
-<h2 id="together-ai">Together AI<a class="headerlink" href="#together-ai" title="Permanent link">&para;</a></h2>
-<p>To use Together AI embeddings, you will need to register for a Together AI account and create
-an <a href="https://api.together.xyz/settings/api-keys">API Key</a>.</p>
-<p>Available models can be
-in <a href="https://docs.together.ai/docs/embedding-models">Together AI docs</a>. <code>togethercomputer/m2-bert-80M-8k-retrieval</code> is
-the default model.</p>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>import<span class="w"> </span><span class="o">(</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="s2">&quot;context&quot;</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="s2">&quot;fmt&quot;</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">    </span>ollama<span class="w"> </span><span class="s2">&quot;github.com/amikos-tech/chroma-go/ollama&quot;</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="o">)</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>func<span class="w"> </span>main<span class="o">()</span><span class="w"> </span><span class="o">{</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">    </span>documents<span class="w"> </span>:<span class="o">=</span><span class="w"> </span><span class="o">[]</span>string<span class="o">{</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">        </span><span class="s2">&quot;Document 1 content here&quot;</span>,
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">        </span><span class="s2">&quot;Document 2 content here&quot;</span>,
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">    </span><span class="o">}</span>
+</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">    </span>//<span class="w"> </span>the<span class="w"> </span><span class="sb">`</span>/api/embeddings<span class="sb">`</span><span class="w"> </span>endpoint<span class="w"> </span>is<span class="w"> </span>automatically<span class="w"> </span>appended<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>base<span class="w"> </span>URL
+</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">    </span>ef,<span class="w"> </span>err<span class="w"> </span>:<span class="o">=</span><span class="w"> </span>ollama.NewOllamaEmbeddingFunction<span class="o">(</span>ollama.WithBaseURL<span class="o">(</span><span class="s2">&quot;http://127.0.0.1:11434&quot;</span><span class="o">)</span>,<span class="w"> </span>ollama.WithModel<span class="o">(</span><span class="s2">&quot;nomic-embed-text&quot;</span><span class="o">))</span>
+</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span>err<span class="w"> </span>!<span class="o">=</span><span class="w"> </span>nil<span class="w"> </span><span class="o">{</span>
+</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">        </span>fmt.Printf<span class="o">(</span><span class="s2">&quot;Error creating Ollama embedding function: %s \n&quot;</span>,<span class="w"> </span>err<span class="o">)</span>
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">    </span><span class="o">}</span>
+</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">    </span>resp,<span class="w"> </span>err<span class="w"> </span>:<span class="o">=</span><span class="w"> </span>ef.EmbedDocuments<span class="o">(</span>context.Background<span class="o">()</span>,<span class="w"> </span>documents<span class="o">)</span>
+</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span>err<span class="w"> </span>!<span class="o">=</span><span class="w"> </span>nil<span class="w"> </span><span class="o">{</span>
+</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="w">        </span>fmt.Printf<span class="o">(</span><span class="s2">&quot;Error embedding documents: %s \n&quot;</span>,<span class="w"> </span>err<span class="o">)</span>
+</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="w">    </span><span class="o">}</span>
+</span><span id="__span-4-30"><a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="w">    </span>fmt.Printf<span class="o">(</span><span class="s2">&quot;Embedding response: %v \n&quot;</span>,<span class="w"> </span>resp<span class="o">)</span>
+</span><span id="__span-4-31"><a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="o">}</span>
+</span></code></pre></div>
+<h2 id="cloudflare-workers-ai">Cloudflare Workers AI<a class="headerlink" href="#cloudflare-workers-ai" title="Permanent link">&para;</a></h2>
+<p>You will need to register for a Cloudflare account and create a API Token for Workers AI -
+see <a href="https://developers.cloudflare.com/workers-ai/get-started/rest-api/#1-get-an-api-token">docs</a> for more info.</p>
+<p>Models can be found in
+the <a href="https://developers.cloudflare.com/workers-ai/models/#text-embeddings">Cloudflare Workers AI docs</a>. <code>@cf/baai/bge-base-en-v1.5</code>
+is the default model.</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nx">t</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings/together&quot;</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nx">cf</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings/cloudflare&quot;</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">)</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
@@ -756,10 +779,10 @@ the default model.</p>
 </span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">        </span><span class="s">&quot;Document 1 content here&quot;</span><span class="p">,</span>
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">        </span><span class="s">&quot;Document 2 content here&quot;</span><span class="p">,</span>
 </span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="c1">// Make sure that you have the `TOGETHER_API_KEY` set in your environment</span>
-</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">NewTogetherEmbeddingFunction</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">WithEnvAPIKey</span><span class="p">(),</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">WithDefaultModel</span><span class="p">(</span><span class="s">&quot;togethercomputer/m2-bert-80M-2k-retrieval&quot;</span><span class="p">))</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="c1">// Make sure that you have the `CF_API_TOKEN` and `CF_ACCOUNT_ID` set in your environment</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">cf</span><span class="p">.</span><span class="nx">NewCloudflareEmbeddingFunction</span><span class="p">(</span><span class="nx">cf</span><span class="p">.</span><span class="nx">WithEnvAPIToken</span><span class="p">(),</span><span class="w"> </span><span class="nx">cf</span><span class="p">.</span><span class="nx">WithEnvAccountID</span><span class="p">(),</span><span class="w"> </span><span class="nx">cf</span><span class="p">.</span><span class="nx">WithDefaultModel</span><span class="p">(</span><span class="s">&quot;@cf/baai/bge-small-en-v1.5&quot;</span><span class="p">))</span>
 </span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error creating Together embedding function: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error creating Cloudflare embedding function: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
 </span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">    </span><span class="p">}</span>
 </span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">    </span><span class="nx">resp</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedDocuments</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">documents</span><span class="p">)</span>
 </span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
@@ -768,17 +791,18 @@ the default model.</p>
 </span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Embedding response: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">resp</span><span class="p">)</span>
 </span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="p">}</span>
 </span></code></pre></div>
-<h2 id="voyage-ai">Voyage AI<a class="headerlink" href="#voyage-ai" title="Permanent link">&para;</a></h2>
-<p>To use Voyage AI embeddings, you will need to register for a Voyage AI account and create
-an <a href="https://dash.voyageai.com/api-keys">API Key</a>.</p>
+<h2 id="together-ai">Together AI<a class="headerlink" href="#together-ai" title="Permanent link">&para;</a></h2>
+<p>To use Together AI embeddings, you will need to register for a Together AI account and create
+an <a href="https://api.together.xyz/settings/api-keys">API Key</a>.</p>
 <p>Available models can be
-in <a href="https://docs.voyageai.com/docs/embeddings">Voyage AI docs</a>. <code>voyage-2</code> is the default model.</p>
+in <a href="https://docs.together.ai/docs/embedding-models">Together AI docs</a>. <code>togethercomputer/m2-bert-80M-8k-retrieval</code> is
+the default model.</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nx">t</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings/voyage&quot;</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nx">t</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings/together&quot;</span>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">)</span>
 </span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
@@ -787,7 +811,7 @@ in <a href="https://docs.voyageai.com/docs/embeddings">Voyage AI docs</a>. <code
 </span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">        </span><span class="s">&quot;Document 2 content here&quot;</span><span class="p">,</span>
 </span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">    </span><span class="p">}</span>
 </span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="c1">// Make sure that you have the `TOGETHER_API_KEY` set in your environment</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">    </span><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">NewVoyageAIEmbeddingFunction</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">WithEnvAPIKey</span><span class="p">(),</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">WithDefaultModel</span><span class="p">(</span><span class="s">&quot;voyage-large-2&quot;</span><span class="p">))</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">    </span><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">NewTogetherEmbeddingFunction</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">WithEnvAPIKey</span><span class="p">(),</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">WithDefaultModel</span><span class="p">(</span><span class="s">&quot;togethercomputer/m2-bert-80M-2k-retrieval&quot;</span><span class="p">))</span>
 </span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error creating Together embedding function: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
 </span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">    </span><span class="p">}</span>
@@ -797,6 +821,36 @@ in <a href="https://docs.voyageai.com/docs/embeddings">Voyage AI docs</a>. <code
 </span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="w">    </span><span class="p">}</span>
 </span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Embedding response: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">resp</span><span class="p">)</span>
 </span><span id="__span-6-24"><a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="voyage-ai">Voyage AI<a class="headerlink" href="#voyage-ai" title="Permanent link">&para;</a></h2>
+<p>To use Voyage AI embeddings, you will need to register for a Voyage AI account and create
+an <a href="https://dash.voyageai.com/api-keys">API Key</a>.</p>
+<p>Available models can be
+in <a href="https://docs.voyageai.com/docs/embeddings">Voyage AI docs</a>. <code>voyage-2</code> is the default model.</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nx">t</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings/voyage&quot;</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">)</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="nx">documents</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">        </span><span class="s">&quot;Document 1 content here&quot;</span><span class="p">,</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">        </span><span class="s">&quot;Document 2 content here&quot;</span><span class="p">,</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">    </span><span class="c1">// Make sure that you have the `TOGETHER_API_KEY` set in your environment</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">    </span><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">NewVoyageAIEmbeddingFunction</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">WithEnvAPIKey</span><span class="p">(),</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">WithDefaultModel</span><span class="p">(</span><span class="s">&quot;voyage-large-2&quot;</span><span class="p">))</span>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error creating Together embedding function: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">    </span><span class="nx">resp</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedDocuments</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">documents</span><span class="p">)</span>
+</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error embedding documents: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-7-22"><a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Embedding response: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">resp</span><span class="p">)</span>
+</span><span id="__span-7-24"><a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="p">}</span>
 </span></code></pre></div>
 
 
