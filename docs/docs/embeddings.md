@@ -220,7 +220,7 @@ func main() {
 		"Document 2 content here",
 	}
 	// Make sure that you have the `TOGETHER_API_KEY` set in your environment
-	ef, err := t.NewTogetherEmbeddingFunction(t.WithEnvAPIKey(), cf.WithDefaultModel("togethercomputer/m2-bert-80M-2k-retrieval"))
+	ef, err := t.NewTogetherEmbeddingFunction(t.WithEnvAPIKey(), t.WithDefaultModel("togethercomputer/m2-bert-80M-2k-retrieval"))
 	if err != nil {
 		fmt.Printf("Error creating Together embedding function: %s \n", err)
 	}
