@@ -130,14 +130,16 @@ func main() {
 
 !!! note "Assumptions"
 
-    The below example assumes that you have an Ollama server running locally on `http://127.0.0.1:11434`. Use the following command to start the Ollama server:
+    The below example assumes that you have an Ollama server running locally on `http://127.0.0.1:11434`.
 
-    ```bash
+Use the following command to start the Ollama server:
+
+```bash
     docker run -d -v ./ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
     docker exec -it ollama ollama run nomic-embed-text # press Ctrl+D to exit after model downloads successfully
     # test it
     curl http://localhost:11434/api/embeddings -d '{"model": "nomic-embed-text","prompt": "Here is an article about llamas..."}'
-     ```
+ ```
 
 ```go
 package main
