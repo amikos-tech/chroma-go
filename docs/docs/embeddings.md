@@ -169,13 +169,15 @@ func main() {
 You will need to register for a Cloudflare account and create a API Token for Workers AI -
 see [docs](https://developers.cloudflare.com/workers-ai/get-started/rest-api/#1-get-an-api-token) for more info.
 
+Models can be found in the [Cloudflare Workers AI docs](https://developers.cloudflare.com/workers-ai/models/#text-embeddings). `@cf/baai/bge-base-en-v1.5` is the default model.
+
 ```go
 package main
 
 import (
 	"context"
 	"fmt"
-	cf "github.com/amikos-tech/chroma-go/embeddings/cloudflare"
+	cf "github.com/amikos-tech/chroma-go/pkg/embeddings/cloudflare"
 )
 
 func main() {
@@ -194,6 +196,7 @@ func main() {
 	}
 	fmt.Printf("Embedding response: %v \n", resp)
 }
+
 ```
 
 ## Together AI
