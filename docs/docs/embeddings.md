@@ -147,7 +147,7 @@ package main
 import (
 	"context"
 	"fmt"
-	ollama "github.com/amikos-tech/chroma-go/ollama"
+	ollama "github.com/amikos-tech/chroma-go/pkg/embeddings/ollama"
 )
 
 func main() {
