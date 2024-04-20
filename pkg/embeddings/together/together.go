@@ -35,9 +35,6 @@ func applyDefaults(c *TogetherAIClient) {
 	if c.BaseAPI == "" {
 		c.BaseAPI = defaultBaseAPI
 	}
-	// if !strings.HasSuffix(c.BaseAPI, "/") {
-	//	c.BaseAPI += "/"
-	//}
 	if c.MaxBatchSize == 0 {
 		c.MaxBatchSize = defaultMaxSize
 	}

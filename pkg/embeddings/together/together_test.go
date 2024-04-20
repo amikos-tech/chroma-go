@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"testing"
-	"time"
 )
 
 func Test_client(t *testing.T) {
@@ -36,7 +35,6 @@ func Test_client(t *testing.T) {
 		require.NotNil(t, resp)
 		require.NotNil(t, resp.Data)
 		require.Len(t, resp.Data, 1)
-		time.Sleep(1500 * time.Millisecond)
 	})
 }
 
@@ -58,7 +56,6 @@ func Test_together_embedding_function(t *testing.T) {
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
 		require.Len(t, *resp[0].ArrayOfFloat32, 768)
-		time.Sleep(1500 * time.Millisecond)
 
 	})
 
@@ -71,7 +68,6 @@ func Test_together_embedding_function(t *testing.T) {
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
 		require.Len(t, *resp[0].ArrayOfFloat32, 768)
-		time.Sleep(1500 * time.Millisecond)
 	})
 
 	t.Run("Test EmbedDocuments with too large init batch", func(t *testing.T) {
@@ -99,7 +95,6 @@ func Test_together_embedding_function(t *testing.T) {
 		require.Nil(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, *resp.ArrayOfFloat32, 768)
-		time.Sleep(1500 * time.Millisecond)
 	})
 
 	t.Run("Test EmbedDocuments with env-based API Key and WithDefaultHeaders", func(t *testing.T) {
@@ -111,7 +106,6 @@ func Test_together_embedding_function(t *testing.T) {
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
 		require.Len(t, *resp[0].ArrayOfFloat32, 768)
-		time.Sleep(1500 * time.Millisecond)
 	})
 
 	t.Run("Test EmbedDocuments with var API Key", func(t *testing.T) {
@@ -123,7 +117,6 @@ func Test_together_embedding_function(t *testing.T) {
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
 		require.Len(t, *resp[0].ArrayOfFloat32, 768)
-		time.Sleep(1500 * time.Millisecond)
 	})
 
 	t.Run("Test EmbedDocuments with var token and account id and http client", func(t *testing.T) {
@@ -135,6 +128,5 @@ func Test_together_embedding_function(t *testing.T) {
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
 		require.Len(t, *resp[0].ArrayOfFloat32, 768)
-		time.Sleep(1500 * time.Millisecond)
 	})
 }
