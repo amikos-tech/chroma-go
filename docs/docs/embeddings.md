@@ -184,9 +184,45 @@ func main() {
 		"Document 2 content here",
 	}
 	// Make sure that you have the `CF_API_TOKEN` and `CF_ACCOUNT_ID` set in your environment
-	ef, err := cf.NewCloudflareEmbeddingFunction(cf.WithEnvAPIKey(), cf.WithEnvAccountID(), cf.WithDefaultModel("@cf/baai/bge-small-en-v1.5"))
+	ef, err := cf.NewCloudflareEmbeddingFunction(cf.WithEnvAPIToken(), cf.WithEnvAccountID(), cf.WithDefaultModel("@cf/baai/bge-small-en-v1.5"))
 	if err != nil {
 		fmt.Printf("Error creating Cloudflare embedding function: %s \n", err)
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+## Together AI
+
+To use Together AI embeddings, you will need to register for a Together AI account and create
+an [API Key](https://api.together.xyz/settings/api-keys).
+
+Available models can be
+in [Together AI docs](https://docs.together.ai/docs/embedding-models). `togethercomputer/m2-bert-80M-8k-retrieval` is
+the default model.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	t "github.com/amikos-tech/chroma-go/pkg/embeddings/together"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `TOGETHER_API_KEY` set in your environment
+	ef, err := t.NewTogetherEmbeddingFunction(t.WithEnvAPIKey(), cf.WithDefaultModel("togethercomputer/m2-bert-80M-2k-retrieval"))
+	if err != nil {
+		fmt.Printf("Error creating Together embedding function: %s \n", err)
 	}
 	resp, err := ef.EmbedDocuments(context.Background(), documents)
 	if err != nil {
