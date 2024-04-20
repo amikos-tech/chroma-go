@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/amikos-tech/chroma-go/types"
 	"io"
 	"net/http"
+
+	"github.com/amikos-tech/chroma-go/types"
 )
 
 // Docs:  https://docs.together.ai/docs/embeddings-rest.  Models - https://docs.together.ai/docs/embeddings-models.
@@ -34,7 +35,7 @@ func applyDefaults(c *TogetherAIClient) {
 	if c.BaseAPI == "" {
 		c.BaseAPI = defaultBaseAPI
 	}
-	//if !strings.HasSuffix(c.BaseAPI, "/") {
+	// if !strings.HasSuffix(c.BaseAPI, "/") {
 	//	c.BaseAPI += "/"
 	//}
 	if c.MaxBatchSize == 0 {
@@ -174,7 +175,6 @@ func (e *TogetherEmbeddingFunction) getModelFromContext(ctx context.Context) str
 }
 
 func (e *TogetherEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
-
 	if len(documents) > e.apiClient.MaxBatchSize {
 		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
