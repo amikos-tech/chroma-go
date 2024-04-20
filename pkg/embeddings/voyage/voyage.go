@@ -220,23 +220,23 @@ func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddi
 	return &embeddings, nil
 }
 
-var _ types.EmbeddingFunction = (*TogetherEmbeddingFunction)(nil)
+var _ types.EmbeddingFunction = (*VoyageAIEmbeddingFunction)(nil)
 
-type TogetherEmbeddingFunction struct {
+type VoyageAIEmbeddingFunction struct {
 	apiClient *VoyageAIClient
 }
 
-func NewVoyageAIEmbeddingFunction(opts ...Option) (*TogetherEmbeddingFunction, error) {
+func NewVoyageAIEmbeddingFunction(opts ...Option) (*VoyageAIEmbeddingFunction, error) {
 	client, err := NewVoyageAIClient(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &TogetherEmbeddingFunction{apiClient: client}, nil
+	return &VoyageAIEmbeddingFunction{apiClient: client}, nil
 }
 
 // getModel returns the model from the context if it exists, otherwise it returns the default model
-func (e *TogetherEmbeddingFunction) getModel(ctx context.Context) string {
+func (e *VoyageAIEmbeddingFunction) getModel(ctx context.Context) string {
 	model := e.apiClient.DefaultModel
 	if m, ok := ctx.Value(ModelContextVar).(string); ok {
 		model = m
@@ -245,7 +245,7 @@ func (e *TogetherEmbeddingFunction) getModel(ctx context.Context) string {
 }
 
 // getTruncation returns the truncation from the context if it exists, otherwise it returns the default truncation
-func (e *TogetherEmbeddingFunction) getTruncation(ctx context.Context) *bool {
+func (e *VoyageAIEmbeddingFunction) getTruncation(ctx context.Context) *bool {
 	model := e.apiClient.DefaultTruncation
 	if m, ok := ctx.Value(TruncationContextVar).(*bool); ok {
 		model = m
@@ -254,7 +254,7 @@ func (e *TogetherEmbeddingFunction) getTruncation(ctx context.Context) *bool {
 }
 
 // getInputType returns the input type from the context if it exists, otherwise it returns the default input type
-func (e *TogetherEmbeddingFunction) getInputType(ctx context.Context, inputType InputType) *InputType {
+func (e *VoyageAIEmbeddingFunction) getInputType(ctx context.Context, inputType InputType) *InputType {
 	model := &inputType
 	if m, ok := ctx.Value(InputTypeContextVar).(*InputType); ok {
 		model = m
@@ -262,7 +262,7 @@ func (e *TogetherEmbeddingFunction) getInputType(ctx context.Context, inputType 
 	return model
 }
 
-func (e *TogetherEmbeddingFunction) getEncodingFormat(ctx context.Context) *EncodingFormat {
+func (e *VoyageAIEmbeddingFunction) getEncodingFormat(ctx context.Context) *EncodingFormat {
 	model := e.apiClient.DefaultEncodingFormat
 	if m, ok := ctx.Value(EncodingFormatContextVar).(*EncodingFormat); ok {
 		model = m
@@ -270,7 +270,7 @@ func (e *TogetherEmbeddingFunction) getEncodingFormat(ctx context.Context) *Enco
 	return model
 }
 
-func (e *TogetherEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *VoyageAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
 	if len(documents) > e.apiClient.MaxBatchSize {
 		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
@@ -296,7 +296,7 @@ func (e *TogetherEmbeddingFunction) EmbedDocuments(ctx context.Context, document
 	return embeddings, nil
 }
 
-func (e *TogetherEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *VoyageAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
 	req := &CreateEmbeddingRequest{
 		Model:          e.getModel(ctx),
 		Input:          &EmbeddingInputs{Input: document},
@@ -311,6 +311,6 @@ func (e *TogetherEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 	return types.NewEmbeddingFromFloat32(response.Data[0].Embedding.Floats), nil
 }
 
-func (e *TogetherEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
+func (e *VoyageAIEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
 	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }
