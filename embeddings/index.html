@@ -623,6 +623,14 @@
 </tbody>
 </table>
 <h2 id="openai">OpenAI<a class="headerlink" href="#openai" title="Permanent link">&para;</a></h2>
+<p>Supported Embedding Function Options:</p>
+<ul>
+<li><code>WithModel</code> - Set the OpenAI model to use. Default is <code>TextEmbeddingAda002</code> (<code>text-embedding-ada-002</code>).</li>
+<li><code>WithBaseURL</code> - Set the OpenAI base URL. Default is <code>https://api.openai.com/v1</code>. This allows you to point the EF to a
+  compatible OpenAI API endpoint.</li>
+<li><code>WithDimensions</code> - Set the number of dimensions for the embeddings. Default is <code>None</code> which returns the full
+  embeddings.</li>
+</ul>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
