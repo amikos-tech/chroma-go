@@ -4,6 +4,8 @@ package openai
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -83,4 +85,48 @@ func Test_openai_client(t *testing.T) {
 		require.Error(t, efErr)
 		require.Contains(t, efErr.Error(), "invalid model name invalid-model")
 	})
+
+	t.Run("Test With Model text-embedding-3-large and reduced dimensions", func(t *testing.T) {
+		ef, err := NewOpenAIEmbeddingFunction(apiKey, WithModel(TextEmbedding3Large), WithDimensions(512))
+		require.NoError(t, err)
+		documents := []string{
+			"Document 1 content here",
+		}
+		resp, err := ef.EmbedDocuments(context.Background(), documents)
+		require.Nil(t, err)
+		require.NotNil(t, resp)
+		require.Empty(t, ef.apiClient.OrgID)
+		require.Len(t, *resp[0].GetFloat32(), 512)
+	})
+
+	t.Run("Test With Model legacy model and reduced dimensions", func(t *testing.T) {
+		ef, err := NewOpenAIEmbeddingFunction(apiKey, WithDimensions(512))
+		require.NoError(t, err)
+		documents := []string{
+			"Document 1 content here",
+		}
+		_, err = ef.EmbedDocuments(context.Background(), documents)
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "This model does not support specifying dimensions")
+	})
+
+	t.Run("Test With BaseURL", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"data": [{"embedding": [1, 2, 3]}]}`))
+			if err != nil {
+				return
+			}
+			//require.Equal(t, r.Header.Get("Authorization"), "Bearer my-custom-token")
+		}))
+		defer server.Close()
+		ef, err := NewOpenAIEmbeddingFunction(apiKey, WithBaseURL(server.URL))
+		require.NoError(t, err)
+		documents := []string{
+			"Document 1 content here",
+		}
+		_, err = ef.EmbedDocuments(context.Background(), documents)
+		require.Nil(t, err)
+	})
+
 }
