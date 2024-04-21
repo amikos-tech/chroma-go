@@ -15,6 +15,14 @@ The following embedding wrappers are available:
 
 ## OpenAI
 
+Supported Embedding Function Options:
+
+- `WithModel` - Set the OpenAI model to use. Default is `TextEmbeddingAda002` (`text-embedding-ada-002`).
+- `WithBaseURL` - Set the OpenAI base URL. Default is `https://api.openai.com/v1`. This allows you to point the EF to a
+  compatible OpenAI API endpoint.
+- `WithDimensions` - Set the number of dimensions for the embeddings. Default is `None` which returns the full
+  embeddings.
+
 ```go
 package main
 

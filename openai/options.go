@@ -1,17 +1,21 @@
 package openai
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Option is a function type that can be used to modify the client.
 type Option func(c *OpenAIClient) error
 
-type EmbeddingModel string
-
-const (
-	TextEmbeddingAda002 EmbeddingModel = "text-embedding-ada-002"
-	TextEmbedding3Small EmbeddingModel = "text-embedding-3-small"
-	TextEmbedding3Large EmbeddingModel = "text-embedding-3-large"
-)
+func WithBaseURL(baseURL string) Option {
+	return func(p *OpenAIClient) error {
+		if baseURL == "" {
+			return fmt.Errorf("empty base URL")
+		}
+		p.BaseURL = baseURL
+		return nil
+	}
+}
 
 // WithOpenAIOrganizationID is an option for setting the OpenAI org id.
 func WithOpenAIOrganizationID(openAiAPIKey string) Option {
@@ -31,6 +35,15 @@ func WithModel(model EmbeddingModel) Option {
 			return fmt.Errorf("invalid model name %s. Must be one of: %v", model, []string{string(TextEmbeddingAda002), string(TextEmbedding3Small), string(TextEmbedding3Large)})
 		}
 		c.Model = string(model)
+		return nil
+	}
+}
+func WithDimensions(dimensions int) Option {
+	return func(c *OpenAIClient) error {
+		if dimensions <= 0 {
+			return fmt.Errorf("invalid dimensions %d", dimensions)
+		}
+		c.Dimensions = &dimensions
 		return nil
 	}
 }

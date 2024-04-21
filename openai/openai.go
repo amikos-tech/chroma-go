@@ -6,10 +6,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
+	"strings"
 
 	"github.com/amikos-tech/chroma-go/types"
+)
+
+type EmbeddingModel string
+
+const (
+	ModelContextVar                     = "model"
+	DimensionsContextVar                = "dimensions"
+	TextEmbeddingAda002  EmbeddingModel = "text-embedding-ada-002"
+	TextEmbedding3Small  EmbeddingModel = "text-embedding-3-small"
+	TextEmbedding3Large  EmbeddingModel = "text-embedding-3-large"
 )
 
 type Input struct {
@@ -35,9 +45,10 @@ func (i *Input) MarshalJSON() ([]byte, error) {
 }
 
 type CreateEmbeddingRequest struct {
-	Model string `json:"model"`
-	User  string `json:"user"`
-	Input *Input `json:"input"`
+	Model      string `json:"model"`
+	User       string `json:"user"`
+	Input      *Input `json:"input"`
+	Dimensions *int   `json:"dimensions,omitempty"`
 }
 
 func (c *CreateEmbeddingRequest) JSON() (string, error) {
@@ -77,11 +88,21 @@ func (c *CreateEmbeddingResponse) String() string {
 }
 
 type OpenAIClient struct {
-	BaseURL string
-	APIKey  string
-	OrgID   string
-	Client  *http.Client
-	Model   string
+	BaseURL    string
+	APIKey     string
+	OrgID      string
+	Client     *http.Client
+	Model      string
+	Dimensions *int
+}
+
+func applyDefaults(c *OpenAIClient) {
+	if c.BaseURL == "" {
+		c.BaseURL = "https://api.openai.com/v1/"
+	}
+	if !strings.HasSuffix(c.BaseURL, "/") {
+		c.BaseURL += "/"
+	}
 }
 
 func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
@@ -95,7 +116,7 @@ func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	applyDefaults(client)
 	return client, nil
 }
 
@@ -144,20 +165,13 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	if err != nil {
 		return nil, err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Println(err)
-		}
-	}(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected code %v", resp.Status)
-	}
-
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected response %v, %v", resp.Status, string(respData))
 	}
 
 	var createEmbeddingResponse CreateEmbeddingResponse
@@ -196,12 +210,32 @@ func ConvertToMatrix(response *CreateEmbeddingResponse) [][]float32 {
 	return matrix
 }
 
+// getModel returns the model from the context if it exists, otherwise it returns the default model
+func (e *OpenAIEmbeddingFunction) getModel(ctx context.Context) string {
+	model := e.apiClient.Model
+	if m, ok := ctx.Value(ModelContextVar).(string); ok {
+		model = m
+	}
+	return model
+}
+
+// getDimensions returns the dimensions from the context if it exists, otherwise it returns the default dimensions
+func (e *OpenAIEmbeddingFunction) getDimensions(ctx context.Context) *int {
+	dimensions := e.apiClient.Dimensions
+	if dims, ok := ctx.Value(DimensionsContextVar).(*int); ok {
+		dimensions = dims
+	}
+	return dimensions
+}
+
 func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
-		User: "chroma-go-client",
+		User:  "chroma-go-client",
+		Model: e.getModel(ctx),
 		Input: &Input{
 			Texts: documents,
 		},
+		Dimensions: e.getDimensions(ctx),
 	})
 	if err != nil {
 		return nil, err
