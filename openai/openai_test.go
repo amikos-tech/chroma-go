@@ -129,4 +129,24 @@ func Test_openai_client(t *testing.T) {
 		require.Nil(t, err)
 	})
 
+	t.Run("Test Embed query With Model text-embedding-3-large", func(t *testing.T) {
+		ef, efErr := NewOpenAIEmbeddingFunction(apiKey, WithModel(TextEmbedding3Large))
+		require.NoError(t, efErr)
+		resp, reqErr := ef.EmbedQuery(context.Background(), "Document 1 content here")
+		require.Nil(t, reqErr)
+		require.NotNil(t, resp)
+		require.Empty(t, ef.apiClient.OrgID)
+		require.Len(t, *resp.GetFloat32(), 3072)
+	})
+
+	t.Run("Test Embed query With Model text-embedding-3-small", func(t *testing.T) {
+		ef, efErr := NewOpenAIEmbeddingFunction(apiKey, WithModel(TextEmbedding3Small))
+		require.NoError(t, efErr)
+		resp, reqErr := ef.EmbedQuery(context.Background(), "Document 1 content here")
+		require.Nil(t, reqErr)
+		require.NotNil(t, resp)
+		require.Empty(t, ef.apiClient.OrgID)
+		require.Len(t, *resp.GetFloat32(), 1536)
+	})
+
 }

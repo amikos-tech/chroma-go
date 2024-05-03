@@ -245,7 +245,7 @@ func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 
 func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
-		Model: "text-embedding-ada-002",
+		Model: e.getModel(ctx),
 		User:  "chroma-go-client",
 		Input: &Input{
 			Texts: []string{document},
