@@ -45,6 +45,7 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 		if err != nil {
 			assert.Failf(t, "Error loading .env file", "%s", err)
 		}
+		apiKey = os.Getenv("CF_API_TOKEN")
 	}
 
 	t.Run("Test EmbedDocuments with env-based token and account id", func(t *testing.T) {
