@@ -41,4 +41,5 @@ jobs:
         CF_GATEWAY_ENDPOINT:  ${{ secrets.CF_GATEWAY_ENDPOINT }}
         TOGETHER_API_KEY:  ${{ secrets.TOGETHER_API_KEY }}
         VOYAGE_API_KEY:  ${{ secrets.VOYAGE_API_KEY }}
+        GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEY }}
         CHROMA_VERSION: ${{ matrix.chroma-version }}
