@@ -35,7 +35,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/auth/)
 - ✅ OpenAI Embedding Support
 - ✅ Cohere API (including Multi-language support)
 - ✅ Sentence Transformers (HuggingFace Inference API)
-- 🚫 PaLM API
+- ✅ Google Gemini Embedding Support
 - 🚫 Custom Embedding Function
 - ✅ HuggingFace Embedding Inference Server Function
 - ✅ Ollama Embedding Support

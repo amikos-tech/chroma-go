@@ -12,6 +12,7 @@ The following embedding wrappers are available:
 | Cloudflare Workers AI                  | Cloudflare Workers AI Embedding.<br/> For more info see [CF API Docs](https://developers.cloudflare.com/workers-ai/models/embedding/).                      |
 | TogetherAI                             | Together AI Embedding.<br/> For more info see [Together API Docs](https://docs.together.ai/reference/embeddings).                                           |
 | VoyageAI                               | Voyage AI Embedding.<br/> For more info see [Together API Docs](https://docs.voyageai.com/reference/embeddings-api).                                        |
+| Google Gemini                          | Google Gemini Embedding.<br/> For more info see [Gemini Docs](https://ai.google.dev/gemini-api/docs/embeddings).                                            |
 
 ## OpenAI
 
@@ -275,6 +276,41 @@ func main() {
 	ef, err := t.NewVoyageAIEmbeddingFunction(t.WithEnvAPIKey(), t.WithDefaultModel("voyage-large-2"))
 	if err != nil {
 		fmt.Printf("Error creating Together embedding function: %s \n", err)
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+
+## Google Gemini AI
+
+To use Google Gemini AI embeddings, you will need to create an [API Key](https://aistudio.google.com/app/apikey).
+
+Available models can be
+in [Gemini Models](https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding). `text-embedding-004` is the default model.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	g "github.com/amikos-tech/chroma-go/pkg/embeddings/gemini"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `TOGETHER_API_KEY` set in your environment
+	ef, err := g.NewGeminiEmbeddingFunction(g.WithEnvAPIKey(), g.WithDefaultModel("text-embedding-004"))
+	if err != nil {
+		fmt.Printf("Error creating Gemini embedding function: %s \n", err)
 	}
 	resp, err := ef.EmbedDocuments(context.Background(), documents)
 	if err != nil {

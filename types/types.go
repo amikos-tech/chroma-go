@@ -91,6 +91,16 @@ type Embedding struct {
 	ArrayOfInt32   *[]int32
 }
 
+func (e *Embedding) Len() int {
+	if e.ArrayOfFloat32 != nil {
+		return len(*e.ArrayOfFloat32)
+	}
+	if e.ArrayOfInt32 != nil {
+		return len(*e.ArrayOfInt32)
+	}
+	return 0
+}
+
 func NewEmbedding(embeddings []interface{}) (*Embedding, error) {
 	if len(embeddings) == 0 {
 		return &Embedding{
