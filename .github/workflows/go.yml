@@ -43,3 +43,4 @@ jobs:
         VOYAGE_API_KEY:  ${{ secrets.VOYAGE_API_KEY }}
         GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEY }}
         CHROMA_VERSION: ${{ matrix.chroma-version }}
+        MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
