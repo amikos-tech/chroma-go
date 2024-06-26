@@ -2,7 +2,7 @@
 
 A simple Chroma Vector Database client written in Go
 
-Works with Chroma Version: v0.4.3 - v0.4.24
+Works with Chroma Version: v0.4.3 - v0.5.x
 
 We invite users to visit the docs site for the library for more in-depth
 information: [Chroma Go Docs](https://go-client.chromadb.dev/auth/)
@@ -61,7 +61,7 @@ chroma "github.com/amikos-tech/chroma-go"
 
 Ensure you have a running instance of Chroma running. We recommend one of the two following options:
 
-- [Official documentation](https://docs.trychroma.com/usage-guide#running-chroma-in-clientserver-mode)
+- [Official documentation](https://docs.trychroma.com/guides#running-chroma-in-client/server-mode)
 - If you are a fan of Kubernetes, you can use the [Helm chart](https://github.com/amikos-tech/chromadb-chart) (Note: You
   will need `Docker`, `minikube` and `kubectl` installed)
 
