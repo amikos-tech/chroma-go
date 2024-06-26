@@ -626,7 +626,7 @@ func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
 	if len(b.QueryEmbeddings) == 0 && c.EmbeddingFunction == nil {
-		return nil, fmt.Errorf("embedding function is not set. Please configure the embedding function when you get or create the collection")
+		return nil, fmt.Errorf("embedding function is not set. Please configure the embedding function when you get or create the collection, or provide the query embeddings")
 	}
 	embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, b.QueryTexts)
 	if embErr != nil {
