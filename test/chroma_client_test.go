@@ -514,6 +514,27 @@ func Test_chroma_client(t *testing.T) {
 		require.Equal(t, documents[1], qr.Documents[0][0]) // ensure that the first document is the one about dogs
 	})
 
+	t.Run("Test Query Collection - No Embedding Function", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
+		// assert the metadata contains key embedding_function
+		newCollection, err = client.GetCollection(context.Background(), collectionName, nil)
+		require.NoError(t, err)
+
+		_, err = newCollection.Query(context.Background(), []string{"Dogs are my favorite animals"}, 5, nil, nil, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "embedding function is not set")
+
+	})
+
 	t.Run("Test Query Collection Documents - with document only includes", func(t *testing.T) {
 		collectionName := "test-collection"
 		metadata := map[string]interface{}{}
