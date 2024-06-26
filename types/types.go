@@ -595,9 +595,8 @@ func (t *TokenAuthCredentialsProvider) Authenticate(config *openapi.Configuratio
 	}
 }
 
-type GetResults struct {
-	Ids        []string
-	Documents  []string
-	Metadatas  []map[string]interface{}
-	Embeddings []*Embedding
+type PageInfo struct {
+	Limit        int32
+	Offset       int32
+	QueryOptions []CollectionQueryOption
 }

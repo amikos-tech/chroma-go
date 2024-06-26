@@ -1123,4 +1123,94 @@ func Test_chroma_client(t *testing.T) {
 		require.Equal(t, "test-collection", resp.Name, "Collection name should be test-collection")
 		require.NotNil(t, resp.ID, "Collection id should not be nil")
 	})
+
+	t.Run("Test Get with PageInfo", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
+		// assert the metadata contains key embedding_function
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
+		docs := make([]string, 0, 100)
+		ids := make([]string, 0, 100)
+		for i := 1; i <= 100; i++ {
+			doc := fmt.Sprintf("Document %d content", i)
+			docs = append(docs, doc)
+			ids = append(ids, fmt.Sprintf("ID%d", i))
+		}
+		col, addError := newCollection.Add(context.Background(), nil, nil, docs, ids)
+		require.NoError(t, addError)
+		results, err := col.GetWithOptions(context.Background(), types.WithOffset(0), types.WithLimit(5))
+		require.NoError(t, err)
+		require.Len(t, results.Ids, 5)
+		newResults, err := results.NextPage(context.Background())
+		require.NoError(t, err)
+		require.Len(t, newResults.Ids, 5)
+	})
+
+	t.Run("Test Get with PageInfo overflow", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
+		// assert the metadata contains key embedding_function
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
+		docs := make([]string, 0, 5)
+		ids := make([]string, 0, 5)
+		for i := 1; i <= 5; i++ {
+			doc := fmt.Sprintf("Document %d content", i)
+			docs = append(docs, doc)
+			ids = append(ids, fmt.Sprintf("ID%d", i))
+		}
+		col, addError := newCollection.Add(context.Background(), nil, nil, docs, ids)
+		require.NoError(t, addError)
+		results, err := col.GetWithOptions(context.Background(), types.WithOffset(0), types.WithLimit(5))
+		require.NoError(t, err)
+		require.Len(t, results.Ids, 5)
+		newResults, err := results.NextPage(context.Background())
+		require.NoError(t, err)
+		require.Len(t, newResults.Ids, 0)
+	})
+
+	t.Run("Test Get with PageInfo negative offset", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
+		// assert the metadata contains key embedding_function
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
+		docs := make([]string, 0, 5)
+		ids := make([]string, 0, 5)
+		for i := 1; i <= 5; i++ {
+			doc := fmt.Sprintf("Document %d content", i)
+			docs = append(docs, doc)
+			ids = append(ids, fmt.Sprintf("ID%d", i))
+		}
+		col, addError := newCollection.Add(context.Background(), nil, nil, docs, ids)
+		require.NoError(t, addError)
+		results, err := col.GetWithOptions(context.Background(), types.WithOffset(0), types.WithLimit(5))
+		require.NoError(t, err)
+		require.Len(t, results.Ids, 5)
+		_, err = results.PreviousPage(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot go to previous page")
+	})
 }

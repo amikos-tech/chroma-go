@@ -384,6 +384,34 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 	return version, err
 }
 
+type GetResults struct {
+	Ids        []string
+	Documents  []string
+	Metadatas  []map[string]interface{}
+	Embeddings []*types.Embedding
+	collection *Collection
+	PageInfo   *types.PageInfo
+}
+
+func (r *GetResults) NextPage(ctx context.Context) (*GetResults, error) {
+	if r.PageInfo == nil {
+		return nil, fmt.Errorf("no page info. Your Get must contain limit and offset options")
+	}
+	r.PageInfo.QueryOptions = append(r.PageInfo.QueryOptions, types.WithOffset(r.PageInfo.Offset+r.PageInfo.Limit))
+	return r.collection.GetWithOptions(ctx, r.PageInfo.QueryOptions...)
+}
+
+func (r *GetResults) PreviousPage(ctx context.Context) (*GetResults, error) {
+	if r.PageInfo == nil {
+		return nil, fmt.Errorf("no page info. Your Get must contain limit and offset options")
+	}
+	if r.PageInfo.Offset-r.PageInfo.Limit < 0 {
+		return nil, fmt.Errorf("cannot go to previous page. Offset is less than 0")
+	}
+	r.PageInfo.QueryOptions = append(r.PageInfo.QueryOptions, types.WithOffset(r.PageInfo.Offset-r.PageInfo.Limit))
+	return r.collection.GetWithOptions(ctx, r.PageInfo.QueryOptions...)
+}
+
 type Collection struct {
 	Name              string
 	EmbeddingFunction types.EmbeddingFunction
@@ -518,7 +546,7 @@ func (c *Collection) Modify(ctx context.Context, embeddings []*types.Embedding, 
 	return c, nil
 }
 
-func (c *Collection) GetWithOptions(ctx context.Context, options ...types.CollectionQueryOption) (*types.GetResults, error) {
+func (c *Collection) GetWithOptions(ctx context.Context, options ...types.CollectionQueryOption) (*GetResults, error) {
 	query := &types.CollectionQueryBuilder{}
 	for _, opt := range options {
 		err := opt(query)
@@ -550,16 +578,25 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 		return nil, err
 	}
 
-	results := &types.GetResults{
+	results := &GetResults{
 		Ids:        cd.Ids,
 		Documents:  cd.Documents,
 		Metadatas:  cd.Metadatas,
 		Embeddings: APIEmbeddingsToEmbeddings(cd.Embeddings),
+		collection: c,
+	}
+	// only add PageInfo when both limit and offset are set
+	if &query.Limit != nil && &query.Offset != nil {
+		results.PageInfo = &types.PageInfo{
+			Limit:        query.Limit,
+			Offset:       query.Offset,
+			QueryOptions: options,
+		}
 	}
 	return results, nil
 }
 
-func (c *Collection) Get(ctx context.Context, where map[string]interface{}, whereDocuments map[string]interface{}, ids []string, include []types.QueryEnum) (*types.GetResults, error) {
+func (c *Collection) Get(ctx context.Context, where map[string]interface{}, whereDocuments map[string]interface{}, ids []string, include []types.QueryEnum) (*GetResults, error) {
 	return c.GetWithOptions(ctx, types.WithWhereMap(where), types.WithWhereDocumentMap(whereDocuments), types.WithIds(ids), types.WithInclude(include...))
 }
 
