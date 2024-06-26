@@ -601,9 +601,6 @@ func (c *Collection) Query(ctx context.Context, queryTexts []string, nResults in
 	return c.QueryWithOptions(ctx, types.WithQueryTexts(queryTexts), types.WithNResults(nResults), types.WithWhereMap(where), types.WithWhereDocumentMap(whereDocuments), types.WithInclude(include...))
 }
 func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types.CollectionQueryOption) (*QueryResults, error) {
-	if c.EmbeddingFunction == nil {
-		return nil, fmt.Errorf("embedding function is not set. Please configure the embedding function when you get or create the collection")
-	}
 	b := &types.CollectionQueryBuilder{
 		QueryTexts:      make([]string, 0),
 		QueryEmbeddings: make([]*types.Embedding, 0),
@@ -628,6 +625,9 @@ func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types
 	}
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
+	if len(b.QueryEmbeddings) == 0 && c.EmbeddingFunction == nil {
+		return nil, fmt.Errorf("embedding function is not set. Please configure the embedding function when you get or create the collection")
+	}
 	embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, b.QueryTexts)
 	if embErr != nil {
 		return nil, embErr
