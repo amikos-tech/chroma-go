@@ -384,13 +384,6 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 	return version, err
 }
 
-type GetResults struct {
-	Ids        []string
-	Documents  []string
-	Metadatas  []map[string]interface{}
-	Embeddings []*types.Embedding
-}
-
 type Collection struct {
 	Name              string
 	EmbeddingFunction types.EmbeddingFunction
@@ -525,7 +518,7 @@ func (c *Collection) Modify(ctx context.Context, embeddings []*types.Embedding, 
 	return c, nil
 }
 
-func (c *Collection) GetWithOptions(ctx context.Context, options ...types.CollectionQueryOption) (*GetResults, error) {
+func (c *Collection) GetWithOptions(ctx context.Context, options ...types.CollectionQueryOption) (*types.GetResults, error) {
 	query := &types.CollectionQueryBuilder{}
 	for _, opt := range options {
 		err := opt(query)
@@ -557,7 +550,7 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 		return nil, err
 	}
 
-	results := &GetResults{
+	results := &types.GetResults{
 		Ids:        cd.Ids,
 		Documents:  cd.Documents,
 		Metadatas:  cd.Metadatas,
@@ -566,7 +559,7 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 	return results, nil
 }
 
-func (c *Collection) Get(ctx context.Context, where map[string]interface{}, whereDocuments map[string]interface{}, ids []string, include []types.QueryEnum) (*GetResults, error) {
+func (c *Collection) Get(ctx context.Context, where map[string]interface{}, whereDocuments map[string]interface{}, ids []string, include []types.QueryEnum) (*types.GetResults, error) {
 	return c.GetWithOptions(ctx, types.WithWhereMap(where), types.WithWhereDocumentMap(whereDocuments), types.WithIds(ids), types.WithInclude(include...))
 }
 

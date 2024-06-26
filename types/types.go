@@ -594,3 +594,10 @@ func (t *TokenAuthCredentialsProvider) Authenticate(config *openapi.Configuratio
 		return fmt.Errorf("unsupported token header: %v", t.Header)
 	}
 }
+
+type GetResults struct {
+	Ids        []string
+	Documents  []string
+	Metadatas  []map[string]interface{}
+	Embeddings []*Embedding
+}
