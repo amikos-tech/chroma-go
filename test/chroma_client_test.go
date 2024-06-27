@@ -1213,4 +1213,34 @@ func Test_chroma_client(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "cannot go to previous page")
 	})
+
+	t.Run("Test Get with PageInfo nil without limit/offset", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, newCollection)
+		require.Equal(t, collectionName, newCollection.Name)
+		require.Equal(t, 2, len(newCollection.Metadata))
+		// assert the metadata contains key embedding_function
+		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
+		docs := make([]string, 0, 5)
+		ids := make([]string, 0, 5)
+		for i := 1; i <= 5; i++ {
+			doc := fmt.Sprintf("Document %d content", i)
+			docs = append(docs, doc)
+			ids = append(ids, fmt.Sprintf("ID%d", i))
+		}
+		col, addError := newCollection.Add(context.Background(), nil, nil, docs, ids)
+		require.NoError(t, addError)
+		results, err := col.GetWithOptions(context.Background())
+		require.NoError(t, err)
+		require.Len(t, results.Ids, 5)
+		_, err = results.PreviousPage(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no page info")
+	})
 }

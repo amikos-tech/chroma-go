@@ -586,7 +586,7 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 		collection: c,
 	}
 	// only add PageInfo when both limit and offset are set
-	if &query.Limit != nil && &query.Offset != nil {
+	if query.Limit != 0 && query.Offset != 0 {
 		results.PageInfo = &types.PageInfo{
 			Limit:        query.Limit,
 			Offset:       query.Offset,
