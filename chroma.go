@@ -395,7 +395,7 @@ type GetResults struct {
 
 func (r *GetResults) NextPage(ctx context.Context) (*GetResults, error) {
 	if r.PageInfo == nil {
-		return nil, fmt.Errorf("no page info. Your Get must contain limit and offset options")
+		return nil, fmt.Errorf("no page info. Your Get must contain limit option")
 	}
 	r.PageInfo.QueryOptions = append(r.PageInfo.QueryOptions, types.WithOffset(r.PageInfo.Offset+r.PageInfo.Limit))
 	return r.collection.GetWithOptions(ctx, r.PageInfo.QueryOptions...)
@@ -403,7 +403,7 @@ func (r *GetResults) NextPage(ctx context.Context) (*GetResults, error) {
 
 func (r *GetResults) PreviousPage(ctx context.Context) (*GetResults, error) {
 	if r.PageInfo == nil {
-		return nil, fmt.Errorf("no page info. Your Get must contain limit and offset options")
+		return nil, fmt.Errorf("no page info. Your Get must contain limit options")
 	}
 	if r.PageInfo.Offset-r.PageInfo.Limit < 0 {
 		return nil, fmt.Errorf("cannot go to previous page. Offset is less than 0")
@@ -585,8 +585,9 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 		Embeddings: APIEmbeddingsToEmbeddings(cd.Embeddings),
 		collection: c,
 	}
-	// only add PageInfo when both limit and offset are set
-	if query.Limit != 0 && query.Offset != 0 {
+	// only add PageInfo when both limit (offset is assumed 0 if not provided)
+	// TODO can limit == collection count (that is an extra API call though)
+	if query.Limit != 0 {
 		results.PageInfo = &types.PageInfo{
 			Limit:        query.Limit,
 			Offset:       query.Offset,
