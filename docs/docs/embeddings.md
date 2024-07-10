@@ -61,7 +61,7 @@ import (
 	"fmt"
 	"os"
 
-	cohere "github.com/amikos-tech/chroma-go/cohere"
+	cohere "github.com/amikos-tech/chroma-go/pkg/embeddings/cohere"
 )
 
 func main() {

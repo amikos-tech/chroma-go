@@ -15,7 +15,7 @@ import (
 func Test_ef(t *testing.T) {
 	apiKey := os.Getenv("COHERE_API_KEY")
 	if apiKey == "" {
-		err := godotenv.Load("../.env")
+		err := godotenv.Load("../../../.env")
 		if err != nil {
 			assert.Failf(t, "Error loading .env file", "%s", err)
 		}
