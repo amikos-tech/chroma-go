@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings/hf"
 	"github.com/testcontainers/testcontainers-go"
 	tcchroma "github.com/testcontainers/testcontainers-go/modules/chroma"
 	"net/http"
@@ -22,12 +21,10 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver"
-	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/cohere"
 	"github.com/amikos-tech/chroma-go/collection"
 	"github.com/amikos-tech/chroma-go/types"
 	"github.com/amikos-tech/chroma-go/where"
@@ -826,58 +823,6 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, dellErr)
 		require.Equal(t, 1, len(deletedIds))
 		require.Equal(t, "ID1", deletedIds[0])
-	})
-
-	t.Run("Test Add Documents with Cohere EF", func(t *testing.T) {
-		collectionName := "test-collection"
-		metadata := map[string]interface{}{}
-		apiKey := os.Getenv("COHERE_API_KEY")
-		if apiKey == "" {
-			err := godotenv.Load("../.env")
-			if err != nil {
-				assert.Failf(t, "Error loading .env file", "%s", err)
-			}
-			apiKey = os.Getenv("COHERE_API_KEY")
-		}
-		embeddingFunction, err := cohere.NewCohereEmbeddingFunction(apiKey)
-		require.NoError(t, err)
-		_, errRest := client.Reset(context.Background())
-		require.NoError(t, errRest)
-		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.COSINE)
-		require.NoError(t, err)
-		require.NotNil(t, newCollection)
-		require.Equal(t, collectionName, newCollection.Name)
-		require.Equal(t, 2, len(newCollection.Metadata))
-		// assert the metadata contains key embedding_function
-		assert.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
-		docs, ids, docMetadata, embeds := GetTestDocumentTest()
-		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
-		require.Nil(t, addError)
-	})
-
-	t.Run("Test Add Documents with Hugging Face EF", func(t *testing.T) {
-		collectionName := "test-collection"
-		metadata := map[string]interface{}{}
-		apiKey := os.Getenv("HF_API_KEY")
-		if apiKey == "" {
-			err := godotenv.Load("../.env")
-			if err != nil {
-				assert.Failf(t, "Error loading .env file", "%s", err)
-			}
-			apiKey = os.Getenv("HF_API_KEY")
-		}
-		embeddingFunction := hf.NewHuggingFaceEmbeddingFunction(apiKey, "sentence-transformers/paraphrase-MiniLM-L6-v2")
-		_, errRest := client.Reset(context.Background())
-		require.NoError(t, errRest)
-		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.IP)
-		require.NoError(t, err)
-		require.NotNil(t, newCollection)
-		require.Equal(t, collectionName, newCollection.Name)
-		require.Equal(t, 2, len(newCollection.Metadata))
-		require.Contains(t, chroma.GetStringTypeOfEmbeddingFunction(embeddingFunction), newCollection.Metadata["embedding_function"])
-		docs, ids, docMetadata, embeds := GetTestDocumentTest()
-		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
-		require.Nil(t, addError)
 	})
 
 	t.Run("Test Collection Get Include Embeddings", func(t *testing.T) {

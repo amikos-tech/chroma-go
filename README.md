@@ -28,20 +28,20 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/auth/)
 - ✅ Collection Update
 - ✅ Collection Upsert
 - ✅ Collection Delete - delete documents in collection
-- ✅ Authentication (Basic, Token with Authorization header, Token with X-Chroma-Token header)
+- ✅ [Authentication](https://go-client.chromadb.dev/auth/) (Basic, Token with Authorization header, Token with X-Chroma-Token header)
 
 ## Embedding API and Models Support
 
-- ✅ OpenAI Embedding Support
-- ✅ Cohere API (including Multi-language support)
-- ✅ Sentence Transformers (HuggingFace Inference API)
-- ✅ Google Gemini Embedding Support
+- ✅ [OpenAI Embedding](https://go-client.chromadb.dev/embeddings/#openai) Support
+- ✅ [Cohere](https://go-client.chromadb.dev/embeddings/#cohere) (including Multi-language support)
+- ✅ [Sentence Transformers](https://go-client.chromadb.dev/embeddings/#huggingface-inference-api) (HuggingFace Inference API and [HFEI local server]())
+- ✅ [Google Gemini Embedding](https://go-client.chromadb.dev/embeddings/#google-gemini-ai) Support
 - 🚫 Custom Embedding Function
-- ✅ HuggingFace Embedding Inference Server Function
-- ✅ Ollama Embedding Support
-- ✅ Cloudflare Workers AI Embedding Support
-- ✅ TogetherAI Embedding Support
-- ✅ VoyageAI Embedding Support
+- ✅ [HuggingFace Embedding Inference Server Support](https://go-client.chromadb.dev/embeddings/#huggingface-embedding-inference-server)
+- ✅ [Ollama Embedding](https://go-client.chromadb.dev/embeddings/#ollama) Support
+- ✅ [Cloudflare Workers AI Embedding](https://go-client.chromadb.dev/embeddings/#cloudflare-workers-ai) Support
+- ✅ [TogetherAI Embedding](https://go-client.chromadb.dev/embeddings/#together-ai) Support
+- ✅ [VoyageAI Embedding](https://go-client.chromadb.dev/embeddings/#voyage-ai) Support
 - ✅ MistralAI API Embedding Support
 
 ## Installation
