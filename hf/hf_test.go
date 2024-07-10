@@ -113,9 +113,11 @@ func Test_Huggingface_client_with_options(t *testing.T) {
 	t.Run("Test with huggingface embedding inference", func(t *testing.T) {
 		ctx := context.Background()
 		req := testcontainers.ContainerRequest{
-			Image:        "ghcr.io/huggingface/text-embeddings-inference:cpu-latest",
-			ExposedPorts: []string{"80/tcp"},
-			WaitingFor:   wait.ForLog("Ready"),
+			Image:         "ghcr.io/huggingface/text-embeddings-inference:cpu-latest",
+			ExposedPorts:  []string{"80/tcp"},
+			WaitingFor:    wait.ForLog("Ready"),
+			ImagePlatform: "linux/amd64",
+			Cmd:           []string{"--model-id", "sentence-transformers/all-MiniLM-L6-v2"},
 		}
 		hfei, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 			ContainerRequest: req,
