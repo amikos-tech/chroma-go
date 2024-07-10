@@ -114,7 +114,7 @@ func main() {
 	// Create a new collection with options
 	newCollection, err := client.NewCollection(
 		context.TODO(),
-		collection.WithName("test-collection"),
+        "test-collection",
 		collection.WithMetadata("key1", "value1"),
 		collection.WithEmbeddingFunction(openaiEf),
 		collection.WithHNSWDistanceFunction(types.L2),
