@@ -19,16 +19,6 @@ type Builder struct {
 
 type Option func(*Builder) error
 
-func WithName(name string) Option {
-	return func(c *Builder) error {
-		if name == "" {
-			return fmt.Errorf("collection name cannot be empty")
-		}
-		c.Name = name
-		return nil
-	}
-}
-
 func WithEmbeddingFunction(embeddingFunction types.EmbeddingFunction) Option {
 	return func(c *Builder) error {
 		c.EmbeddingFunction = embeddingFunction
