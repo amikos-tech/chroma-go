@@ -385,10 +385,32 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 }
 
 type GetResults struct {
-	Ids        []string
-	Documents  []string
-	Metadatas  []map[string]interface{}
-	Embeddings []*types.Embedding
+	Ids            []string
+	Documents      []string
+	Metadatas      []map[string]interface{}
+	Embeddings     []*types.Embedding
+	collection     *Collection
+	PageInfo       *types.PageInfo
+	RecordIterator chan *types.Record
+}
+
+func (r *GetResults) NextPage(ctx context.Context) (*GetResults, error) {
+	if r.PageInfo == nil {
+		return nil, fmt.Errorf("no page info. Your Get must contain limit option")
+	}
+	r.PageInfo.QueryOptions = append(r.PageInfo.QueryOptions, types.WithOffset(r.PageInfo.Offset+r.PageInfo.Limit))
+	return r.collection.GetWithOptions(ctx, r.PageInfo.QueryOptions...)
+}
+
+func (r *GetResults) PreviousPage(ctx context.Context) (*GetResults, error) {
+	if r.PageInfo == nil {
+		return nil, fmt.Errorf("no page info. Your Get must contain limit options")
+	}
+	if r.PageInfo.Offset-r.PageInfo.Limit < 0 {
+		return nil, fmt.Errorf("cannot go to previous page. Offset is less than 0")
+	}
+	r.PageInfo.QueryOptions = append(r.PageInfo.QueryOptions, types.WithOffset(r.PageInfo.Offset-r.PageInfo.Limit))
+	return r.collection.GetWithOptions(ctx, r.PageInfo.QueryOptions...)
 }
 
 type Collection struct {
@@ -562,7 +584,35 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 		Documents:  cd.Documents,
 		Metadatas:  cd.Metadatas,
 		Embeddings: APIEmbeddingsToEmbeddings(cd.Embeddings),
+		collection: c,
 	}
+	// only add PageInfo when both limit (offset is assumed 0 if not provided)
+	// TODO can limit == collection count (that is an extra API call though)
+	if query.Limit != 0 {
+		results.PageInfo = &types.PageInfo{
+			Limit:        query.Limit,
+			Offset:       query.Offset,
+			QueryOptions: options,
+		}
+	}
+
+	results.RecordIterator = make(chan *types.Record)
+	go func() {
+		count, err := c.Count(ctx)
+		if err != nil {
+			return
+		}
+		start := 0
+		end := count
+		lim := 10
+		if query.Limit != 0 {
+			lim = query.Limit
+		}
+		for i := start; i < end; i += lim {
+			c.GetWithOptions(ctx, types.WithLimit(10), types.WithOffset(i))
+		}
+		close(ch)
+	}()
 	return results, nil
 }
 

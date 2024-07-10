@@ -594,3 +594,9 @@ func (t *TokenAuthCredentialsProvider) Authenticate(config *openapi.Configuratio
 		return fmt.Errorf("unsupported token header: %v", t.Header)
 	}
 }
+
+type PageInfo struct {
+	Limit        int32
+	Offset       int32
+	QueryOptions []CollectionQueryOption
+}
