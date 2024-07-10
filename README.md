@@ -30,7 +30,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/auth/)
 - ✅ Collection Delete - delete documents in collection
 - ✅ Authentication (Basic, Token with Authorization header, Token with X-Chroma-Token header)
 
-## Embedding Functions Support
+## Embedding API and Models Support
 
 - ✅ OpenAI Embedding Support
 - ✅ Cohere API (including Multi-language support)
@@ -42,6 +42,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/auth/)
 - ✅ Cloudflare Workers AI Embedding Support
 - ✅ TogetherAI Embedding Support
 - ✅ VoyageAI Embedding Support
+- ✅ MistralAI API Embedding Support
 
 ## Installation
 

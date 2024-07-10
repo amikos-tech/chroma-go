@@ -951,7 +951,7 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, errRest)
 		newCollection, err := client.NewCollection(
 			context.Background(),
-			collection.WithName("test-collection"),
+			"test-collection",
 			collection.WithMetadata("key1", "value1"),
 			collection.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
 			collection.WithHNSWDistanceFunction(types.L2),
@@ -981,7 +981,7 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, errRest)
 		newCollection, err := client.NewCollection(
 			context.Background(),
-			collection.WithName("test-collection"),
+			"test-collection",
 			collection.WithMetadata("key1", "value1"),
 			collection.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
 		)
@@ -1010,7 +1010,7 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, errRest)
 		_, err := client.NewCollection(
 			context.Background(),
-			collection.WithName("test-collection"),
+			"test-collection",
 			collection.WithMetadata("key1", "value1"),
 		)
 		require.NoError(t, err)
@@ -1027,11 +1027,12 @@ func Test_chroma_client(t *testing.T) {
 		require.Contains(t, err.Error(), "embedding function is required")
 	})
 
-	t.Run("[Err] Test With Collection Builder - no collection name", func(t *testing.T) {
+	t.Run("[Err] Test With Collection Builder - empty collection name", func(t *testing.T) {
 		_, errRest := client.Reset(context.Background())
 		require.NoError(t, errRest)
 		_, err := client.NewCollection(
 			context.Background(),
+			"",
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "collection name cannot be empty")
@@ -1042,7 +1043,7 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, errRest)
 		newCollection, err := client.NewCollection(
 			context.Background(),
-			collection.WithName("test-collection"),
+			"test-collection",
 			collection.WithMetadata("key1", "value1"),
 			collection.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
 			collection.WithHNSWDistanceFunction(types.L2),
@@ -1076,7 +1077,7 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, errRest)
 		newCollection, err := client.NewCollection(
 			context.Background(),
-			collection.WithName("test-collection"),
+			"test-collection",
 			collection.WithMetadata("key1", "value1"),
 			collection.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
 			collection.WithHNSWDistanceFunction(types.L2),

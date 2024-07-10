@@ -11,12 +11,6 @@ import (
 )
 
 func TestCollectionBuilder(t *testing.T) {
-	t.Run("With Name", func(t *testing.T) {
-		b := &Builder{}
-		err := WithName("test")(b)
-		require.NoError(t, err, "Unexpected error: %v", err)
-		require.Equal(t, "test", b.Name)
-	})
 
 	t.Run("With Embedding Function", func(t *testing.T) {
 		b := &Builder{}

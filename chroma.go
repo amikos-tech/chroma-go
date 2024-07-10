@@ -284,17 +284,17 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 	return NewCollection(c.ApiClient, resp.Id, resp.Name, getMetadataFromAPI(mtd), embeddingFunction, c.Tenant, c.Database), nil
 }
 
-func (c *Client) NewCollection(ctx context.Context, options ...collection.Option) (*Collection, error) {
+func (c *Client) NewCollection(ctx context.Context, name string, options ...collection.Option) (*Collection, error) {
 	b := &collection.Builder{Metadata: make(map[string]interface{})}
 	for _, option := range options {
 		if err := option(b); err != nil {
 			return nil, err
 		}
 	}
-	if b.Name == "" {
+	if name == "" {
 		return nil, fmt.Errorf("collection name cannot be empty")
 	}
-
+	b.Name = name
 	var distanceFunction types.DistanceFunction
 	if df := b.Metadata[types.HNSWSpace]; df == nil {
 		b.Metadata[types.HNSWSpace] = types.L2
