@@ -1069,4 +1069,38 @@ func Test_chroma_client(t *testing.T) {
 		require.Equal(t, "test-collection", resp.Name, "Collection name should be test-collection")
 		require.NotNil(t, resp.ID, "Collection id should not be nil")
 	})
+
+	t.Run("Test query texts and generated query embeddings are in the result", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, newCollection)
+
+		qr, err := newCollection.Query(context.Background(), []string{"Dogs are my favorite animals"}, 5, nil, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, qr.QueryTexts, 1)
+		require.Len(t, qr.QueryTextsGeneratedEmbeddings, 1)
+		require.Len(t, qr.QueryEmbeddings, 0)
+	})
+
+	t.Run("Test query embeddings are in the result", func(t *testing.T) {
+		collectionName := "test-collection"
+		metadata := map[string]interface{}{}
+		embeddingFunction := types.NewConsistentHashEmbeddingFunction()
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.CreateCollection(context.Background(), collectionName, metadata, true, embeddingFunction, types.L2)
+		require.NoError(t, err)
+		require.NotNil(t, newCollection)
+		queryText, err := embeddingFunction.EmbedQuery(context.Background(), "Dogs are my favorite animals")
+		qr, err := newCollection.QueryWithOptions(context.Background(), types.WithQueryEmbedding(queryText), types.WithNResults(5))
+		require.NoError(t, err)
+		require.Len(t, qr.QueryEmbeddings, 1)
+		require.Len(t, qr.QueryTextsGeneratedEmbeddings, 0)
+		require.Len(t, qr.QueryTexts, 0)
+	})
 }

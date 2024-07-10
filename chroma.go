@@ -571,10 +571,13 @@ func (c *Collection) Get(ctx context.Context, where map[string]interface{}, wher
 }
 
 type QueryResults struct {
-	Documents [][]string                 `json:"documents,omitempty"`
-	Ids       [][]string                 `json:"ids,omitempty"`
-	Metadatas [][]map[string]interface{} `json:"metadatas,omitempty"`
-	Distances [][]float32                `json:"distances,omitempty"`
+	Documents                     [][]string                 `json:"documents,omitempty"`
+	Ids                           [][]string                 `json:"ids,omitempty"`
+	Metadatas                     [][]map[string]interface{} `json:"metadatas,omitempty"`
+	Distances                     [][]float32                `json:"distances,omitempty"`
+	QueryTexts                    []string
+	QueryEmbeddings               []*types.Embedding
+	QueryTextsGeneratedEmbeddings []*types.Embedding // the generated embeddings from the query texts
 }
 
 func getMetadataFromAPI(metadata *map[string]openapiclient.Metadata) *map[string]interface{} {
@@ -648,10 +651,13 @@ func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types
 	}
 
 	qresults := QueryResults{
-		Documents: qr.Documents,
-		Ids:       qr.Ids,
-		Metadatas: qr.Metadatas,
-		Distances: qr.Distances,
+		Documents:                     qr.Documents,
+		Ids:                           qr.Ids,
+		Metadatas:                     qr.Metadatas,
+		Distances:                     qr.Distances,
+		QueryTexts:                    b.QueryTexts,
+		QueryEmbeddings:               b.QueryEmbeddings,
+		QueryTextsGeneratedEmbeddings: embds,
 	}
 	return &qresults, nil
 }
