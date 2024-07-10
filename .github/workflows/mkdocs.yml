@@ -26,6 +26,7 @@ jobs:
         run: |
           cd docs
           mkdocs build -d ../site
+          cp ../CNAME ../site
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
