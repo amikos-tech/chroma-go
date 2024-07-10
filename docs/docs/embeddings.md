@@ -87,7 +87,7 @@ import (
 	"fmt"
 	"os"
 
-	huggingface "github.com/amikos-tech/chroma-go/hf"
+	huggingface "github.com/amikos-tech/chroma-go/pkg/embeddings/hf"
 )
 
 func main() {

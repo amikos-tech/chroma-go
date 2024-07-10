@@ -20,7 +20,7 @@ import (
 func Test_huggingface_client(t *testing.T) {
 	apiKey := os.Getenv("HF_API_KEY")
 	if apiKey == "" {
-		err := godotenv.Load("../.env")
+		err := godotenv.Load("../../../.env")
 		if err != nil {
 			assert.Failf(t, "Error loading .env file", "%s", err)
 		}
@@ -48,7 +48,7 @@ func Test_huggingface_client(t *testing.T) {
 func Test_Huggingface_client_with_options(t *testing.T) {
 	apiKey := os.Getenv("HF_API_KEY")
 	if apiKey == "" {
-		err := godotenv.Load("../.env")
+		err := godotenv.Load("../../../.env")
 		if err != nil {
 			assert.Failf(t, "Error loading .env file", "%s", err)
 		}
