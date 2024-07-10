@@ -5,7 +5,7 @@ A simple Chroma Vector Database client written in Go
 Works with Chroma Version: v0.4.3 - v0.5.x
 
 We invite users to visit the docs site for the library for more in-depth
-information: [Chroma Go Docs](https://go-client.chromadb.dev/auth/)
+information: [Chroma Go Docs](https://go-client.chromadb.dev/)
 
 ## Feature Parity with ChromaDB API
 
@@ -97,7 +97,7 @@ import (
 
 	chroma "github.com/amikos-tech/chroma-go"
 	"github.com/amikos-tech/chroma-go/collection"
-	openai "github.com/amikos-tech/chroma-go/openai"
+	openai "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
 	"github.com/amikos-tech/chroma-go/types"
 )
 

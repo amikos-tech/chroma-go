@@ -17,7 +17,7 @@ import (
 func Test_openai_client(t *testing.T) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		err := godotenv.Load("../.env")
+		err := godotenv.Load("../../../.env")
 		if err != nil {
 			assert.Failf(t, "Error loading .env file", "%s", err)
 		}
