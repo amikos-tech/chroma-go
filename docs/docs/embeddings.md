@@ -32,7 +32,7 @@ import (
 	"fmt"
 	"os"
 
-	openai "github.com/amikos-tech/chroma-go/openai"
+	openai "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
 )
 
 func main() {
