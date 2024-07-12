@@ -32,6 +32,7 @@ const (
 	ModelContextVar                         = "model"
 	TruncationContextVar                    = "truncation"
 	EncodingFormatContextVar                = "encodingFormat"
+	APITokenEnvVar                          = "VOYAGE_API_KEY"
 )
 
 type VoyageAIClient struct {

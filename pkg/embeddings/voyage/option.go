@@ -38,11 +38,11 @@ func WithAPIToken(apiToken string) Option {
 
 func WithEnvAPIKey() Option {
 	return func(p *VoyageAIClient) error {
-		if apiToken := os.Getenv("VOYAGE_API_KEY"); apiToken != "" {
+		if apiToken := os.Getenv(APITokenEnvVar); apiToken != "" {
 			p.APIToken = apiToken
 			return nil
 		}
-		return fmt.Errorf("VOYAGE_API_KEY not set")
+		return fmt.Errorf("%s not set", APITokenEnvVar)
 	}
 }
 
