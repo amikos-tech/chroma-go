@@ -13,14 +13,16 @@ Each reranker exposes the following methods:
 - `RerankResults` which takes a `QueryResults` object and returns a list of `RerankedChromaResults` objects. RerankedChromaResults inherits from `QueryResults` and adds a `Ranks` field which contains the ranks of each result.
 
 ```go
-package main
+package rerankings
 
 import (
 	"context"
+
 	chromago "github.com/amikos-tech/chroma-go"
 )
 
 type RankedResult struct {
+	ID     int // Index in the original input []string
 	String string
 	Rank   float32
 }
@@ -32,11 +34,12 @@ type RerankedChromaResults struct {
 
 type RerankingFunction interface {
 	Rerank(ctx context.Context, query string, results []string) ([]*RankedResult, error)
-	RerankResults(ctx context.Context, queryResults *chromago.QueryResults) ([]*RerankedChromaResults, error)
+	RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (RerankedChromaResults, error)
 }
 ```
 
 ## Supported Rerankers
 
-TBD
-
+- Cohere - coming soon
+- HuggingFace Text Embedding Inference - coming soon
+- HuggingFace Inference API - coming soon
