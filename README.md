@@ -29,6 +29,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/)
 - ✅ Collection Upsert
 - ✅ Collection Delete - delete documents in collection
 - ✅ [Authentication](https://go-client.chromadb.dev/auth/) (Basic, Token with Authorization header, Token with X-Chroma-Token header)
+- ✅ [Private PKI and self-signed certificate support](https://go-client.chromadb.dev/client/)
 
 ## Embedding API and Models Support
 
