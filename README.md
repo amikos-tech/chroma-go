@@ -41,9 +41,9 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/)
 - ✅ [HuggingFace Embedding Inference Server Support](https://go-client.chromadb.dev/embeddings/#huggingface-embedding-inference-server)
 - ✅ [Ollama Embedding](https://go-client.chromadb.dev/embeddings/#ollama) Support
 - ✅ [Cloudflare Workers AI Embedding](https://go-client.chromadb.dev/embeddings/#cloudflare-workers-ai) Support
-- ✅ [TogetherAI Embedding](https://go-client.chromadb.dev/embeddings/#together-ai) Support
-- ✅ [VoyageAI Embedding](https://go-client.chromadb.dev/embeddings/#voyage-ai) Support
-- ✅ MistralAI API Embedding Support
+- ✅ [Together AI Embedding](https://go-client.chromadb.dev/embeddings/#together-ai) Support
+- ✅ [Voyage AI Embedding](https://go-client.chromadb.dev/embeddings/#voyage-ai) Support
+- ✅ [Mistral AI API Embedding](https://go-client.chromadb.dev/embeddings/#mistral-ai) Support
 
 ## Installation
 
