@@ -1103,4 +1103,21 @@ func Test_chroma_client(t *testing.T) {
 		require.Len(t, qr.QueryTextsGeneratedEmbeddings, 0)
 		require.Len(t, qr.QueryTexts, 0)
 	})
+
+	t.Run("Test basePath empty error", func(t *testing.T) {
+		_, err := chroma.NewClient("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "basePath cannot be empty")
+	})
+
+	t.Run("Test basePath invalid URL error", func(t *testing.T) {
+		_, err := chroma.NewClient("this is not a valid URL")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid basePath URL")
+	})
+
+	t.Run("Test basePath valid URL", func(t *testing.T) {
+		_, err := chroma.NewClient("http://localhost:8000")
+		require.NoError(t, err)
+	})
 }

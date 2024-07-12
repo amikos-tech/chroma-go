@@ -3,6 +3,7 @@ package chromago
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"reflect"
 	"strings"
 
@@ -107,6 +108,12 @@ func applyOptions(c *Client, options ...ClientOption) error {
 }
 
 func NewClient(basePath string, options ...ClientOption) (*Client, error) {
+	if basePath == "" {
+		return nil, fmt.Errorf("basePath cannot be empty")
+	}
+	if _, err := url.ParseRequestURI(basePath); err != nil {
+		return nil, fmt.Errorf("invalid basePath URL: %s", err)
+	}
 	c := &Client{
 		Tenant:           types.DefaultTenant,
 		Database:         types.DefaultDatabase,
