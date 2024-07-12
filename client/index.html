@@ -431,36 +431,57 @@
 <td>basePath</td>
 <td>passed as arg to NewClient</td>
 <td>The Chroma server base API.</td>
-<td>valid URL</td>
+<td>Non-empty valid URL string</td>
 <td>Yes</td>
 </tr>
 <tr>
 <td>Tenant</td>
-<td>WithTenant("tenant") as ClientOption to the NewClient</td>
+<td><code>WithTenant("tenant")</code></td>
 <td>The default tenant to use.</td>
-<td>string</td>
+<td><code>string</code></td>
 <td>No (default: <code>default_tenant</code>)</td>
 </tr>
 <tr>
 <td>Database</td>
-<td>WithDatabase("database") as ClientOption to the NewClient</td>
+<td><code>WithDatabase("database")</code></td>
 <td>The default database to use.</td>
-<td>string</td>
+<td><code>string</code></td>
 <td>No (default: <code>default_database</code>)</td>
 </tr>
 <tr>
 <td>Debug</td>
-<td>WithDebug(true/false) as ClientOption to the NewClient</td>
+<td><code>WithDebug(true/false)</code></td>
 <td>Enable debug mode.</td>
-<td>bool</td>
+<td><code>bool</code></td>
 <td>No (default: <code>false</code>)</td>
 </tr>
 <tr>
 <td>Default Headers</td>
-<td>WithDefaultHeaders(map[string]string) as ClientOption to the NewClient</td>
+<td><code>WithDefaultHeaders(map[string]string)</code></td>
 <td>Set default headers for the client.</td>
-<td>map[string]string</td>
+<td><code>map[string]string</code></td>
 <td>No (default: <code>nil</code>)</td>
+</tr>
+<tr>
+<td>SSL Cert</td>
+<td><code>WithSSLCert("path/to/cert.pem")</code></td>
+<td>Set the path to the SSL certificate.</td>
+<td>valid path to SSL cert.</td>
+<td>No (default: Not Set)</td>
+</tr>
+<tr>
+<td>Insecure</td>
+<td><code>WithInsecure()</code></td>
+<td>Disable SSL certificate verification</td>
+<td></td>
+<td>No (default: Not Set)</td>
+</tr>
+<tr>
+<td>Custom HttpClient</td>
+<td><code>WithHTTPClient(http.Client)</code></td>
+<td>Set a custom http client. If this is set then SSL Cert and Insecure options are ignore.</td>
+<td><code>*http.Client</code></td>
+<td>No (default: Default HTTPClient)</td>
 </tr>
 </tbody>
 </table>
@@ -482,17 +503,18 @@
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nx">client</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewClient</span><span class="p">(</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="s">&quot;http://localhost:8000&quot;</span><span class="p">,</span><span class="w"> </span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithTenant</span><span class="p">(</span><span class="s">&quot;my_tenant&quot;</span><span class="p">),</span><span class="w"> </span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDatabase</span><span class="p">(</span><span class="s">&quot;my_db&quot;</span><span class="p">),</span><span class="w"> </span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDebug</span><span class="p">(</span><span class="kc">true</span><span class="p">),</span><span class="w"> </span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="s">&quot;http://localhost:8000&quot;</span><span class="p">,</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithTenant</span><span class="p">(</span><span class="s">&quot;my_tenant&quot;</span><span class="p">),</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDatabase</span><span class="p">(</span><span class="s">&quot;my_db&quot;</span><span class="p">),</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDebug</span><span class="p">(</span><span class="kc">true</span><span class="p">),</span>
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDefaultHeaders</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;Authorization&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Bearer my token&quot;</span><span class="p">}),</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">        </span><span class="p">)</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Failed to create client: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">    </span><span class="c1">// do something with client</span>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="p">}</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSSLCert</span><span class="p">(</span><span class="s">&quot;path/to/cert.pem&quot;</span><span class="p">),</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">    </span><span class="p">)</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Failed to create client: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">    </span><span class="c1">// do something with client</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="p">}</span>
 </span></code></pre></div>
 
 
