@@ -1147,11 +1147,16 @@ func TestClientSecurity(t *testing.T) {
 	containerCertPath := "/chroma/server.crt"
 	containerKeyPath := "/chroma/server.key"
 
-	pref := []string{}
+	startCommand := []string{}
+	logPath := "/chroma/chromadb/log_config.yml"
 	cv := semver.MustParse(chromaVersion)
 	if cv.LessThan(semver.MustParse("0.4.23")) {
-		pref = []string{"uvicorn", "chromadb.app:app"}
+		startCommand = []string{"uvicorn", "chromadb.app:app"}
 	}
+	if cv.LessThan(semver.MustParse("0.4.11")) {
+		logPath = "/chroma/log_config.yml"
+	}
+
 	CreateSelfSignedCert(certPath, keyPath)
 	chromaContainer, err := tcchroma.RunContainer(ctx,
 		testcontainers.WithImage(fmt.Sprintf("ghcr.io/chroma-core/chroma:%s", chromaVersion)),
@@ -1175,11 +1180,11 @@ func TestClientSecurity(t *testing.T) {
 						},
 					}
 				},
-				Cmd: append(pref, []string{"--workers", "1",
+				Cmd: append(startCommand, []string{"--workers", "1",
 					"--host", "0.0.0.0",
 					"--port", "8000",
 					"--proxy-headers",
-					"--log-config", "/chroma/chromadb/log_config.yml",
+					"--log-config", logPath,
 					"--timeout-keep-alive", "30",
 					"--ssl-certfile", containerCertPath,
 					"--ssl-keyfile", containerKeyPath,
