@@ -357,7 +357,7 @@ func main() {
 
 ## Nomic AI
 
-To use Mistral AI embeddings, you will need to create an [API Key](https://atlas.nomic.ai).
+To use Nomic AI embeddings, you will need to create an [API Key](https://atlas.nomic.ai).
 
 Supported models - https://docs.nomic.ai/atlas/models/text-embedding
 
