@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
-	"github.com/testcontainers/testcontainers-go"
+	testcontainers "github.com/testcontainers/testcontainers-go"
 	tcchroma "github.com/testcontainers/testcontainers-go/modules/chroma"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"net/http"
@@ -38,11 +38,15 @@ import (
 func Test_chroma_client(t *testing.T) {
 	ctx := context.Background()
 	var chromaVersion = "latest"
+	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
+	if os.Getenv("CHROMA_IMAGE") != "" {
+		chromaImage = os.Getenv("CHROMA_IMAGE")
+	}
 	chromaContainer, err := tcchroma.RunContainer(ctx,
-		testcontainers.WithImage("ghcr.io/chroma-core/chroma:"+chromaVersion),
+		testcontainers.WithImage(fmt.Sprintf("%s:%s", chromaImage, chromaVersion)),
 		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
 	)
 	require.NoError(t, err)
@@ -1137,9 +1141,14 @@ func Test_chroma_client(t *testing.T) {
 
 func TestClientSecurity(t *testing.T) {
 	ctx := context.Background()
+	var chromaImage = "ghcr.io/chroma-core/chroma"
 	var chromaVersion = "latest"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
+	}
+
+	if os.Getenv("CHROMA_IMAGE") != "" {
+		chromaImage = os.Getenv("CHROMA_IMAGE")
 	}
 	tempDir := t.TempDir()
 	certPath := fmt.Sprintf("%s/server.crt", tempDir)
@@ -1169,7 +1178,7 @@ func TestClientSecurity(t *testing.T) {
 
 	CreateSelfSignedCert(certPath, keyPath)
 	chromaContainer, err := tcchroma.RunContainer(ctx,
-		testcontainers.WithImage(fmt.Sprintf("ghcr.io/chroma-core/chroma:%s", chromaVersion)),
+		testcontainers.WithImage(fmt.Sprintf("%s:%s", chromaImage, chromaVersion)),
 		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
 		testcontainers.CustomizeRequest(testcontainers.GenericContainerRequest{
 			ContainerRequest: testcontainers.ContainerRequest{
