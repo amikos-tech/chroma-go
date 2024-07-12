@@ -430,6 +430,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#nomic-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      Nomic AI
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -616,6 +625,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#nomic-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      Nomic AI
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -683,6 +701,10 @@
 <tr>
 <td><a href="#mistral-ai">Mistral AI</a></td>
 <td>Mistral AI Embedding.<br/> For more info see <a href="https://docs.mistral.ai/capabilities/embeddings/">Mistral AI API Docs</a>.</td>
+</tr>
+<tr>
+<td><a href="#nomic-ai">Nomic AI</a></td>
+<td>Nomic AI Embedding.<br/> For more info see <a href="https://docs.nomic.ai/atlas/models/text-embedding">Nomic AI API Docs</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -927,7 +949,8 @@ in <a href="https://docs.voyageai.com/docs/embeddings">Voyage AI docs</a>. <code
 <h2 id="google-gemini">Google Gemini<a class="headerlink" href="#google-gemini" title="Permanent link">&para;</a></h2>
 <p>To use Google Gemini AI embeddings, you will need to create an <a href="https://aistudio.google.com/app/apikey">API Key</a>.</p>
 <p>Available models can be
-in <a href="https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding">Gemini Models</a>. <code>text-embedding-004</code> is the default model.</p>
+in <a href="https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding">Gemini Models</a>. <code>text-embedding-004</code> is the
+default model.</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
@@ -980,6 +1003,34 @@ in <a href="https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding">
 </span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a><span class="w">    </span><span class="p">}</span>
 </span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Embedding response: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">resp</span><span class="p">)</span>
 </span><span id="__span-9-24"><a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="nomic-ai">Nomic AI<a class="headerlink" href="#nomic-ai" title="Permanent link">&para;</a></h2>
+<p>To use Nomic AI embeddings, you will need to create an <a href="https://atlas.nomic.ai">API Key</a>.</p>
+<p>Supported models - https://docs.nomic.ai/atlas/models/text-embedding</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nx">nomic</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings/nomic&quot;</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="p">)</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="nx">documents</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">        </span><span class="s">&quot;Document 1 content here&quot;</span><span class="p">,</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">        </span><span class="s">&quot;Document 2 content here&quot;</span><span class="p">,</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">    </span><span class="c1">// Make sure that you have the `NOMIC_API_KEY` set in your environment</span>
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">    </span><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">nomic</span><span class="p">.</span><span class="nx">NewNomicEmbeddingFunction</span><span class="p">(</span><span class="nx">nomic</span><span class="p">.</span><span class="nx">WithEnvAPIKey</span><span class="p">(),</span><span class="w"> </span><span class="nx">nomic</span><span class="p">.</span><span class="nx">WithDefaultModel</span><span class="p">(</span><span class="nx">nomic</span><span class="p">.</span><span class="nx">NomicEmbedTextV1</span><span class="p">))</span>
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error creating Nomic embedding function: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="w">    </span><span class="nx">resp</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedDocuments</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">documents</span><span class="p">)</span>
+</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error embedding documents: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Embedding response: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">resp</span><span class="p">)</span>
+</span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="p">}</span>
 </span></code></pre></div>
 
 
