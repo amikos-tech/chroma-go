@@ -29,20 +29,20 @@ func WithDefaultHeaders(headers map[string]string) Option {
 	}
 }
 
-func WithAPIToken(apiToken string) Option {
+func WithAPIKey(apiToken string) Option {
 	return func(p *VoyageAIClient) error {
-		p.APIToken = apiToken
+		p.APIKey = apiToken
 		return nil
 	}
 }
 
 func WithEnvAPIKey() Option {
 	return func(p *VoyageAIClient) error {
-		if apiToken := os.Getenv(APITokenEnvVar); apiToken != "" {
-			p.APIToken = apiToken
+		if apiToken := os.Getenv(APIKeyEnvVar); apiToken != "" {
+			p.APIKey = apiToken
 			return nil
 		}
-		return fmt.Errorf("%s not set", APITokenEnvVar)
+		return fmt.Errorf("%s not set", APIKeyEnvVar)
 	}
 }
 

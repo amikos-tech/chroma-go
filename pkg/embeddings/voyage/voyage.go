@@ -32,12 +32,12 @@ const (
 	ModelContextVar                         = "model"
 	TruncationContextVar                    = "truncation"
 	EncodingFormatContextVar                = "encodingFormat"
-	APITokenEnvVar                          = "VOYAGE_API_KEY"
+	APIKeyEnvVar                            = "VOYAGE_API_KEY"
 )
 
 type VoyageAIClient struct {
 	BaseAPI               string
-	APIToken              string
+	APIKey                string
 	DefaultModel          string
 	MaxBatchSize          int
 	DefaultHeaders        map[string]string
@@ -68,7 +68,7 @@ func applyDefaults(c *VoyageAIClient) {
 }
 
 func validate(c *VoyageAIClient) error {
-	if c.APIToken == "" {
+	if c.APIKey == "" {
 		return fmt.Errorf("API key is required")
 	}
 	if c.MaxBatchSize < 1 {
@@ -200,7 +200,7 @@ func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddi
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
 	resp, err := c.Client.Do(httpReq)
 
 	if err != nil {

@@ -173,7 +173,7 @@ func Test_voyage_embedding_function(t *testing.T) {
 	})
 
 	t.Run("Test EmbedDocuments with var API Key", func(t *testing.T) {
-		client, err := NewVoyageAIEmbeddingFunction(WithAPIToken(os.Getenv("VOYAGE_API_KEY")))
+		client, err := NewVoyageAIEmbeddingFunction(WithAPIKey(os.Getenv("VOYAGE_API_KEY")))
 		require.NoError(t, err)
 		resp, rerr := client.EmbedDocuments(context.Background(), []string{"Test document", "Another test document"})
 
@@ -184,7 +184,7 @@ func Test_voyage_embedding_function(t *testing.T) {
 	})
 
 	t.Run("Test EmbedDocuments with var token and http client", func(t *testing.T) {
-		client, err := NewVoyageAIEmbeddingFunction(WithAPIToken(os.Getenv("VOYAGE_API_KEY")), WithHTTPClient(http.DefaultClient))
+		client, err := NewVoyageAIEmbeddingFunction(WithAPIKey(os.Getenv("VOYAGE_API_KEY")), WithHTTPClient(http.DefaultClient))
 		require.NoError(t, err)
 		resp, rerr := client.EmbedDocuments(context.Background(), []string{"Test document", "Another test document"})
 
