@@ -55,12 +55,12 @@ func Test_chroma_client(t *testing.T) {
 	if chromaURL == "" {
 		chromaURL = endpoint
 	}
-	client, err := chroma.NewClient(chromaURL, chroma.WithDebug(true))
+	client, err := chroma.NewClient(chroma.WithBasePath(chromaURL), chroma.WithDebug(true))
 	require.NoError(t, err)
 
 	t.Run("Test client with default tenant", func(t *testing.T) {
 		tenant := types.DefaultTenant
-		clientWithTenant, err := chroma.NewClient(chromaURL, chroma.WithTenant(tenant))
+		clientWithTenant, err := chroma.NewClient(chroma.WithBasePath(chromaURL), chroma.WithTenant(tenant))
 		require.NoError(t, err)
 		require.NotNil(t, clientWithTenant)
 		assert.Equal(t, tenant, clientWithTenant.Tenant)
@@ -73,7 +73,7 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test client with default tenant and db", func(t *testing.T) {
 		tenant := types.DefaultTenant
 		database := types.DefaultDatabase
-		clientWithTenant, err := chroma.NewClient(chromaURL, chroma.WithTenant(tenant), chroma.WithDatabase(database))
+		clientWithTenant, err := chroma.NewClient(chroma.WithBasePath(chromaURL), chroma.WithTenant(tenant), chroma.WithDatabase(database))
 		require.NoError(t, err)
 		require.NotNil(t, clientWithTenant)
 		assert.Equal(t, tenant, clientWithTenant.Tenant)
@@ -90,7 +90,7 @@ func Test_chroma_client(t *testing.T) {
 		}))
 		defer server.Close()
 		var defaultHeaders = map[string]string{"Authorization": "Bearer my-custom-token"}
-		clientWithTenant, err := chroma.NewClient(server.URL, chroma.WithDefaultHeaders(defaultHeaders))
+		clientWithTenant, err := chroma.NewClient(chroma.WithBasePath(server.URL), chroma.WithDefaultHeaders(defaultHeaders))
 		require.NoError(t, err)
 		require.NotNil(t, clientWithTenant)
 		_, err = clientWithTenant.Heartbeat(context.Background())
@@ -109,7 +109,7 @@ func Test_chroma_client(t *testing.T) {
 			require.Equal(t, r.Header.Get("Authorization"), "Basic "+encodedAuth)
 		}))
 		defer server.Close()
-		clientWithAuth, err := chroma.NewClient(server.URL, chroma.WithAuth(types.NewBasicAuthCredentialsProvider(user, password)))
+		clientWithAuth, err := chroma.NewClient(chroma.WithBasePath(server.URL), chroma.WithAuth(types.NewBasicAuthCredentialsProvider(user, password)))
 		require.NoError(t, err)
 		require.NotNil(t, clientWithAuth)
 		_, err = clientWithAuth.Heartbeat(context.Background())
@@ -125,7 +125,7 @@ func Test_chroma_client(t *testing.T) {
 			require.Equal(t, r.Header.Get(string(types.AuthorizationTokenHeader)), "Bearer "+token)
 		}))
 		defer server.Close()
-		clientWithAuth, err := chroma.NewClient(server.URL, chroma.WithAuth(types.NewTokenAuthCredentialsProvider(token, types.AuthorizationTokenHeader)))
+		clientWithAuth, err := chroma.NewClient(chroma.WithBasePath(server.URL), chroma.WithAuth(types.NewTokenAuthCredentialsProvider(token, types.AuthorizationTokenHeader)))
 		require.NoError(t, err)
 		require.NotNil(t, clientWithAuth)
 		_, err = clientWithAuth.Heartbeat(context.Background())
@@ -141,7 +141,7 @@ func Test_chroma_client(t *testing.T) {
 			require.Equal(t, r.Header.Get(string(types.XChromaTokenHeader)), token)
 		}))
 		defer server.Close()
-		clientWithAuth, err := chroma.NewClient(server.URL, chroma.WithAuth(types.NewTokenAuthCredentialsProvider(token, types.XChromaTokenHeader)))
+		clientWithAuth, err := chroma.NewClient(chroma.WithBasePath(server.URL), chroma.WithAuth(types.NewTokenAuthCredentialsProvider(token, types.XChromaTokenHeader)))
 		require.NoError(t, err)
 		require.NotNil(t, clientWithAuth)
 		_, err = clientWithAuth.Heartbeat(context.Background())
@@ -1109,19 +1109,19 @@ func Test_chroma_client(t *testing.T) {
 	})
 
 	t.Run("Test basePath empty error", func(t *testing.T) {
-		_, err := chroma.NewClient("")
+		_, err := chroma.NewClient(chroma.WithBasePath(""))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "basePath cannot be empty")
 	})
 
 	t.Run("Test basePath invalid URL error", func(t *testing.T) {
-		_, err := chroma.NewClient("this is not a valid URL")
+		_, err := chroma.NewClient(chroma.WithBasePath("this is not a valid URL"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid basePath URL")
 	})
 
 	t.Run("Test basePath valid URL", func(t *testing.T) {
-		_, err := chroma.NewClient("http://localhost:8000")
+		_, err := chroma.NewClient(chroma.WithBasePath("http://localhost:8000"))
 		require.NoError(t, err)
 	})
 
@@ -1129,7 +1129,7 @@ func Test_chroma_client(t *testing.T) {
 		httpClient := &http.Client{
 			Timeout: 10 * time.Second,
 		}
-		client, err := chroma.NewClient("http://localhost:8000", chroma.WithHTTPClient(httpClient))
+		client, err := chroma.NewClient(chroma.WithBasePath("http://localhost:8000"), chroma.WithHTTPClient(httpClient))
 		require.NoError(t, err)
 		require.Equal(t, httpClient, client.ApiClient.GetConfig().HTTPClient)
 	})
@@ -1157,12 +1157,14 @@ func TestClientSecurity(t *testing.T) {
 		"--ssl-keyfile", containerKeyPath,
 	}
 	entrypoint := []string{}
-	cv := semver.MustParse(chromaVersion)
-	if cv.LessThan(semver.MustParse("0.4.11")) {
-		entrypoint = append(entrypoint, "/bin/bash", "-c")
-		cmd = append([]string{fmt.Sprintf("pip install --force-reinstall --no-cache-dir chroma-hnswlib numpy==1.26.4 && ln -s /chroma/log_config.yml /chroma/chromadb/log_config.yml && uvicorn chromadb.app:app %s", strings.Join(cmd, " "))})
-	} else if cv.LessThan(semver.MustParse("0.4.23")) {
-		cmd = append([]string{"uvicorn", "chromadb.app:app"}, cmd...)
+	if chromaVersion != "latest" {
+		cv := semver.MustParse(chromaVersion)
+		if cv.LessThan(semver.MustParse("0.4.11")) {
+			entrypoint = append(entrypoint, "/bin/bash", "-c")
+			cmd = append([]string{fmt.Sprintf("pip install --force-reinstall --no-cache-dir chroma-hnswlib numpy==1.26.4 && ln -s /chroma/log_config.yml /chroma/chromadb/log_config.yml && uvicorn chromadb.app:app %s", strings.Join(cmd, " "))})
+		} else if cv.LessThan(semver.MustParse("0.4.23")) {
+			cmd = append([]string{"uvicorn", "chromadb.app:app"}, cmd...)
+		}
 	}
 
 	CreateSelfSignedCert(certPath, keyPath)
@@ -1205,7 +1207,7 @@ func TestClientSecurity(t *testing.T) {
 	}
 	chromaURL = strings.ReplaceAll(endpoint, "http://", "https://")
 	t.Run("Test with insecure client", func(t *testing.T) {
-		client, err := chroma.NewClient(chromaURL, chroma.WithInsecure())
+		client, err := chroma.NewClient(chroma.WithBasePath(chromaURL), chroma.WithInsecure())
 		require.NoError(t, err)
 		version, err := client.Version(ctx)
 		require.NoError(t, err)
@@ -1213,7 +1215,7 @@ func TestClientSecurity(t *testing.T) {
 	})
 
 	t.Run("Test with self-signed failure", func(t *testing.T) {
-		client, err := chroma.NewClient(chromaURL)
+		client, err := chroma.NewClient(chroma.WithBasePath(chromaURL))
 		require.NoError(t, err)
 		_, err = client.Version(ctx)
 		require.Error(t, err)
@@ -1221,7 +1223,7 @@ func TestClientSecurity(t *testing.T) {
 	})
 
 	t.Run("Test with self-signed cert in transport", func(t *testing.T) {
-		client, err := chroma.NewClient(chromaURL, chroma.WithSSLCert(certPath))
+		client, err := chroma.NewClient(chroma.WithBasePath(chromaURL), chroma.WithSSLCert(certPath))
 		require.NoError(t, err)
 		version, err := client.Version(ctx)
 		require.NoError(t, err)

@@ -20,7 +20,7 @@ import (
 
 func main() {
 	var defaultHeaders = map[string]string{"Authorization": "Bearer my-custom-token"}
-	clientWithTenant, err := chroma.NewClient("http://api.trychroma.com/v1/", chroma.WithDefaultHeaders(defaultHeaders))
+	clientWithTenant, err := chroma.NewClient(chroma.WithBasePath("http://api.trychroma.com/v1/"), chroma.WithDefaultHeaders(defaultHeaders))
 	if err != nil {
 		log.Fatalf("Error creating client: %s \n", err)
 	}
@@ -44,7 +44,10 @@ import (
 )
 
 func main() {
-    client, err := chroma.NewClient("http://api.trychroma.com/v1/", chroma.WithAuth(types.NewBasicAuthCredentialsProvider("myUser", "myPassword")))
+    client, err := chroma.NewClient(
+        chroma.WithBasePath("http://api.trychroma.com/v1/"),
+        chroma.WithAuth(types.NewBasicAuthCredentialsProvider("myUser", "myPassword")),
+    )
     if err != nil {
         log.Fatalf("Error creating client: %s \n", err)
     }
@@ -68,7 +71,10 @@ import (
 )
 
 func main() {
-    client, err := chroma.NewClient("http://api.trychroma.com/v1/", chroma.WithAuth(types.NewTokenAuthCredentialsProvider("my-auth-token", types.AuthorizationTokenHeader)))
+    client, err := chroma.NewClient(
+        chroma.WithBasePath("http://api.trychroma.com/v1/"), 
+        chroma.WithAuth(types.NewTokenAuthCredentialsProvider("my-auth-token", types.AuthorizationTokenHeader)),
+    )
     if err != nil {
         log.Fatalf("Error creating client: %s \n", err)
     }
@@ -92,7 +98,10 @@ import (
 )
 
 func main() {
-    client, err := chroma.NewClient("http://api.trychroma.com/v1/", chroma.WithAuth(types.NewTokenAuthCredentialsProvider("my-auth-token", types.XChromaTokenHeader)))
+    client, err := chroma.NewClient(
+        chroma.WithBasePath("http://api.trychroma.com/v1/"), 
+        chroma.WithAuth(types.NewTokenAuthCredentialsProvider("my-auth-token", types.XChromaTokenHeader)),
+    )
     if err != nil {
         log.Fatalf("Error creating client: %s \n", err)
     }

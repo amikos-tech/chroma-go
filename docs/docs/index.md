@@ -47,7 +47,7 @@ import (
 )
 
 func main() {
-    client,err := chroma.NewClient("localhost:8000")
+    client,err := chroma.NewClient(chroma.WithBasePath("http://localhost:8000"))
     if err != nil {
         fmt.Printf("Failed to create client: %v", err)
     }
@@ -83,7 +83,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	client := chroma.NewClient("localhost:8000")
+	client := chroma.NewClient() //connects to localhost:8000
 
 	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
 	if err != nil {
@@ -136,7 +136,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	client := chroma.NewClient("localhost:8000")
+	client := chroma.NewClient() //connects to localhost:8000
 
 	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
 	if err != nil {
@@ -177,12 +177,12 @@ import (
 	"os"
 
 	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/openai"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
 )
 
 func main() {
 	ctx := context.Background()
-	client := chroma.NewClient("localhost:8000")
+	client := chroma.NewClient() //connects to localhost:8000
 
 	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
 	if err != nil {
@@ -223,7 +223,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	client := chroma.NewClient("localhost:8000")
+	client := chroma.NewClient() //connects to localhost:8000
 
 	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
 	if err != nil {

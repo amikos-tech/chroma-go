@@ -53,6 +53,7 @@ type Client struct {
 	apiConfiguration   *openapiclient.Configuration
 	httpTransport      *http.Transport
 	userHTTPClient     *http.Client
+	BasePath           string
 }
 
 type ClientOption func(p *Client) error
@@ -61,6 +62,20 @@ func WithTenant(tenant string) ClientOption {
 	return func(c *Client) error {
 		// TODO validate here?
 		c.Tenant = tenant
+		return nil
+	}
+}
+
+// WithBasePath sets the base path for the client. The base path must be a valid URL.
+func WithBasePath(basePath string) ClientOption {
+	return func(c *Client) error {
+		if basePath == "" {
+			return fmt.Errorf("basePath cannot be empty")
+		}
+		if _, err := url.ParseRequestURI(basePath); err != nil {
+			return fmt.Errorf("invalid basePath URL: %s", err)
+		}
+		c.BasePath = basePath
 		return nil
 	}
 }
@@ -176,29 +191,24 @@ func applyOptions(c *Client, options ...ClientOption) error {
 	return nil
 }
 
-func NewClient(basePath string, options ...ClientOption) (*Client, error) {
-	if basePath == "" {
-		return nil, fmt.Errorf("basePath cannot be empty")
-	}
-	if _, err := url.ParseRequestURI(basePath); err != nil {
-		return nil, fmt.Errorf("invalid basePath URL: %s", err)
-	}
+func NewClient(options ...ClientOption) (*Client, error) {
 	c := &Client{
 		Tenant:           types.DefaultTenant,
 		Database:         types.DefaultDatabase,
 		apiConfiguration: openapiclient.NewConfiguration(),
 		httpTransport:    &http.Transport{TLSClientConfig: &tls.Config{}},
+		BasePath:         "http://localhost:8000",
 	}
 
-	c.apiConfiguration.Servers = openapiclient.ServerConfigurations{
-		{
-			URL:         basePath,
-			Description: "No description provided",
-		},
-	}
 	err := applyOptions(c, options...)
 	if err != nil {
 		return nil, err
+	}
+	c.apiConfiguration.Servers = openapiclient.ServerConfigurations{
+		{
+			URL:         c.BasePath,
+			Description: "No description provided",
+		},
 	}
 	if c.userHTTPClient != nil {
 		c.apiConfiguration.HTTPClient = c.userHTTPClient

@@ -16,8 +16,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/openai"
+	chroma "github.com/amikos-tech/chroma-go"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
 	"github.com/amikos-tech/chroma-go/types"
 	"github.com/amikos-tech/chroma-go/where"
 )
@@ -28,7 +28,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	client, err := chroma.NewClient("http://localhost:8000")
+	client, err := chroma.NewClient() // connects to localhost:8000
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -70,8 +70,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/openai"
+	chroma "github.com/amikos-tech/chroma-go"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
 	"github.com/amikos-tech/chroma-go/types"
 	"github.com/amikos-tech/chroma-go/where_document"
 )
@@ -82,7 +82,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	client, err := chroma.NewClient("http://localhost:8000")
+	client, err := chroma.NewClient(chroma.WithBasePath("http://localhost:8000"))
 	if err != nil {
 		fmt.Println(err)
 		return
