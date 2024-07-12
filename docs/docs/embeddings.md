@@ -2,17 +2,18 @@
 
 The following embedding wrappers are available:
 
-| Embedding Model                        | Description                                                                                                                                                 |
-|----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| OpenAI                                 | OpenAI embeddings API.<br/>All models are supported - see OpenAI [docs](https://platform.openai.com/docs/guides/embeddings/embedding-models) for more info. |
-| Cohere                                 | Cohere embeddings API.<br/>All models are supported - see Cohere [API docs](https://docs.cohere.com/reference/embed) for more info.                         |
-| HuggingFace Inference API              | HuggingFace Inference API.<br/>All models supported by the API.                                                                                             |
-| HuggingFace Embedding Inference Server | HuggingFace Embedding Inference Server.<br/>[Models supported](https://github.com/huggingface/text-embeddings-inference) by the inference server.           |
-| Ollama                                 | Ollama embeddings API.<br/>All models are supported - see Ollama [models lib](https://ollama.com/library) for more info.                                    |
-| Cloudflare Workers AI                  | Cloudflare Workers AI Embedding.<br/> For more info see [CF API Docs](https://developers.cloudflare.com/workers-ai/models/embedding/).                      |
-| TogetherAI                             | Together AI Embedding.<br/> For more info see [Together API Docs](https://docs.together.ai/reference/embeddings).                                           |
-| VoyageAI                               | Voyage AI Embedding.<br/> For more info see [Together API Docs](https://docs.voyageai.com/reference/embeddings-api).                                        |
-| Google Gemini                          | Google Gemini Embedding.<br/> For more info see [Gemini Docs](https://ai.google.dev/gemini-api/docs/embeddings).                                            |
+| Embedding Model                                                                   | Description                                                                                                                                                 |
+|-----------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [OpenAI](#openai)                                                                 | OpenAI embeddings API.<br/>All models are supported - see OpenAI [docs](https://platform.openai.com/docs/guides/embeddings/embedding-models) for more info. |
+| [Cohere](#cohere)                                                                 | Cohere embeddings API.<br/>All models are supported - see Cohere [API docs](https://docs.cohere.com/reference/embed) for more info.                         |
+| [HuggingFace Inference API](#huggingface-inference-api)                           | HuggingFace Inference API.<br/>All models supported by the API.                                                                                             |
+| [HuggingFace Embedding Inference Server](#huggingface-embedding-inference-server) | HuggingFace Embedding Inference Server.<br/>[Models supported](https://github.com/huggingface/text-embeddings-inference) by the inference server.           |
+| [Ollama](#ollama)                                                                 | Ollama embeddings API.<br/>All models are supported - see Ollama [models lib](https://ollama.com/library) for more info.                                    |
+| [Cloudflare Workers AI](#cloudflare-workers-ai)                                   | Cloudflare Workers AI Embedding.<br/> For more info see [CF API Docs](https://developers.cloudflare.com/workers-ai/models/embedding/).                      |
+| [Together AI](#together-ai)                                                       | Together AI Embedding.<br/> For more info see [Together API Docs](https://docs.together.ai/reference/embeddings).                                           |
+| [Voyage AI](#voyage-ai)                                                           | Voyage AI Embedding.<br/> For more info see [Together API Docs](https://docs.voyageai.com/reference/embeddings-api).                                        |
+| [Google Gemini](#google-gemini)                                                   | Google Gemini Embedding.<br/> For more info see [Gemini Docs](https://ai.google.dev/gemini-api/docs/embeddings).                                            |
+| [Mistral AI](#mistral-ai)                                                         | Mistral AI Embedding.<br/> For more info see [Mistral AI API Docs](https://docs.mistral.ai/capabilities/embeddings/).                                       |
 
 ## OpenAI
 
@@ -286,7 +287,7 @@ func main() {
 ```
 
 
-## Google Gemini AI
+## Google Gemini
 
 To use Google Gemini AI embeddings, you will need to create an [API Key](https://aistudio.google.com/app/apikey).
 
@@ -311,6 +312,39 @@ func main() {
 	ef, err := g.NewGeminiEmbeddingFunction(g.WithEnvAPIKey(), g.WithDefaultModel("text-embedding-004"))
 	if err != nil {
 		fmt.Printf("Error creating Gemini embedding function: %s \n", err)
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+## Mistral AI
+
+To use Mistral AI embeddings, you will need to create an [API Key](https://console.mistral.ai/api-keys/).
+
+Currently, (as of July 2024) only `mistral-embed` model is available, which is the default model we use.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	mistral "github.com/amikos-tech/chroma-go/pkg/embeddings/mistral"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `TOGETHER_API_KEY` set in your environment
+	ef, err := mistral.NewMistralEmbeddingFunction(mistral.WithEnvAPIKey(), mistral.WithDefaultModel("mistral-embed"))
+	if err != nil {
+		fmt.Printf("Error creating Mistral embedding function: %s \n", err)
 	}
 	resp, err := ef.EmbedDocuments(context.Background(), documents)
 	if err != nil {
