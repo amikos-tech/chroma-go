@@ -273,7 +273,7 @@ func main() {
 		"Document 1 content here",
 		"Document 2 content here",
 	}
-	// Make sure that you have the `TOGETHER_API_KEY` set in your environment
+	// Make sure that you have the `VOYAGE_API_KEY` set in your environment
 	ef, err := t.NewVoyageAIEmbeddingFunction(t.WithEnvAPIKey(), t.WithDefaultModel("voyage-large-2"))
 	if err != nil {
 		fmt.Printf("Error creating Together embedding function: %s \n", err)
@@ -308,7 +308,7 @@ func main() {
 		"Document 1 content here",
 		"Document 2 content here",
 	}
-	// Make sure that you have the `TOGETHER_API_KEY` set in your environment
+	// Make sure that you have the `GEMINI_API_KEY` set in your environment
 	ef, err := g.NewGeminiEmbeddingFunction(g.WithEnvAPIKey(), g.WithDefaultModel("text-embedding-004"))
 	if err != nil {
 		fmt.Printf("Error creating Gemini embedding function: %s \n", err)
@@ -341,7 +341,7 @@ func main() {
 		"Document 1 content here",
 		"Document 2 content here",
 	}
-	// Make sure that you have the `TOGETHER_API_KEY` set in your environment
+	// Make sure that you have the `MISTRAL_API_KEY` set in your environment
 	ef, err := mistral.NewMistralEmbeddingFunction(mistral.WithEnvAPIKey(), mistral.WithDefaultModel("mistral-embed"))
 	if err != nil {
 		fmt.Printf("Error creating Mistral embedding function: %s \n", err)
