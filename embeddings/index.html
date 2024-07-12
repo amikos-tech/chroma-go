@@ -413,9 +413,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#google-gemini-ai" class="md-nav__link">
+  <a href="#google-gemini" class="md-nav__link">
     <span class="md-ellipsis">
-      Google Gemini AI
+      Google Gemini
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mistral-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mistral AI
     </span>
   </a>
   
@@ -590,9 +599,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#google-gemini-ai" class="md-nav__link">
+  <a href="#google-gemini" class="md-nav__link">
     <span class="md-ellipsis">
-      Google Gemini AI
+      Google Gemini
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mistral-ai" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mistral AI
     </span>
   </a>
   
@@ -627,40 +645,44 @@
 </thead>
 <tbody>
 <tr>
-<td>OpenAI</td>
+<td><a href="#openai">OpenAI</a></td>
 <td>OpenAI embeddings API.<br/>All models are supported - see OpenAI <a href="https://platform.openai.com/docs/guides/embeddings/embedding-models">docs</a> for more info.</td>
 </tr>
 <tr>
-<td>Cohere</td>
+<td><a href="#cohere">Cohere</a></td>
 <td>Cohere embeddings API.<br/>All models are supported - see Cohere <a href="https://docs.cohere.com/reference/embed">API docs</a> for more info.</td>
 </tr>
 <tr>
-<td>HuggingFace Inference API</td>
+<td><a href="#huggingface-inference-api">HuggingFace Inference API</a></td>
 <td>HuggingFace Inference API.<br/>All models supported by the API.</td>
 </tr>
 <tr>
-<td>HuggingFace Embedding Inference Server</td>
+<td><a href="#huggingface-embedding-inference-server">HuggingFace Embedding Inference Server</a></td>
 <td>HuggingFace Embedding Inference Server.<br/><a href="https://github.com/huggingface/text-embeddings-inference">Models supported</a> by the inference server.</td>
 </tr>
 <tr>
-<td>Ollama</td>
+<td><a href="#ollama">Ollama</a></td>
 <td>Ollama embeddings API.<br/>All models are supported - see Ollama <a href="https://ollama.com/library">models lib</a> for more info.</td>
 </tr>
 <tr>
-<td>Cloudflare Workers AI</td>
+<td><a href="#cloudflare-workers-ai">Cloudflare Workers AI</a></td>
 <td>Cloudflare Workers AI Embedding.<br/> For more info see <a href="https://developers.cloudflare.com/workers-ai/models/embedding/">CF API Docs</a>.</td>
 </tr>
 <tr>
-<td>TogetherAI</td>
+<td><a href="#together-ai">Together AI</a></td>
 <td>Together AI Embedding.<br/> For more info see <a href="https://docs.together.ai/reference/embeddings">Together API Docs</a>.</td>
 </tr>
 <tr>
-<td>VoyageAI</td>
+<td><a href="#voyage-ai">Voyage AI</a></td>
 <td>Voyage AI Embedding.<br/> For more info see <a href="https://docs.voyageai.com/reference/embeddings-api">Together API Docs</a>.</td>
 </tr>
 <tr>
-<td>Google Gemini</td>
+<td><a href="#google-gemini">Google Gemini</a></td>
 <td>Google Gemini Embedding.<br/> For more info see <a href="https://ai.google.dev/gemini-api/docs/embeddings">Gemini Docs</a>.</td>
+</tr>
+<tr>
+<td><a href="#mistral-ai">Mistral AI</a></td>
+<td>Mistral AI Embedding.<br/> For more info see <a href="https://docs.mistral.ai/capabilities/embeddings/">Mistral AI API Docs</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -902,7 +924,7 @@ in <a href="https://docs.voyageai.com/docs/embeddings">Voyage AI docs</a>. <code
 </span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Embedding response: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">resp</span><span class="p">)</span>
 </span><span id="__span-7-24"><a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="p">}</span>
 </span></code></pre></div>
-<h2 id="google-gemini-ai">Google Gemini AI<a class="headerlink" href="#google-gemini-ai" title="Permanent link">&para;</a></h2>
+<h2 id="google-gemini">Google Gemini<a class="headerlink" href="#google-gemini" title="Permanent link">&para;</a></h2>
 <p>To use Google Gemini AI embeddings, you will need to create an <a href="https://aistudio.google.com/app/apikey">API Key</a>.</p>
 <p>Available models can be
 in <a href="https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding">Gemini Models</a>. <code>text-embedding-004</code> is the default model.</p>
@@ -930,6 +952,34 @@ in <a href="https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding">
 </span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="w">    </span><span class="p">}</span>
 </span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Embedding response: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">resp</span><span class="p">)</span>
 </span><span id="__span-8-24"><a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="mistral-ai">Mistral AI<a class="headerlink" href="#mistral-ai" title="Permanent link">&para;</a></h2>
+<p>To use Mistral AI embeddings, you will need to create an <a href="https://console.mistral.ai/api-keys/">API Key</a>.</p>
+<p>Currently, (as of July 2024) only <code>mistral-embed</code> model is available, which is the default model we use.</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nx">mistral</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings/mistral&quot;</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">)</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="nx">documents</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">        </span><span class="s">&quot;Document 1 content here&quot;</span><span class="p">,</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">        </span><span class="s">&quot;Document 2 content here&quot;</span><span class="p">,</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">    </span><span class="c1">// Make sure that you have the `TOGETHER_API_KEY` set in your environment</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">    </span><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">mistral</span><span class="p">.</span><span class="nx">NewMistralEmbeddingFunction</span><span class="p">(</span><span class="nx">mistral</span><span class="p">.</span><span class="nx">WithEnvAPIKey</span><span class="p">(),</span><span class="w"> </span><span class="nx">mistral</span><span class="p">.</span><span class="nx">WithDefaultModel</span><span class="p">(</span><span class="s">&quot;mistral-embed&quot;</span><span class="p">))</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error creating Mistral embedding function: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">    </span><span class="nx">resp</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedDocuments</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">documents</span><span class="p">)</span>
+</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error embedding documents: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Embedding response: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">resp</span><span class="p">)</span>
+</span><span id="__span-9-24"><a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a><span class="p">}</span>
 </span></code></pre></div>
 
 
