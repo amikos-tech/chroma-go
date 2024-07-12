@@ -43,5 +43,6 @@ jobs:
         VOYAGE_API_KEY:  ${{ secrets.VOYAGE_API_KEY }}
         GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEY }}
         MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+        NOMIC_API_KEY: ${{ secrets.NOMIC_API_KEY }}
         CHROMA_VERSION: "latest"
         CHROMA_IMAGE: nightly-chroma
