@@ -429,10 +429,10 @@
 <tbody>
 <tr>
 <td>basePath</td>
-<td>passed as arg to NewClient</td>
+<td><code>WithBasePath("http://localhost:8000")</code></td>
 <td>The Chroma server base API.</td>
 <td>Non-empty valid URL string</td>
-<td>Yes</td>
+<td>No (default: <code>http://localhost:8000</code>)</td>
 </tr>
 <tr>
 <td>Tenant</td>
@@ -503,7 +503,7 @@
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nx">client</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewClient</span><span class="p">(</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="s">&quot;http://localhost:8000&quot;</span><span class="p">,</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithBasePath</span><span class="p">(</span><span class="s">&quot;http://localhost:8000&quot;</span><span class="p">),</span>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithTenant</span><span class="p">(</span><span class="s">&quot;my_tenant&quot;</span><span class="p">),</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDatabase</span><span class="p">(</span><span class="s">&quot;my_db&quot;</span><span class="p">),</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDebug</span><span class="p">(</span><span class="kc">true</span><span class="p">),</span>
