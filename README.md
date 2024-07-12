@@ -110,7 +110,10 @@ func main() {
 		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
 	}
 	// Create a new Chroma client
-	client := chroma.NewClient("localhost:8000")
+	client,err := chroma.NewClient(chroma.WithBasePath("http://localhost:8000"))
+	if err != nil {
+        log.Fatalf("Error creating client: %s \n", err)
+    }
 
 	// Create a new collection with options
 	newCollection, err := client.NewCollection(
