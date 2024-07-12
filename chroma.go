@@ -2,8 +2,12 @@ package chromago
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"strings"
 
@@ -47,6 +51,8 @@ type Client struct {
 	preFlightConfig    map[string]interface{}
 	preFlightCompleted bool
 	apiConfiguration   *openapiclient.Configuration
+	httpTransport      *http.Transport
+	userHTTPClient     *http.Client
 }
 
 type ClientOption func(p *Client) error
@@ -98,6 +104,69 @@ func WithAuth(provider types.CredentialsProvider) ClientOption {
 	}
 }
 
+// WithSSLCert adds a custom SSL certificate to the client. The certificate must be in PEM format. The Option can be added multiple times to add multiple certificates. The option is mutually exclusive with WithHttpClient.
+func WithSSLCert(certPath string) ClientOption {
+	return func(c *Client) error {
+		if _, err := os.Stat(certPath); certPath == "" || err != nil {
+			return fmt.Errorf("invalid cert path %v", err)
+		}
+		if c.httpTransport == nil {
+			c.httpTransport = &http.Transport{}
+		}
+		cert, err := os.ReadFile(certPath)
+		if err != nil {
+			return err
+		}
+
+		// Create or reuse existing a certificate pool and add the custom certificate
+		var certPool *x509.CertPool
+		switch {
+		case c.httpTransport.TLSClientConfig == nil:
+			c.httpTransport.TLSClientConfig = &tls.Config{}
+			certPool = x509.NewCertPool()
+			c.httpTransport.TLSClientConfig.RootCAs = certPool
+		case c.httpTransport.TLSClientConfig.RootCAs == nil:
+			certPool = x509.NewCertPool()
+			c.httpTransport.TLSClientConfig.RootCAs = certPool
+		default:
+			certPool = c.httpTransport.TLSClientConfig.RootCAs
+		}
+		if ok := certPool.AppendCertsFromPEM(cert); !ok {
+			return fmt.Errorf("failed to append cert to pool")
+		}
+		c.httpTransport.TLSClientConfig.RootCAs = certPool
+		return nil
+	}
+}
+
+// WithInsecure disables SSL certificate verification. This option is not recommended for production use. The option is mutually exclusive with WithHttpClient.
+func WithInsecure() ClientOption {
+	return func(c *Client) error {
+		if c.httpTransport == nil {
+			c.httpTransport = &http.Transport{}
+		}
+		if c.httpTransport.TLSClientConfig == nil {
+			c.httpTransport.TLSClientConfig = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+		} else {
+			c.httpTransport.TLSClientConfig.InsecureSkipVerify = true
+		}
+		return nil
+	}
+}
+
+// WithHTTPClient sets a custom http.Client for the client. The option is mutually exclusive with WithSSLCert and WithIgnoreSSLCert.
+func WithHTTPClient(client *http.Client) ClientOption {
+	return func(c *Client) error {
+		if client == nil {
+			return fmt.Errorf("client cannot be nil")
+		}
+		c.userHTTPClient = client
+		return nil
+	}
+}
+
 func applyOptions(c *Client, options ...ClientOption) error {
 	for _, opt := range options {
 		if err := opt(c); err != nil {
@@ -118,6 +187,7 @@ func NewClient(basePath string, options ...ClientOption) (*Client, error) {
 		Tenant:           types.DefaultTenant,
 		Database:         types.DefaultDatabase,
 		apiConfiguration: openapiclient.NewConfiguration(),
+		httpTransport:    &http.Transport{TLSClientConfig: &tls.Config{}},
 	}
 
 	c.apiConfiguration.Servers = openapiclient.ServerConfigurations{
@@ -129,6 +199,13 @@ func NewClient(basePath string, options ...ClientOption) (*Client, error) {
 	err := applyOptions(c, options...)
 	if err != nil {
 		return nil, err
+	}
+	if c.userHTTPClient != nil {
+		c.apiConfiguration.HTTPClient = c.userHTTPClient
+	} else {
+		c.apiConfiguration.HTTPClient = &http.Client{
+			Transport: c.httpTransport,
+		}
 	}
 	c.ApiClient = openapiclient.NewAPIClient(c.apiConfiguration)
 	return c, nil

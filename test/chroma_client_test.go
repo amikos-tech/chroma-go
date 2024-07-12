@@ -11,14 +11,18 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/testcontainers/testcontainers-go"
 	tcchroma "github.com/testcontainers/testcontainers-go/modules/chroma"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Masterminds/semver"
 	"github.com/stretchr/testify/assert"
@@ -1119,5 +1123,96 @@ func Test_chroma_client(t *testing.T) {
 	t.Run("Test basePath valid URL", func(t *testing.T) {
 		_, err := chroma.NewClient("http://localhost:8000")
 		require.NoError(t, err)
+	})
+
+	t.Run("Test with user-provided HTTP client", func(t *testing.T) {
+		httpClient := &http.Client{
+			Timeout: 10 * time.Second,
+		}
+		client, err := chroma.NewClient("http://localhost:8000", chroma.WithHTTPClient(httpClient))
+		require.NoError(t, err)
+		require.Equal(t, httpClient, client.ApiClient.GetConfig().HTTPClient)
+	})
+}
+
+func TestClientSecurity(t *testing.T) {
+	ctx := context.Background()
+	var chromaVersion = "latest"
+	if os.Getenv("CHROMA_VERSION") != "" {
+		chromaVersion = os.Getenv("CHROMA_VERSION")
+	}
+	tempDir := t.TempDir()
+	certPath := fmt.Sprintf("%s/server.crt", tempDir)
+	keyPath := fmt.Sprintf("%s/server.key", tempDir)
+	containerCertPath := "/chroma/server.crt"
+	containerKeyPath := "/chroma/server.key"
+	CreateSelfSignedCert(certPath, keyPath)
+	chromaContainer, err := tcchroma.RunContainer(ctx,
+		testcontainers.WithImage(fmt.Sprintf("ghcr.io/chroma-core/chroma:%s", chromaVersion)),
+		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
+		testcontainers.CustomizeRequest(testcontainers.GenericContainerRequest{
+			ContainerRequest: testcontainers.ContainerRequest{
+				WaitingFor: wait.ForAll(
+					wait.ForListeningPort("8000/tcp"),
+				),
+				HostConfigModifier: func(hostConfig *container.HostConfig) {
+					hostConfig.Mounts = []mount.Mount{
+						{
+							Type:   mount.TypeBind,
+							Source: certPath,
+							Target: containerCertPath,
+						},
+						{
+							Type:   mount.TypeBind,
+							Source: keyPath,
+							Target: containerKeyPath,
+						},
+					}
+				},
+				Cmd: []string{"--workers", "1",
+					"--host", "0.0.0.0",
+					"--port", "8000",
+					"--proxy-headers",
+					"--log-config", "/chroma/chromadb/log_config.yml",
+					"--timeout-keep-alive", "30",
+					"--ssl-certfile", containerCertPath,
+					"--ssl-keyfile", containerKeyPath,
+				},
+			},
+		}),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, chromaContainer.Terminate(ctx))
+	})
+	endpoint, err := chromaContainer.RESTEndpoint(context.Background())
+	require.NoError(t, err)
+	chromaURL := os.Getenv("CHROMA_URL")
+	if chromaURL == "" {
+		chromaURL = endpoint
+	}
+	chromaURL = strings.ReplaceAll(endpoint, "http://", "https://")
+	t.Run("Test with insecure client", func(t *testing.T) {
+		client, err := chroma.NewClient(chromaURL, chroma.WithInsecure())
+		require.NoError(t, err)
+		version, err := client.Version(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, version)
+	})
+
+	t.Run("Test with self-signed failure", func(t *testing.T) {
+		client, err := chroma.NewClient(chromaURL)
+		require.NoError(t, err)
+		_, err = client.Version(ctx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "x509: certificate signed by unknown authority")
+	})
+
+	t.Run("Test with self-signed cert in transport", func(t *testing.T) {
+		client, err := chroma.NewClient(chromaURL, chroma.WithSSLCert(certPath))
+		require.NoError(t, err)
+		version, err := client.Version(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, version)
 	})
 }
