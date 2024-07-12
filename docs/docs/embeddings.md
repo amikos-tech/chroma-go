@@ -14,6 +14,7 @@ The following embedding wrappers are available:
 | [Voyage AI](#voyage-ai)                                                           | Voyage AI Embedding.<br/> For more info see [Together API Docs](https://docs.voyageai.com/reference/embeddings-api).                                        |
 | [Google Gemini](#google-gemini)                                                   | Google Gemini Embedding.<br/> For more info see [Gemini Docs](https://ai.google.dev/gemini-api/docs/embeddings).                                            |
 | [Mistral AI](#mistral-ai)                                                         | Mistral AI Embedding.<br/> For more info see [Mistral AI API Docs](https://docs.mistral.ai/capabilities/embeddings/).                                       |
+| [Nomic AI](#nomic-ai)                                                             | Nomic AI Embedding.<br/> For more info see [Nomic AI API Docs](https://docs.nomic.ai/atlas/models/text-embedding).                                          |
 
 ## OpenAI
 
@@ -286,13 +287,13 @@ func main() {
 }
 ```
 
-
 ## Google Gemini
 
 To use Google Gemini AI embeddings, you will need to create an [API Key](https://aistudio.google.com/app/apikey).
 
 Available models can be
-in [Gemini Models](https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding). `text-embedding-004` is the default model.
+in [Gemini Models](https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding). `text-embedding-004` is the
+default model.
 
 ```go
 package main
@@ -353,3 +354,37 @@ func main() {
 	fmt.Printf("Embedding response: %v \n", resp)
 }
 ```
+
+## Nomic AI
+
+To use Mistral AI embeddings, you will need to create an [API Key](https://atlas.nomic.ai).
+
+Supported models - https://docs.nomic.ai/atlas/models/text-embedding
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	nomic "github.com/amikos-tech/chroma-go/pkg/embeddings/nomic"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `NOMIC_API_KEY` set in your environment
+	ef, err := nomic.NewNomicEmbeddingFunction(nomic.WithEnvAPIKey(), nomic.WithDefaultModel(nomic.NomicEmbedTextV1))
+	if err != nil {
+		fmt.Printf("Error creating Nomic embedding function: %s \n", err)
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
