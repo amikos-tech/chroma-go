@@ -1147,14 +1147,22 @@ func TestClientSecurity(t *testing.T) {
 	containerCertPath := "/chroma/server.crt"
 	containerKeyPath := "/chroma/server.key"
 
-	startCommand := []string{}
-	logPath := "/chroma/chromadb/log_config.yml"
-	cv := semver.MustParse(chromaVersion)
-	if cv.LessThan(semver.MustParse("0.4.23")) {
-		startCommand = []string{"uvicorn", "chromadb.app:app"}
+	cmd := []string{"--workers", "1",
+		"--host", "0.0.0.0",
+		"--port", "8000",
+		"--proxy-headers",
+		"--log-config", "/chroma/chromadb/log_config.yml",
+		"--timeout-keep-alive", "30",
+		"--ssl-certfile", containerCertPath,
+		"--ssl-keyfile", containerKeyPath,
 	}
+	entrypoint := []string{}
+	cv := semver.MustParse(chromaVersion)
 	if cv.LessThan(semver.MustParse("0.4.11")) {
-		logPath = "/chroma/log_config.yml"
+		entrypoint = append(entrypoint, "/bin/bash", "-c")
+		cmd = append([]string{fmt.Sprintf("pip install --force-reinstall --no-cache-dir chroma-hnswlib numpy==1.26.4 && ln -s /chroma/log_config.yml /chroma/chromadb/log_config.yml && uvicorn chromadb.app:app %s", strings.Join(cmd, " "))})
+	} else if cv.LessThan(semver.MustParse("0.4.23")) {
+		cmd = append([]string{"uvicorn", "chromadb.app:app"}, cmd...)
 	}
 
 	CreateSelfSignedCert(certPath, keyPath)
@@ -1166,6 +1174,7 @@ func TestClientSecurity(t *testing.T) {
 				WaitingFor: wait.ForAll(
 					wait.ForListeningPort("8000/tcp"),
 				),
+				Entrypoint: entrypoint,
 				HostConfigModifier: func(hostConfig *container.HostConfig) {
 					hostConfig.Mounts = []mount.Mount{
 						{
@@ -1180,15 +1189,7 @@ func TestClientSecurity(t *testing.T) {
 						},
 					}
 				},
-				Cmd: append(startCommand, []string{"--workers", "1",
-					"--host", "0.0.0.0",
-					"--port", "8000",
-					"--proxy-headers",
-					"--log-config", logPath,
-					"--timeout-keep-alive", "30",
-					"--ssl-certfile", containerCertPath,
-					"--ssl-keyfile", containerKeyPath,
-				}...),
+				Cmd: cmd,
 			},
 		}),
 	)
