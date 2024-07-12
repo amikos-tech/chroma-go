@@ -26,6 +26,7 @@ func (d *DummyRerankingFunction) Rerank(_ context.Context, _ string, results []s
 	for i, result := range results {
 		rerankedResults[i] = &RankedResult{
 			String: result,
+			ID:     i,
 			Rank:   rand.Float32(),
 		}
 	}
@@ -58,6 +59,9 @@ func Test_reranking_function(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, rerankedResults)
 		require.Equal(t, len(results), len(rerankedResults))
+		for _, result := range rerankedResults {
+			require.Equal(t, results[result.ID], result.String)
+		}
 	})
 
 	t.Run("Rerank chroma results", func(t *testing.T) {

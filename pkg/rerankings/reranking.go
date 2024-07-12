@@ -7,6 +7,7 @@ import (
 )
 
 type RankedResult struct {
+	ID     int // Index in the original input []string
 	String string
 	Rank   float32
 }
@@ -18,5 +19,5 @@ type RerankedChromaResults struct {
 
 type RerankingFunction interface {
 	Rerank(ctx context.Context, query string, results []string) ([]*RankedResult, error)
-	RerankResults(ctx context.Context, queryResults *chromago.QueryResults) ([]*RerankedChromaResults, error)
+	RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (RerankedChromaResults, error)
 }
