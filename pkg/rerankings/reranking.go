@@ -2,6 +2,7 @@ package rerankings
 
 import (
 	"context"
+
 	chromago "github.com/amikos-tech/chroma-go"
 )
 
