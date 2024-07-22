@@ -1,42 +1,44 @@
 package cohere
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 
+	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
 	"github.com/amikos-tech/chroma-go/types"
 )
 
-type CohereClient struct {
-	BaseURL               string
-	APIVersion            string
-	APIKey                string
-	Client                *http.Client
-	DefaultModel          string
+type EmbeddingClient struct {
+	ccommons.CohereClient
 	DefaultTruncateMode   TruncateMode
 	DefaultEmbeddingTypes []EmbeddingType
 	DefaultInputType      InputType
+	EmbeddingsPath        string
 }
 
-func NewCohereClient(apiKey string) *CohereClient {
-	return &CohereClient{
-		BaseURL:    "https://api.cohere.ai/",
-		Client:     &http.Client{},
-		APIVersion: "v1",
-		APIKey:     apiKey,
+func NewCohereClient(opts ...Option) (*EmbeddingClient, error) {
+	cohereCommonClient, err := ccommons.NewCohereClient()
+	if err != nil {
+		return nil, err
 	}
+	client := &EmbeddingClient{
+		CohereClient:   *cohereCommonClient,
+		EmbeddingsPath: DefaultEmbedEndpoint,
+	}
+	for _, opt := range opts {
+		err := opt(client)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return client, nil
 }
 
-func (c *CohereClient) SetAPIKey(apiKey string) {
-	c.APIKey = apiKey
-}
-
-func (c *CohereClient) SetBaseURL(baseURL string) {
-	c.BaseURL = baseURL
+func (c *EmbeddingClient) GetEmbeddingsEndpoint() string {
+	return c.CohereClient.GetAPIEndpoint(c.EmbeddingsPath)
 }
 
 type TruncateMode string
@@ -56,6 +58,7 @@ const (
 	EmbeddingTypeUInt8      EmbeddingType = "uint8"
 	EmbeddingTypeBinary     EmbeddingType = "binary"
 	EmbeddingTypeUBinary    EmbeddingType = "ubinary"
+	DefaultEmbedEndpoint                  = "embed"
 )
 
 type CreateEmbeddingRequest struct {
@@ -138,22 +141,23 @@ func int32FromInt8Embeddings(embeddings [][]int8) [][]int32 {
 	return int32s
 }
 
-func (c *CohereClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
+func (c *EmbeddingClient) GetDefaultModel() string {
+	return c.CohereClient.DefaultModel
+}
+
+func (c *EmbeddingClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+c.APIVersion+"/embed", bytes.NewBufferString(reqJSON))
+	httpReq, err := c.CohereClient.GetRequest(ctx, "POST", c.GetEmbeddingsEndpoint(), reqJSON)
 	if err != nil {
 		return nil, err
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Request-Source", "chroma-go-client")
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
-
-	resp, err := c.Client.Do(httpReq)
+	resp, err := c.CohereClient.Client.Do(httpReq)
 
 	if err != nil {
 		return nil, err
@@ -180,15 +184,16 @@ func (c *CohereClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 var _ types.EmbeddingFunction = (*CohereEmbeddingFunction)(nil)
 
 type CohereEmbeddingFunction struct {
-	apiClient *CohereClient
+	apiClient *EmbeddingClient
 }
 
-func NewCohereEmbeddingFunction(apiKey string, opts ...Option) (*CohereEmbeddingFunction, error) {
-	if apiKey == "" {
-		return nil, fmt.Errorf("API Key is required")
+func NewCohereEmbeddingFunction(opts ...Option) (*CohereEmbeddingFunction, error) {
+	embeddingsAPIClient, err := NewCohereClient(opts...)
+	if err != nil {
+		return nil, err
 	}
 	cli := &CohereEmbeddingFunction{
-		apiClient: NewCohereClient(apiKey),
+		apiClient: embeddingsAPIClient,
 	}
 
 	for _, opt := range opts {
@@ -204,7 +209,7 @@ func NewCohereEmbeddingFunction(apiKey string, opts ...Option) (*CohereEmbedding
 // Accepts value model in context to override the default model.
 // Accepts value embedding_types in context to override the default embedding types.
 func (e *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
-	_model := e.apiClient.DefaultModel
+	_model := e.apiClient.GetDefaultModel()
 	if ctx.Value("model") != nil {
 		_model = ctx.Value("model").(string)
 	}
@@ -249,7 +254,7 @@ func (e *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 // Accepts value model in context to override the default model.
 // Accepts value embedding_types in context to override the default embedding types.
 func (e *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
-	_model := e.apiClient.DefaultModel
+	_model := e.apiClient.GetDefaultModel()
 	if ctx.Value("model") != nil {
 		_model = ctx.Value("model").(string)
 	}

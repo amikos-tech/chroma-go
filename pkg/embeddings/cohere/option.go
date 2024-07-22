@@ -1,14 +1,46 @@
 package cohere
 
-import "fmt"
+import (
+	"fmt"
 
-type Option func(p *CohereClient) error
+	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
+)
+
+type Option func(p *EmbeddingClient) error
+
+func OptionsAdapter(opts ...Option) []ccommons.Option {
+	var options []ccommons.Option
+	for _, opt := range opts {
+		options = append(options, func(p *ccommons.CohereClient) error {
+			return opt(&EmbeddingClient{CohereClient: *p})
+		})
+	}
+	return options
+}
 
 // WithBaseURL sets the base URL for the Cohere API - the default is https://api.cohere.ai
 func WithBaseURL(baseURL string) Option {
-	return func(p *CohereClient) error {
-		p.BaseURL = baseURL
-		return nil
+	return func(p *EmbeddingClient) error {
+		return ccommons.WithBaseURL(baseURL)(&p.CohereClient)
+	}
+}
+
+func WithAPIKey(apiKey string) Option {
+	return func(p *EmbeddingClient) error {
+		return ccommons.WithAPIKey(apiKey)(&p.CohereClient)
+	}
+}
+
+// WithEnvAPIKey configures the client to use the COHERE_API_KEY environment variable as the API key
+func WithEnvAPIKey() Option {
+	return func(p *EmbeddingClient) error {
+		return ccommons.WithEnvAPIKey()(&p.CohereClient)
+	}
+}
+
+func WithAPIVersion(apiVersion ccommons.APIVersion) Option {
+	return func(p *EmbeddingClient) error {
+		return ccommons.WithAPIVersion(apiVersion)(&p.CohereClient)
 	}
 }
 
@@ -21,9 +53,22 @@ func WithBaseURL(baseURL string) Option {
 // embed-english-light-v2.0 1024
 // embed-multilingual-v2.0 768
 func WithModel(model string) Option {
-	return func(p *CohereClient) error {
-		p.DefaultModel = model
-		return nil
+	return func(p *EmbeddingClient) error {
+		return ccommons.WithDefaultModel(model)(&p.CohereClient)
+	}
+}
+
+// WithDefaultModel sets the default model for the Cohere. This can be overridden in the context of EF embed call. Available models:
+// embed-english-v3.0 1024
+// embed-multilingual-v3.0 1024
+// embed-english-light-v3.0 384
+// embed-multilingual-light-v3.0 384
+// embed-english-v2.0 4096 (default)
+// embed-english-light-v2.0 1024
+// embed-multilingual-v2.0 768
+func WithDefaultModel(model string) Option {
+	return func(p *EmbeddingClient) error {
+		return ccommons.WithDefaultModel(model)(&p.CohereClient)
 	}
 }
 
@@ -32,7 +77,7 @@ func WithModel(model string) Option {
 // START
 // END (default)
 func WithTruncateMode(truncate TruncateMode) Option {
-	return func(p *CohereClient) error {
+	return func(p *EmbeddingClient) error {
 		p.DefaultTruncateMode = truncate
 		return nil
 	}
@@ -46,7 +91,7 @@ func WithTruncateMode(truncate TruncateMode) Option {
 // ubinary
 // TODO we do not have support for returning multiple embedding types from the EmbeddingFunction, so for float->int8, unit8 are supported and returned in the that order
 func WithEmbeddingTypes(embeddingTypes ...EmbeddingType) Option {
-	return func(p *CohereClient) error {
+	return func(p *EmbeddingClient) error {
 		// if embeddingstypes contains binary or ubinary error
 		for _, et := range embeddingTypes {
 			if et == EmbeddingTypeBinary || et == EmbeddingTypeUBinary {
