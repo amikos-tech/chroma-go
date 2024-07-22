@@ -4,6 +4,7 @@ package cohere
 
 import (
 	"context"
+	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
 	"os"
 	"testing"
 
@@ -65,7 +66,7 @@ func Test_ef(t *testing.T) {
 	})
 
 	t.Run("Test Create Embed with model option embeddings type int8", func(t *testing.T) {
-		ef, err := NewCohereEmbeddingFunction(WithAPIKey(apiKey), WithModel("embed-multilingual-v3.0"), WithEmbeddingTypes(EmbeddingTypeInt8))
+		ef, err := NewCohereEmbeddingFunction(WithEnvAPIKey(), WithModel("embed-multilingual-v3.0"), WithEmbeddingTypes(EmbeddingTypeInt8))
 		require.NoError(t, err)
 		documents := []string{
 			"Document 1 content here",
@@ -81,7 +82,25 @@ func Test_ef(t *testing.T) {
 	})
 
 	t.Run("Test Create Embed for query", func(t *testing.T) {
-		ef, err := NewCohereEmbeddingFunction(WithAPIKey(apiKey), WithModel("embed-multilingual-v3.0"))
+		ef, err := NewCohereEmbeddingFunction(
+			WithEnvAPIKey(),
+			WithModel("embed-multilingual-v3.0"),
+		)
+		require.NoError(t, err)
+		resp, err := ef.EmbedQuery(context.Background(), "This is a query")
+		require.Nil(t, err)
+		require.NotNil(t, resp)
+		require.NotNil(t, resp.ArrayOfFloat32)
+		require.Empty(t, resp.ArrayOfInt32)
+	})
+
+	t.Run("Test With API options", func(t *testing.T) {
+		ef, err := NewCohereEmbeddingFunction(
+			WithEnvAPIKey(),
+			WithBaseURL(ccommons.DefaultBaseURL),
+			WithAPIVersion(ccommons.DefaultAPIVersion),
+			WithModel("embed-multilingual-v3.0"),
+		)
 		require.NoError(t, err)
 		resp, err := ef.EmbedQuery(context.Background(), "This is a query")
 		require.Nil(t, err)
