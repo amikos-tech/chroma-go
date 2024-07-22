@@ -8,16 +8,6 @@ import (
 
 type Option func(p *EmbeddingClient) error
 
-func OptionsAdapter(opts ...Option) []ccommons.Option {
-	var options []ccommons.Option
-	for _, opt := range opts {
-		options = append(options, func(p *ccommons.CohereClient) error {
-			return opt(&EmbeddingClient{CohereClient: *p})
-		})
-	}
-	return options
-}
-
 // WithBaseURL sets the base URL for the Cohere API - the default is https://api.cohere.ai
 func WithBaseURL(baseURL string) Option {
 	return func(p *EmbeddingClient) error {
