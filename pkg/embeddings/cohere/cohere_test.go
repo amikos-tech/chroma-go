@@ -23,20 +23,20 @@ func Test_ef(t *testing.T) {
 	}
 
 	t.Run("Test Create Embed", func(t *testing.T) {
-		ef, err := NewCohereEmbeddingFunction(apiKey)
+		ef, err := NewCohereEmbeddingFunction(WithAPIKey(apiKey))
 		require.NoError(t, err)
 		documents := []string{
 			"Document 1 content here",
 			"Document 2 content here",
 			// Add more documents as needed
 		}
-		resp, rerr := ef.EmbedDocuments(context.Background(), documents)
-		require.Nil(t, rerr)
+		resp, err := ef.EmbedDocuments(context.Background(), documents)
+		require.Nil(t, err)
 		require.NotNil(t, resp)
 	})
 
 	t.Run("Test Create Embed with model option", func(t *testing.T) {
-		ef, err := NewCohereEmbeddingFunction(apiKey, WithModel("embed-multilingual-v3.0"))
+		ef, err := NewCohereEmbeddingFunction(WithAPIKey(apiKey), WithModel("embed-multilingual-v3.0"))
 		require.NoError(t, err)
 		documents := []string{
 			"Document 1 content here",
@@ -49,7 +49,7 @@ func Test_ef(t *testing.T) {
 	})
 
 	t.Run("Test Create Embed with model option embeddings type uint8", func(t *testing.T) {
-		ef, err := NewCohereEmbeddingFunction(apiKey, WithModel("embed-multilingual-v3.0"), WithEmbeddingTypes(EmbeddingTypeUInt8))
+		ef, err := NewCohereEmbeddingFunction(WithAPIKey(apiKey), WithModel("embed-multilingual-v3.0"), WithEmbeddingTypes(EmbeddingTypeUInt8))
 		require.NoError(t, err)
 		documents := []string{
 			"Document 1 content here",
@@ -65,7 +65,7 @@ func Test_ef(t *testing.T) {
 	})
 
 	t.Run("Test Create Embed with model option embeddings type int8", func(t *testing.T) {
-		ef, err := NewCohereEmbeddingFunction(apiKey, WithModel("embed-multilingual-v3.0"), WithEmbeddingTypes(EmbeddingTypeInt8))
+		ef, err := NewCohereEmbeddingFunction(WithAPIKey(apiKey), WithModel("embed-multilingual-v3.0"), WithEmbeddingTypes(EmbeddingTypeInt8))
 		require.NoError(t, err)
 		documents := []string{
 			"Document 1 content here",
@@ -81,7 +81,7 @@ func Test_ef(t *testing.T) {
 	})
 
 	t.Run("Test Create Embed for query", func(t *testing.T) {
-		ef, err := NewCohereEmbeddingFunction(apiKey, WithModel("embed-multilingual-v3.0"))
+		ef, err := NewCohereEmbeddingFunction(WithAPIKey(apiKey), WithModel("embed-multilingual-v3.0"))
 		require.NoError(t, err)
 		resp, err := ef.EmbedQuery(context.Background(), "This is a query")
 		require.Nil(t, err)
