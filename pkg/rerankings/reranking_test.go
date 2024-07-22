@@ -18,14 +18,14 @@ func NewDummyRerankingFunction() *DummyRerankingFunction {
 	return &DummyRerankingFunction{}
 }
 
-func (d *DummyRerankingFunction) Rerank(_ context.Context, _ string, results []string) ([]*RankedResult, error) {
+func (d *DummyRerankingFunction) Rerank(_ context.Context, _ string, results []Result) ([]*RankedResult, error) {
 	if len(results) == 0 {
 		return nil, fmt.Errorf("no results to rerank")
 	}
 	rerankedResults := make([]*RankedResult, len(results))
 	for i, result := range results {
 		rerankedResults[i] = &RankedResult{
-			String: result,
+			String: result.ToText(),
 			ID:     i,
 			Rank:   rand.Float32(),
 		}
@@ -55,7 +55,7 @@ func Test_reranking_function(t *testing.T) {
 	t.Run("Rerank string results", func(t *testing.T) {
 		query := "hello world"
 		results := []string{"hello", "world"}
-		rerankedResults, err := rerankingFunction.Rerank(context.Background(), query, results)
+		rerankedResults, err := rerankingFunction.Rerank(context.Background(), query, FromTexts(results))
 		require.NoError(t, err)
 		require.NotNil(t, rerankedResults)
 		require.Equal(t, len(results), len(rerankedResults))
