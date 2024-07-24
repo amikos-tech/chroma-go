@@ -18,19 +18,22 @@ func NewDummyRerankingFunction() *DummyRerankingFunction {
 	return &DummyRerankingFunction{}
 }
 
-func (d *DummyRerankingFunction) Rerank(_ context.Context, _ string, results []Result) ([]*RankedResult, error) {
+func (d *DummyRerankingFunction) ID() string {
+	return "dummy"
+}
+func (d *DummyRerankingFunction) Rerank(_ context.Context, _ string, results []Result) (map[string][]RankedResult, error) {
 	if len(results) == 0 {
 		return nil, fmt.Errorf("no results to rerank")
 	}
-	rerankedResults := make([]*RankedResult, len(results))
+	rerankedResults := make([]RankedResult, len(results))
 	for i, result := range results {
-		rerankedResults[i] = &RankedResult{
+		rerankedResults[i] = RankedResult{
 			String: result.ToText(),
-			ID:     i,
+			Index:  i,
 			Rank:   rand.Float32(),
 		}
 	}
-	return rerankedResults, nil
+	return map[string][]RankedResult{d.ID(): rerankedResults}, nil
 }
 
 func (d *DummyRerankingFunction) RerankResults(_ context.Context, queryResults *chromago.QueryResults) (*RerankedChromaResults, error) {
@@ -39,12 +42,12 @@ func (d *DummyRerankingFunction) RerankResults(_ context.Context, queryResults *
 	}
 	results := &RerankedChromaResults{
 		QueryResults: *queryResults,
-		Ranks:        make([][]float32, len(queryResults.Ids)),
+		Ranks:        map[string][][]float32{d.ID(): make([][]float32, len(queryResults.Ids))},
 	}
 	for i, qr := range queryResults.Ids {
-		results.Ranks[i] = make([]float32, len(qr))
+		results.Ranks[d.ID()][i] = make([]float32, len(qr))
 		for j := range qr {
-			results.Ranks[i][j] = rand.Float32()
+			results.Ranks[d.ID()][i][j] = rand.Float32()
 		}
 	}
 	return results, nil
@@ -58,9 +61,10 @@ func Test_reranking_function(t *testing.T) {
 		rerankedResults, err := rerankingFunction.Rerank(context.Background(), query, FromTexts(results))
 		require.NoError(t, err)
 		require.NotNil(t, rerankedResults)
-		require.Equal(t, len(results), len(rerankedResults))
-		for _, result := range rerankedResults {
-			require.Equal(t, results[result.ID], result.String)
+		require.Contains(t, rerankedResults, rerankingFunction.ID())
+		require.Equal(t, len(results), len(rerankedResults[rerankingFunction.ID()]))
+		for _, result := range rerankedResults[rerankingFunction.ID()] {
+			require.Equal(t, results[result.Index], result.String)
 		}
 	})
 
@@ -75,6 +79,7 @@ func Test_reranking_function(t *testing.T) {
 		rerankedResults, err := rerankingFunction.RerankResults(context.Background(), results)
 		require.NoError(t, err)
 		require.NotNil(t, rerankedResults)
+		require.Contains(t, rerankedResults.Ranks, rerankingFunction.ID())
 		require.Equal(t, len(results.Ids), len(rerankedResults.Ids))
 		require.Equal(t, results.Ids, rerankedResults.Ids)
 		require.Equal(t, results.Documents, rerankedResults.Documents)
