@@ -7,14 +7,14 @@ import (
 )
 
 type RankedResult struct {
-	ID     int // Index in the original input []string
+	Index  int // Index in the original input []string
 	String string
 	Rank   float32
 }
 
 type RerankedChromaResults struct {
 	chromago.QueryResults
-	Ranks [][]float32
+	Ranks map[string][][]float32 // each reranker adds a rank for each result
 }
 
 type Result struct {
@@ -58,6 +58,7 @@ func IsObject(r Result) bool {
 }
 
 type RerankingFunction interface {
-	Rerank(ctx context.Context, query string, results []Result) ([]*RankedResult, error)
-	RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (RerankedChromaResults, error)
+	ID() string
+	Rerank(ctx context.Context, query string, results []Result) (map[string][]RankedResult, error)
+	RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (*RerankedChromaResults, error)
 }
