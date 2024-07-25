@@ -42,7 +42,7 @@ func (d *DummyRerankingFunction) RerankResults(_ context.Context, queryResults *
 	}
 	results := &RerankedChromaResults{
 		QueryResults: *queryResults,
-		Ranks:        map[string][][]float32{d.ID(): make([][]float32, len(queryResults.Ids))},
+		Ranks:        map[string][][]float32{d.ID(): make([][]float32, 0)},
 	}
 	for i, qr := range queryResults.Ids {
 		results.Ranks[d.ID()][i] = make([]float32, len(qr))
