@@ -8,24 +8,33 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/go-playground/validator/v10"
 )
 
 type APIVersion string
+
+type CohereModel string // generic type for Cohere models
+
+func (m CohereModel) String() string {
+	return string(m)
+}
 
 const (
 	APIKeyEnv                    = "COHERE_API_KEY"
 	DefaultBaseURL               = "https://api.cohere.ai"
 	APIVersionV1      APIVersion = "v1"
 	DefaultAPIVersion            = APIVersionV1
+	ClientName                   = "chroma-go-client"
 )
 
 // CohereClient is a common struct for various Cohere integrations - Embeddings, Rerank etc.
 type CohereClient struct {
-	BaseURL      string
-	APIVersion   APIVersion
-	apiKey       string
+	BaseURL      string     `validate:"required"`
+	APIVersion   APIVersion `validate:"required"`
+	apiKey       string     `validate:"required"`
 	Client       *http.Client
-	DefaultModel string
+	DefaultModel CohereModel `validate:"required"`
 }
 
 func NewCohereClient(opts ...Option) (*CohereClient, error) {
@@ -40,6 +49,11 @@ func NewCohereClient(opts ...Option) (*CohereClient, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	validate := validator.New(validator.WithRequiredStructEnabled(), validator.WithPrivateFieldValidation())
+	err := validate.Struct(client)
+	if err != nil {
+		return nil, err
 	}
 	return client, nil
 }
@@ -58,7 +72,8 @@ func (c *CohereClient) GetRequest(ctx context.Context, method string, endpoint s
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("User-Agent", "chroma-go-client")
+	httpReq.Header.Set("User-Agent", ClientName)
+	httpReq.Header.Set("X-Client-Name", ClientName)
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	return httpReq, nil
 }
@@ -111,7 +126,7 @@ func WithHTTPClient(client *http.Client) Option {
 }
 
 // WithDefaultModel sets the default model for the Cohere client
-func WithDefaultModel(model string) Option {
+func WithDefaultModel(model CohereModel) Option {
 	return func(p *CohereClient) error {
 		if model == "" {
 			return fmt.Errorf("model can't be empty")
