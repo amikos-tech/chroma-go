@@ -2,6 +2,8 @@ package rerankings
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	chromago "github.com/amikos-tech/chroma-go"
 )
@@ -42,18 +44,32 @@ func FromObject(object any) Result {
 	}
 }
 
-func (r Result) ToText() string {
-	if r.Text != nil {
-		return *r.Text
+func FromObjects(objects []any) []Result {
+	results := make([]Result, len(objects))
+	for i, object := range objects {
+		results[i] = FromObject(object)
 	}
-	return ""
+	return results
 }
 
-func IsText(r Result) bool {
+func (r *Result) ToText() (string, error) {
+	if r.IsText() {
+		return *r.Text, nil
+	} else if r.IsObject() {
+		marshal, err := json.Marshal(r.Object)
+		if err != nil {
+			return "", err
+		}
+		return string(marshal), nil
+	}
+	return "", fmt.Errorf("result is neither text nor object")
+}
+
+func (r *Result) IsText() bool {
 	return r.Text != nil
 }
 
-func IsObject(r Result) bool {
+func (r *Result) IsObject() bool {
 	return r.Object != nil
 }
 
