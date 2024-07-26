@@ -27,8 +27,12 @@ func (d *DummyRerankingFunction) Rerank(_ context.Context, _ string, results []R
 	}
 	rerankedResults := make([]RankedResult, len(results))
 	for i, result := range results {
+		doc, err := result.ToText()
+		if err != nil {
+			return nil, err
+		}
 		rerankedResults[i] = RankedResult{
-			String: result.ToText(),
+			String: doc,
 			Index:  i,
 			Rank:   rand.Float32(),
 		}
