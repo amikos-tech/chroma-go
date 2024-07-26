@@ -80,6 +80,12 @@ func (c *CohereClient) GetRequest(ctx context.Context, method string, endpoint s
 
 type Option func(p *CohereClient) error
 
+func NoOp() Option {
+	return func(p *CohereClient) error {
+		return nil
+	}
+}
+
 func WithBaseURL(baseURL string) Option {
 	return func(p *CohereClient) error {
 		p.BaseURL = strings.TrimSuffix(baseURL, "/")
