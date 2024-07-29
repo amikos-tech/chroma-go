@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
+	httpc "github.com/amikos-tech/chroma-go/pkg/commons/http"
 )
 
 type Option func(p *CohereEmbeddingFunction) ccommons.Option
@@ -96,5 +97,12 @@ func WithEmbeddingTypes(embeddingTypes ...EmbeddingType) Option {
 		}
 		p.DefaultEmbeddingTypes = embeddingTypes
 		return ccommons.NoOp()
+	}
+}
+
+// WithRetryStrategy configures the client to use the specified retry strategy
+func WithRetryStrategy(retryStrategy httpc.RetryStrategy) Option {
+	return func(p *CohereEmbeddingFunction) ccommons.Option {
+		return ccommons.WithRetryStrategy(retryStrategy)
 	}
 }

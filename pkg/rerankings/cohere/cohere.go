@@ -103,7 +103,7 @@ func (c CohereRerankingFunction) Rerank(ctx context.Context, query string, resul
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := c.CohereClient.Client.Do(httpReq)
+	resp, err := c.CohereClient.DoRequest(httpReq)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryResults
 		}
 		httpReq.Header.Set("Accept", "application/json")
 		httpReq.Header.Set("Content-Type", "application/json")
-		resp, err := c.CohereClient.Client.Do(httpReq)
+		resp, err := c.CohereClient.DoRequest(httpReq)
 		if err != nil {
 			return nil, err
 		}
