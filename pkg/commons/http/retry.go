@@ -44,7 +44,6 @@ func WithExponentialBackOff() Option {
 }
 
 type SimpleRetryStrategy struct {
-	client               *http.Client
 	MaxRetries           int
 	FixedDelay           time.Duration
 	ExponentialBackOff   bool
@@ -52,7 +51,6 @@ type SimpleRetryStrategy struct {
 }
 
 func NewSimpleRetryStrategy(opts ...Option) (*SimpleRetryStrategy, error) {
-
 	var strategy = &SimpleRetryStrategy{
 		MaxRetries:           3,
 		FixedDelay:           time.Duration(1000) * time.Millisecond,
