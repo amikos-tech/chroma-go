@@ -1,3 +1,5 @@
+//go:build rf
+
 package cohere
 
 import (
@@ -42,11 +44,11 @@ func TestRerank(t *testing.T) {
 			},
 			query: "What is the capital of the United States?",
 			results: []any{
-				"Carson City is the capital city of the American state of Nevada. At the 2010 United States Census, Carson City had a population of 55,274.",
+				"Carson City is the capital city of the American state of Nevada.",
 				"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
 				"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
-				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States. It is a federal district. The President of the USA and many major national government offices are in the territory. This makes it the political center of the United States of America.",
-				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country. As of 2017, capital punishment is legal in 30 of the 50 states. The federal government (including the United States military) also uses capital punishment.",
+				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
+				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
 			},
 			resultsType: "text",
 			validate: func(t *testing.T, rf *CohereRerankingFunction, results map[string][]rerankings.RankedResult) {
@@ -62,11 +64,11 @@ func TestRerank(t *testing.T) {
 			},
 			query: "What is the capital of the United States?",
 			results: []any{
-				"Carson City is the capital city of the American state of Nevada. At the 2010 United States Census, Carson City had a population of 55,274.",
+				"Carson City is the capital city of the American state of Nevada.",
 				"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
 				"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
-				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States. It is a federal district. The President of the USA and many major national government offices are in the territory. This makes it the political center of the United States of America.",
-				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country. As of 2017, capital punishment is legal in 30 of the 50 states. The federal government (including the United States military) also uses capital punishment.",
+				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
+				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
 			},
 			resultsType: "text",
 			validate: func(t *testing.T, rf *CohereRerankingFunction, results map[string][]rerankings.RankedResult) {
@@ -82,11 +84,11 @@ func TestRerank(t *testing.T) {
 			},
 			query: "What is the capital of the United States?",
 			results: []any{
-				"Carson City is the capital city of the American state of Nevada. At the 2010 United States Census, Carson City had a population of 55,274.",
+				"Carson City is the capital city of the American state of Nevada.",
 				"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
 				"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
-				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States. It is a federal district. The President of the USA and many major national government offices are in the territory. This makes it the political center of the United States of America.",
-				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country. As of 2017, capital punishment is legal in 30 of the 50 states. The federal government (including the United States military) also uses capital punishment.",
+				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
+				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
 			},
 			resultsType: "text",
 			validate: func(t *testing.T, rf *CohereRerankingFunction, results map[string][]rerankings.RankedResult) {
@@ -103,11 +105,11 @@ func TestRerank(t *testing.T) {
 			},
 			query: "What is the capital of the United States?",
 			results: []any{
-				"Carson City is the capital city of the American state of Nevada. At the 2010 United States Census, Carson City had a population of 55,274.",
+				"Carson City is the capital city of the American state of Nevada.",
 				"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
 				"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
-				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States. It is a federal district. The President of the USA and many major national government offices are in the territory. This makes it the political center of the United States of America.",
-				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country. As of 2017, capital punishment is legal in 30 of the 50 states. The federal government (including the United States military) also uses capital punishment.",
+				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
+				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
 			},
 			resultsType: "text",
 			validate: func(t *testing.T, rf *CohereRerankingFunction, results map[string][]rerankings.RankedResult) {
@@ -127,11 +129,11 @@ func TestRerank(t *testing.T) {
 			},
 			query: "What is the capital of the United States?",
 			results: []any{
-				"Carson City is the capital city of the American state of Nevada. At the 2010 United States Census, Carson City had a population of 55,274.",
+				"Carson City is the capital city of the American state of Nevada.",
 				"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
 				"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
-				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States. It is a federal district. The President of the USA and many major national government offices are in the territory. This makes it the political center of the United States of America.",
-				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country. As of 2017, capital punishment is legal in 30 of the 50 states. The federal government (including the United States military) also uses capital punishment.",
+				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
+				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
 			},
 			resultsType: "text",
 			validate: func(t *testing.T, rf *CohereRerankingFunction, results map[string][]rerankings.RankedResult) {
@@ -151,11 +153,11 @@ func TestRerank(t *testing.T) {
 			},
 			query: "What is the capital of the United States?",
 			results: []any{
-				"Carson City is the capital city of the American state of Nevada. At the 2010 United States Census, Carson City had a population of 55,274.",
+				"Carson City is the capital city of the American state of Nevada.",
 				"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
 				"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
-				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States. It is a federal district. The President of the USA and many major national government offices are in the territory. This makes it the political center of the United States of America.",
-				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country. As of 2017, capital punishment is legal in 30 of the 50 states. The federal government (including the United States military) also uses capital punishment.",
+				"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
+				"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
 			},
 			resultsType: "text",
 			validate: func(t *testing.T, rf *CohereRerankingFunction, results map[string][]rerankings.RankedResult) {
@@ -176,7 +178,7 @@ func TestRerank(t *testing.T) {
 			query: "What is the capital of the United States?",
 			results: []any{
 				map[string]string{
-					"content": "Carson City is the capital city of the American state of Nevada. At the 2010 United States Census, Carson City had a population of 55,274.",
+					"content": "Carson City is the capital city of the American state of Nevada.",
 				},
 				map[string]string{
 					"content": "The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
@@ -185,10 +187,10 @@ func TestRerank(t *testing.T) {
 					"content": "Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
 				},
 				map[string]string{
-					"content": "Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States. It is a federal district. The President of the USA and many major national government offices are in the territory. This makes it the political center of the United States of America.",
+					"content": "Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
 				},
 				map[string]string{
-					"content": "Capital punishment (the death penalty) has existed in the United States since before the United States was a country. As of 2017, capital punishment is legal in 30 of the 50 states. The federal government (including the United States military) also uses capital punishment.",
+					"content": "Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
 				},
 			},
 			resultsType: "object",
@@ -269,11 +271,11 @@ func TestRerankChromaResults(t *testing.T) {
 				},
 				Documents: [][]string{
 					{
-						"Carson City is the capital city of the American state of Nevada. At the 2010 United States Census, Carson City had a population of 55,274.",
+						"Carson City is the capital city of the American state of Nevada.",
 						"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
 						"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
-						"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States. It is a federal district. The President of the USA and many major national government offices are in the territory. This makes it the political center of the United States of America.",
-						"Capital punishment (the death penalty) has existed in the United States since before the United States was a country. As of 2017, capital punishment is legal in 30 of the 50 states. The federal government (including the United States military) also uses capital punishment.",
+						"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
+						"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
 					},
 				},
 				QueryTexts: []string{"What is the capital of the United States?"},
