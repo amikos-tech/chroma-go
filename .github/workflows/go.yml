@@ -83,7 +83,7 @@ jobs:
       - name: Build
         run: make build
       - name: Test
-        run: make test-ef
+        run: make test-rf
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
