@@ -8,6 +8,10 @@ build:
 test:
 	go test -tags=test -count=1 -v ./...
 
+.PHONY: test-rf
+test-rf:
+	go test -tags=rf -count=1 -v ./...
+
 .PHONY: lint
 lint:
 	golangci-lint run

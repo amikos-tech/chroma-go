@@ -42,7 +42,7 @@ type CohereClient struct {
 
 func NewCohereClient(opts ...Option) (*CohereClient, error) {
 	client := &CohereClient{
-		Client:     &http.Client{},
+		Client:     http.DefaultClient,
 		BaseURL:    DefaultBaseURL,
 		APIVersion: DefaultAPIVersion,
 	}
@@ -59,7 +59,7 @@ func NewCohereClient(opts ...Option) (*CohereClient, error) {
 		return nil, err
 	}
 	if client.RetryStrategy == nil {
-		client.RetryStrategy, err = httpc.NewSimpleRetryStrategy(httpc.WithRetryableStatusCodes(429))
+		client.RetryStrategy, err = httpc.NewSimpleRetryStrategy(httpc.WithRetryableStatusCodes(429), httpc.WithExponentialBackOff())
 		if err != nil {
 			return nil, err
 		}
