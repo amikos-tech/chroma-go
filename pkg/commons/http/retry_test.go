@@ -14,11 +14,11 @@ func TestRetryStrategyWithExponentialBackOff(t *testing.T) {
 
 	retryableStatusCodes := []int{http.StatusInternalServerError}
 
-	// Create a new RetryStrategy with exponential backoff enabled
-	retryStrategy, err := NewRetryStrategy(client,
+	// Create a new SimpleRetryStrategy with exponential backoff enabled
+	retryStrategy, err := NewSimpleRetryStrategy(
 		WithMaxRetries(3),
 		WithFixedDelay(100*time.Millisecond),
-		WithRetryableStatusCodes(retryableStatusCodes),
+		WithRetryableStatusCodes(retryableStatusCodes...),
 		WithExponentialBackOff(),
 	)
 	require.NoError(t, err, "error setting up strategy: %v", err)
@@ -35,7 +35,7 @@ func TestRetryStrategyWithExponentialBackOff(t *testing.T) {
 
 	startTime := time.Now()
 
-	_, err = retryStrategy.Do(req)
+	_, err = retryStrategy.DoWithRetry(client, req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
