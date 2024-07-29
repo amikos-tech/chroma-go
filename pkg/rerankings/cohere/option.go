@@ -1,6 +1,9 @@
 package cohere
 
-import ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
+import (
+	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
+	httpc "github.com/amikos-tech/chroma-go/pkg/commons/http"
+)
 
 type Option func(p *CohereRerankingFunction) ccommons.Option
 
@@ -56,5 +59,12 @@ func WithMaxChunksPerDoc(maxChunks int) Option {
 	return func(p *CohereRerankingFunction) ccommons.Option {
 		p.MaxChunksPerDoc = maxChunks
 		return ccommons.NoOp()
+	}
+}
+
+// WithRetryStrategy configures the client to use the specified retry strategy
+func WithRetryStrategy(retryStrategy httpc.RetryStrategy) Option {
+	return func(p *CohereRerankingFunction) ccommons.Option {
+		return ccommons.WithRetryStrategy(retryStrategy)
 	}
 }

@@ -113,7 +113,7 @@ func (c *CohereEmbeddingFunction) CreateEmbedding(ctx context.Context, req *Crea
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := c.CohereClient.Client.Do(httpReq)
+	resp, err := c.CohereClient.DoRequest(httpReq)
 
 	if err != nil {
 		return nil, err

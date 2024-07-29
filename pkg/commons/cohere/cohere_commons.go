@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+
+	httpc "github.com/amikos-tech/chroma-go/pkg/commons/http"
 )
 
 type APIVersion string
@@ -30,11 +32,12 @@ const (
 
 // CohereClient is a common struct for various Cohere integrations - Embeddings, Rerank etc.
 type CohereClient struct {
-	BaseURL      string     `validate:"required"`
-	APIVersion   APIVersion `validate:"required"`
-	apiKey       string     `validate:"required"`
-	Client       *http.Client
-	DefaultModel CohereModel `validate:"required"`
+	BaseURL       string     `validate:"required"`
+	APIVersion    APIVersion `validate:"required"`
+	apiKey        string     `validate:"required"`
+	Client        *http.Client
+	DefaultModel  CohereModel `validate:"required"`
+	RetryStrategy httpc.RetryStrategy
 }
 
 func NewCohereClient(opts ...Option) (*CohereClient, error) {
@@ -54,6 +57,12 @@ func NewCohereClient(opts ...Option) (*CohereClient, error) {
 	err := validate.Struct(client)
 	if err != nil {
 		return nil, err
+	}
+	if client.RetryStrategy == nil {
+		client.RetryStrategy, err = httpc.NewSimpleRetryStrategy(httpc.WithRetryableStatusCodes(429))
+		if err != nil {
+			return nil, err
+		}
 	}
 	return client, nil
 }
@@ -77,6 +86,14 @@ func (c *CohereClient) GetRequest(ctx context.Context, method string, endpoint s
 	httpReq.Header.Set("X-Client-Name", ClientName)
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	return httpReq, nil
+}
+
+func (c *CohereClient) DoRequest(req *http.Request) (*http.Response, error) {
+	if c.RetryStrategy != nil {
+		return c.RetryStrategy.DoWithRetry(c.Client, req)
+	} else {
+		return c.Client.Do(req)
+	}
 }
 
 type Option func(p *CohereClient) error
@@ -139,6 +156,17 @@ func WithDefaultModel(model CohereModel) Option {
 			return fmt.Errorf("model can't be empty")
 		}
 		p.DefaultModel = model
+		return nil
+	}
+}
+
+// WithRetryStrategy sets the retry strategy for the Cohere client
+func WithRetryStrategy(retryStrategy httpc.RetryStrategy) Option {
+	return func(p *CohereClient) error {
+		if retryStrategy == nil {
+			return fmt.Errorf("retry strategy cannot be nil")
+		}
+		p.RetryStrategy = retryStrategy
 		return nil
 	}
 }
