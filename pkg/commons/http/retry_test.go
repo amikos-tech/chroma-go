@@ -1,3 +1,5 @@
+//go:build basic
+
 package http
 
 import (

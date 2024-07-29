@@ -1,3 +1,5 @@
+//go:build ef || rf
+
 package cohere
 
 import (

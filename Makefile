@@ -6,11 +6,15 @@ build:
 
 .PHONY: test
 test:
-	go test -tags=test -count=1 -v ./...
+	go test -tags=basic -count=1 -v ./...
 
 .PHONY: test-rf
 test-rf:
 	go test -tags=rf -count=1 -v ./...
+
+.PHONY: test-ef
+test-ef:
+	go test -tags=ef -count=1 -v ./...
 
 .PHONY: lint
 lint:
