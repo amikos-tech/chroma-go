@@ -8,11 +8,25 @@ on:
 
 jobs:
 
+  lint:
+    runs-on: ubuntu-latest
+    environment: Test
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
   build:
     runs-on: ubuntu-latest
+    needs: lint
     strategy:
       matrix:
-        chroma-version: ["0.4.8", "0.4.24","0.5.0","0.5.4"]
+        chroma-version: ["0.4.8", "0.4.24","0.5.0","0.5.5"]
     environment: Test
     steps:
     - uses: actions/checkout@v3
@@ -20,10 +34,6 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version-file: 'go.mod'
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v3
-      with:
-        version: latest
     - name: Build
       run: make build
     - name: Test
