@@ -1,10 +1,8 @@
 name: Go
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main" , "**" ]
 
 jobs:
   paths-filter:
@@ -18,7 +16,7 @@ jobs:
         id: changes
         uses: dorny/paths-filter@v3
         with:
-          predicate-quantifier: 'every'
+          predicate-quantifier: 'some'
           filters: |
             embeddings:
               - 'pkg/embeddings/**'
