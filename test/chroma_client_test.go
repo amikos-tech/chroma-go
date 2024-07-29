@@ -1,4 +1,4 @@
-//go:build test
+//go:build basic
 
 /*
 Testing Chroma Client
