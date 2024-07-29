@@ -62,6 +62,7 @@ func (c *CohereClient) GetAPIEndpoint(endpoint string) string {
 	return strings.ReplaceAll(fmt.Sprintf("%s/%s/%s", c.BaseURL, c.APIVersion, endpoint), "^[:]//", "/")
 }
 
+// TODO GetRequest is misleading, it should be renamed to GetHTTPRequest
 func (c *CohereClient) GetRequest(ctx context.Context, method string, endpoint string, content string) (*http.Request, error) {
 	if _, err := url.ParseRequestURI(endpoint); err != nil {
 		return nil, err

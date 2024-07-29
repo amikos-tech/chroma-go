@@ -6,7 +6,7 @@ build:
 
 .PHONY: test
 test:
-	go test -tags=test -v ./...
+	go test -tags=test -count=1 -v ./...
 
 .PHONY: lint
 lint:
