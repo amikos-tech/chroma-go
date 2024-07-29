@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-type Option func(*RetryStrategy) error
+type Option func(*SimpleRetryStrategy) error
 
 func WithMaxRetries(retries int) Option {
-	return func(r *RetryStrategy) error {
+	return func(r *SimpleRetryStrategy) error {
 		if retries <= 0 {
 			return fmt.Errorf("retries must be a positive integer")
 		}
@@ -20,7 +20,7 @@ func WithMaxRetries(retries int) Option {
 }
 
 func WithFixedDelay(delay time.Duration) Option {
-	return func(r *RetryStrategy) error {
+	return func(r *SimpleRetryStrategy) error {
 		if delay <= 0 {
 			return fmt.Errorf("delay must be a positive integer")
 		}
@@ -29,21 +29,21 @@ func WithFixedDelay(delay time.Duration) Option {
 	}
 }
 
-func WithRetryableStatusCodes(statusCodes []int) Option {
-	return func(r *RetryStrategy) error {
+func WithRetryableStatusCodes(statusCodes ...int) Option {
+	return func(r *SimpleRetryStrategy) error {
 		r.RetryableStatusCodes = statusCodes
 		return nil
 	}
 }
 
 func WithExponentialBackOff() Option {
-	return func(r *RetryStrategy) error {
+	return func(r *SimpleRetryStrategy) error {
 		r.ExponentialBackOff = true
 		return nil
 	}
 }
 
-type RetryStrategy struct {
+type SimpleRetryStrategy struct {
 	client               *http.Client
 	MaxRetries           int
 	FixedDelay           time.Duration
@@ -51,12 +51,9 @@ type RetryStrategy struct {
 	RetryableStatusCodes []int
 }
 
-func NewRetryStrategy(client *http.Client, opts ...Option) (*RetryStrategy, error) {
-	if client == nil {
-		return nil, fmt.Errorf("client must not be nil")
-	}
-	var strategy = &RetryStrategy{
-		client:               client,
+func NewSimpleRetryStrategy(opts ...Option) (*SimpleRetryStrategy, error) {
+
+	var strategy = &SimpleRetryStrategy{
 		MaxRetries:           3,
 		FixedDelay:           time.Duration(1000) * time.Millisecond,
 		RetryableStatusCodes: []int{},
@@ -69,12 +66,15 @@ func NewRetryStrategy(client *http.Client, opts ...Option) (*RetryStrategy, erro
 	return strategy, nil
 }
 
-func (r *RetryStrategy) Do(req *http.Request) (*http.Response, error) {
+func (r *SimpleRetryStrategy) DoWithRetry(client *http.Client, req *http.Request) (*http.Response, error) {
 	var resp *http.Response
 	var err error
 	for i := 0; i < r.MaxRetries; i++ {
-		resp, err = r.client.Do(req)
+		resp, err = client.Do(req)
 		if err != nil {
+			break
+		}
+		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 			break
 		}
 		if r.isRetryable(resp.StatusCode) {
@@ -88,7 +88,7 @@ func (r *RetryStrategy) Do(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-func (r *RetryStrategy) isRetryable(code int) bool {
+func (r *SimpleRetryStrategy) isRetryable(code int) bool {
 	for _, retryableCode := range r.RetryableStatusCodes {
 		if code == retryableCode {
 			return true
