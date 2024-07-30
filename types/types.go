@@ -22,27 +22,32 @@ import (
 
 type DistanceFunction string
 type QueryEnum string
+type SourceFormat string
+type SourceType string
 
 const (
-	L2                 DistanceFunction = "l2"
-	COSINE             DistanceFunction = "cosine"
-	IP                 DistanceFunction = "ip"
-	DefaultTenant                       = "default_tenant"
-	DefaultDatabase                     = "default_database"
-	IDocuments         QueryEnum        = "documents"
-	IEmbeddings        QueryEnum        = "embeddings"
-	IMetadatas         QueryEnum        = "metadatas"
-	IDistances         QueryEnum        = "distances"
-	HNSWSpace                           = "hnsw:space"
-	HNSWConstructionEF                  = "hnsw:construction_ef"
-	HNSWBatchSize                       = "hnsw:batch_size"
-	HNSWSyncThreshold                   = "hnsw:sync_threshold"
-	HNSWM                               = "hnsw:M"
-	HNSWSearchEF                        = "hnsw:search_ef"
-	HNSWNumThreads                      = "hnsw:num_threads"
-	HNSWResizeFactor                    = "hnsw:resize_factor"
-	DefaultTimeout                      = 30 * time.Second
-	EmbeddingsEpsilon                   = 1e-6
+	L2                        DistanceFunction = "l2"
+	COSINE                    DistanceFunction = "cosine"
+	IP                        DistanceFunction = "ip"
+	DefaultTenant                              = "default_tenant"
+	DefaultDatabase                            = "default_database"
+	IDocuments                QueryEnum        = "documents"
+	IEmbeddings               QueryEnum        = "embeddings"
+	IMetadatas                QueryEnum        = "metadatas"
+	IDistances                QueryEnum        = "distances"
+	HNSWSpace                                  = "hnsw:space"
+	HNSWConstructionEF                         = "hnsw:construction_ef"
+	HNSWBatchSize                              = "hnsw:batch_size"
+	HNSWSyncThreshold                          = "hnsw:sync_threshold"
+	HNSWM                                      = "hnsw:M"
+	HNSWSearchEF                               = "hnsw:search_ef"
+	HNSWNumThreads                             = "hnsw:num_threads"
+	HNSWResizeFactor                           = "hnsw:resize_factor"
+	DefaultTimeout                             = 30 * time.Second
+	EmbeddingsEpsilon                          = 1e-6
+	URLSource                 SourceFormat     = "url"
+	Base64EncodedSourceSource SourceFormat     = "base64"
+	ImageSourceType           SourceType       = "image"
 )
 
 func ToDistanceFunction(str any) (DistanceFunction, error) {
@@ -276,12 +281,20 @@ func ToAPIEmbeddings(embeddings []*Embedding) []openapi.EmbeddingsInner {
 	return apiEmbeddings
 }
 
+type EmbeddingSource struct {
+	Type   SourceType
+	Format SourceFormat
+	Value  string
+}
+
 type EmbeddingFunction interface {
 	// EmbedDocuments returns a vector for each text.
 	EmbedDocuments(ctx context.Context, texts []string) ([]*Embedding, error)
 	// EmbedQuery embeds a single text.
 	EmbedQuery(ctx context.Context, text string) (*Embedding, error)
 	EmbedRecords(ctx context.Context, records []*Record, force bool) error
+	EmbedWithSource(ctx context.Context, sources []EmbeddingSource) ([]*Embedding, error)
+	EmbedWithQuerySource(ctx context.Context, source EmbeddingSource) ([]*Embedding, error)
 }
 
 func EmbedRecordsDefaultImpl(e EmbeddingFunction, ctx context.Context, records []*Record, force bool) error {
@@ -397,6 +410,9 @@ func (e *ConsistentHashEmbeddingFunction) EmbedDocuments(ctx context.Context, do
 
 func (e *ConsistentHashEmbeddingFunction) EmbedRecords(ctx context.Context, records []*Record, force bool) error {
 	return EmbedRecordsDefaultImpl(e, ctx, records, force)
+}
+func (e *ConsistentHashEmbeddingFunction) EmbedImages(ctx context.Context, images []EmbeddingSource) ([]*Embedding, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func NewConsistentHashEmbeddingFunction() EmbeddingFunction {
