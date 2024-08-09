@@ -1137,6 +1137,48 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, httpClient, client.ApiClient.GetConfig().HTTPClient)
 	})
+
+	t.Run("Test Query With Where", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		newCollection, err := client.NewCollection(
+			context.Background(),
+			"test-collection",
+			collection.WithMetadata("key1", "value1"),
+			collection.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+			collection.WithHNSWDistanceFunction(types.L2),
+		)
+		require.NoError(t, err)
+		// let's create a record set
+		rs, rerr := types.NewRecordSet(
+			types.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
+			types.WithIDGenerator(types.NewULIDGenerator()),
+		)
+		require.NoError(t, rerr)
+		// you can loop here to add multiple records
+		rs.WithRecord(types.WithDocument("Document 1 content"), types.WithMetadata("key1", "value1"))
+		rs.WithRecord(types.WithDocument("Document 2 content"), types.WithMetadata("key2", "value2"))
+		rs.WithRecord(types.WithDocument("Document 3 content"), types.WithMetadata("key3", "value3"))
+		_, err = rs.BuildAndValidate(context.Background())
+		require.NoError(t, err)
+		newCollection, err = newCollection.AddRecords(context.Background(), rs)
+		require.NoError(t, err)
+
+		//result,	 err := newCollection.QueryWithOptions(context.Background(), types.WithNResults(10), types.WithQueryText("Document 1"), types.WithWhere(where.Eq("key1", "value1")))
+		whereClause := map[string]interface{}{
+			"key1": map[string]interface{}{
+				"$eq": "value1",
+			},
+		}
+		result, err := newCollection.Query(context.Background(), []string{"Document 1"}, 10, whereClause, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, result.Ids[0], 1)
+		require.Contains(t, result.Documents[0], "Document 1 content")
+		result, err = newCollection.QueryWithOptions(context.Background(), types.WithNResults(10), types.WithQueryText("Document 1"), types.WithWhere(where.Eq("key1", "value1")))
+		require.NoError(t, err)
+		require.Len(t, result.Ids[0], 1)
+		require.Contains(t, result.Documents[0], "Document 1 content")
+	})
 }
 
 func TestClientSecurity(t *testing.T) {
