@@ -11,7 +11,7 @@ import (
 	"runtime"
 )
 
-var libCacheDir = filepath.Join(os.Getenv("HOME"), ".cache/chroma/")
+var libCacheDir = filepath.Join(os.Getenv("HOME"), ChromaCacheDir)
 var onnxCacheDir = filepath.Join(libCacheDir, "shared", "onnxruntime")
 var onnxLibPath = filepath.Join(onnxCacheDir, "libonnxruntime."+LibOnnxRuntimeVersion+"."+getExtensionForOs())
 
@@ -21,8 +21,6 @@ var onnxModelsCachePath = filepath.Join(libCacheDir, "onnx_models")
 var onnxModelCachePath = filepath.Join(onnxModelsCachePath, "all-MiniLM-L6-v2/onnx")
 var onnxModelPath = filepath.Join(onnxModelCachePath, "model.onnx")
 var onnxModelTokenizerConfigPath = filepath.Join(onnxModelCachePath, "tokenizer.json")
-
-const onnxModelDownloadEndpoint = "https://chroma-onnx-models.s3.amazonaws.com/all-MiniLM-L6-v2/onnx.tar.gz"
 
 func downloadFile(filepath string, url string) error {
 	resp, err := http.Get(url)
