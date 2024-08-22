@@ -104,7 +104,7 @@ func LoadLibrary(path string) error {
 	libHandle = C.dlopen(cName, C.RTLD_LAZY)
 	if libHandle == nil {
 		msg := C.GoString(C.dlerror())
-		return fmt.Errorf("error loading ONNX shared library \"%s\": %s",
+		return fmt.Errorf("error loading tokenizers shared library \"%s\": %s",
 			path, msg)
 	}
 
