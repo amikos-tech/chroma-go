@@ -157,6 +157,9 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 		}
 	}
 	targetFile := "onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + "/lib/libonnxruntime." + LibOnnxRuntimeVersion + "." + getExtensionForOs()
+	if cos == "linux" {
+		targetFile = "onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + "/lib/libonnxruntime." + getExtensionForOs() + "." + LibOnnxRuntimeVersion
+	}
 	fmt.Println("Extracting onnxruntime shared library..." + onnxLibPath)
 	if err := extractSpecificFile(targetArchive, targetFile, onnxCacheDir); err != nil {
 		fmt.Println("Error:", err)
