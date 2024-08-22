@@ -1,4 +1,4 @@
-package default_ef
+package defaultef
 
 import (
 	"errors"
@@ -184,11 +184,12 @@ func divide[T Number](a, b Tensor2D[T]) Tensor2D[T] {
 // divideValues performs division for a single pair of values
 func divideValues[T Number](a, b T) T {
 	if b == 0 {
-		if a > 0 {
+		switch {
+		case a > 0:
 			return T(math.Inf(1))
-		} else if a < 0 {
+		case a < 0:
 			return T(math.Inf(-1))
-		} else {
+		default:
 			return T(math.NaN())
 		}
 	}
@@ -248,4 +249,90 @@ func ReshapeFlattenedTensor[T Number](flatTensor []T, shape []int) (interface{},
 		}
 		return tensor, nil
 	}
+}
+
+func ExpandDims(input []int64, shape []int64) [][][]int64 {
+	// Calculate the total size of the input
+	var totalSize int64 = 1
+	for _, dim := range shape {
+		totalSize *= dim
+	}
+
+	// Check if the input size matches the shape
+	if int64(len(input)) != totalSize {
+		panic("Input size does not match the given shape")
+	}
+
+	// Reshape the input according to the given shape
+	reshaped := make([][]int64, shape[0])
+	for i := range reshaped {
+		reshaped[i] = make([]int64, shape[1])
+		for j := range reshaped[i] {
+			reshaped[i][j] = input[i*int(shape[1])+j]
+		}
+	}
+
+	// Add the extra dimension
+	output := make([][][]int64, shape[0])
+	for i := range output {
+		output[i] = make([][]int64, shape[1])
+		for j := range output[i] {
+			output[i][j] = []int64{reshaped[i][j]}
+		}
+	}
+
+	return output
+}
+
+// BroadcastTo simulates np.broadcast_to for any 3D tensor
+func BroadcastTo[T Number](input Tensor3D[T], targetShape [3]int) Tensor3D[T] {
+	result := make(Tensor3D[T], targetShape[0])
+	for i := range result {
+		result[i] = make([][]T, targetShape[1])
+		for j := range result[i] {
+			result[i][j] = make([]T, targetShape[2])
+			for k := range result[i][j] {
+				// Use modulo to wrap around input dimensions
+				iIn := i % len(input)
+				jIn := j % len(input[iIn])
+				kIn := k % len(input[iIn][jIn])
+				result[i][j][k] = input[iIn][jIn][kIn]
+			}
+		}
+	}
+	return result
+}
+
+// normalize function for a generic Tensor2D type.
+func normalize[T Number](v Tensor2D[T]) Tensor2D[float32] {
+	rows := len(v)
+	cols := len(v[0])
+	norm := make([]float32, rows)
+
+	// Step 1: Compute the L2 norm of each row
+	for i := 0; i < rows; i++ {
+		sum := 0.0
+		for j := 0; j < cols; j++ {
+			sum += float64(v[i][j]) * float64(v[i][j])
+		}
+		norm[i] = float32(math.Sqrt(sum))
+	}
+
+	// Step 2: Handle zero norms
+	for i := 0; i < rows; i++ {
+		if norm[i] == 0 {
+			norm[i] = 1e-12
+		}
+	}
+
+	// Step 3: Normalize each row
+	normalized := make(Tensor2D[float32], rows)
+	for i := 0; i < rows; i++ {
+		normalized[i] = make([]float32, cols)
+		for j := 0; j < cols; j++ {
+			normalized[i][j] = float32(v[i][j]) / norm[i]
+		}
+	}
+
+	return normalized
 }
