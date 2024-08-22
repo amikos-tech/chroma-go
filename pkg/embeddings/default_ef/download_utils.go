@@ -31,6 +31,10 @@ func downloadFile(filepath string, url string) error {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
 	out, err := os.Create(filepath)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
@@ -119,9 +123,16 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 
 func EnsureOnnxRuntimeSharedLibrary() error {
 	cos, carch := getOSAndArch()
+	if carch == "amd64" {
+		carch = "x64"
+	}
 	if cos == "darwin" {
 		cos = "osx"
+		if carch == "x64" {
+			carch = "x86_64"
+		}
 	}
+
 	downloadAndExtractNeeded := false
 	if _, err := os.Stat(onnxLibPath); os.IsNotExist(err) {
 		downloadAndExtractNeeded = true
@@ -170,7 +181,6 @@ func EnsureLibTokenizersSharedLibrary() error {
 	if !downloadAndExtractNeeded {
 		return nil
 	}
-	//https://github.com/amikos-tech/tokenizers/releases/download/v0.9.0/libtokenizers.darwin-arm64.tar.gz
 	targetArchive := filepath.Join(libTokenizersCacheDir, "libtokenizers."+cos+"-"+carch+".tar.gz")
 	if _, err := os.Stat(libTokenizersLibPath); os.IsNotExist(err) {
 		// Download the library
