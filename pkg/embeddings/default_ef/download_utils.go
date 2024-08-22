@@ -165,6 +165,14 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 		fmt.Println("Error:", err)
 	}
 
+	if cos == "linux" {
+		wantedTargetFile := filepath.Join(onnxCacheDir, "libonnxruntime."+LibOnnxRuntimeVersion+"."+getExtensionForOs())
+		err := os.Rename(filepath.Join(onnxCacheDir, "libonnxruntime."+getExtensionForOs()+"."+LibOnnxRuntimeVersion), wantedTargetFile)
+		if err != nil {
+			return err
+		}
+	}
+
 	err := os.RemoveAll(targetArchive)
 	if err != nil {
 		return err
