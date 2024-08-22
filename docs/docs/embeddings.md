@@ -4,6 +4,7 @@ The following embedding wrappers are available:
 
 | Embedding Model                                                                   | Description                                                                                                                                                 |
 |-----------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Default Embeddings](#default-embeddings)                                         | The default Chroma embedding function running `all-MiniLM-L6-v2` on Onnx Runtime                                                                            |
 | [OpenAI](#openai)                                                                 | OpenAI embeddings API.<br/>All models are supported - see OpenAI [docs](https://platform.openai.com/docs/guides/embeddings/embedding-models) for more info. |
 | [Cohere](#cohere)                                                                 | Cohere embeddings API.<br/>All models are supported - see Cohere [API docs](https://docs.cohere.com/reference/embed) for more info.                         |
 | [HuggingFace Inference API](#huggingface-inference-api)                           | HuggingFace Inference API.<br/>All models supported by the API.                                                                                             |
@@ -15,6 +16,41 @@ The following embedding wrappers are available:
 | [Google Gemini](#google-gemini)                                                   | Google Gemini Embedding.<br/> For more info see [Gemini Docs](https://ai.google.dev/gemini-api/docs/embeddings).                                            |
 | [Mistral AI](#mistral-ai)                                                         | Mistral AI Embedding.<br/> For more info see [Mistral AI API Docs](https://docs.mistral.ai/capabilities/embeddings/).                                       |
 | [Nomic AI](#nomic-ai)                                                             | Nomic AI Embedding.<br/> For more info see [Nomic AI API Docs](https://docs.nomic.ai/atlas/models/text-embedding).                                          |
+
+## Default Embeddings
+
+> Note: Supported from 0.2.0+
+
+The default embedding function uses the `all-MiniLM-L6-v2` model running on Onnx Runtime.
+
+Note: As the EF relies on C bindings to avoid memory leaks make sure to call the close callback
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
+)
+
+func main() {
+	ef, closeef, efErr := defaultef.NewDefaultEmbeddingFunction()
+	defer closeef() // make sure to call this to ensure proper resource release
+	if efErr != nil {
+		fmt.Printf("Error creating OpenAI embedding function: %s \n", efErr)
+	}
+	documents := []string{
+		"Document 1 content here",
+	}
+	resp, reqErr := ef.EmbedDocuments(context.Background(), documents)
+	if reqErr != nil {
+		fmt.Printf("Error embedding documents: %s \n", reqErr)
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
 
 ## OpenAI
 
@@ -185,7 +221,8 @@ You will need to register for a Cloudflare account and create a API Token for Wo
 see [docs](https://developers.cloudflare.com/workers-ai/get-started/rest-api/#1-get-an-api-token) for more info.
 
 Models can be found in
-the [Cloudflare Workers AI docs](https://developers.cloudflare.com/workers-ai/models/#text-embeddings). `@cf/baai/bge-base-en-v1.5`
+the [Cloudflare Workers AI docs](https://developers.cloudflare.com/workers-ai/models/#text-embeddings).
+`@cf/baai/bge-base-en-v1.5`
 is the default model.
 
 ```go

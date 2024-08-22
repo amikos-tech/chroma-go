@@ -33,6 +33,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/)
 
 ## Embedding API and Models Support
 
+- 🔥✅ [Default Embedding](https://go-client.chromadb.dev/embeddings/#default-embeddings) Support - Since `0.2.0`+, we also support the default `all-MiniLM-L6-v2` model running on Onnx Runtime (ORT). 
 - ✅ [OpenAI Embedding](https://go-client.chromadb.dev/embeddings/#openai) Support
 - ✅ [Cohere](https://go-client.chromadb.dev/embeddings/#cohere) (including Multi-language support)
 - ✅ [Sentence Transformers](https://go-client.chromadb.dev/embeddings/#huggingface-inference-api) (HuggingFace Inference API and [HFEI local server]())
