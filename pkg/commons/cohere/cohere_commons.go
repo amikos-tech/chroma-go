@@ -124,7 +124,7 @@ func WithEnvAPIKey() Option {
 			p.apiKey = apiKey
 			return nil
 		}
-		return fmt.Errorf(fmt.Sprintf("API key env variable %s not found or does not contain a key.", APIKeyEnv))
+		return fmt.Errorf("API key env variable %s not found or does not contain a key", APIKeyEnv)
 	}
 }
 
