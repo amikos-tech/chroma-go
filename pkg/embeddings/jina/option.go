@@ -2,8 +2,9 @@ package jina
 
 import (
 	"fmt"
-	"github.com/amikos-tech/chroma-go/types"
 	"os"
+
+	"github.com/amikos-tech/chroma-go/types"
 )
 
 type Option func(c *JinaEmbeddingFunction) error
