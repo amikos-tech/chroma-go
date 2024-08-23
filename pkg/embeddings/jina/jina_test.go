@@ -1,3 +1,5 @@
+//go:build ef
+
 package jina
 
 import (
