@@ -36,7 +36,7 @@ type EmbeddingResponse struct {
 	Data []struct {
 		Object    string    `json:"object"`
 		Index     int       `json:"index"`
-		Embedding []float32 `json:"embedding"` //TODO what about other embedding types - see cohere for example
+		Embedding []float32 `json:"embedding"` // TODO what about other embedding types - see cohere for example
 	}
 }
 
@@ -99,7 +99,7 @@ func (e *JinaEmbeddingFunction) sendRequest(ctx context.Context, req *EmbeddingR
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		//TODO serialize body in error
+		// TODO serialize body in error
 		return nil, fmt.Errorf("unexpected response %v: %s", resp.Status, respData)
 	}
 	var response *EmbeddingResponse
