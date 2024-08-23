@@ -40,6 +40,89 @@ type RerankingFunction interface {
 
 ## Supported Rerankers
 
-- Cohere - coming soon
+- Cohere - ✅
+- Jina AI - ✅ 
 - HuggingFace Text Embedding Inference - coming soon
 - HuggingFace Inference API - coming soon
+
+### Cohere Reranker
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	cohere "github.com/amikos-tech/chroma-go/pkg/rerankings/cohere"
+	"os"
+)
+
+func main() {
+	var query = "What is the capital of the United States?"
+	var results = []string{
+		"Carson City is the capital city of the American state of Nevada.",
+		"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
+		"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
+		"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
+		"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
+	}
+
+	rf, err := cohere.NewCohereRerankingFunction(cohere.WithAPIKey(os.Getenv("COHERE_API_KEY")))
+	if err != nil {
+        fmt.Printf("Error creating Cohere reranking function: %s \n", err)
+    }
+
+	res, err := rf.Rerank(context.Background(), query, results)
+	if err != nil {
+        fmt.Printf("Error reranking: %s \n", err)
+    }
+	
+	for _, rs := range res[rf.ID()] {
+		fmt.Printf("Rank: %f, Index: %d\n", rs.Rank, rs.Index)
+	}
+}
+```
+
+### Jina AI Reranker
+
+To use Jina AI reranking, you will need to get an [API Key](https://jina.ai) (trial API keys are freely available
+without any registration, scroll down the page and find the automatically generated API key).
+
+Supported models - https://api.jina.ai/redoc#tag/rerank/operation/rank_v1_rerank_post
+
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	jina "github.com/amikos-tech/chroma-go/pkg/rerankings/jina"
+	"os"
+)
+
+func main() {
+	var query = "What is the capital of the United States?"
+	var results = []string{
+		"Carson City is the capital city of the American state of Nevada.",
+		"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
+		"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
+		"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
+		"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
+	}
+
+	rf, err := jina.NewJinaRerankingFunction(jina.WithAPIKey(os.Getenv("JINA_API_KEY")))
+	if err != nil {
+        fmt.Printf("Error creating Jina reranking function: %s \n", err)
+    }
+
+	res, err := rf.Rerank(context.Background(), query, results)
+	if err != nil {
+        fmt.Printf("Error reranking: %s \n", err)
+    }
+	
+	for _, rs := range res[rf.ID()] {
+		fmt.Printf("Rank: %f, Index: %d\n", rs.Rank, rs.Index)
+	}
+}
+```
