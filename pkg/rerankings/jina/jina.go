@@ -176,9 +176,7 @@ func (r *JinaRerankingFunction) RerankResults(ctx context.Context, queryResults 
 			return nil, fmt.Errorf("no results to rerank")
 		}
 		docs := make([]string, 0)
-		for _, result := range queryResults.Documents[i] {
-			docs = append(docs, result)
-		}
+		docs = append(docs, queryResults.Documents[i]...)
 		req := &RerankingRequest{
 			Model:     string(r.defaultModel),
 			Documents: docs,
