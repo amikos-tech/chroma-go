@@ -54,7 +54,7 @@ From release `0.2.0` the Chroma Go client also supports Reranking functions. The
 
 - ✅ [Cohere](https://go-client.chromadb.dev/rerankers/#cohere-reranker)
 - ✅ [Jina AI](https://go-client.chromadb.dev/rerankers/#jina-ai-reranker)
-
+- ✅ [HuggingFace Embedding Inference Server Reranker](https://go-client.chromadb.dev/rerankers/#hfei-Reranker)
 
 ## Installation
 

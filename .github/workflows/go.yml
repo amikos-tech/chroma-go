@@ -9,7 +9,8 @@ jobs:
     name: Get changed paths
     runs-on: ubuntu-latest
     outputs:
-      outside-docs: ${{ steps.changes.outputs.outside-docs }}
+      embeddings: ${{ steps.changes.outputs.embeddings }}
+      rerankings: ${{ steps.changes.outputs.rerankings }}
       docs: ${{ steps.changes.outputs.docs }}
     steps:
       - name: Get changed paths
