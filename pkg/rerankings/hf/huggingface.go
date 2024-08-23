@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	DefaultBaseAPIEndpoint                      = "http://127.0.0.1:8080/rerank"
-	DefaultRerankingModel  types.RerankingModel = "jina-reranker-v1-base-en"
+	DefaultBaseAPIEndpoint = "http://127.0.0.1:8080/rerank"
 )
 
 type RerankingRequest struct {
@@ -60,7 +59,6 @@ func NewHFRerankingFunction(opts ...Option) (*HFRerankingFunction, error) {
 func (r *HFRerankingFunction) sendRequest(ctx context.Context, req *RerankingRequest) (*RerankingResponse, error) {
 	payload, err := json.Marshal(req)
 	if err != nil {
-
 		return nil, err
 	}
 
@@ -139,7 +137,7 @@ func (r *HFRerankingFunction) ID() string {
 	if r.defaultModel != nil {
 		return fmt.Sprintf("hf-%s", *(*string)(r.defaultModel))
 	}
-	return fmt.Sprintf("hfei")
+	return "hfei"
 }
 
 func (r *HFRerankingFunction) RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (*rerankings.RerankedChromaResults, error) {
