@@ -25,3 +25,5 @@ _testmain.go
 .env
 .idea/*
 *.iml
+/data
+/pkg/rerankings/hf/data
