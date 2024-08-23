@@ -16,6 +16,7 @@ The following embedding wrappers are available:
 | [Google Gemini](#google-gemini)                                                   | Google Gemini Embedding.<br/> For more info see [Gemini Docs](https://ai.google.dev/gemini-api/docs/embeddings).                                            |
 | [Mistral AI](#mistral-ai)                                                         | Mistral AI Embedding.<br/> For more info see [Mistral AI API Docs](https://docs.mistral.ai/capabilities/embeddings/).                                       |
 | [Nomic AI](#nomic-ai)                                                             | Nomic AI Embedding.<br/> For more info see [Nomic AI API Docs](https://docs.nomic.ai/atlas/models/text-embedding).                                          |
+| [Jina AI](#jina-ai)                                                               | Jina AI Embedding.<br/> For more info see [Nomic AI API Docs](https://api.jina.ai/redoc#tag/embeddings/operation/create_embedding_v1_embeddings_post).      |
 
 ## Default Embeddings
 
@@ -424,4 +425,39 @@ func main() {
 	fmt.Printf("Embedding response: %v \n", resp)
 }
 ```
+
+## Jina AI
+
+To use Jina AI embeddings, you will need to get an [API Key](https://jina.ai) (trial API keys are freely available
+without any registration, scroll down the page and find the automatically generated API key).
+
+Supported models - https://api.jina.ai/redoc#tag/embeddings/operation/create_embedding_v1_embeddings_post
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	jina "github.com/amikos-tech/chroma-go/pkg/embeddings/jina"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `JINA_API_KEY` set in your environment
+	ef, err := jina.NewJinaEmbeddingFunction(jina.WithEnvAPIKey())
+	if err != nil {
+		fmt.Printf("Error creating Jina embedding function: %s \n", err)
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
 

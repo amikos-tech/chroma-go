@@ -22,6 +22,7 @@ import (
 
 type DistanceFunction string
 type QueryEnum string
+type EmbeddingModel string
 
 const (
 	L2                 DistanceFunction = "l2"

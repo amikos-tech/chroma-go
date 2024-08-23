@@ -116,3 +116,4 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           NOMIC_API_KEY: ${{ secrets.NOMIC_API_KEY }}
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}

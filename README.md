@@ -46,6 +46,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/)
 - ✅ [Voyage AI Embedding](https://go-client.chromadb.dev/embeddings/#voyage-ai) Support
 - ✅ [Mistral AI API Embedding](https://go-client.chromadb.dev/embeddings/#mistral-ai) Support
 - ✅ [Nomic AI Embedding](https://go-client.chromadb.dev/embeddings/#nomic-ai) Support
+- ✅ [Jina AI Embedding](https://go-client.chromadb.dev/embeddings/#jina-ai) Support
 
 ## Installation
 
