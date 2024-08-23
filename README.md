@@ -48,6 +48,14 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/)
 - ✅ [Nomic AI Embedding](https://go-client.chromadb.dev/embeddings/#nomic-ai) Support
 - ✅ [Jina AI Embedding](https://go-client.chromadb.dev/embeddings/#jina-ai) Support
 
+## Reranking Functions
+
+From release `0.2.0` the Chroma Go client also supports Reranking functions. The following are supported:
+
+- ✅ [Cohere](https://go-client.chromadb.dev/rerankers/#cohere-reranker)
+- ✅ [Jina AI](https://go-client.chromadb.dev/rerankers/#jina-ai-reranker)
+
+
 ## Installation
 
 ```bash
