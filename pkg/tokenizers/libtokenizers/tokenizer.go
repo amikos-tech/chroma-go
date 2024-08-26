@@ -1,7 +1,7 @@
 package tokenizers
 
 /*
-#cgo linux LDFLAGS: -ldl
+#cgo LDFLAGS: -ldl
 #include <dlfcn.h>
 #include <stdlib.h>
 #include "tokenizers.h"
