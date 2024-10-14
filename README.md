@@ -58,6 +58,12 @@ From release `0.2.0` the Chroma Go client also supports Reranking functions. The
 
 ## Installation
 
+> [!IMPORTANT]  
+> There are many new changes leading up to `v0.2.0`, as documented below. If you'd like to use them please install the latest version of the client.
+> ```bash
+> go get github.com/amikos-tech/chroma-go@main
+> ```
+
 ```bash
 go get github.com/amikos-tech/chroma-go
 ```
