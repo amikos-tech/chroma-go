@@ -47,7 +47,7 @@ jobs:
     needs: [lint,paths-filter]
     strategy:
       matrix:
-        chroma-version: ["0.4.8", "0.4.24","0.5.0","0.5.5"]
+        chroma-version: ["0.4.8", "0.4.24","0.5.5", "0.5.13"]
     environment: Test
     steps:
     - uses: actions/checkout@v3
