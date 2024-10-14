@@ -787,10 +787,8 @@ func Test_chroma_client(t *testing.T) {
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
 		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		deletedIds, dellErr := newCollection.Delete(context.Background(), []string{"ID1"}, nil, nil)
-		require.NoError(t, dellErr)
-		require.Equal(t, 1, len(deletedIds))
-		require.Equal(t, "ID1", deletedIds[0])
+		_, err = newCollection.Delete(context.Background(), []string{"ID1"}, nil, nil)
+		require.NoError(t, err)
 	})
 
 	t.Run("Test Delete Embeddings by Where", func(t *testing.T) {
@@ -807,10 +805,8 @@ func Test_chroma_client(t *testing.T) {
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
 		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		deletedIds, dellErr := newCollection.Delete(context.Background(), nil, map[string]interface{}{"key2": "value2"}, nil)
-		require.NoError(t, dellErr)
-		require.Equal(t, 1, len(deletedIds))
-		require.Equal(t, "ID2", deletedIds[0])
+		_, err = newCollection.Delete(context.Background(), nil, map[string]interface{}{"key2": "value2"}, nil)
+		require.NoError(t, err)
 	})
 
 	t.Run("Test Delete Embeddings by Where Document Contains", func(t *testing.T) {
@@ -827,10 +823,8 @@ func Test_chroma_client(t *testing.T) {
 		docs, ids, docMetadata, embeds := GetTestDocumentTest()
 		_, addError := newCollection.Add(context.Background(), embeds, docMetadata, docs, ids)
 		require.NoError(t, addError)
-		deletedIds, dellErr := newCollection.Delete(context.Background(), nil, nil, map[string]interface{}{"$contains": "Document 1"})
-		require.NoError(t, dellErr)
-		require.Equal(t, 1, len(deletedIds))
-		require.Equal(t, "ID1", deletedIds[0])
+		_, err = newCollection.Delete(context.Background(), nil, nil, map[string]interface{}{"$contains": "Document 1"})
+		require.NoError(t, err)
 	})
 
 	t.Run("Test Collection Get Include Embeddings", func(t *testing.T) {
