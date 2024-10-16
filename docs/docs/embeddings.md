@@ -186,7 +186,7 @@ Use the following command to start the Ollama server:
     docker run -d -v ./ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
     docker exec -it ollama ollama run nomic-embed-text # press Ctrl+D to exit after model downloads successfully
     # test it
-    curl http://localhost:11434/api/embeddings -d '{"model": "nomic-embed-text","prompt": "Here is an article about llamas..."}'
+    curl http://localhost:11434/api/embed -d '{"model": "nomic-embed-text","input": ["Here is an article about llamas..."]}'
  ```
 
 ```go

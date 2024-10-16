@@ -30,7 +30,7 @@ func Test_ollama(t *testing.T) {
 	require.NoError(t, err)
 	client, _ := NewOllamaClient(WithBaseURL(connectionStr), WithModel("nomic-embed-text"))
 	t.Run("Test Create Embed", func(t *testing.T) {
-		resp, rerr := client.createEmbedding(context.Background(), &CreateEmbeddingRequest{Model: "nomic-embed-text", Prompt: "Document 1 content here"})
+		resp, rerr := client.createEmbedding(context.Background(), &CreateEmbeddingRequest{Model: "nomic-embed-text", Input: &EmbeddingInput{Input: "Document 1 content here"}})
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 	})

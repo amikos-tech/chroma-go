@@ -18,13 +18,28 @@ type OllamaClient struct {
 	Client         *http.Client
 	DefaultHeaders map[string]string
 }
+
+type EmbeddingInput struct {
+	Input  string
+	Inputs []string
+}
+
+func (e EmbeddingInput) MarshalJSON() ([]byte, error) {
+	if e.Input != "" {
+		return json.Marshal(e.Input)
+	} else if len(e.Inputs) > 0 {
+		return json.Marshal(e.Inputs)
+	}
+	return json.Marshal(nil)
+}
+
 type CreateEmbeddingRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
+	Model string          `json:"model"`
+	Input *EmbeddingInput `json:"input"`
 }
 
 type CreateEmbeddingResponse struct {
-	Embedding []float32 `json:"embedding"`
+	Embeddings [][]float32 `json:"embeddings"`
 }
 
 func (c *CreateEmbeddingRequest) JSON() (string, error) {
@@ -55,9 +70,9 @@ func (c *OllamaClient) createEmbedding(ctx context.Context, req *CreateEmbedding
 	}
 	var url string
 	if !strings.HasSuffix(c.BaseURL, "/") {
-		url = c.BaseURL + "/api/embeddings"
+		url = c.BaseURL + "/api/embed"
 	} else {
-		url = c.BaseURL + "api/embeddings"
+		url = c.BaseURL + "api/embed"
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBufferString(reqJSON))
@@ -108,29 +123,25 @@ func NewOllamaEmbeddingFunction(option ...Option) (*OllamaEmbeddingFunction, err
 }
 
 func (e *OllamaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
-	embeddings := make([]*types.Embedding, 0)
-	for _, document := range documents {
-		response, err := e.apiClient.createEmbedding(ctx, &CreateEmbeddingRequest{
-			Model:  e.apiClient.Model,
-			Prompt: document,
-		})
-		if err != nil {
-			return nil, err
-		}
-		embeddings = append(embeddings, types.NewEmbeddingFromFloat32(response.Embedding))
-	}
-	return embeddings, nil
-}
-
-func (e *OllamaEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
 	response, err := e.apiClient.createEmbedding(ctx, &CreateEmbeddingRequest{
-		Model:  e.apiClient.Model,
-		Prompt: document,
+		Model: e.apiClient.Model,
+		Input: &EmbeddingInput{Inputs: documents},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return types.NewEmbeddingFromFloat32(response.Embedding), nil
+	return types.NewEmbeddingsFromFloat32(response.Embeddings), nil
+}
+
+func (e *OllamaEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+	response, err := e.apiClient.createEmbedding(ctx, &CreateEmbeddingRequest{
+		Model: e.apiClient.Model,
+		Input: &EmbeddingInput{Input: document},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return types.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
 }
 
 func (e *OllamaEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
