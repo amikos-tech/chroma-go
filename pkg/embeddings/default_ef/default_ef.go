@@ -21,7 +21,7 @@ type DefaultEmbeddingFunction struct {
 	tokenizer *tokenizers.Tokenizer
 }
 
-func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func(), error) {
+func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
 	err := EnsureLibTokenizersSharedLibrary()
 	if err != nil {
 		return nil, nil, err
@@ -46,26 +46,17 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 	if err != nil {
 		return nil, nil, err
 	}
+	ef := &DefaultEmbeddingFunction{tokenizer: tk}
 	ort.SetSharedLibraryPath(onnxLibPath)
 	err = ort.InitializeEnvironment()
 	if err != nil {
-		return nil, func() {
-			err := tk.Close()
-			if err != nil {
-				fmt.Println(err)
-			}
-		}, err
+		errc := ef.Close()
+		if errc != nil {
+			fmt.Printf("error while closing embedding function %v", errc.Error())
+		}
+		return nil, nil, err
 	}
-	return &DefaultEmbeddingFunction{tokenizer: tk}, func() {
-		err := tk.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = ort.DestroyEnvironment()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}, nil
+	return ef, ef.Close, nil
 }
 
 type EmbeddingInput struct {
@@ -298,4 +289,18 @@ func updateConfig(filename string) ([]byte, error) {
 	}
 
 	return updatedData, nil
+}
+
+func (e *DefaultEmbeddingFunction) Close() error {
+	if e.tokenizer != nil {
+		err := e.tokenizer.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+	err := ort.DestroyEnvironment()
+	if err != nil {
+		fmt.Println(err)
+	}
+	return nil
 }

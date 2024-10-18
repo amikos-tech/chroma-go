@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -54,6 +55,7 @@ type Client struct {
 	httpTransport      *http.Transport
 	userHTTPClient     *http.Client
 	BasePath           string
+	closeHook          func() error
 }
 
 type ClientOption func(p *Client) error
@@ -360,6 +362,11 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 	if metadata["embedding_function"] == nil && embeddingFunction != nil {
 		_metadata["embedding_function"] = GetStringTypeOfEmbeddingFunction(embeddingFunction)
 	}
+	if closer, ok := embeddingFunction.(io.Closer); ok {
+		c.closeHook = func() error {
+			return closer.Close()
+		}
+	}
 	if distanceFunction == "" {
 		_metadata[types.HNSWSpace] = strings.ToLower(string(types.L2))
 	} else {
@@ -476,6 +483,13 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 	resp, _, err := c.ApiClient.DefaultApi.Version(ctx).Execute()
 	version := strings.ReplaceAll(resp, `"`, "")
 	return version, err
+}
+
+func (c *Client) Close() error {
+	if c.closeHook != nil {
+		return c.closeHook()
+	}
+	return nil
 }
 
 type GetResults struct {

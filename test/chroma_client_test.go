@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	testcontainers "github.com/testcontainers/testcontainers-go"
@@ -35,7 +36,7 @@ import (
 	wheredoc "github.com/amikos-tech/chroma-go/where_document"
 )
 
-func Test_chroma_client(t *testing.T) {
+func TestChromaClient(t *testing.T) {
 	ctx := context.Background()
 	var chromaVersion = "latest"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
@@ -1172,6 +1173,22 @@ func Test_chroma_client(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, result.Ids[0], 1)
 		require.Contains(t, result.Documents[0], "Document 1 content")
+	})
+
+	t.Run("Test Client close with no closable resources", func(t *testing.T) {
+		client, err := chroma.NewClient(chroma.WithBasePath(chromaURL), chroma.WithDebug(true))
+		require.NoError(t, err)
+		require.NoError(t, client.Close())
+	})
+
+	t.Run("Test Client close with no closable resources", func(t *testing.T) {
+		client, err := chroma.NewClient(chroma.WithBasePath(chromaURL), chroma.WithDebug(true))
+		require.NoError(t, err)
+		ef, _, err := defaultef.NewDefaultEmbeddingFunction()
+		require.NoError(t, err)
+		_, err = client.NewCollection(context.Background(), "test", collection.WithEmbeddingFunction(ef))
+		require.NoError(t, err)
+		require.NoError(t, client.Close())
 	})
 }
 
