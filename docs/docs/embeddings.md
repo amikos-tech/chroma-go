@@ -24,7 +24,9 @@ The following embedding wrappers are available:
 
 The default embedding function uses the `all-MiniLM-L6-v2` model running on Onnx Runtime.
 
-Note: As the EF relies on C bindings to avoid memory leaks make sure to call the close callback
+Note: As the EF relies on C bindings to avoid memory leaks make sure to call the close callback, alternatively if you
+are passing the EF to a client e.g. when getting or creating a collection you can use the client's close method to
+ensure proper resource release.
 
 ```go
 package main
@@ -38,7 +40,14 @@ import (
 
 func main() {
 	ef, closeef, efErr := defaultef.NewDefaultEmbeddingFunction()
-	defer closeef() // make sure to call this to ensure proper resource release
+
+	// make sure to call this to ensure proper resource release
+	defer func() {
+		err := closeef()
+		if err != nil {
+			fmt.Printf("Error closing default embedding function: %s \n", err)
+		}
+	}()
 	if efErr != nil {
 		fmt.Printf("Error creating OpenAI embedding function: %s \n", efErr)
 	}
