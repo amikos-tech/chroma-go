@@ -26,8 +26,7 @@ type DefaultEmbeddingFunction struct {
 }
 
 var (
-	initLock     sync.Mutex
-	onnxInitOnce sync.Once
+	initLock sync.Mutex
 )
 
 func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
@@ -58,20 +57,18 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 		return nil, nil, err
 	}
 	ef := &DefaultEmbeddingFunction{tokenizer: tk}
-	onnxInitOnce.Do(func() {
-		if ort.IsInitialized() {
-			return
-		}
+	if !ort.IsInitialized() {
 		ort.SetSharedLibraryPath(onnxLibPath)
 		err = ort.InitializeEnvironment()
-	})
-	if err != nil {
-		errc := ef.Close()
-		if errc != nil {
-			fmt.Printf("error while closing embedding function %v", errc.Error())
+		if err != nil {
+			errc := ef.Close()
+			if errc != nil {
+				fmt.Printf("error while closing embedding function %v", errc.Error())
+			}
+			return nil, nil, err
 		}
-		return nil, nil, err
 	}
+
 	return ef, ef.Close, nil
 }
 

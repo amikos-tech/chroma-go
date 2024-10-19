@@ -574,13 +574,14 @@ func TestChromaClient(t *testing.T) {
 		require.NotNil(t, newCollection)
 		require.Equal(t, collectionName, newCollection.Name)
 		require.Equal(t, 2, len(newCollection.Metadata))
+		_, addError := newCollection.Add(context.Background(), nil, nil, []string{"test"}, []string{"ID1"})
+		require.NoError(t, addError)
+
 		// assert the metadata contains key embedding_function
 		newCollection, err = client.GetCollection(context.Background(), collectionName, nil)
 		require.NoError(t, err)
-		_, err = newCollection.Query(context.Background(), []string{"Dogs are my favorite animals"}, 5, nil, nil, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "embedding function is not set")
-
+		_, err = newCollection.Query(context.Background(), []string{"Dogs are my favorite animals"}, 5, nil, nil, []types.QueryEnum{types.IDocuments})
+		require.Error(t, err, "embedding function mismatch error expected")
 	})
 
 	t.Run("Test Query Collection Documents - with document only includes", func(t *testing.T) {
@@ -1192,7 +1193,8 @@ func TestChromaClient(t *testing.T) {
 	})
 
 	t.Run("Test Create Collection with Default EF", func(t *testing.T) {
-		require.NoError(t, err)
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
 		col, err := client.NewCollection(context.Background(), "test")
 		require.NoError(t, err)
 		require.NotNil(t, col.EmbeddingFunction)
@@ -1209,7 +1211,8 @@ func TestChromaClient(t *testing.T) {
 	})
 
 	t.Run("Test Get Collection with Default EF", func(t *testing.T) {
-		require.NoError(t, err)
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
 		col, err := client.NewCollection(context.Background(), "test")
 		require.NoError(t, err)
 		require.NotNil(t, col.EmbeddingFunction)
