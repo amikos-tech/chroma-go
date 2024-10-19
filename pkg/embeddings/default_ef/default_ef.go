@@ -329,9 +329,11 @@ func (e *DefaultEmbeddingFunction) Close() error {
 				errs = append(errs, err)
 			}
 		}
-		err := ort.DestroyEnvironment()
-		if err != nil {
-			errs = append(errs, err)
+		if ort.IsInitialized() { // skip destroying the environment if it is not initialized
+			err := ort.DestroyEnvironment()
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 		if len(errs) > 0 {
 			closeErr = fmt.Errorf("errors: %v", errs)

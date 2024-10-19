@@ -36,3 +36,8 @@ func TestClose(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "embedding function is closed")
 }
+func TestCloseClosed(t *testing.T) {
+	ef := &DefaultEmbeddingFunction{}
+	err := ef.Close()
+	require.NoError(t, err)
+}
