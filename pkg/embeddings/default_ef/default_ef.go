@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sync"
+	"sync/atomic"
 
 	ort "github.com/yalue/onnxruntime_go"
 
@@ -19,9 +21,15 @@ var _ types.EmbeddingFunction = (*DefaultEmbeddingFunction)(nil)
 
 type DefaultEmbeddingFunction struct {
 	tokenizer *tokenizers.Tokenizer
+	closed    int32
+	closeOnce sync.Once
 }
 
-func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func(), error) {
+var initLock sync.Mutex
+
+func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
+	initLock.Lock()
+	defer initLock.Unlock()
 	err := EnsureLibTokenizersSharedLibrary()
 	if err != nil {
 		return nil, nil, err
@@ -46,26 +54,17 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 	if err != nil {
 		return nil, nil, err
 	}
+	ef := &DefaultEmbeddingFunction{tokenizer: tk}
 	ort.SetSharedLibraryPath(onnxLibPath)
 	err = ort.InitializeEnvironment()
 	if err != nil {
-		return nil, func() {
-			err := tk.Close()
-			if err != nil {
-				fmt.Println(err)
-			}
-		}, err
+		errc := ef.Close()
+		if errc != nil {
+			fmt.Printf("error while closing embedding function %v", errc.Error())
+		}
+		return nil, nil, err
 	}
-	return &DefaultEmbeddingFunction{tokenizer: tk}, func() {
-		err := tk.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = ort.DestroyEnvironment()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}, nil
+	return ef, ef.Close, nil
 }
 
 type EmbeddingInput struct {
@@ -298,4 +297,29 @@ func updateConfig(filename string) ([]byte, error) {
 	}
 
 	return updatedData, nil
+}
+
+func (e *DefaultEmbeddingFunction) Close() error {
+	if atomic.LoadInt32(&e.closed) == 1 {
+		return nil
+	}
+	var closeErr error
+	e.closeOnce.Do(func() {
+		var errs []error
+		if e.tokenizer != nil {
+			err := e.tokenizer.Close()
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+		err := ort.DestroyEnvironment()
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if len(errs) > 0 {
+			closeErr = fmt.Errorf("errors: %v", errs)
+		}
+		atomic.StoreInt32(&e.closed, 1)
+	})
+	return closeErr
 }

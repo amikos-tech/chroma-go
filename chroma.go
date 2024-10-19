@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -54,6 +55,7 @@ type Client struct {
 	httpTransport      *http.Transport
 	userHTTPClient     *http.Client
 	BasePath           string
+	activeCollections  []*Collection
 }
 
 type ClientOption func(p *Client) error
@@ -193,11 +195,12 @@ func applyOptions(c *Client, options ...ClientOption) error {
 
 func NewClient(options ...ClientOption) (*Client, error) {
 	c := &Client{
-		Tenant:           types.DefaultTenant,
-		Database:         types.DefaultDatabase,
-		apiConfiguration: openapiclient.NewConfiguration(),
-		httpTransport:    &http.Transport{TLSClientConfig: &tls.Config{}},
-		BasePath:         "http://localhost:8000",
+		Tenant:            types.DefaultTenant,
+		Database:          types.DefaultDatabase,
+		apiConfiguration:  openapiclient.NewConfiguration(),
+		httpTransport:     &http.Transport{TLSClientConfig: &tls.Config{}},
+		BasePath:          "http://localhost:8000",
+		activeCollections: make([]*Collection, 0),
 	}
 
 	err := applyOptions(c, options...)
@@ -266,6 +269,7 @@ func (c *Client) preFlightChecks(ctx context.Context) error {
 	return nil
 }
 
+// GetCollection returns an instance of a collection object which can be used to interact with the collection data.
 func (c *Client) GetCollection(ctx context.Context, collectionName string, embeddingFunction types.EmbeddingFunction) (*Collection, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -282,9 +286,10 @@ func (c *Client) GetCollection(ctx context.Context, collectionName string, embed
 	if httpResp.StatusCode != 200 {
 		return nil, fmt.Errorf("error getting collection: %v", httpResp)
 	}
-	return NewCollection(c.ApiClient, col.Id, col.Name, getMetadataFromAPI(col.Metadata), embeddingFunction, tenantName, databaseName), nil
+	return NewCollection(c, col.Id, col.Name, getMetadataFromAPI(col.Metadata), embeddingFunction, tenantName, databaseName), nil
 }
 
+// Heartbeat checks whether the Chroma server is up and running returns a map[string]float32 with the current server timestamp
 func (c *Client) Heartbeat(ctx context.Context) (map[string]float32, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -303,6 +308,7 @@ func GetStringTypeOfEmbeddingFunction(ef types.EmbeddingFunction) string {
 	return typ.String()
 }
 
+// CreateTenant creates a new tenant with the given name, fails if the tenant already exists
 func (c *Client) CreateTenant(ctx context.Context, tenantName string) (*openapiclient.Tenant, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -310,6 +316,7 @@ func (c *Client) CreateTenant(ctx context.Context, tenantName string) (*openapic
 	return resp, err
 }
 
+// GetTenant returns the tenant with the given name, fails if the tenant does not exist
 func (c *Client) GetTenant(ctx context.Context, tenantName string) (*openapiclient.Tenant, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -317,6 +324,7 @@ func (c *Client) GetTenant(ctx context.Context, tenantName string) (*openapiclie
 	return resp, err
 }
 
+// CreateDatabase creates a new database with the given name, fails if the database already exists
 func (c *Client) CreateDatabase(ctx context.Context, databaseName string, tenantName *string) (*openapiclient.Database, error) {
 	if tenantName == nil {
 		tenantName = &c.Tenant
@@ -327,6 +335,7 @@ func (c *Client) CreateDatabase(ctx context.Context, databaseName string, tenant
 	return resp, err
 }
 
+// GetDatabase returns the database with the given name, fails if the database does not exist
 func (c *Client) GetDatabase(ctx context.Context, databaseName string, tenantName *string) (*openapiclient.Database, error) {
 	if tenantName == nil {
 		tenantName = &c.Tenant
@@ -349,6 +358,7 @@ func copyMap(originalMap map[string]interface{}) map[string]interface{} {
 	return newMap
 }
 
+// CreateCollection [legacy] creates a new collection with the given name, metadata, embedding function and distance function
 func (c *Client) CreateCollection(ctx context.Context, collectionName string, metadata map[string]interface{}, createOrGet bool, embeddingFunction types.EmbeddingFunction, distanceFunction types.DistanceFunction) (*Collection, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -359,6 +369,15 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 	var _metadata = copyMap(metadata)
 	if metadata["embedding_function"] == nil && embeddingFunction != nil {
 		_metadata["embedding_function"] = GetStringTypeOfEmbeddingFunction(embeddingFunction)
+	}
+	var errorEfCloser func()
+	if closer, ok := embeddingFunction.(io.Closer); ok {
+		errorEfCloser = func() {
+			err := closer.Close()
+			if err != nil {
+				fmt.Printf("error closing embedding function: %v\n", err)
+			}
+		}
 	}
 	if distanceFunction == "" {
 		_metadata[types.HNSWSpace] = strings.ToLower(string(types.L2))
@@ -372,12 +391,17 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 	}
 	resp, _, err := c.ApiClient.DefaultApi.CreateCollection(ctx).CreateCollection(col).Execute()
 	if err != nil {
+		// we defer close the EF if it implements the io.Closer interface
+		defer errorEfCloser()
 		return nil, err
 	}
 	mtd := resp.Metadata
-	return NewCollection(c.ApiClient, resp.Id, resp.Name, getMetadataFromAPI(mtd), embeddingFunction, c.Tenant, c.Database), nil
+	newCol := NewCollection(c, resp.Id, resp.Name, getMetadataFromAPI(mtd), embeddingFunction, c.Tenant, c.Database)
+	c.activeCollections = append(c.activeCollections, newCol)
+	return newCol, nil
 }
 
+// NewCollection creates a new collection with the given name and options
 func (c *Client) NewCollection(ctx context.Context, name string, options ...collection.Option) (*Collection, error) {
 	b := &collection.Builder{Metadata: make(map[string]interface{})}
 	for _, option := range options {
@@ -404,6 +428,7 @@ func (c *Client) NewCollection(ctx context.Context, name string, options ...coll
 	return c.CreateCollection(ctx, b.Name, b.Metadata, b.CreateIfNotExist, b.EmbeddingFunction, distanceFunction)
 }
 
+// DeleteCollection deletes the collection with the given name
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*Collection, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -420,12 +445,13 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*
 		return nil, err
 	}
 	if deletedCol == nil {
-		return NewCollection(c.ApiClient, col.Id, col.Name, getMetadataFromAPI(col.Metadata), nil, c.Tenant, c.Database), nil
+		return NewCollection(c, col.Id, col.Name, getMetadataFromAPI(col.Metadata), nil, c.Tenant, c.Database), nil
 	} else {
-		return NewCollection(c.ApiClient, deletedCol.Id, deletedCol.Name, getMetadataFromAPI(deletedCol.Metadata), nil, c.Tenant, c.Database), nil
+		return NewCollection(c, deletedCol.Id, deletedCol.Name, getMetadataFromAPI(deletedCol.Metadata), nil, c.Tenant, c.Database), nil
 	}
 }
 
+// Reset deletes all data in the Chroma server if `ALLOW_RESET` is set to true in the environment variables of the server, otherwise fails
 func (c *Client) Reset(ctx context.Context) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -433,6 +459,7 @@ func (c *Client) Reset(ctx context.Context) (bool, error) {
 	return resp, err
 }
 
+// ListCollections returns a list of all collections in the database
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -447,11 +474,12 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	}
 	collections := make([]*Collection, len(resp))
 	for i, col := range resp {
-		collections[i] = NewCollection(c.ApiClient, col.Id, col.Name, getMetadataFromAPI(col.Metadata), nil, c.Tenant, c.Database)
+		collections[i] = NewCollection(c, col.Id, col.Name, getMetadataFromAPI(col.Metadata), nil, c.Tenant, c.Database)
 	}
 	return collections, nil
 }
 
+// CountCollections returns the number of collections in the database
 func (c *Client) CountCollections(ctx context.Context) (int32, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -463,6 +491,7 @@ func (c *Client) CountCollections(ctx context.Context) (int32, error) {
 	return resp, err
 }
 
+// PreflightChecks returns the preflight checks of the Chroma server, returns a map of the preflight checks. Currently on max_batch_size supported by the server is returned
 func (c *Client) PreflightChecks(ctx context.Context) (map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
@@ -470,12 +499,28 @@ func (c *Client) PreflightChecks(ctx context.Context) (map[string]interface{}, e
 	return resp, err
 }
 
+// Version returns the version of the Chroma server
 func (c *Client) Version(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
 	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.Version(ctx).Execute()
 	version := strings.ReplaceAll(resp, `"`, "")
 	return version, err
+}
+
+// Close closes the client and all closeable resources
+func (c *Client) Close() error {
+	errors := make([]error, 0)
+	for _, col := range c.activeCollections {
+		err := col.close()
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+	if len(errors) > 0 {
+		return fmt.Errorf("errors: %v", errors)
+	}
+	return nil
 }
 
 type GetResults struct {
@@ -493,6 +538,24 @@ type Collection struct {
 	ID                string
 	Tenant            string
 	Database          string
+	chromaClient      *Client
+}
+
+func (c *Collection) close() error {
+	var err error
+	if closer, ok := c.EmbeddingFunction.(io.Closer); ok {
+		err = closer.Close()
+	}
+	if c.chromaClient != nil {
+		// remove the collection from the active collections
+		for i, col := range c.chromaClient.activeCollections {
+			if col.ID == c.ID {
+				c.chromaClient.activeCollections = append(c.chromaClient.activeCollections[:i], c.chromaClient.activeCollections[i+1:]...)
+				break
+			}
+		}
+	}
+	return err
 }
 
 func (c *Collection) String() string {
@@ -500,7 +563,7 @@ func (c *Collection) String() string {
 		c.Name, c.ID, c.Tenant, c.Database, c.Metadata)
 }
 
-func NewCollection(apiClient *openapiclient.APIClient, id string, name string, metadata *map[string]interface{}, embeddingFunction types.EmbeddingFunction, tenant string, database string) *Collection {
+func NewCollection(chromaClient *Client, id string, name string, metadata *map[string]interface{}, embeddingFunction types.EmbeddingFunction, tenant string, database string) *Collection {
 	_metadata := make(map[string]interface{})
 	if metadata != nil {
 		_metadata = *metadata
@@ -508,11 +571,12 @@ func NewCollection(apiClient *openapiclient.APIClient, id string, name string, m
 	return &Collection{
 		Name:              name,
 		EmbeddingFunction: embeddingFunction,
-		ApiClient:         apiClient,
+		ApiClient:         chromaClient.ApiClient,
 		Metadata:          _metadata,
 		ID:                id,
 		Tenant:            tenant,
 		Database:          database,
+		chromaClient:      chromaClient,
 	}
 }
 

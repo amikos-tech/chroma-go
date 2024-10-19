@@ -130,7 +130,16 @@ func main() {
 	client,err := chroma.NewClient(chroma.WithBasePath("http://localhost:8000"))
 	if err != nil {
         log.Fatalf("Error creating client: %s \n", err)
+		return
     }
+	// Close the client to release any resources such as local embedding functions
+	defer func() {
+		err = client.Close()
+		if err != nil {
+			log.Fatalf("Error closing client: %s \n", err)
+        }
+    }()
+	
 
 	// Create a new collection with options
 	newCollection, err := client.NewCollection(

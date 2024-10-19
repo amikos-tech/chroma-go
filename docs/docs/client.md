@@ -44,5 +44,11 @@ func main() {
 		fmt.Printf("Failed to create client: %v", err)
 	}
 	// do something with client
+	
+	// Close the client to release any resources such as local embedding functions
+	err = client.Close()
+	if err != nil {
+		fmt.Printf("Failed to close client: %v",err) 
+	}
 }
 ```
