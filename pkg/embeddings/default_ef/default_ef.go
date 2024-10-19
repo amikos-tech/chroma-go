@@ -25,7 +25,10 @@ type DefaultEmbeddingFunction struct {
 	closeOnce sync.Once
 }
 
-var initLock sync.Mutex
+var (
+	initLock     sync.Mutex
+	onnxInitOnce sync.Once
+)
 
 func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
 	initLock.Lock()
@@ -55,8 +58,13 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 		return nil, nil, err
 	}
 	ef := &DefaultEmbeddingFunction{tokenizer: tk}
-	ort.SetSharedLibraryPath(onnxLibPath)
-	err = ort.InitializeEnvironment()
+	onnxInitOnce.Do(func() {
+		if ort.IsInitialized() {
+			return
+		}
+		ort.SetSharedLibraryPath(onnxLibPath)
+		err = ort.InitializeEnvironment()
+	})
 	if err != nil {
 		errc := ef.Close()
 		if errc != nil {
@@ -215,6 +223,9 @@ func (e *DefaultEmbeddingFunction) encode(embeddingInput *EmbeddingInput) ([]*ty
 }
 
 func (e *DefaultEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+	if atomic.LoadInt32(&e.closed) == 1 {
+		return nil, fmt.Errorf("embedding function is closed")
+	}
 	embeddingInputs, err := e.tokenize(documents)
 	if err != nil {
 		return nil, err
@@ -223,6 +234,9 @@ func (e *DefaultEmbeddingFunction) EmbedDocuments(ctx context.Context, documents
 }
 
 func (e *DefaultEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+	if atomic.LoadInt32(&e.closed) == 1 {
+		return nil, fmt.Errorf("embedding function is closed")
+	}
 	embeddingInputs, err := e.tokenize([]string{document})
 	if err != nil {
 		return nil, err
@@ -235,6 +249,9 @@ func (e *DefaultEmbeddingFunction) EmbedQuery(ctx context.Context, document stri
 }
 
 func (e *DefaultEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
+	if atomic.LoadInt32(&e.closed) == 1 {
+		return fmt.Errorf("embedding function is closed")
+	}
 	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }
 

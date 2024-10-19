@@ -101,7 +101,7 @@ helm install chroma chroma/chromadb --set chromadb.allowReset=true,chromadb.apiV
 Consider the following example where:
 
 - We create a new collection
-- Add documents using OpenAI embedding function
+- Add documents using the default embedding function
 - Query the collection using the same embedding function
 
 ```go
@@ -120,12 +120,6 @@ import (
 )
 
 func main() {
-	// Create new OpenAI embedding function
-
-	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
-	if err != nil {
-		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
-	}
 	// Create a new Chroma client
 	client,err := chroma.NewClient(chroma.WithBasePath("http://localhost:8000"))
 	if err != nil {
@@ -141,12 +135,11 @@ func main() {
     }()
 	
 
-	// Create a new collection with options
+	// Create a new collection with options. We don't provide an embedding function here, so the default embedding function will be used
 	newCollection, err := client.NewCollection(
 		context.TODO(),
         "test-collection",
 		collection.WithMetadata("key1", "value1"),
-		collection.WithEmbeddingFunction(openaiEf),
 		collection.WithHNSWDistanceFunction(types.L2),
 	)
 	if err != nil {
@@ -155,7 +148,7 @@ func main() {
 
 	// Create a new record set with to hold the records to insert
 	rs, err := types.NewRecordSet(
-		types.WithEmbeddingFunction(openaiEf),
+		types.WithEmbeddingFunction(newCollection.EmbeddingFunction), // we pass the embedding function from the collection
 		types.WithIDGenerator(types.NewULIDGenerator()),
 	)
 	if err != nil {

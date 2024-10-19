@@ -1190,6 +1190,38 @@ func TestChromaClient(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, client.Close())
 	})
+
+	t.Run("Test Create Collection with Default EF", func(t *testing.T) {
+		require.NoError(t, err)
+		col, err := client.NewCollection(context.Background(), "test")
+		require.NoError(t, err)
+		require.NotNil(t, col.EmbeddingFunction)
+		_, err = col.Add(context.Background(), nil, nil, []string{"test"}, []string{"test"})
+		require.NoError(t, err, "failed to add document")
+		results, err := col.GetWithOptions(context.Background(), types.WithInclude(types.IEmbeddings, types.IDocuments), types.WithIds([]string{"test"}))
+		require.NoError(t, err, "failed to get document")
+		require.Len(t, results.Embeddings, 1)
+		require.Len(t, results.Documents, 1)
+		require.Equal(t, "test", results.Ids[0])
+		require.Equal(t, "test", results.Documents[0])
+		require.Equal(t, 384, results.Embeddings[0].Len())
+		require.NoError(t, client.Close())
+	})
+
+	t.Run("Test Get Collection with Default EF", func(t *testing.T) {
+		require.NoError(t, err)
+		col, err := client.NewCollection(context.Background(), "test")
+		require.NoError(t, err)
+		require.NotNil(t, col.EmbeddingFunction)
+		_, err = col.Add(context.Background(), nil, nil, []string{"test"}, []string{"test"})
+		require.NoError(t, err, "failed to add document")
+
+		getCollection, err := client.GetCollection(context.Background(), "test", nil)
+		require.NoError(t, err, "failed to get collection")
+		require.NotNil(t, getCollection.EmbeddingFunction)
+		_, err = getCollection.Add(context.Background(), nil, nil, []string{"test"}, []string{"test"})
+		require.NoError(t, err, "failed to add documents after get")
+	})
 }
 
 func TestClientSecurity(t *testing.T) {

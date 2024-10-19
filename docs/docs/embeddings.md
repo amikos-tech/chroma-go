@@ -22,7 +22,8 @@ The following embedding wrappers are available:
 
 > Note: Supported from 0.2.0+
 
-The default embedding function uses the `all-MiniLM-L6-v2` model running on Onnx Runtime.
+The default embedding function uses the `all-MiniLM-L6-v2` model running on Onnx Runtime. The default EF is configured
+by default if no EF is provided when creating or getting a collection.
 
 Note: As the EF relies on C bindings to avoid memory leaks make sure to call the close callback, alternatively if you
 are passing the EF to a client e.g. when getting or creating a collection you can use the client's close method to
