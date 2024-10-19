@@ -545,7 +545,6 @@ func (c *Collection) close() error {
 	var err error
 	if closer, ok := c.EmbeddingFunction.(io.Closer); ok {
 		err = closer.Close()
-
 	}
 	if c.chromaClient != nil {
 		// remove the collection from the active collections
