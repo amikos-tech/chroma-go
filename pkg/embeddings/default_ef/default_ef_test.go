@@ -25,3 +25,19 @@ func Test_Default_EF(t *testing.T) {
 		require.Equal(t, embedding.Len(), 384)
 	}
 }
+
+func TestClose(t *testing.T) {
+	ef, closeEf, err := NewDefaultEmbeddingFunction()
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+	err = closeEf()
+	require.NoError(t, err)
+	_, err = ef.EmbedQuery(context.TODO(), "Hello Chroma!")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "embedding function is closed")
+}
+func TestCloseClosed(t *testing.T) {
+	ef := &DefaultEmbeddingFunction{}
+	err := ef.Close()
+	require.NoError(t, err)
+}

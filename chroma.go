@@ -14,6 +14,7 @@ import (
 
 	"github.com/Masterminds/semver" //nolint:gci
 	"github.com/amikos-tech/chroma-go/collection"
+	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
 	openapiclient "github.com/amikos-tech/chroma-go/swagger"
 	"github.com/amikos-tech/chroma-go/types"
 )
@@ -283,6 +284,13 @@ func (c *Client) GetCollection(ctx context.Context, collectionName string, embed
 	if err != nil {
 		return nil, err
 	}
+	if embeddingFunction == nil {
+		ef, _, err := defaultef.NewDefaultEmbeddingFunction()
+		if err != nil {
+			return nil, err
+		}
+		embeddingFunction = ef
+	}
 	if httpResp.StatusCode != 200 {
 		return nil, fmt.Errorf("error getting collection: %v", httpResp)
 	}
@@ -367,6 +375,13 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 		return nil, err
 	}
 	var _metadata = copyMap(metadata)
+	if embeddingFunction == nil {
+		ef, _, err := defaultef.NewDefaultEmbeddingFunction()
+		if err != nil {
+			return nil, err
+		}
+		embeddingFunction = ef
+	}
 	if metadata["embedding_function"] == nil && embeddingFunction != nil {
 		_metadata["embedding_function"] = GetStringTypeOfEmbeddingFunction(embeddingFunction)
 	}

@@ -574,13 +574,14 @@ func TestChromaClient(t *testing.T) {
 		require.NotNil(t, newCollection)
 		require.Equal(t, collectionName, newCollection.Name)
 		require.Equal(t, 2, len(newCollection.Metadata))
+		_, addError := newCollection.Add(context.Background(), nil, nil, []string{"test"}, []string{"ID1"})
+		require.NoError(t, addError)
+
 		// assert the metadata contains key embedding_function
 		newCollection, err = client.GetCollection(context.Background(), collectionName, nil)
 		require.NoError(t, err)
-		_, err = newCollection.Query(context.Background(), []string{"Dogs are my favorite animals"}, 5, nil, nil, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "embedding function is not set")
-
+		_, err = newCollection.Query(context.Background(), []string{"Dogs are my favorite animals"}, 5, nil, nil, []types.QueryEnum{types.IDocuments})
+		require.Error(t, err, "embedding function mismatch error expected")
 	})
 
 	t.Run("Test Query Collection Documents - with document only includes", func(t *testing.T) {
@@ -1189,6 +1190,40 @@ func TestChromaClient(t *testing.T) {
 		_, err = client.NewCollection(context.Background(), "test", collection.WithEmbeddingFunction(ef))
 		require.NoError(t, err)
 		require.NoError(t, client.Close())
+	})
+
+	t.Run("Test Create Collection with Default EF", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		col, err := client.NewCollection(context.Background(), "test")
+		require.NoError(t, err)
+		require.NotNil(t, col.EmbeddingFunction)
+		_, err = col.Add(context.Background(), nil, nil, []string{"test"}, []string{"test"})
+		require.NoError(t, err, "failed to add document")
+		results, err := col.GetWithOptions(context.Background(), types.WithInclude(types.IEmbeddings, types.IDocuments), types.WithIds([]string{"test"}))
+		require.NoError(t, err, "failed to get document")
+		require.Len(t, results.Embeddings, 1)
+		require.Len(t, results.Documents, 1)
+		require.Equal(t, "test", results.Ids[0])
+		require.Equal(t, "test", results.Documents[0])
+		require.Equal(t, 384, results.Embeddings[0].Len())
+		require.NoError(t, client.Close())
+	})
+
+	t.Run("Test Get Collection with Default EF", func(t *testing.T) {
+		_, errRest := client.Reset(context.Background())
+		require.NoError(t, errRest)
+		col, err := client.NewCollection(context.Background(), "test")
+		require.NoError(t, err)
+		require.NotNil(t, col.EmbeddingFunction)
+		_, err = col.Add(context.Background(), nil, nil, []string{"test"}, []string{"test"})
+		require.NoError(t, err, "failed to add document")
+
+		getCollection, err := client.GetCollection(context.Background(), "test", nil)
+		require.NoError(t, err, "failed to get collection")
+		require.NotNil(t, getCollection.EmbeddingFunction)
+		_, err = getCollection.Add(context.Background(), nil, nil, []string{"test"}, []string{"test"})
+		require.NoError(t, err, "failed to add documents after get")
 	})
 }
 

@@ -25,7 +25,10 @@ type DefaultEmbeddingFunction struct {
 	closeOnce sync.Once
 }
 
-var initLock sync.Mutex
+var (
+	initLock sync.Mutex
+	arc      = &AtomicRefCounter{} // even with arc it is possible that someone calls ort.DestroyEnvironment() from outside, so this is not great, we need a better abstraction than this
+)
 
 func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
 	initLock.Lock()
@@ -55,15 +58,19 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 		return nil, nil, err
 	}
 	ef := &DefaultEmbeddingFunction{tokenizer: tk}
-	ort.SetSharedLibraryPath(onnxLibPath)
-	err = ort.InitializeEnvironment()
-	if err != nil {
-		errc := ef.Close()
-		if errc != nil {
-			fmt.Printf("error while closing embedding function %v", errc.Error())
+	if !ort.IsInitialized() {
+		ort.SetSharedLibraryPath(onnxLibPath)
+		err = ort.InitializeEnvironment()
+		if err != nil {
+			errc := ef.Close()
+			if errc != nil {
+				fmt.Printf("error while closing embedding function %v", errc.Error())
+			}
+			return nil, nil, err
 		}
-		return nil, nil, err
 	}
+	arc.Increment()
+
 	return ef, ef.Close, nil
 }
 
@@ -215,6 +222,9 @@ func (e *DefaultEmbeddingFunction) encode(embeddingInput *EmbeddingInput) ([]*ty
 }
 
 func (e *DefaultEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+	if atomic.LoadInt32(&e.closed) == 1 {
+		return nil, fmt.Errorf("embedding function is closed")
+	}
 	embeddingInputs, err := e.tokenize(documents)
 	if err != nil {
 		return nil, err
@@ -223,6 +233,9 @@ func (e *DefaultEmbeddingFunction) EmbedDocuments(ctx context.Context, documents
 }
 
 func (e *DefaultEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+	if atomic.LoadInt32(&e.closed) == 1 {
+		return nil, fmt.Errorf("embedding function is closed")
+	}
 	embeddingInputs, err := e.tokenize([]string{document})
 	if err != nil {
 		return nil, err
@@ -235,6 +248,9 @@ func (e *DefaultEmbeddingFunction) EmbedQuery(ctx context.Context, document stri
 }
 
 func (e *DefaultEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
+	if atomic.LoadInt32(&e.closed) == 1 {
+		return fmt.Errorf("embedding function is closed")
+	}
 	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }
 
@@ -303,23 +319,47 @@ func (e *DefaultEmbeddingFunction) Close() error {
 	if atomic.LoadInt32(&e.closed) == 1 {
 		return nil
 	}
+	arc.Decrement()
 	var closeErr error
-	e.closeOnce.Do(func() {
-		var errs []error
-		if e.tokenizer != nil {
-			err := e.tokenizer.Close()
-			if err != nil {
-				errs = append(errs, err)
+	if arc.GetCount() == 0 {
+		e.closeOnce.Do(func() {
+			var errs []error
+			if e.tokenizer != nil {
+				err := e.tokenizer.Close()
+				if err != nil {
+					errs = append(errs, err)
+				}
 			}
-		}
-		err := ort.DestroyEnvironment()
-		if err != nil {
-			errs = append(errs, err)
-		}
-		if len(errs) > 0 {
-			closeErr = fmt.Errorf("errors: %v", errs)
-		}
-		atomic.StoreInt32(&e.closed, 1)
-	})
+			if ort.IsInitialized() { // skip destroying the environment if it is not initialized
+				err := ort.DestroyEnvironment()
+				if err != nil {
+					errs = append(errs, err)
+				}
+			}
+			if len(errs) > 0 {
+				closeErr = fmt.Errorf("errors: %v", errs)
+			}
+			atomic.StoreInt32(&e.closed, 1)
+		})
+	}
 	return closeErr
+}
+
+type AtomicRefCounter struct {
+	count int32
+}
+
+func (arc *AtomicRefCounter) Increment() {
+	atomic.AddInt32(&arc.count, 1)
+}
+
+func (arc *AtomicRefCounter) Decrement() {
+	if atomic.LoadInt32(&arc.count) == 0 {
+		return
+	}
+	atomic.AddInt32(&arc.count, -1)
+}
+
+func (arc *AtomicRefCounter) GetCount() int32 {
+	return atomic.LoadInt32(&arc.count)
 }
