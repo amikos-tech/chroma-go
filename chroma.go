@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver" //nolint:gci
 	"github.com/amikos-tech/chroma-go/collection"
@@ -57,6 +58,7 @@ type Client struct {
 	userHTTPClient     *http.Client
 	BasePath           string
 	activeCollections  []*Collection
+	timeout            time.Duration
 }
 
 type ClientOption func(p *Client) error
@@ -185,6 +187,14 @@ func WithHTTPClient(client *http.Client) ClientOption {
 	}
 }
 
+// WithTimeout sets the timeout for the client
+func WithTimeout(timeout time.Duration) ClientOption {
+	return func(c *Client) error {
+		c.timeout = timeout
+		return nil
+	}
+}
+
 func applyOptions(c *Client, options ...ClientOption) error {
 	for _, opt := range options {
 		if err := opt(c); err != nil {
@@ -202,6 +212,7 @@ func NewClient(options ...ClientOption) (*Client, error) {
 		httpTransport:     &http.Transport{TLSClientConfig: &tls.Config{}},
 		BasePath:          "http://localhost:8000",
 		activeCollections: make([]*Collection, 0),
+		timeout:           types.DefaultTimeout,
 	}
 
 	err := applyOptions(c, options...)
@@ -245,7 +256,7 @@ func (c *Client) preFlightChecks(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	c.APIVersion = *version
 	multiTenantAPIVersion, _ := semver.NewConstraint(">=0.4.15")
@@ -299,7 +310,7 @@ func (c *Client) GetCollection(ctx context.Context, collectionName string, embed
 
 // Heartbeat checks whether the Chroma server is up and running returns a map[string]float32 with the current server timestamp
 func (c *Client) Heartbeat(ctx context.Context) (map[string]float32, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.Heartbeat(ctx).Execute()
 	return resp, err
@@ -318,7 +329,7 @@ func GetStringTypeOfEmbeddingFunction(ef types.EmbeddingFunction) string {
 
 // CreateTenant creates a new tenant with the given name, fails if the tenant already exists
 func (c *Client) CreateTenant(ctx context.Context, tenantName string) (*openapiclient.Tenant, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.CreateTenant(ctx).CreateTenant(openapiclient.CreateTenant{Name: tenantName}).Execute()
 	return resp, err
@@ -326,7 +337,7 @@ func (c *Client) CreateTenant(ctx context.Context, tenantName string) (*openapic
 
 // GetTenant returns the tenant with the given name, fails if the tenant does not exist
 func (c *Client) GetTenant(ctx context.Context, tenantName string) (*openapiclient.Tenant, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.GetTenant(ctx, tenantName).Execute()
 	return resp, err
@@ -337,7 +348,7 @@ func (c *Client) CreateDatabase(ctx context.Context, databaseName string, tenant
 	if tenantName == nil {
 		tenantName = &c.Tenant
 	}
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.CreateDatabase(ctx).Tenant(*tenantName).CreateDatabase(openapiclient.CreateDatabase{Name: databaseName}).Execute()
 	return resp, err
@@ -348,7 +359,7 @@ func (c *Client) GetDatabase(ctx context.Context, databaseName string, tenantNam
 	if tenantName == nil {
 		tenantName = &c.Tenant
 	}
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.GetDatabase(ctx, databaseName).Tenant(*tenantName).Execute()
 	return resp, err
@@ -368,7 +379,7 @@ func copyMap(originalMap map[string]interface{}) map[string]interface{} {
 
 // CreateCollection [legacy] creates a new collection with the given name, metadata, embedding function and distance function
 func (c *Client) CreateCollection(ctx context.Context, collectionName string, metadata map[string]interface{}, createOrGet bool, embeddingFunction types.EmbeddingFunction, distanceFunction types.DistanceFunction) (*Collection, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	err := c.preFlightChecks(ctx)
 	if err != nil {
@@ -438,14 +449,14 @@ func (c *Client) NewCollection(ctx context.Context, name string, options ...coll
 			return nil, derr
 		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	return c.CreateCollection(ctx, b.Name, b.Metadata, b.CreateIfNotExist, b.EmbeddingFunction, distanceFunction)
 }
 
 // DeleteCollection deletes the collection with the given name
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*Collection, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	err := c.preFlightChecks(ctx)
 	if err != nil {
@@ -468,7 +479,7 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*
 
 // Reset deletes all data in the Chroma server if `ALLOW_RESET` is set to true in the environment variables of the server, otherwise fails
 func (c *Client) Reset(ctx context.Context) (bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.Reset(ctx).Execute()
 	return resp, err
@@ -476,7 +487,7 @@ func (c *Client) Reset(ctx context.Context) (bool, error) {
 
 // ListCollections returns a list of all collections in the database
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	err := c.preFlightChecks(ctx)
 	if err != nil {
@@ -496,7 +507,7 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 
 // CountCollections returns the number of collections in the database
 func (c *Client) CountCollections(ctx context.Context) (int32, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	err := c.preFlightChecks(ctx)
 	if err != nil {
@@ -508,7 +519,7 @@ func (c *Client) CountCollections(ctx context.Context) (int32, error) {
 
 // PreflightChecks returns the preflight checks of the Chroma server, returns a map of the preflight checks. Currently on max_batch_size supported by the server is returned
 func (c *Client) PreflightChecks(ctx context.Context) (map[string]interface{}, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.PreFlightChecks(ctx).Execute()
 	return resp, err
@@ -516,7 +527,7 @@ func (c *Client) PreflightChecks(ctx context.Context) (map[string]interface{}, e
 
 // Version returns the version of the Chroma server
 func (c *Client) Version(ctx context.Context) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	resp, _, err := c.ApiClient.DefaultApi.Version(ctx).Execute()
 	version := strings.ReplaceAll(resp, `"`, "")
@@ -601,7 +612,7 @@ func (c *Collection) Add(ctx context.Context, embeddings []*types.Embedding, met
 	if len(ids) != len(documents) && len(documents) != len(metadatas) {
 		return c, fmt.Errorf("ids and embeddings must have the same length")
 	}
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
 	if len(embeddings) == 0 {
 		embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, documents)
@@ -639,7 +650,7 @@ func (c *Collection) Upsert(ctx context.Context, embeddings []*types.Embedding, 
 	if len(ids) != len(documents) && len(documents) != len(metadatas) {
 		return c, fmt.Errorf("ids and embeddings must have the same length")
 	}
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
 	if len(embeddings) == 0 {
 		embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, documents)
@@ -671,7 +682,7 @@ func (c *Collection) Upsert(ctx context.Context, embeddings []*types.Embedding, 
 
 func (c *Collection) Modify(ctx context.Context, embeddings []*types.Embedding, metadatas []map[string]interface{}, documents []string, ids []string) (*Collection, error) {
 	var _embeddings []openapiclient.EmbeddingsInner
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
 	if len(embeddings) == 0 {
 		embds, embErr := c.EmbeddingFunction.EmbedDocuments(ctx, documents)
@@ -716,7 +727,7 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 			String: &_v,
 		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
 	cd, _, err := c.ApiClient.DefaultApi.Get(ctx, c.ID).GetEmbedding(openapiclient.GetEmbedding{
 		Ids:           query.Ids,
@@ -799,7 +810,7 @@ func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types
 			String: &_v,
 		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
 	if len(b.QueryEmbeddings) == 0 && c.EmbeddingFunction == nil {
 		return nil, fmt.Errorf("embedding function is not set. Please configure the embedding function when you get or create the collection, or provide the query embeddings")
@@ -835,7 +846,7 @@ func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types
 	return &qresults, nil
 }
 func (c *Collection) Count(ctx context.Context) (int32, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
 	req := c.ApiClient.DefaultApi.Count(ctx, c.ID)
 	cd, _, err := req.Execute()
@@ -848,7 +859,7 @@ func (c *Collection) Count(ctx context.Context) (int32, error) {
 }
 
 func (c *Collection) Update(ctx context.Context, newName string, newMetadata *map[string]interface{}) (*Collection, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
 	_newMetadata := make(map[string]interface{})
 	if newMetadata != nil {
@@ -864,7 +875,7 @@ func (c *Collection) Update(ctx context.Context, newName string, newMetadata *ma
 }
 
 func (c *Collection) Delete(ctx context.Context, ids []string, where map[string]interface{}, whereDocuments map[string]interface{}) ([]string, error) {
-	ctx, cancel := context.WithTimeout(ctx, types.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
 	dr, _, err := c.ApiClient.DefaultApi.Delete(ctx, c.ID).DeleteEmbedding(openapiclient.DeleteEmbedding{Where: where, WhereDocument: whereDocuments, Ids: ids}).Execute()
 	if err != nil {
