@@ -1225,6 +1225,21 @@ func TestChromaClient(t *testing.T) {
 		_, err = getCollection.Add(context.Background(), nil, nil, []string{"test"}, []string{"test"})
 		require.NoError(t, err, "failed to add documents after get")
 	})
+
+	t.Run("Test with timeout", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(10 * time.Second) // Simulate a delay
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Hello, client"))
+		}))
+		defer server.Close()
+
+		c, err := chroma.NewClient(chroma.WithBasePath(server.URL), chroma.WithTimeout(5*time.Second))
+		require.NoError(t, err)
+		_, err = c.Version(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "context deadline exceeded")
+	})
 }
 
 func TestClientSecurity(t *testing.T) {
