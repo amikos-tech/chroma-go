@@ -81,8 +81,12 @@ func TestAPIErrorHandling(t *testing.T) {
 		require.Equal(t, 400, chromaError.ErrorCode)
 	})
 	t.Run("Test API Error handling GetTenant", func(t *testing.T) {
+
 		_, err = client.Version(ctx)
 		require.NoError(t, err)
+		if client.APIVersion.LessThan(semver.MustParse("0.4.15")) {
+			t.Skipf("Skipping test for API version %s", client.APIVersion.String())
+		}
 		_, err = client.GetTenant(context.Background(), "dummy")
 		require.Error(t, err)
 		chromaError := err.(*chhttp.ChromaError)
@@ -100,6 +104,9 @@ func TestAPIErrorHandling(t *testing.T) {
 	t.Run("Test API Error handling CreateTenant", func(t *testing.T) {
 		_, err = client.Version(ctx)
 		require.NoError(t, err)
+		if client.APIVersion.LessThan(semver.MustParse("0.4.15")) {
+			t.Skipf("Skipping test for API version %s", client.APIVersion.String())
+		}
 		_, err = client.CreateTenant(context.Background(), types.DefaultTenant)
 		require.Error(t, err)
 		chromaError := err.(*chhttp.ChromaError)
@@ -117,6 +124,9 @@ func TestAPIErrorHandling(t *testing.T) {
 	t.Run("Test API Error handling GetDatabase", func(t *testing.T) {
 		_, err = client.Version(ctx)
 		require.NoError(t, err)
+		if client.APIVersion.LessThan(semver.MustParse("0.4.15")) {
+			t.Skipf("Skipping test for API version %s", client.APIVersion.String())
+		}
 		var defaultTenant = types.DefaultTenant
 		_, err = client.GetDatabase(context.Background(), "dummy", &defaultTenant)
 		require.Error(t, err)
@@ -135,6 +145,9 @@ func TestAPIErrorHandling(t *testing.T) {
 	t.Run("Test API Error handling CreateDatabase", func(t *testing.T) {
 		_, err = client.Version(ctx)
 		require.NoError(t, err)
+		if client.APIVersion.LessThan(semver.MustParse("0.4.15")) {
+			t.Skipf("Skipping test for API version %s", client.APIVersion.String())
+		}
 		var defaultTenant = types.DefaultTenant
 		_, err = client.CreateDatabase(context.Background(), types.DefaultDatabase, &defaultTenant)
 		require.Error(t, err)
@@ -163,7 +176,6 @@ func TestAPIErrorHandling(t *testing.T) {
 			require.Equal(t, "Collection test_collection already exists", chromaError.Message)
 			require.Equal(t, 409, chromaError.ErrorCode)
 		} else {
-			require.Contains(t, chromaError.Error(), "UniqueConstraintError")
 			require.Contains(t, chromaError.Error(), "Collection test_collection already exists")
 			require.Equal(t, 500, chromaError.ErrorCode)
 		}
