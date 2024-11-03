@@ -571,8 +571,13 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
 		return "", chErr
 	}
-
 	version := strings.ReplaceAll(resp, `"`, "")
+	var semVersion *semver.Version
+	semVersion, err = semver.NewVersion(version)
+	if err != nil {
+		return "", err
+	}
+	c.APIVersion = *semVersion
 	return version, err
 }
 

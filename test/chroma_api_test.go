@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Masterminds/semver"
 	chroma "github.com/amikos-tech/chroma-go"
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/types"
@@ -80,70 +81,127 @@ func TestAPIErrorHandling(t *testing.T) {
 		require.Equal(t, 400, chromaError.ErrorCode)
 	})
 	t.Run("Test API Error handling GetTenant", func(t *testing.T) {
+		_, err = client.Version(ctx)
+		require.NoError(t, err)
 		_, err = client.GetTenant(context.Background(), "dummy")
 		require.Error(t, err)
 		chromaError := err.(*chhttp.ChromaError)
-		require.Equal(t, "NotFoundError", chromaError.ErrorID)
-		require.Equal(t, "Tenant dummy not found", chromaError.Message)
-		require.Equal(t, 404, chromaError.ErrorCode)
+		if client.APIVersion.GreaterThan(semver.MustParse("0.5.5")) { // >0.5.5
+			require.Equal(t, "NotFoundError", chromaError.ErrorID)
+			require.Equal(t, "Tenant dummy not found", chromaError.Message)
+			require.Equal(t, 404, chromaError.ErrorCode)
+		} else {
+			require.Contains(t, chromaError.Error(), "NotFoundError")
+			require.Contains(t, chromaError.Error(), "Tenant dummy not found")
+			require.Equal(t, 500, chromaError.ErrorCode)
+		}
 	})
 
 	t.Run("Test API Error handling CreateTenant", func(t *testing.T) {
+		_, err = client.Version(ctx)
+		require.NoError(t, err)
 		_, err = client.CreateTenant(context.Background(), types.DefaultTenant)
 		require.Error(t, err)
 		chromaError := err.(*chhttp.ChromaError)
-		require.Equal(t, "UniqueConstraintError", chromaError.ErrorID)
-		require.Equal(t, "Tenant default_tenant already exists", chromaError.Message)
-		require.Equal(t, 409, chromaError.ErrorCode)
+		if client.APIVersion.GreaterThan(semver.MustParse("0.5.5")) { // >0.5.5
+			require.Equal(t, "UniqueConstraintError", chromaError.ErrorID)
+			require.Equal(t, "Tenant default_tenant already exists", chromaError.Message)
+			require.Equal(t, 409, chromaError.ErrorCode)
+		} else {
+			require.Contains(t, chromaError.Error(), "UniqueConstraintError")
+			require.Contains(t, chromaError.Error(), "Tenant default_tenant already exists")
+			require.Equal(t, 500, chromaError.ErrorCode)
+		}
 	})
 
 	t.Run("Test API Error handling GetDatabase", func(t *testing.T) {
+		_, err = client.Version(ctx)
+		require.NoError(t, err)
 		var defaultTenant = types.DefaultTenant
 		_, err = client.GetDatabase(context.Background(), "dummy", &defaultTenant)
 		require.Error(t, err)
 		chromaError := err.(*chhttp.ChromaError)
-		require.Equal(t, "NotFoundError", chromaError.ErrorID)
-		require.Equal(t, "Database dummy not found for tenant default_tenant. Are you sure it exists?", chromaError.Message)
-		require.Equal(t, 404, chromaError.ErrorCode)
+		if client.APIVersion.GreaterThan(semver.MustParse("0.5.5")) { // >0.5.5
+			require.Equal(t, "NotFoundError", chromaError.ErrorID)
+			require.Equal(t, "Database dummy not found for tenant default_tenant. Are you sure it exists?", chromaError.Message)
+			require.Equal(t, 404, chromaError.ErrorCode)
+		} else {
+			require.Contains(t, chromaError.Error(), "NotFoundError")
+			require.Contains(t, chromaError.Error(), "Database dummy not found for tenant default_tenant")
+			require.Equal(t, 500, chromaError.ErrorCode)
+		}
 	})
 
 	t.Run("Test API Error handling CreateDatabase", func(t *testing.T) {
+		_, err = client.Version(ctx)
+		require.NoError(t, err)
 		var defaultTenant = types.DefaultTenant
 		_, err = client.CreateDatabase(context.Background(), types.DefaultDatabase, &defaultTenant)
 		require.Error(t, err)
 		chromaError := err.(*chhttp.ChromaError)
-		require.Equal(t, "UniqueConstraintError", chromaError.ErrorID)
-		require.Equal(t, "Database default_database already exists for tenant default_tenant", chromaError.Message)
-		require.Equal(t, 409, chromaError.ErrorCode)
+		if client.APIVersion.GreaterThan(semver.MustParse("0.5.5")) { // >0.5.5
+			require.Equal(t, "UniqueConstraintError", chromaError.ErrorID)
+			require.Equal(t, "Database default_database already exists for tenant default_tenant", chromaError.Message)
+			require.Equal(t, 409, chromaError.ErrorCode)
+		} else {
+			require.Contains(t, chromaError.Error(), "UniqueConstraintError")
+			require.Contains(t, chromaError.Error(), "Database default_database already exists for tenant default_tenant")
+			require.Equal(t, 500, chromaError.ErrorCode)
+		}
 	})
 
 	t.Run("Test API Error handling NewCollection", func(t *testing.T) {
+		_, err = client.Version(ctx)
+		require.NoError(t, err)
 		_, err = client.NewCollection(context.Background(), "test_collection")
 		require.NoError(t, err)
 		_, err = client.NewCollection(context.Background(), "test_collection")
 		require.Error(t, err)
 		chromaError := err.(*chhttp.ChromaError)
-		require.Equal(t, "UniqueConstraintError", chromaError.ErrorID)
-		require.Equal(t, "Collection test_collection already exists", chromaError.Message)
-		require.Equal(t, 409, chromaError.ErrorCode)
+		if client.APIVersion.GreaterThan(semver.MustParse("0.5.5")) { // >0.5.5
+			require.Equal(t, "UniqueConstraintError", chromaError.ErrorID)
+			require.Equal(t, "Collection test_collection already exists", chromaError.Message)
+			require.Equal(t, 409, chromaError.ErrorCode)
+		} else {
+			require.Contains(t, chromaError.Error(), "UniqueConstraintError")
+			require.Contains(t, chromaError.Error(), "Collection test_collection already exists")
+			require.Equal(t, 500, chromaError.ErrorCode)
+		}
 	})
 
 	t.Run("Test API Error handling DeleteCollection", func(t *testing.T) {
+		_, err = client.Version(ctx)
+		require.NoError(t, err)
 		_, err = client.DeleteCollection(context.Background(), "test_collection_for_delete")
 		require.Error(t, err)
 		chromaError := err.(*chhttp.ChromaError)
-		require.Equal(t, "InvalidCollection", chromaError.ErrorID)
-		require.Equal(t, "Collection test_collection_for_delete does not exist.", chromaError.Message)
-		require.Equal(t, 400, chromaError.ErrorCode)
+		if client.APIVersion.GreaterThan(semver.MustParse("0.5.5")) { // >0.5.5
+			require.Equal(t, "InvalidCollection", chromaError.ErrorID)
+			require.Equal(t, "Collection test_collection_for_delete does not exist.", chromaError.Message)
+			require.Equal(t, 400, chromaError.ErrorCode)
+		} else {
+			require.Contains(t, chromaError.Error(), "ValueError")
+			require.Contains(t, chromaError.Error(), "Collection test_collection_for_delete does not exist.")
+			require.Equal(t, 500, chromaError.ErrorCode)
+		}
 	})
 
 	t.Run("Test API Error handling Reset", func(t *testing.T) {
+		_, err = client.Version(ctx)
+		require.NoError(t, err)
 		_, err = client.Reset(context.Background())
 		require.Error(t, err)
 		chromaError := err.(*chhttp.ChromaError)
-		require.Equal(t, "InvalidArgumentError", chromaError.ErrorID)
-		require.Equal(t, "Resetting is not allowed by this configuration (to enable it, set `allow_reset` to `True` in your Settings() or include `ALLOW_RESET=TRUE` in your environment variables)", chromaError.Message)
-		require.Equal(t, 400, chromaError.ErrorCode)
+		if client.APIVersion.GreaterThan(semver.MustParse("0.5.5")) { // >0.5.5
+			require.Equal(t, "InvalidArgumentError", chromaError.ErrorID)
+			require.Contains(t, chromaError.Message, "Resetting is not allowed by this configuration")
+			require.Equal(t, 400, chromaError.ErrorCode)
+		} else {
+			require.Contains(t, chromaError.Error(), "ValueError")
+			require.Contains(t, chromaError.Error(), "Resetting is not allowed by this configuration")
+			require.Equal(t, 500, chromaError.ErrorCode)
+
+		}
 	})
 
 	t.Run("Test API Error handling ListCollections", func(t *testing.T) {
