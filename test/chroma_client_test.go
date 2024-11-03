@@ -46,8 +46,8 @@ func TestChromaClient(t *testing.T) {
 	if os.Getenv("CHROMA_IMAGE") != "" {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
 	}
-	chromaContainer, err := tcchroma.RunContainer(ctx,
-		testcontainers.WithImage(fmt.Sprintf("%s:%s", chromaImage, chromaVersion)),
+	chromaContainer, err := tcchroma.Run(ctx,
+		fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
 		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
 	)
 	require.NoError(t, err)
@@ -554,7 +554,7 @@ func TestChromaClient(t *testing.T) {
 		assert.Equal(t, int32(2), colGet)
 
 		queryText, err := embeddingFunction.EmbedQuery(context.Background(), "Dogs are my favorite animals")
-
+		require.NoError(t, err)
 		qr, err := col.QueryWithOptions(context.Background(), types.WithQueryEmbedding(queryText), types.WithNResults(5))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(qr.Documents[0]))
@@ -1101,6 +1101,7 @@ func TestChromaClient(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, newCollection)
 		queryText, err := embeddingFunction.EmbedQuery(context.Background(), "Dogs are my favorite animals")
+		require.NoError(t, err, "failed to embed query")
 		qr, err := newCollection.QueryWithOptions(context.Background(), types.WithQueryEmbedding(queryText), types.WithNResults(5))
 		require.NoError(t, err)
 		require.Len(t, qr.QueryEmbeddings, 1)
@@ -1145,13 +1146,11 @@ func TestChromaClient(t *testing.T) {
 			collection.WithHNSWDistanceFunction(types.L2),
 		)
 		require.NoError(t, err)
-		// let's create a record set
 		rs, rerr := types.NewRecordSet(
 			types.WithEmbeddingFunction(types.NewConsistentHashEmbeddingFunction()),
 			types.WithIDGenerator(types.NewULIDGenerator()),
 		)
 		require.NoError(t, rerr)
-		// you can loop here to add multiple records
 		rs.WithRecord(types.WithDocument("Document 1 content"), types.WithMetadata("key1", "value1"))
 		rs.WithRecord(types.WithDocument("Document 2 content"), types.WithMetadata("key2", "value2"))
 		rs.WithRecord(types.WithDocument("Document 3 content"), types.WithMetadata("key3", "value3"))
@@ -1160,7 +1159,6 @@ func TestChromaClient(t *testing.T) {
 		newCollection, err = newCollection.AddRecords(context.Background(), rs)
 		require.NoError(t, err)
 
-		//result,	 err := newCollection.QueryWithOptions(context.Background(), types.WithNResults(10), types.WithQueryText("Document 1"), types.WithWhere(where.Eq("key1", "value1")))
 		whereClause := map[string]interface{}{
 			"key1": map[string]interface{}{
 				"$eq": "value1",
@@ -1280,8 +1278,8 @@ func TestClientSecurity(t *testing.T) {
 	}
 
 	CreateSelfSignedCert(certPath, keyPath)
-	chromaContainer, err := tcchroma.RunContainer(ctx,
-		testcontainers.WithImage(fmt.Sprintf("%s:%s", chromaImage, chromaVersion)),
+	chromaContainer, err := tcchroma.Run(ctx,
+		fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
 		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
 		testcontainers.CustomizeRequest(testcontainers.GenericContainerRequest{
 			ContainerRequest: testcontainers.ContainerRequest{

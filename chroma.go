@@ -791,8 +791,8 @@ func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types
 	b := &types.CollectionQueryBuilder{
 		QueryTexts:      make([]string, 0),
 		QueryEmbeddings: make([]*types.Embedding, 0),
-		Where:           make(map[string]interface{}),
-		WhereDocument:   make(map[string]interface{}),
+		Where:           nil,
+		WhereDocument:   nil,
 	}
 	for _, opt := range queryOptions {
 		if err := opt(b); err != nil {
