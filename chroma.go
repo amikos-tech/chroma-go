@@ -15,6 +15,7 @@ import (
 
 	"github.com/Masterminds/semver" //nolint:gci
 	"github.com/amikos-tech/chroma-go/collection"
+	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
 	openapiclient "github.com/amikos-tech/chroma-go/swagger"
 	"github.com/amikos-tech/chroma-go/types"
@@ -248,9 +249,10 @@ func (c *Client) preFlightChecks(ctx context.Context) error {
 	if c.preFlightCompleted {
 		return nil
 	}
-	_version, _, err := c.ApiClient.DefaultApi.Version(ctx).Execute()
-	if err != nil {
-		return err
+	_version, rawResp, err := c.ApiClient.DefaultApi.Version(ctx).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return chErr
 	}
 	version, err := semver.NewVersion(strings.ReplaceAll(_version, `"`, ""))
 	if err != nil {
@@ -291,9 +293,10 @@ func (c *Client) GetCollection(ctx context.Context, collectionName string, embed
 	}
 	tenantName := types.DefaultTenant
 	databaseName := types.DefaultDatabase
-	col, httpResp, err := c.ApiClient.DefaultApi.GetCollection(ctx, collectionName).Tenant(c.Tenant).Database(c.Database).Execute()
-	if err != nil {
-		return nil, err
+	col, rawResp, err := c.ApiClient.DefaultApi.GetCollection(ctx, collectionName).Tenant(c.Tenant).Database(c.Database).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
 	}
 	if embeddingFunction == nil {
 		ef, _, err := defaultef.NewDefaultEmbeddingFunction()
@@ -302,9 +305,6 @@ func (c *Client) GetCollection(ctx context.Context, collectionName string, embed
 		}
 		embeddingFunction = ef
 	}
-	if httpResp.StatusCode != 200 {
-		return nil, fmt.Errorf("error getting collection: %v", httpResp)
-	}
 	return NewCollection(c, col.Id, col.Name, getMetadataFromAPI(col.Metadata), embeddingFunction, tenantName, databaseName), nil
 }
 
@@ -312,7 +312,11 @@ func (c *Client) GetCollection(ctx context.Context, collectionName string, embed
 func (c *Client) Heartbeat(ctx context.Context) (map[string]float32, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	resp, _, err := c.ApiClient.DefaultApi.Heartbeat(ctx).Execute()
+	resp, rawResp, err := c.ApiClient.DefaultApi.Heartbeat(ctx).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
+	}
 	return resp, err
 }
 
@@ -331,7 +335,11 @@ func GetStringTypeOfEmbeddingFunction(ef types.EmbeddingFunction) string {
 func (c *Client) CreateTenant(ctx context.Context, tenantName string) (*openapiclient.Tenant, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	resp, _, err := c.ApiClient.DefaultApi.CreateTenant(ctx).CreateTenant(openapiclient.CreateTenant{Name: tenantName}).Execute()
+	resp, rawResp, err := c.ApiClient.DefaultApi.CreateTenant(ctx).CreateTenant(openapiclient.CreateTenant{Name: tenantName}).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
+	}
 	return resp, err
 }
 
@@ -339,7 +347,11 @@ func (c *Client) CreateTenant(ctx context.Context, tenantName string) (*openapic
 func (c *Client) GetTenant(ctx context.Context, tenantName string) (*openapiclient.Tenant, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	resp, _, err := c.ApiClient.DefaultApi.GetTenant(ctx, tenantName).Execute()
+	resp, rawResp, err := c.ApiClient.DefaultApi.GetTenant(ctx, tenantName).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
+	}
 	return resp, err
 }
 
@@ -350,7 +362,11 @@ func (c *Client) CreateDatabase(ctx context.Context, databaseName string, tenant
 	}
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	resp, _, err := c.ApiClient.DefaultApi.CreateDatabase(ctx).Tenant(*tenantName).CreateDatabase(openapiclient.CreateDatabase{Name: databaseName}).Execute()
+	resp, rawResp, err := c.ApiClient.DefaultApi.CreateDatabase(ctx).Tenant(*tenantName).CreateDatabase(openapiclient.CreateDatabase{Name: databaseName}).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
+	}
 	return resp, err
 }
 
@@ -361,7 +377,11 @@ func (c *Client) GetDatabase(ctx context.Context, databaseName string, tenantNam
 	}
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	resp, _, err := c.ApiClient.DefaultApi.GetDatabase(ctx, databaseName).Tenant(*tenantName).Execute()
+	resp, rawResp, err := c.ApiClient.DefaultApi.GetDatabase(ctx, databaseName).Tenant(*tenantName).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
+	}
 	return resp, err
 }
 
@@ -415,11 +435,13 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 		GetOrCreate: &createOrGet,
 		Metadata:    _metadata,
 	}
-	resp, _, err := c.ApiClient.DefaultApi.CreateCollection(ctx).CreateCollection(col).Execute()
-	if err != nil {
+	resp, rawResp, err := c.ApiClient.DefaultApi.CreateCollection(ctx).CreateCollection(col).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
 		// we defer close the EF if it implements the io.Closer interface
+		// TODO is this a good strategy, what if there are other collections that use the EF?
 		defer errorEfCloser()
-		return nil, err
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
 	}
 	mtd := resp.Metadata
 	newCol := NewCollection(c, resp.Id, resp.Name, getMetadataFromAPI(mtd), embeddingFunction, c.Tenant, c.Database)
@@ -462,13 +484,15 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*
 	if err != nil {
 		return nil, err
 	}
-	col, _, gcerr := c.ApiClient.DefaultApi.GetCollection(ctx, collectionName).Execute()
-	if gcerr != nil {
-		return nil, gcerr
+	col, rawResp, gcerr := c.ApiClient.DefaultApi.GetCollection(ctx, collectionName).Execute()
+	if gcerr != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, gcerr)
+		return nil, chErr
 	}
 	deletedCol, _, err := c.ApiClient.DefaultApi.DeleteCollection(ctx, collectionName).Execute()
-	if err != nil {
-		return nil, err
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
 	}
 	if deletedCol == nil {
 		return NewCollection(c, col.Id, col.Name, getMetadataFromAPI(col.Metadata), nil, c.Tenant, c.Database), nil
@@ -481,7 +505,11 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) (*
 func (c *Client) Reset(ctx context.Context) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	resp, _, err := c.ApiClient.DefaultApi.Reset(ctx).Execute()
+	resp, rawResp, err := c.ApiClient.DefaultApi.Reset(ctx).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return false, chErr
+	}
 	return resp, err
 }
 
@@ -494,9 +522,10 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 		return nil, err
 	}
 	req := c.ApiClient.DefaultApi.ListCollections(ctx)
-	resp, _, err := req.Execute()
-	if err != nil {
-		return nil, err
+	resp, rawResp, err := req.Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
 	}
 	collections := make([]*Collection, len(resp))
 	for i, col := range resp {
@@ -513,15 +542,23 @@ func (c *Client) CountCollections(ctx context.Context) (int32, error) {
 	if err != nil {
 		return -1, err
 	}
-	resp, _, err := c.ApiClient.DefaultApi.CountCollections(ctx).Tenant(c.Tenant).Database(c.Database).Execute()
-	return resp, err
+	resp, rawResp, err := c.ApiClient.DefaultApi.CountCollections(ctx).Tenant(c.Tenant).Database(c.Database).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return 0, chErr
+	}
+	return resp, nil
 }
 
 // PreflightChecks returns the preflight checks of the Chroma server, returns a map of the preflight checks. Currently on max_batch_size supported by the server is returned
 func (c *Client) PreflightChecks(ctx context.Context) (map[string]interface{}, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	resp, _, err := c.ApiClient.DefaultApi.PreFlightChecks(ctx).Execute()
+	resp, rawResp, err := c.ApiClient.DefaultApi.PreFlightChecks(ctx).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
+	}
 	return resp, err
 }
 
@@ -529,8 +566,18 @@ func (c *Client) PreflightChecks(ctx context.Context) (map[string]interface{}, e
 func (c *Client) Version(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	resp, _, err := c.ApiClient.DefaultApi.Version(ctx).Execute()
+	resp, rawResp, err := c.ApiClient.DefaultApi.Version(ctx).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return "", chErr
+	}
 	version := strings.ReplaceAll(resp, `"`, "")
+	var semVersion *semver.Version
+	semVersion, err = semver.NewVersion(version)
+	if err != nil {
+		return "", err
+	}
+	c.APIVersion = *semVersion
 	return version, err
 }
 
@@ -633,9 +680,10 @@ func (c *Collection) Add(ctx context.Context, embeddings []*types.Embedding, met
 		Documents:  documents,
 		Ids:        ids,
 	}
-	_, _, err := c.ApiClient.DefaultApi.Add(ctx, c.ID).AddEmbedding(addEmbedding).Execute()
-	if err != nil {
-		return c, err
+	_, rawResp, err := c.ApiClient.DefaultApi.Add(ctx, c.ID).AddEmbedding(addEmbedding).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return c, chErr
 	}
 	return c, nil
 }
@@ -672,11 +720,12 @@ func (c *Collection) Upsert(ctx context.Context, embeddings []*types.Embedding, 
 		Ids:        ids,
 	}
 
-	_, _, err := c.ApiClient.DefaultApi.Upsert(ctx, c.ID).AddEmbedding(addEmbedding).Execute()
-
-	if err != nil {
-		return c, err
+	_, rawResp, err := c.ApiClient.DefaultApi.Upsert(ctx, c.ID).AddEmbedding(addEmbedding).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return c, chErr
 	}
+
 	return c, nil
 }
 
@@ -701,10 +750,10 @@ func (c *Collection) Modify(ctx context.Context, embeddings []*types.Embedding, 
 		Ids:        ids,
 	}
 
-	_, _, err := c.ApiClient.DefaultApi.Update(ctx, c.ID).UpdateEmbedding(updateEmbedding).Execute()
-
-	if err != nil {
-		return c, err
+	_, rawResp, err := c.ApiClient.DefaultApi.Update(ctx, c.ID).UpdateEmbedding(updateEmbedding).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return c, chErr
 	}
 	return c, nil
 }
@@ -729,7 +778,7 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 	}
 	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
-	cd, _, err := c.ApiClient.DefaultApi.Get(ctx, c.ID).GetEmbedding(openapiclient.GetEmbedding{
+	cd, rawResp, err := c.ApiClient.DefaultApi.Get(ctx, c.ID).GetEmbedding(openapiclient.GetEmbedding{
 		Ids:           query.Ids,
 		Where:         query.Where,
 		WhereDocument: query.WhereDocument,
@@ -737,8 +786,9 @@ func (c *Collection) GetWithOptions(ctx context.Context, options ...types.Collec
 		Limit:         &query.Limit,
 		Offset:        &query.Offset,
 	}).Execute()
-	if err != nil {
-		return nil, err
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
 	}
 
 	results := &GetResults{
@@ -822,16 +872,16 @@ func (c *Collection) QueryWithOptions(ctx context.Context, queryOptions ...types
 	var queryEmbeds = make([]openapiclient.EmbeddingsInner, 0)
 	queryEmbeds = append(queryEmbeds, types.ToAPIEmbeddings(b.QueryEmbeddings)...)
 	queryEmbeds = append(queryEmbeds, types.ToAPIEmbeddings(embds)...)
-	qr, _, err := c.ApiClient.DefaultApi.GetNearestNeighbors(ctx, c.ID).QueryEmbedding(openapiclient.QueryEmbedding{
+	qr, rawResp, err := c.ApiClient.DefaultApi.GetNearestNeighbors(ctx, c.ID).QueryEmbedding(openapiclient.QueryEmbedding{
 		Where:           b.Where,
 		WhereDocument:   b.WhereDocument,
 		NResults:        &b.NResults,
 		Include:         _includes,
 		QueryEmbeddings: queryEmbeds,
 	}).Execute()
-
-	if err != nil {
-		return nil, err
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
 	}
 
 	qresults := QueryResults{
@@ -849,10 +899,10 @@ func (c *Collection) Count(ctx context.Context) (int32, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
 	req := c.ApiClient.DefaultApi.Count(ctx, c.ID)
-	cd, _, err := req.Execute()
-
-	if err != nil {
-		return -1, err
+	cd, rawResp, err := req.Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return 0, chErr
 	}
 
 	return cd, nil
@@ -865,9 +915,10 @@ func (c *Collection) Update(ctx context.Context, newName string, newMetadata *ma
 	if newMetadata != nil {
 		_newMetadata = *newMetadata
 	}
-	_, _, err := c.ApiClient.DefaultApi.UpdateCollection(ctx, c.ID).UpdateCollection(openapiclient.UpdateCollection{NewName: &newName, NewMetadata: _newMetadata}).Execute()
-	if err != nil {
-		return c, err
+	_, rawResp, err := c.ApiClient.DefaultApi.UpdateCollection(ctx, c.ID).UpdateCollection(openapiclient.UpdateCollection{NewName: &newName, NewMetadata: _newMetadata}).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return c, chErr
 	}
 	c.Name = newName
 	c.Metadata = _newMetadata
@@ -877,9 +928,10 @@ func (c *Collection) Update(ctx context.Context, newName string, newMetadata *ma
 func (c *Collection) Delete(ctx context.Context, ids []string, where map[string]interface{}, whereDocuments map[string]interface{}) ([]string, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.chromaClient.timeout)
 	defer cancel()
-	dr, _, err := c.ApiClient.DefaultApi.Delete(ctx, c.ID).DeleteEmbedding(openapiclient.DeleteEmbedding{Where: where, WhereDocument: whereDocuments, Ids: ids}).Execute()
-	if err != nil {
-		return nil, err
+	dr, rawResp, err := c.ApiClient.DefaultApi.Delete(ctx, c.ID).DeleteEmbedding(openapiclient.DeleteEmbedding{Where: where, WhereDocument: whereDocuments, Ids: ids}).Execute()
+	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
+		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
+		return nil, chErr
 	}
 	return dr, nil
 }

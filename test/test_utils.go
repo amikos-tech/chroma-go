@@ -13,7 +13,10 @@ import (
 	"log"
 	"math/big"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -117,4 +120,74 @@ func CreateSelfSignedCert(certPath, keyPath string) {
 		log.Fatalf("Error closing key.pem: %v", err)
 	}
 	log.Printf("Written %s", keyPath)
+}
+
+func getMockServer(t *testing.T) *httptest.Server {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "pre-flight-checks") {
+			w.WriteHeader(http.StatusOK)
+
+			_, err := w.Write([]byte(`{"max_batch_size": 41666}`))
+			require.NoError(t, err)
+			return
+		}
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "version") {
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`0.5.17`))
+			require.NoError(t, err)
+			return
+		}
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "tenants/default_tenant") {
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"name": "default_tenant"}`))
+			require.NoError(t, err)
+			return
+		}
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "databases/default_database") {
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{
+									  "id": "00000000-0000-0000-0000-000000000000",
+									  "name": "default_database",
+									  "tenant": "default_tenant"
+										}`))
+			require.NoError(t, err)
+			return
+		}
+
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "collections/test_collection") {
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{
+						  "id": "5f9345dc-3c21-4952-bcb9-6fbbad7a5707",
+						  "name": "test_collection",
+						  "configuration_json": {
+							"hnsw_configuration": {
+							  "space": "l2",
+							  "ef_construction": 100,
+							  "ef_search": 10,
+							  "num_threads": 14,
+							  "M": 16,
+							  "resize_factor": 1.2,
+							  "batch_size": 100,
+							  "sync_threshold": 1000,
+							  "_type": "HNSWConfigurationInternal"
+							},
+							"_type": "CollectionConfigurationInternal"
+						  },
+						  "metadata": null,
+						  "dimension": null,
+						  "tenant": "default_tenant",
+						  "database": "default_database",
+						  "version": 0,
+						  "log_position": 0
+								}`))
+			require.NoError(t, err)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte(`{"error":"InternalServerError","message": "something went wrong"}`))
+		require.NoError(t, err)
+	}))
+	return server
 }
