@@ -32,7 +32,7 @@ func ChromaErrorFromHTTPResponse(resp *http.Response, err error) *ChromaError {
 	}
 	chromaAPIError.ErrorCode = resp.StatusCode
 	if err := json.NewDecoder(resp.Body).Decode(chromaAPIError); err != nil {
-		chromaAPIError.Message = readRespBody(resp.Body)
+		chromaAPIError.Message = ReadRespBody(resp.Body)
 	}
 	return chromaAPIError
 }
