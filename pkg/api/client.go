@@ -12,6 +12,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
+
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 )
 
@@ -21,6 +23,8 @@ type Client interface {
 	Heartbeat(ctx context.Context) error
 	// GetVersion returns the version of the chroma instance.
 	GetVersion(ctx context.Context) (string, error)
+	// GetIdentity returns the identity of the chroma instance. This is noop for v1 API.
+	GetIdentity(ctx context.Context) (Identity, error)
 	// GetTenant gets a tenant with the given name.
 	GetTenant(ctx context.Context, tenant string) (Tenant, error)
 	// UseTenant sets the current tenant to the given name.
@@ -224,7 +228,7 @@ func WithHNSWBatchSizeCreate(batchSize int) CreateCollectionOption {
 		if batchSize < 1 {
 			return fmt.Errorf("batch size must be greater than 0")
 		}
-		op.Metadata.SetInt(HNSWBatchSize, batchSize)
+		op.Metadata.SetInt(HNSWBatchSize, int64(batchSize))
 		return nil
 	}
 }
@@ -237,7 +241,7 @@ func WithHNSWSyncThresholdCreate(syncThreshold int) CreateCollectionOption {
 		if syncThreshold < 1 {
 			return fmt.Errorf("sync threshold must be greater than 0")
 		}
-		op.Metadata.SetInt(HNSWSyncThreshold, syncThreshold)
+		op.Metadata.SetInt(HNSWSyncThreshold, int64(syncThreshold))
 		return nil
 	}
 }
@@ -250,7 +254,7 @@ func WithHNSWMCreate(m int) CreateCollectionOption {
 		if m < 1 {
 			return fmt.Errorf("m must be greater than 0")
 		}
-		op.Metadata.SetInt(HNSWM, m)
+		op.Metadata.SetInt(HNSWM, int64(m))
 		return nil
 	}
 }
@@ -263,7 +267,7 @@ func WithHNSWConstructionEfCreate(efConstruction int) CreateCollectionOption {
 		if efConstruction < 1 {
 			return fmt.Errorf("efConstruction must be greater than 0")
 		}
-		op.Metadata.SetInt(HNSWConstructionEF, efConstruction)
+		op.Metadata.SetInt(HNSWConstructionEF, int64(efConstruction))
 		return nil
 	}
 }
@@ -276,7 +280,7 @@ func WithHNSWSearchEfCreate(efSearch int) CreateCollectionOption {
 		if efSearch < 1 {
 			return fmt.Errorf("efSearch must be greater than 0")
 		}
-		op.Metadata.SetInt(HNSWSearchEF, efSearch)
+		op.Metadata.SetInt(HNSWSearchEF, int64(efSearch))
 		return nil
 	}
 }
@@ -289,7 +293,7 @@ func WithHNSWNumThreadsCreate(numThreads int) CreateCollectionOption {
 		if numThreads < 1 {
 			return fmt.Errorf("numThreads must be greater than 0")
 		}
-		op.Metadata.SetInt(HNSWNumThreads, numThreads)
+		op.Metadata.SetInt(HNSWNumThreads, int64(numThreads))
 		return nil
 	}
 }
@@ -347,9 +351,33 @@ type ClientOption func(client *BaseAPIClient) error
 func WithBaseURL(baseURL string) ClientOption {
 	return func(c *BaseAPIClient) error {
 		if baseURL == "" {
-			return fmt.Errorf("baseUrl cannot be empty")
+			return errors.New("baseUrl cannot be empty")
 		}
 		c.baseURL = baseURL
+		return nil
+	}
+}
+
+func WithTenant(tenant string) ClientOption {
+	return func(c *BaseAPIClient) error {
+		if tenant == "" {
+			return errors.New("tenant cannot be empty")
+		}
+		c.tenant = NewTenant(tenant)
+		return nil
+	}
+}
+
+func WithDatabaseAndTenant(database string, tenant string) ClientOption {
+	return func(c *BaseAPIClient) error {
+		if database == "" {
+			return errors.New("database cannot be empty")
+		}
+		if tenant == "" {
+			return errors.New("tenant cannot be empty")
+		}
+		c.tenant = NewTenant(tenant)
+		c.database = NewDatabase(database, NewTenant(tenant))
 		return nil
 	}
 }

@@ -3,18 +3,21 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+
+	"github.com/pkg/errors"
 )
 
 type CollectionMetadata interface {
 	Keys() []string
 	GetRaw(key string) (interface{}, bool)
 	GetString(key string) (string, bool)
-	GetInt(key string) (int, bool)
+	GetInt(key string) (int64, bool)
 	GetFloat(key string) (float64, bool)
 	GetBool(key string) (bool, bool)
 	SetRaw(key string, value interface{})
 	SetString(key, value string)
-	SetInt(key string, value int)
+	SetInt(key string, value int64)
 	SetFloat(key string, value float64)
 	SetBool(key string, value bool)
 	MarshalJSON() ([]byte, error)
@@ -22,25 +25,25 @@ type CollectionMetadata interface {
 }
 
 type MetadataValue struct {
-	Bool        *bool
-	Float32     *float64
-	Int         *int
-	StringValue *string
+	Bool        *bool    `json:"-"`
+	Float64     *float64 `json:"-"`
+	Int         *int64   `json:"-"`
+	StringValue *string  `json:"-"`
 }
 
-func (mv *MetadataValue) GetInt() (int, bool) {
+func (mv *MetadataValue) GetInt() (int64, bool) {
 	if mv.Int == nil {
 		return 0, false
 	}
-	return int(*mv.Int), true
+	return *mv.Int, true
 }
 
 func (mv *MetadataValue) String() string {
 	if mv.Bool != nil {
 		return fmt.Sprintf("%v", *mv.Bool)
 	}
-	if mv.Float32 != nil {
-		return fmt.Sprintf("%v", *mv.Float32)
+	if mv.Float64 != nil {
+		return fmt.Sprintf("%v", *mv.Float64)
 	}
 	if mv.Int != nil {
 		return fmt.Sprintf("%v", *mv.Int)
@@ -52,10 +55,10 @@ func (mv *MetadataValue) String() string {
 }
 
 func (mv *MetadataValue) GetFloat() (float64, bool) {
-	if mv.Float32 == nil {
+	if mv.Float64 == nil {
 		return 0, false
 	}
-	return *mv.Float32, true
+	return *mv.Float64, true
 }
 
 func (mv *MetadataValue) GetBool() (bool, bool) {
@@ -76,8 +79,8 @@ func (mv *MetadataValue) GetRaw() (interface{}, bool) {
 	if mv.Bool != nil {
 		return *mv.Bool, true
 	}
-	if mv.Float32 != nil {
-		return *mv.Float32, true
+	if mv.Float64 != nil {
+		return *mv.Float64, true
 	}
 	if mv.Int != nil {
 		return *mv.Int, true
@@ -88,74 +91,73 @@ func (mv *MetadataValue) GetRaw() (interface{}, bool) {
 	return nil, false
 }
 
+func (mv *MetadataValue) Equal(other *MetadataValue) bool {
+	if mv.Bool != nil && other.Bool != nil {
+		return *mv.Bool == *other.Bool
+	}
+	if mv.Float64 != nil && other.Float64 != nil {
+		return *mv.Float64 == *other.Float64
+	}
+	if mv.Int != nil && other.Int != nil {
+		return *mv.Int == *other.Int
+	}
+	if mv.StringValue != nil && other.StringValue != nil {
+		return *mv.StringValue == *other.StringValue
+	}
+	return false
+}
+
+// MarshalJSON ensures only the correct type is serialized.
 func (mv *MetadataValue) MarshalJSON() ([]byte, error) {
 	if mv.Bool != nil {
-		return json.Marshal(mv.Bool)
+		return json.Marshal(*mv.Bool)
 	}
-	if mv.Float32 != nil {
-		return json.Marshal(mv.Float32)
+	if mv.Float64 != nil {
+		return []byte(strconv.FormatFloat(float64(*mv.Float64), 'e', -1, 64)), nil
 	}
 	if mv.Int != nil {
-		return json.Marshal(mv.Int)
+		return json.Marshal(float64(*mv.Int)) // Ensure int64 is converted to float64
 	}
 	if mv.StringValue != nil {
-		return json.Marshal(mv.StringValue)
+		return json.Marshal(*mv.StringValue)
 	}
 	return json.Marshal(nil)
 }
 
+// UnmarshalJSON properly detects and assigns the correct type.
 func (mv *MetadataValue) UnmarshalJSON(b []byte) error {
-	var err error
-	// try to unmarshal JSON data into Bool
-	err = json.Unmarshal(b, &mv.Bool)
-	if err == nil {
-		jsonBool, _ := json.Marshal(mv.Bool)
-		if string(jsonBool) == "{}" { // empty struct
-			mv.Bool = nil
-		} else {
-			return nil // data stored in dst.Bool, return on the first match
-		}
-	} else {
-		mv.Bool = nil
+	var raw json.RawMessage
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
 	}
 
-	err = json.Unmarshal(b, &mv.Int)
-	if err == nil {
-		jsonInt, _ := json.Marshal(mv.Int)
-		if string(jsonInt) == "{}" { // empty struct
-			mv.Int = nil
-		} else {
-			return nil // data stored in dst.Bool, return on the first match
-		}
-	} else {
-		mv.Int = nil
+	// Try to parse as bool
+	var boolVal bool
+	if err := json.Unmarshal(raw, &boolVal); err == nil {
+		mv.Bool = &boolVal
+		return nil
 	}
 
-	err = json.Unmarshal(b, &mv.Float32)
-	if err == nil {
-		jsonFloat32, _ := json.Marshal(mv.Float32)
-		if string(jsonFloat32) == "{}" { // empty struct
-			mv.Float32 = nil
-		} else {
-			return nil // data stored in dst.Bool, return on the first match
-		}
-	} else {
-		mv.Float32 = nil
+	// Try to parse as string
+	var strVal string
+	if err := json.Unmarshal(raw, &strVal); err == nil {
+		mv.StringValue = &strVal
+		return nil
 	}
 
-	err = json.Unmarshal(b, &mv.StringValue)
-	if err == nil {
-		jsonString, _ := json.Marshal(mv.StringValue)
-		if string(jsonString) == "{}" { // empty struct
-			mv.StringValue = nil
-		} else {
-			return nil // data stored in dst.Bool, return on the first match
+	// Try to parse as json.Number to differentiate int and float
+	var num json.Number
+	if err := json.Unmarshal(raw, &num); err == nil {
+		if fv, rr := num.Int64(); rr == nil {
+			mv.Int = &fv
+			return nil
 		}
-	} else {
-		mv.StringValue = nil
+		if fv, rr := num.Float64(); rr == nil {
+			mv.Float64 = &fv
+			return nil
+		}
 	}
-
-	return fmt.Errorf("data failed to match schemas in anyOf(Metadata)")
+	return errors.New("data failed to match schemas in anyOf(Metadata)")
 }
 
 // Collection metadata
@@ -183,11 +185,11 @@ func NewMetadataFromMap(metadata map[string]interface{}) CollectionMetadata {
 		case float64:
 			mv.SetFloat(k, val)
 		case int:
-			mv.SetInt(k, val)
+			mv.SetInt(k, int64(val))
 		case int32:
-			mv.SetInt(k, int(val))
+			mv.SetInt(k, int64(val))
 		case int64:
-			mv.SetInt(k, int(val))
+			mv.SetInt(k, val)
 		case string:
 			mv.SetString(k, val)
 		}
@@ -217,7 +219,7 @@ func (cm *CollectionMetadataImpl) GetString(key string) (value string, ok bool) 
 	return str, ok
 }
 
-func (cm *CollectionMetadataImpl) GetInt(key string) (value int, ok bool) {
+func (cm *CollectionMetadataImpl) GetInt(key string) (value int64, ok bool) {
 	v, ok := cm.metadata[key]
 	if !ok {
 		return 0, false
@@ -250,10 +252,16 @@ func (cm *CollectionMetadataImpl) SetRaw(key string, value interface{}) {
 		cm.metadata[key] = MetadataValue{Bool: &val}
 	case float32:
 		var f64 = float64(val)
-		cm.metadata[key] = MetadataValue{Float32: &f64}
+		cm.metadata[key] = MetadataValue{Float64: &f64}
 	case float64:
-		cm.metadata[key] = MetadataValue{Float32: &val}
+		cm.metadata[key] = MetadataValue{Float64: &val}
 	case int:
+		tv := int64(val)
+		cm.metadata[key] = MetadataValue{Int: &tv}
+	case int32:
+		tv := int64(val)
+		cm.metadata[key] = MetadataValue{Int: &tv}
+	case int64:
 		cm.metadata[key] = MetadataValue{Int: &val}
 	case string:
 		cm.metadata[key] = MetadataValue{StringValue: &val}
@@ -264,12 +272,12 @@ func (cm *CollectionMetadataImpl) SetString(key, value string) {
 	cm.metadata[key] = MetadataValue{StringValue: &value}
 }
 
-func (cm *CollectionMetadataImpl) SetInt(key string, value int) {
+func (cm *CollectionMetadataImpl) SetInt(key string, value int64) {
 	cm.metadata[key] = MetadataValue{Int: &value}
 }
 
 func (cm *CollectionMetadataImpl) SetFloat(key string, value float64) {
-	cm.metadata[key] = MetadataValue{Float32: &value}
+	cm.metadata[key] = MetadataValue{Float64: &value}
 }
 
 func (cm *CollectionMetadataImpl) SetBool(key string, value bool) {
@@ -282,19 +290,19 @@ func (cm *CollectionMetadataImpl) MarshalJSON() ([]byte, error) {
 		switch val, _ := v.GetRaw(); val.(type) {
 		case bool:
 			processed[k], _ = v.GetBool()
-		case float32:
-			processed[k], _ = v.GetFloat()
-		case float64:
-			processed[k], _ = v.GetFloat()
-		case int:
+		case int, int32, int64:
 			processed[k], _ = v.GetInt()
+		case float64, float32:
+			processed[k] = &MetadataValue{
+				Float64: v.Float64,
+			}
 		case string:
 			processed[k], _ = v.GetString()
 		}
 	}
 	j, err := json.Marshal(processed)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to marshal metadata")
 	}
 	return j, nil
 }
@@ -302,8 +310,9 @@ func (cm *CollectionMetadataImpl) MarshalJSON() ([]byte, error) {
 func (cm *CollectionMetadataImpl) UnmarshalJSON(b []byte) error {
 	err := json.Unmarshal(b, &cm.metadata)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to unmarshal metadata")
 	}
+
 	if cm.metadata == nil {
 		cm.metadata = make(map[string]MetadataValue)
 	}

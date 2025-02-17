@@ -4,31 +4,125 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
+	"github.com/stretchr/testify/require"
 )
+
+func MetadataModelStrategy() gopter.Gen {
+	return gen.SliceOf(
+		gen.Struct(reflect.TypeOf(struct {
+			Key   string
+			Value interface{}
+		}{}), map[string]gopter.Gen{
+			"Key":   gen.Identifier(),
+			"Value": gen.OneGenOf(gen.Int64(), gen.Float64(), gen.AlphaString(), gen.Bool()),
+		}),
+	).Map(func(entries *gopter.GenResult) CollectionMetadata {
+		result := make(map[string]interface{})
+		for _, entry := range entries.Result.([]struct {
+			Key   string
+			Value interface{}
+		}) {
+			result[entry.Key] = entry.Value
+		}
+		return NewMetadataFromMap(result)
+	})
+}
+
+func TestMetadataSerializeDeserialize(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("marshal/unmarshal", prop.ForAll(
+		func(col CollectionMetadata) bool {
+			bytes, err := json.Marshal(col)
+			require.NoError(t, err)
+			newCol := NewMetadata()
+			err = newCol.UnmarshalJSON(bytes)
+			require.NoError(t, err)
+			for _, key := range col.Keys() {
+				val, ok := col.GetRaw(key)
+				require.True(t, ok)
+				newVal, newOk := col.GetRaw(key)
+				require.True(t, newOk)
+				require.True(t, reflect.DeepEqual(val, newVal))
+			}
+			return true
+		},
+		MetadataModelStrategy()),
+	)
+	properties.TestingRun(t)
+}
 
 func TestMetadataBasicOperations(t *testing.T) {
 	md := NewMetadata()
 
-	// Test setting and getting different types
-	md.SetString("str", "test")
-	if val, ok := md.GetString("str"); !ok || val != "test" {
-		t.Errorf("GetString failed, got: %v, want: test", val)
-	}
+	parameters := gopter.DefaultTestParameters()
+	properties := gopter.NewProperties(parameters)
 
-	md.SetInt("int", 42)
-	if val, ok := md.GetInt("int"); !ok || val != 42 {
-		t.Errorf("GetInt failed, got: %v, want: 42", val)
-	}
+	properties.Property("set/get string", prop.ForAll(
+		func(key string, value string) bool {
+			md.SetString(key, value)
+			val, ok := md.GetString(key)
+			require.True(t, ok)
+			require.Equal(t, value, val)
+			return true
+		},
+		gen.AlphaString(), gen.AlphaString(),
+	))
 
-	md.SetFloat("float", 3.14)
-	if val, ok := md.GetFloat("float"); !ok || val != 3.14 {
-		t.Errorf("GetFloat failed, got: %v, want: 3.14", val)
-	}
+	properties.Property("set/get int", prop.ForAll(
+		func(key string, value int64) bool {
+			md.SetInt(key, value)
+			val, ok := md.GetInt(key)
+			require.True(t, ok)
+			require.Equal(t, value, val)
+			return true
+		},
+		gen.AlphaString(), gen.Int64(),
+	))
 
-	md.SetBool("bool", true)
-	if val, ok := md.GetBool("bool"); !ok || !val {
-		t.Errorf("GetBool failed, got: %v, want: true", val)
-	}
+	properties.Property("set/get float", prop.ForAll(
+		func(key string, value float64) bool {
+			md.SetFloat(key, value)
+			val, ok := md.GetFloat(key)
+			require.True(t, ok)
+			require.Equal(t, value, val)
+			return true
+		},
+		gen.AlphaString(), gen.Float64(),
+	))
+
+	properties.Property("set/get bool", prop.ForAll(
+		func(key string, value bool) bool {
+			md.SetBool(key, value)
+			val, ok := md.GetBool(key)
+			require.True(t, ok)
+			require.Equal(t, value, val)
+			return true
+		},
+		gen.AlphaString(), gen.Bool(),
+	))
+
+	properties.Property("set/get raw", prop.ForAll(
+		func(key string, value interface{}) bool {
+			md.SetRaw(key, value)
+			val, ok := md.GetRaw(key)
+			require.True(t, ok)
+			varL, ok := val.(MetadataValue)
+			require.True(t, ok)
+			require.NotNil(t, varL)
+			underlyingValue, _ := varL.GetRaw()
+			require.Equal(t, value, underlyingValue)
+			return true
+		},
+		gen.AlphaString(), gen.OneGenOf(gen.Int64(), gen.Float64(), gen.AlphaString(), gen.Bool()),
+	))
+
+	properties.TestingRun(t)
 }
 
 func TestMetadataFromMap(t *testing.T) {
@@ -38,7 +132,7 @@ func TestMetadataFromMap(t *testing.T) {
 		"float":   3.14,
 		"bool":    true,
 		"int64":   int64(100),
-		"float64": float64(2.718),
+		"float64": 2.718,
 	}
 
 	md := NewMetadataFromMap(input)

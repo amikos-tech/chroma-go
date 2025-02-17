@@ -21,6 +21,12 @@ const (
 	IncludeIDs        Include = "ids"
 )
 
+type Identity struct {
+	UserID   string `json:"user_id"`
+	Tenant   string `json:"tenant"`
+	Database string `json:"database"`
+}
+
 type TenantBase struct {
 	TenantName string `json:"name"`
 }

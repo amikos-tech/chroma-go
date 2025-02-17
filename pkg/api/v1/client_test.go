@@ -305,7 +305,7 @@ func TestCreateCollection(t *testing.T) {
 				var op api.CreateCollectionOp
 				err := json.Unmarshal([]byte(respBody), &op)
 				require.NoError(t, err)
-				var vi int
+				var vi int64
 				var vs string
 				var vf float64
 				var ok bool

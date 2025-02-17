@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/amikos-tech/chroma-go/pkg/api"
-	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/amikos-tech/chroma-go/pkg/api"
+	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 )
 
 func TestCollectionAdd(t *testing.T) {
@@ -25,7 +27,7 @@ func TestCollectionAdd(t *testing.T) {
 		{
 			name: "with IDs and docs",
 			matchURL: func(r *http.Request) bool {
-				return r.Method == http.MethodPost && rx.Match([]byte(r.URL.Path))
+				return r.Method == http.MethodPost && rx.MatchString(r.URL.Path)
 			},
 			validateRequestWithResponse: func(w http.ResponseWriter, r *http.Request) {
 				respBody := chhttp.ReadRespBody(r.Body)
@@ -57,7 +59,7 @@ func TestCollectionAdd(t *testing.T) {
 		{
 			name: "exceeding max batch size",
 			matchURL: func(r *http.Request) bool {
-				return r.Method == http.MethodPost && rx.Match([]byte(r.URL.Path))
+				return r.Method == http.MethodPost && rx.MatchString(r.URL.Path)
 			},
 			validateRequestWithResponse: func(w http.ResponseWriter, r *http.Request) {
 				respBody := chhttp.ReadRespBody(r.Body)

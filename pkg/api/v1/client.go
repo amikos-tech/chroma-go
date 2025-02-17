@@ -456,8 +456,15 @@ func (client *APIClientV1) Satisfies(resourceOperation api.ResourceOperation, me
 		if m.(float64) <= metric.(float64) {
 			return fmt.Errorf("%s count limit exceeded for %s %s. Expected less than or equal %v but got %v", metricName, string(resourceOperation.Resource()), string(resourceOperation.Operation()), m, metric)
 		}
-
 	}
 
 	return nil
+}
+
+func (client *APIClientV1) GetIdentity(ctx context.Context) (api.Identity, error) {
+	return api.Identity{
+		UserID:   "",
+		Tenant:   client.Database().Tenant().Name(),
+		Database: client.Database().Name(),
+	}, nil
 }
