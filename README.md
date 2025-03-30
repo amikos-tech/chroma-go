@@ -1,8 +1,11 @@
 # Chroma Go
 
+> [!CAUTION]  
+> The current release does not yet work with API v2 of Chroma. We're working to fix this very soon. In the meantime the client will work fine with version <=0.6.2 of Chroma.
+
 A simple Chroma Vector Database client written in Go
 
-Works with Chroma Version: v0.4.3 - v0.5.x
+Works with Chroma Version: v0.4.3 - v0.6.2
 
 We invite users to visit the docs site for the library for more in-depth
 information: [Chroma Go Docs](https://go-client.chromadb.dev/)
