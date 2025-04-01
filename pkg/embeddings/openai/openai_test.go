@@ -39,14 +39,14 @@ func Test_openai_client(t *testing.T) {
 		require.Empty(t, ef.apiClient.OrgID)
 	})
 
-	t.Run("Test Adding Organization Id with NewOpenAIClient", func(t *testing.T) {
+	t.Run("Test Adding Organization CollectionID with NewOpenAIClient", func(t *testing.T) {
 		apiClient, efError := NewOpenAIClient(apiKey, WithOpenAIOrganizationID("org-123"))
 		require.NoError(t, efError)
 
 		require.Equal(t, "org-123", apiClient.OrgID)
 	})
 
-	t.Run("Test Adding Organization Id with NewOpenAIEmbeddingFunction", func(t *testing.T) {
+	t.Run("Test Adding Organization CollectionID with NewOpenAIEmbeddingFunction", func(t *testing.T) {
 		ef, efError := NewOpenAIEmbeddingFunction(apiKey, WithOpenAIOrganizationID("org-123"))
 		require.NoError(t, efError)
 

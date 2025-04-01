@@ -2,7 +2,7 @@ package http
 
 import "io"
 
-func readRespBody(resp io.Reader) string {
+func ReadRespBody(resp io.Reader) string {
 	if resp == nil {
 		return ""
 	}
