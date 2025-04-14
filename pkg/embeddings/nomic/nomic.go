@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 // Docs:  https://docs.nomic.ai/reference/endpoints/nomic-embed-text
@@ -34,7 +34,7 @@ const (
 
 type Client struct {
 	apiKey                   string
-	DefaultModel             string
+	DefaultModel             embeddings.EmbeddingModel
 	Client                   *http.Client
 	DefaultContext           *context.Context
 	MaxBatchSize             int
@@ -99,10 +99,10 @@ func NewNomicClient(opts ...Option) (*Client, error) {
 }
 
 type CreateEmbeddingRequest struct {
-	Model          string    `json:"model"`
-	Texts          []string  `json:"texts"`
-	TaskType       *TaskType `json:"task_type,omitempty"`
-	Dimensionality *int      `json:"dimensionality,omitempty"`
+	Model          embeddings.EmbeddingModel `json:"model"`
+	Texts          []string                  `json:"texts"`
+	TaskType       *TaskType                 `json:"task_type,omitempty"`
+	Dimensionality *int                      `json:"dimensionality,omitempty"`
 }
 
 type CreateEmbeddingResponse struct {
@@ -118,7 +118,7 @@ func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	return string(data), nil
 }
 
-func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest) ([]*types.Embedding, error) {
+func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest) ([]embeddings.Embedding, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
 		return nil, err
@@ -153,14 +153,14 @@ func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest
 	if err := json.Unmarshal(respData, &embeddingResponse); err != nil {
 		return nil, err
 	}
-	embeddings := make([]*types.Embedding, len(embeddingResponse.Embeddings))
+	embs := make([]embeddings.Embedding, len(embeddingResponse.Embeddings))
 	for i, e := range embeddingResponse.Embeddings {
-		embeddings[i] = types.NewEmbeddingFromFloat32(e)
+		embs[i] = embeddings.NewEmbeddingFromFloat32(e)
 	}
-	return embeddings, nil
+	return embs, nil
 }
 
-var _ types.EmbeddingFunction = (*NomicEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*NomicEmbeddingFunction)(nil)
 
 type NomicEmbeddingFunction struct {
 	apiClient *Client
@@ -175,7 +175,7 @@ func NewNomicEmbeddingFunction(opts ...Option) (*NomicEmbeddingFunction, error) 
 	return &NomicEmbeddingFunction{apiClient: client}, nil
 }
 
-func (e *NomicEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *NomicEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if len(documents) > e.apiClient.MaxBatchSize {
 		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
@@ -183,11 +183,11 @@ func (e *NomicEmbeddingFunction) EmbedDocuments(ctx context.Context, documents [
 		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if len(documents) == 0 {
-		return types.NewEmbeddingsFromFloat32(nil), nil
+		return embeddings.NewEmptyEmbeddings(), nil
 	}
 	var model = e.apiClient.DefaultModel
 	if ctx.Value(ModelContextVar) != nil {
-		model = ctx.Value(ModelContextVar).(string)
+		model = embeddings.EmbeddingModel(ctx.Value(ModelContextVar).(string))
 	}
 	var dimensionality = e.apiClient.DefaultDimensionality
 	if ctx.Value(DimensionalityContextVar) != nil {
@@ -210,10 +210,10 @@ func (e *NomicEmbeddingFunction) EmbedDocuments(ctx context.Context, documents [
 	return response, nil
 }
 
-func (e *NomicEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *NomicEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	var model = e.apiClient.DefaultModel
 	if ctx.Value(ModelContextVar) != nil {
-		model = ctx.Value(ModelContextVar).(string)
+		model = embeddings.EmbeddingModel(ctx.Value(ModelContextVar).(string))
 	}
 	var dimensionality = e.apiClient.DefaultDimensionality
 	if ctx.Value(DimensionalityContextVar) != nil {
@@ -234,8 +234,4 @@ func (e *NomicEmbeddingFunction) EmbedQuery(ctx context.Context, document string
 		return nil, err
 	}
 	return response[0], nil
-}
-
-func (e *NomicEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }

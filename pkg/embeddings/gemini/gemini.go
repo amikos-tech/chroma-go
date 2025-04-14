@@ -7,7 +7,7 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 // Docs:  https://developers.cloudflare.com/workers-ai/ (Cloudflare Workers AI) and https://developers.cloudflare.com/workers-ai/models/embedding/ (Embedding API)
@@ -20,7 +20,7 @@ const (
 
 type Client struct {
 	apiKey         string
-	DefaultModel   string
+	DefaultModel   embeddings.EmbeddingModel
 	Client         *genai.Client
 	DefaultContext *context.Context
 	MaxBatchSize   int
@@ -71,12 +71,12 @@ func NewGeminiClient(opts ...Option) (*Client, error) {
 	return client, nil
 }
 
-func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]*types.Embedding, error) {
+func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]embeddings.Embedding, error) {
 	var em *genai.EmbeddingModel
 	if ctx.Value(ModelContextVar) != nil {
 		em = c.Client.EmbeddingModel(ctx.Value(ModelContextVar).(string))
 	} else {
-		em = c.Client.EmbeddingModel(c.DefaultModel)
+		em = c.Client.EmbeddingModel(string(c.DefaultModel))
 	}
 	b := em.NewBatch()
 	for _, t := range req {
@@ -86,12 +86,12 @@ func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]*types.Em
 	if err != nil {
 		return nil, err
 	}
-	var embeddings = make([][]float32, 0)
+	var embs = make([][]float32, 0)
 	for _, e := range res.Embeddings {
-		embeddings = append(embeddings, e.Values)
+		embs = append(embs, e.Values)
 	}
 
-	return types.NewEmbeddingsFromFloat32(embeddings), nil
+	return embeddings.NewEmbeddingsFromFloat32(embs)
 }
 
 // close closes the underlying client
@@ -101,7 +101,7 @@ func (c *Client) close() error {
 	return c.Client.Close()
 }
 
-var _ types.EmbeddingFunction = (*GeminiEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*GeminiEmbeddingFunction)(nil)
 
 type GeminiEmbeddingFunction struct {
 	apiClient *Client
@@ -123,12 +123,12 @@ func (e *GeminiEmbeddingFunction) close() error {
 	return e.apiClient.close()
 }
 
-func (e *GeminiEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *GeminiEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if e.apiClient.MaxBatchSize > 0 && len(documents) > e.apiClient.MaxBatchSize {
 		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if len(documents) == 0 {
-		return types.NewEmbeddingsFromFloat32(nil), nil
+		return embeddings.NewEmptyEmbeddings(), nil
 	}
 
 	response, err := e.apiClient.CreateEmbedding(ctx, documents)
@@ -138,14 +138,10 @@ func (e *GeminiEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 	return response, nil
 }
 
-func (e *GeminiEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *GeminiEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, []string{document})
 	if err != nil {
 		return nil, err
 	}
 	return response[0], nil
-}
-
-func (e *GeminiEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }

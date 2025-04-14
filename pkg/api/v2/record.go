@@ -1,24 +1,26 @@
-package api
+package v2
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type Record interface {
 	ID() DocumentID
 	Document() Document // should work for both text and URI based documents
-	Embedding() Embedding
+	Embedding() embeddings.Embedding
 	Metadata() DocumentMetadata
 	Validate() error
-	Unwrap() (DocumentID, Document, Embedding, DocumentMetadata)
+	Unwrap() (DocumentID, Document, embeddings.Embedding, DocumentMetadata)
 }
+
+type Records []Record
 
 type SimpleRecord struct {
 	id        string
-	embedding Embedding
-	metadata  map[string]interface{}
+	embedding embeddings.Embedding
+	metadata  DocumentMetadata
 	document  string
 	uri       string
 	err       error // indicating whether the record is valid or nto
@@ -32,14 +34,14 @@ func WithRecordID(id string) RecordOption {
 	}
 }
 
-func WithRecordEmbedding(embedding Embedding) RecordOption {
+func WithRecordEmbedding(embedding embeddings.Embedding) RecordOption {
 	return func(r *SimpleRecord) error {
 		r.embedding = embedding
 		return nil
 	}
 }
 
-func WithRecordMetadatas(metadata map[string]interface{}) RecordOption {
+func WithRecordMetadatas(metadata DocumentMetadata) RecordOption {
 	return func(r *SimpleRecord) error {
 		r.metadata = metadata
 		return nil
@@ -59,7 +61,6 @@ func NewSimpleRecord(opts ...RecordOption) (*SimpleRecord, error) {
 			return nil, errors.Wrap(err, "error applying record option")
 		}
 	}
-	fmt.Println("=123121dswq")
 
 	err := r.constructValidate()
 	if err != nil {
@@ -80,18 +81,18 @@ func (r *SimpleRecord) URI() string {
 	return r.uri
 }
 
-func (r *SimpleRecord) Embedding() Embedding {
+func (r *SimpleRecord) Embedding() embeddings.Embedding {
 	return r.embedding
 }
 
 func (r *SimpleRecord) Metadata() DocumentMetadata {
-	return NewDocumentMetadata(r.metadata)
+	return r.metadata
 }
 
 func (r *SimpleRecord) Validate() error {
 	return r.err
 }
 
-func (r *SimpleRecord) Unwrap() (DocumentID, Document, Embedding, DocumentMetadata) {
+func (r *SimpleRecord) Unwrap() (DocumentID, Document, embeddings.Embedding, DocumentMetadata) {
 	return r.ID(), r.Document(), r.Embedding(), r.Metadata()
 }

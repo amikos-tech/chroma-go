@@ -1,8 +1,9 @@
-package api
+package v2
 
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -29,6 +30,28 @@ type MetadataValue struct {
 	Float64     *float64 `json:"-"`
 	Int         *int64   `json:"-"`
 	StringValue *string  `json:"-"`
+}
+
+type MetaAttribute struct {
+	key       string
+	value     MetadataValue
+	valueType reflect.Type
+}
+
+func NewStringAttribute(key string, value string) *MetaAttribute {
+	return &MetaAttribute{key: key, value: MetadataValue{StringValue: &value}, valueType: reflect.TypeOf(value)}
+}
+
+func NewIntAttribute(key string, value int64) *MetaAttribute {
+	return &MetaAttribute{key: key, value: MetadataValue{Int: &value}, valueType: reflect.TypeOf(value)}
+}
+
+func NewFloatAttribute(key string, value float64) *MetaAttribute {
+	return &MetaAttribute{key: key, value: MetadataValue{Float64: &value}, valueType: reflect.TypeOf(value)}
+}
+
+func NewBoolAttribute(key string, value bool) *MetaAttribute {
+	return &MetaAttribute{key: key, value: MetadataValue{Bool: &value}, valueType: reflect.TypeOf(value)}
 }
 
 func (mv *MetadataValue) GetInt() (int64, bool) {

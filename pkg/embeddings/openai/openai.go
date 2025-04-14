@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type EmbeddingModel string
@@ -182,7 +182,7 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	return &createEmbeddingResponse, nil
 }
 
-var _ types.EmbeddingFunction = (*OpenAIEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*OpenAIEmbeddingFunction)(nil)
 
 type OpenAIEmbeddingFunction struct {
 	apiClient *OpenAIClient
@@ -228,7 +228,7 @@ func (e *OpenAIEmbeddingFunction) getDimensions(ctx context.Context) *int {
 	return dimensions
 }
 
-func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		User:  "chroma-go-client",
 		Model: e.getModel(ctx),
@@ -240,10 +240,10 @@ func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 	if err != nil {
 		return nil, err
 	}
-	return types.NewEmbeddingsFromFloat32(ConvertToMatrix(response)), nil
+	return embeddings.NewEmbeddingsFromFloat32(ConvertToMatrix(response))
 }
 
-func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Model: e.getModel(ctx),
 		User:  "chroma-go-client",
@@ -254,9 +254,5 @@ func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	if err != nil {
 		return nil, err
 	}
-	return types.NewEmbeddingFromFloat32(ConvertToMatrix(response)[0]), nil
-}
-
-func (e *OpenAIEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
+	return embeddings.NewEmbeddingFromFloat32(ConvertToMatrix(response)[0]), nil
 }

@@ -17,36 +17,9 @@ import (
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/require"
 
-	"github.com/amikos-tech/chroma-go/pkg/api"
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
-
-var sampleCollectionListJSON = `[{
-    "id": "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
-    "name": "testcoll",
-    "configuration_json": {
-      "hnsw_configuration": {
-        "space": "l2",
-        "ef_construction": 100,
-        "ef_search": 10,
-        "num_threads": 14,
-        "M": 16,
-        "resize_factor": 1.2,
-        "batch_size": 100,
-        "sync_threshold": 1000,
-        "_type": "HNSWConfigurationInternal"
-      },
-      "_type": "CollectionConfigurationInternal"
-    },
-    "metadata": {
-      "t": 1
-    },
-    "dimension": null,
-    "tenant": "default_tenant",
-    "database": "default_database",
-    "version": 0,
-    "log_position": 0
-  }]`
 
 func MetadataModel() gopter.Gen {
 	return gen.SliceOf(
@@ -57,7 +30,7 @@ func MetadataModel() gopter.Gen {
 			"Key":   gen.Identifier(),
 			"Value": gen.OneGenOf(gen.Int64(), gen.Float64(), gen.AlphaString(), gen.Bool()),
 		}),
-	).Map(func(entries *gopter.GenResult) api.CollectionMetadata {
+	).Map(func(entries *gopter.GenResult) CollectionMetadata {
 		result := make(map[string]interface{})
 		for _, entry := range entries.Result.([]struct {
 			Key   string
@@ -65,7 +38,7 @@ func MetadataModel() gopter.Gen {
 		}) {
 			result[entry.Key] = entry.Value
 		}
-		return api.NewMetadataFromMap(result)
+		return NewMetadataFromMap(result)
 	})
 }
 
@@ -82,7 +55,7 @@ func TenantStrategy() gopter.Gen {
 		id := uuid.New() // Generates a new random UUID
 		return gopter.NewGenResult(id.String(), gopter.NoShrinker)
 	}, func(params *gopter.GenParameters) *gopter.GenResult {
-		return gopter.NewGenResult(api.DefaultTenant, gopter.NoShrinker)
+		return gopter.NewGenResult(DefaultTenant, gopter.NoShrinker)
 	})
 }
 
@@ -91,7 +64,7 @@ func DatabaseStrategy() gopter.Gen {
 		id := uuid.New() // Generates a new random UUID
 		return gopter.NewGenResult(id.String(), gopter.NoShrinker)
 	}, func(params *gopter.GenParameters) *gopter.GenResult {
-		return gopter.NewGenResult(api.DefaultDatabase, gopter.NoShrinker)
+		return gopter.NewGenResult(DefaultDatabase, gopter.NoShrinker)
 	})
 }
 
@@ -115,7 +88,7 @@ func TestCreateCollectionProperty(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				respBody := chhttp.ReadRespBody(r.Body)
 				require.JSONEq(t, `{"name":"`+name+`"}`, respBody)
-				var op api.CreateCollectionOp
+				var op CreateCollectionOp
 				err := json.Unmarshal([]byte(respBody), &op)
 				require.NoError(t, err)
 				cm := CollectionModel{
@@ -131,12 +104,12 @@ func TestCreateCollectionProperty(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client, err := NewClient(api.WithBaseURL(server.URL), api.WithDatabaseAndTenant(col.Database, col.Tenant))
+			client, err := NewHTTPClient(WithBaseURL(server.URL), WithDatabaseAndTenant(col.Database, col.Tenant))
 
 			require.NoError(t, err)
 
 			// Call API with random data
-			c, err := client.CreateCollection(context.Background(), name)
+			c, err := client.CreateCollection(context.Background(), name, WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 			require.NoError(t, err)
 			require.NotNil(t, c)
 			require.Equal(t, col.ID, c.ID())
@@ -147,11 +120,11 @@ func TestCreateCollectionProperty(t *testing.T) {
 			for _, k := range col.Metadata.Keys() {
 				val1, ok1 := col.Metadata.GetRaw(k)
 				require.True(t, ok1)
-				metadataValue1, ok11 := val1.(api.MetadataValue)
+				metadataValue1, ok11 := val1.(MetadataValue)
 				require.True(t, ok11)
 				val2, ok2 := c.Metadata().GetRaw(k)
 				require.True(t, ok2)
-				metadataValue2, ok22 := val2.(api.MetadataValue)
+				metadataValue2, ok22 := val2.(MetadataValue)
 				require.True(t, ok22)
 				r1, _ := metadataValue1.GetRaw()
 				r2, _ := metadataValue2.GetRaw()
@@ -188,20 +161,91 @@ func TestAPIClient(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(`{"nanosecond heartbeat":1732127707371421353}`))
 			require.NoError(t, err)
-		case r.URL.Path == "/api/v2/tenants/default_tenant/databases/default_database/count_collections" && r.Method == http.MethodGet:
+		case r.URL.Path == "/api/v2/tenants/default_tenant" && r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"name":"default_tenant"}`))
+			require.NoError(t, err)
+		case r.URL.Path == "/api/v2/tenants" && r.Method == http.MethodPost:
+			require.JSONEq(t, `{"name":"test_tenant"}`, respBody)
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
+		// create database
+		case r.URL.Path == "/api/v2/tenants/test_tenant/databases" && r.Method == http.MethodPost:
+			require.JSONEq(t, `{"name":"test_db"}`, respBody)
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
+		// get database
+		case r.URL.Path == "/api/v2/tenants/test_tenant/databases/test_db" && r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "name": "test_db",
+  "tenant": "test_tenant"
+}`))
+			require.NoError(t, err)
+		case r.URL.Path == "/api/v2/tenants/test_tenant/databases" && r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`[
+{
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "name": "test_db1",
+  "tenant": "test_tenant"
+},
+{
+  "id": "2fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "name": "test_db2",
+  "tenant": "test_tenant"
+}
+]`))
+			require.NoError(t, err)
+		// Delete database
+		case r.URL.Path == "/api/v2/tenants/test_tenant/databases/test_db" && r.Method == http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
+		case r.URL.Path == "/api/v2/tenants/default_tenant/databases/default_database/collections_count" && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(`100`))
 			require.NoError(t, err)
 		case r.URL.Path == "/api/v2/tenants/default_tenant/databases/default_database/collections" && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
-			_, err := w.Write([]byte(sampleCollectionListJSON))
+			_, err := w.Write([]byte(`[
+  {
+    "id": "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+    "configuration_json": {
+      "hnsw_configuration": {
+        "space": "l2",
+        "ef_construction": 100,
+        "ef_search": 10,
+        "num_threads": 14,
+        "M": 16,
+        "resize_factor": 1.2,
+        "batch_size": 100,
+        "sync_threshold": 1000,
+        "_type": "HNSWConfigurationInternal"
+      },
+      "_type": "CollectionConfigurationInternal"
+    },
+    "database": "default_database",
+    "dimension": 384,
+    "log_position": 0,
+    "metadata": {
+      "t": 1
+    },
+    "name": "testcoll",
+    "tenant": "default_tenant",
+    "version": 0
+  }
+]`))
 			require.NoError(t, err)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
-	client, err := NewClient(api.WithBaseURL(server.URL))
+	client, err := NewHTTPClient(WithBaseURL(server.URL))
 	require.NoError(t, err)
 
 	t.Run("GetVersion", func(t *testing.T) {
@@ -212,6 +256,52 @@ func TestAPIClient(t *testing.T) {
 	})
 	t.Run("Hearbeat", func(t *testing.T) {
 		err := client.Heartbeat(context.Background())
+		require.NoError(t, err)
+	})
+
+	t.Run("GetTenant", func(t *testing.T) {
+		tenant, err := client.GetTenant(context.Background(), "default_tenant")
+		require.NoError(t, err)
+		require.NotNil(t, tenant)
+		require.Equal(t, "default_tenant", tenant.Name())
+	})
+
+	t.Run("CreateTenant", func(t *testing.T) {
+		tenant, err := client.CreateTenant(context.Background(), NewTenant("test_tenant"))
+		require.NoError(t, err)
+		require.NotNil(t, tenant)
+		require.Equal(t, "test_tenant", tenant.Name())
+	})
+
+	t.Run("CreateDatabase", func(t *testing.T) {
+		db, err := client.CreateDatabase(context.Background(), "test_tenant", "test_db")
+		require.NoError(t, err)
+		require.NotNil(t, db)
+		require.Equal(t, "test_db", db.Name())
+	})
+
+	t.Run("ListDatabases", func(t *testing.T) {
+		dbs, err := client.ListDatabases(context.Background(), "test_tenant")
+		require.NoError(t, err)
+		require.NotNil(t, dbs)
+		require.Len(t, dbs, 2)
+		require.Equal(t, "test_db1", dbs[0].Name())
+		require.Equal(t, "test_tenant", dbs[0].Tenant().Name())
+		require.Equal(t, "test_db2", dbs[1].Name())
+		require.Equal(t, "test_tenant", dbs[1].Tenant().Name())
+	})
+
+	t.Run("GetDatabase", func(t *testing.T) {
+		db, err := client.GetDatabase(context.Background(), "test_tenant", "test_db")
+		require.NoError(t, err)
+		require.NotNil(t, db)
+		require.Equal(t, "test_db", db.Name())
+		require.Equal(t, "test_tenant", db.Tenant().Name())
+		require.Equal(t, "3fa85f64-5717-4562-b3fc-2c963f66afa6", db.ID())
+	})
+
+	t.Run("DeleteDatabase", func(t *testing.T) {
+		err := client.DeleteDatabase(context.Background(), "test_tenant", "test_db")
 		require.NoError(t, err)
 	})
 
@@ -229,12 +319,12 @@ func TestAPIClient(t *testing.T) {
 		c := cols[0]
 		require.Equal(t, "8ecf0f7e-e806-47f8-96a1-4732ef42359e", c.ID())
 		require.Equal(t, "testcoll", c.Name())
-		require.Equal(t, api.NewDefaultTenant(), c.Tenant())
-		require.Equal(t, api.NewDefaultDatabase(), c.Database())
+		require.Equal(t, NewDefaultTenant(), c.Tenant())
+		require.Equal(t, NewDefaultDatabase(), c.Database())
 		require.NotNil(t, c.Metadata())
 		vi, ok := c.Metadata().GetInt("t")
 		require.True(t, ok)
-		require.Equal(t, 1, vi)
+		require.Equal(t, int64(1), vi)
 	})
 
 	t.Run("CreateCollection", func(t *testing.T) {
@@ -249,7 +339,7 @@ func TestAPIClient(t *testing.T) {
 				require.JSONEq(t, `{"name":"test"}`, respBody)
 				values, err := url.ParseQuery(r.URL.RawQuery)
 				require.NoError(t, err)
-				var op api.CreateCollectionOp
+				var op CreateCollectionOp
 				err = json.Unmarshal([]byte(respBody), &op)
 				require.NoError(t, err)
 				cm := CollectionModel{
@@ -266,9 +356,9 @@ func TestAPIClient(t *testing.T) {
 			}
 		}))
 		defer server.Close()
-		innerClient, err := NewClient(api.WithBaseURL(server.URL))
+		innerClient, err := NewHTTPClient(WithBaseURL(server.URL))
 		require.NoError(t, err)
-		c, err := innerClient.CreateCollection(context.Background(), "test")
+		c, err := innerClient.CreateCollection(context.Background(), "test", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		require.NotNil(t, c)
 	})
@@ -285,7 +375,7 @@ func TestAPIClient(t *testing.T) {
 				require.JSONEq(t, `{"get_or_create":true, "name":"test"}`, respBody)
 				values, err := url.ParseQuery(r.URL.RawQuery)
 				require.NoError(t, err)
-				var op api.CreateCollectionOp
+				var op CreateCollectionOp
 				err = json.Unmarshal([]byte(respBody), &op)
 				require.NoError(t, err)
 				cm := CollectionModel{
@@ -302,9 +392,9 @@ func TestAPIClient(t *testing.T) {
 			}
 		}))
 		defer server.Close()
-		innerClient, err := NewClient(api.WithBaseURL(server.URL))
+		innerClient, err := NewHTTPClient(WithBaseURL(server.URL))
 		require.NoError(t, err)
-		c, err := innerClient.GetOrCreateCollection(context.Background(), "test")
+		c, err := innerClient.GetOrCreateCollection(context.Background(), "test", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		require.NotNil(t, c)
 	})
@@ -316,14 +406,13 @@ func TestAPIClient(t *testing.T) {
 			switch {
 			case r.URL.Path == "/api/v2/tenants/default_tenant/databases/default_database/collections/test" && r.Method == http.MethodGet:
 				w.WriteHeader(http.StatusOK)
-				values, err := url.ParseQuery(r.URL.RawQuery)
 				require.NoError(t, err)
 				cm := CollectionModel{
 					ID:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
 					Name:     "test",
-					Tenant:   values.Get("tenant"),
-					Database: values.Get("database"),
-					Metadata: api.NewMetadataFromMap(map[string]any{"t": 1}),
+					Tenant:   "default_tenant",
+					Database: "default_database",
+					Metadata: NewMetadataFromMap(map[string]any{"t": 1}),
 				}
 				err = json.NewEncoder(w).Encode(&cm)
 				require.NoError(t, err)
@@ -332,19 +421,20 @@ func TestAPIClient(t *testing.T) {
 			}
 		}))
 		defer server.Close()
-		innerClient, err := NewClient(api.WithBaseURL(server.URL))
+		innerClient, err := NewHTTPClient(WithBaseURL(server.URL))
 		require.NoError(t, err)
-		c, err := innerClient.GetCollection(context.Background(), "test")
+		c, err := innerClient.GetCollection(context.Background(), "test", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
+		// TODO also test with tenant and database and EF
 		require.NoError(t, err)
 		require.NotNil(t, c)
 		require.Equal(t, "8ecf0f7e-e806-47f8-96a1-4732ef42359e", c.ID())
 		require.Equal(t, "test", c.Name())
-		require.Equal(t, api.NewDefaultTenant(), c.Tenant())
-		require.Equal(t, api.NewDefaultDatabase(), c.Database())
+		require.Equal(t, NewDefaultTenant(), c.Tenant())
+		require.Equal(t, NewDefaultDatabase(), c.Database())
 		require.NotNil(t, c.Metadata())
 		vi, ok := c.Metadata().GetInt("t")
 		require.True(t, ok)
-		require.Equal(t, 1, vi)
+		require.Equal(t, int64(1), vi)
 	})
 }
 
@@ -352,7 +442,7 @@ func TestCreateCollection(t *testing.T) {
 	var tests = []struct {
 		name                        string
 		validateRequestWithResponse func(w http.ResponseWriter, r *http.Request)
-		sendRequest                 func(client api.Client)
+		sendRequest                 func(client Client)
 	}{
 		{
 			name: "with name only",
@@ -366,8 +456,8 @@ func TestCreateCollection(t *testing.T) {
 				_, err = w.Write([]byte(`{"id":"8ecf0f7e-e806-47f8-96a1-4732ef42359e","name":"test"}`))
 				require.NoError(t, err)
 			},
-			sendRequest: func(client api.Client) {
-				collection, err := client.CreateCollection(context.Background(), "test")
+			sendRequest: func(client Client) {
+				collection, err := client.CreateCollection(context.Background(), "test", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 				require.NoError(t, err)
 				require.NotNil(t, collection)
 				require.Equal(t, "8ecf0f7e-e806-47f8-96a1-4732ef42359e", collection.ID())
@@ -379,14 +469,12 @@ func TestCreateCollection(t *testing.T) {
 			validateRequestWithResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				respBody := chhttp.ReadRespBody(r.Body)
-				var op api.CreateCollectionOp
+				var op CreateCollectionOp
 				err := json.Unmarshal([]byte(respBody), &op)
-				require.NoError(t, err)
-				values, err := url.ParseQuery(r.URL.RawQuery)
 				require.NoError(t, err)
 				v, ok := op.Metadata.GetInt("int")
 				require.True(t, ok)
-				require.Equal(t, 1, v)
+				require.Equal(t, int64(1), v)
 				vf, ok := op.Metadata.GetFloat("float")
 				require.True(t, ok)
 				require.Equal(t, 1.1, vf)
@@ -399,16 +487,18 @@ func TestCreateCollection(t *testing.T) {
 				cm := CollectionModel{
 					ID:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
 					Name:     op.Name,
-					Tenant:   values.Get("tenant"),
-					Database: values.Get("database"),
+					Tenant:   "default_tenant",
+					Database: "default_database",
 					Metadata: op.Metadata,
 				}
 				err = json.NewEncoder(w).Encode(&cm)
 				require.NoError(t, err)
 			},
-			sendRequest: func(client api.Client) {
-				collection, err := client.CreateCollection(context.Background(), "test", api.WithCollectionMetadataCreate(
-					api.NewMetadataFromMap(map[string]any{"int": 1, "float": 1.1, "string": "test", "bool": true})),
+			sendRequest: func(client Client) {
+				collection, err := client.CreateCollection(context.Background(), "test",
+					WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+					WithCollectionMetadataCreate(
+						NewMetadataFromMap(map[string]any{"int": 1, "float": 1.1, "string": "test", "bool": true})),
 				)
 				require.NoError(t, err)
 				require.NotNil(t, collection)
@@ -425,9 +515,9 @@ func TestCreateCollection(t *testing.T) {
 				require.True(t, vb)
 				vi, ok := collection.Metadata().GetInt("int")
 				require.True(t, ok)
-				require.Equal(t, 1, vi)
-				require.Equal(t, api.NewDefaultTenant(), collection.Tenant())
-				require.Equal(t, api.NewDefaultDatabase(), collection.Database())
+				require.Equal(t, int64(1), vi)
+				require.Equal(t, NewDefaultTenant(), collection.Tenant())
+				require.Equal(t, NewDefaultDatabase(), collection.Database())
 			},
 		},
 		{
@@ -435,84 +525,83 @@ func TestCreateCollection(t *testing.T) {
 			validateRequestWithResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				respBody := chhttp.ReadRespBody(r.Body)
-				var op api.CreateCollectionOp
+				var op CreateCollectionOp
 				err := json.Unmarshal([]byte(respBody), &op)
 				require.NoError(t, err)
 				var vi int64
 				var vs string
 				var vf float64
 				var ok bool
-				vs, ok = op.Metadata.GetString(api.HNSWSpace)
+				vs, ok = op.Metadata.GetString(HNSWSpace)
 				require.True(t, ok)
-				require.Equal(t, string(api.L2), vs)
-				vi, ok = op.Metadata.GetInt(api.HNSWNumThreads)
+				require.Equal(t, string(embeddings.L2), vs)
+				vi, ok = op.Metadata.GetInt(HNSWNumThreads)
 				require.True(t, ok)
-				require.Equal(t, 14, vi)
-				vf, ok = op.Metadata.GetFloat(api.HNSWResizeFactor)
+				require.Equal(t, int64(14), vi)
+				vf, ok = op.Metadata.GetFloat(HNSWResizeFactor)
 				require.True(t, ok)
 				require.Equal(t, 1.2, vf)
-				vi, ok = op.Metadata.GetInt(api.HNSWBatchSize)
+				vi, ok = op.Metadata.GetInt(HNSWBatchSize)
 				require.True(t, ok)
-				require.Equal(t, 2000, vi)
-				vi, ok = op.Metadata.GetInt(api.HNSWSyncThreshold)
+				require.Equal(t, int64(2000), vi)
+				vi, ok = op.Metadata.GetInt(HNSWSyncThreshold)
 				require.True(t, ok)
-				require.Equal(t, 10000, vi)
-				vi, ok = op.Metadata.GetInt(api.HNSWConstructionEF)
+				require.Equal(t, int64(10000), vi)
+				vi, ok = op.Metadata.GetInt(HNSWConstructionEF)
 				require.True(t, ok)
-				require.Equal(t, 100, vi)
-				vi, ok = op.Metadata.GetInt(api.HNSWSearchEF)
+				require.Equal(t, int64(100), vi)
+				vi, ok = op.Metadata.GetInt(HNSWSearchEF)
 				require.True(t, ok)
-				require.Equal(t, 999, vi)
-				values, err := url.ParseQuery(r.URL.RawQuery)
-				require.NoError(t, err)
+				require.Equal(t, int64(999), vi)
 				cm := CollectionModel{
 					ID:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
 					Name:     op.Name,
-					Tenant:   values.Get("tenant"),
-					Database: values.Get("database"),
+					Tenant:   DefaultTenant,
+					Database: DefaultDatabase,
 					Metadata: op.Metadata,
 				}
 				err = json.NewEncoder(w).Encode(&cm)
 				require.NoError(t, err)
 			},
-			sendRequest: func(client api.Client) {
+			sendRequest: func(client Client) {
 				collection, err := client.CreateCollection(
 					context.Background(),
 					"test",
-					api.WithHNSWSpaceCreate(api.L2),
-					api.WithHNSWMCreate(100),
-					api.WithHNSWNumThreadsCreate(14),
-					api.WithHNSWResizeFactorCreate(1.2),
-					api.WithHNSWBatchSizeCreate(2000),
-					api.WithHNSWSyncThresholdCreate(10000),
-					api.WithHNSWConstructionEfCreate(100),
-					api.WithHNSWSearchEfCreate(999),
+					WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+					WithHNSWSpaceCreate(embeddings.L2),
+					WithHNSWMCreate(100),
+					WithHNSWNumThreadsCreate(14),
+					WithHNSWResizeFactorCreate(1.2),
+					WithHNSWBatchSizeCreate(2000),
+					WithHNSWSyncThresholdCreate(10000),
+					WithHNSWConstructionEfCreate(100),
+					WithHNSWSearchEfCreate(999),
 				)
 				require.NoError(t, err)
 				require.NotNil(t, collection)
 				require.Equal(t, "8ecf0f7e-e806-47f8-96a1-4732ef42359e", collection.ID())
 				require.Equal(t, "test", collection.Name())
-				hnswSpace, ok := collection.Metadata().GetString(api.HNSWSpace)
+				hnswSpace, ok := collection.Metadata().GetString(HNSWSpace)
 				require.True(t, ok)
-				require.Equal(t, string(api.L2), hnswSpace)
-				hnswNumThreads, ok := collection.Metadata().GetInt(api.HNSWNumThreads)
+				require.Equal(t, string(embeddings.L2), hnswSpace)
+				hnswNumThreads, ok := collection.Metadata().GetInt(HNSWNumThreads)
 				require.True(t, ok)
-				require.Equal(t, 14, hnswNumThreads)
-				hnswResizeFactor, ok := collection.Metadata().GetFloat(api.HNSWResizeFactor)
+				require.Equal(t, int64(14), hnswNumThreads)
+				hnswResizeFactor, ok := collection.Metadata().GetFloat(HNSWResizeFactor)
 				require.True(t, ok)
 				require.Equal(t, 1.2, hnswResizeFactor)
-				hnswBatchSize, ok := collection.Metadata().GetInt(api.HNSWBatchSize)
+				hnswBatchSize, ok := collection.Metadata().GetInt(HNSWBatchSize)
 				require.True(t, ok)
-				require.Equal(t, 2000, hnswBatchSize)
-				hnswSyncThreshold, ok := collection.Metadata().GetInt(api.HNSWSyncThreshold)
+				require.Equal(t, int64(2000), hnswBatchSize)
+				hnswSyncThreshold, ok := collection.Metadata().GetInt(HNSWSyncThreshold)
 				require.True(t, ok)
-				require.Equal(t, 10000, hnswSyncThreshold)
-				hnswConstructionEf, ok := collection.Metadata().GetInt(api.HNSWConstructionEF)
+				require.Equal(t, int64(10000), hnswSyncThreshold)
+				hnswConstructionEf, ok := collection.Metadata().GetInt(HNSWConstructionEF)
 				require.True(t, ok)
-				require.Equal(t, 100, hnswConstructionEf)
-				hnswSearchEf, ok := collection.Metadata().GetInt(api.HNSWSearchEF)
+				require.Equal(t, int64(100), hnswConstructionEf)
+				hnswSearchEf, ok := collection.Metadata().GetInt(HNSWSearchEF)
 				require.True(t, ok)
-				require.Equal(t, 999, hnswSearchEf)
+				require.Equal(t, int64(999), hnswSearchEf)
 			},
 		},
 
@@ -521,27 +610,35 @@ func TestCreateCollection(t *testing.T) {
 			validateRequestWithResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				respBody := chhttp.ReadRespBody(r.Body)
-				var op api.CreateCollectionOp
+				var op CreateCollectionOp
 				err := json.Unmarshal([]byte(respBody), &op)
 				require.NoError(t, err)
 				require.Contains(t, "mytenant", r.URL.RawQuery)
 				require.Contains(t, "mydb", r.URL.RawQuery)
-				_, err = w.Write([]byte(`{"id":"8ecf0f7e-e806-47f8-96a1-4732ef42359e","name":"test"}`))
+				cm := CollectionModel{
+					ID:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+					Name:     op.Name,
+					Tenant:   "mytenant",
+					Database: "mydb",
+					Metadata: op.Metadata,
+				}
+				err = json.NewEncoder(w).Encode(&cm)
 				require.NoError(t, err)
 			},
-			sendRequest: func(client api.Client) {
+			sendRequest: func(client Client) {
 				collection, err := client.CreateCollection(
 					context.Background(),
 					"test",
-					api.WithTenantCreate("mytenant"),
-					api.WithDatabaseCreate("mydb"),
+					WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+					WithTenantCreate("mytenant"),
+					WithDatabaseCreate("mydb"),
 				)
 				require.NoError(t, err)
 				require.NotNil(t, collection)
 				require.Equal(t, "8ecf0f7e-e806-47f8-96a1-4732ef42359e", collection.ID())
 				require.Equal(t, "test", collection.Name())
-				require.Equal(t, api.NewTenant("mytenant"), collection.Tenant())
-				require.Equal(t, api.NewDatabase("mydb", api.NewTenant("mytenant")), collection.Database())
+				require.Equal(t, NewTenant("mytenant"), collection.Tenant())
+				require.Equal(t, NewDatabase("mydb", NewTenant("mytenant")), collection.Database())
 			},
 		},
 	}
@@ -562,7 +659,7 @@ func TestCreateCollection(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			client, err := NewClient(api.WithBaseURL(server.URL), api.WithDebug())
+			client, err := NewHTTPClient(WithBaseURL(server.URL), WithDebug())
 			require.NoError(t, err)
 			tt.sendRequest(client)
 		})

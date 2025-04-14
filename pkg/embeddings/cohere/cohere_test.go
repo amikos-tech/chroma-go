@@ -4,9 +4,11 @@ package cohere
 
 import (
 	"context"
-	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
+	"fmt"
 	"os"
 	"testing"
+
+	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
 
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
@@ -61,8 +63,9 @@ func Test_ef(t *testing.T) {
 		require.Nil(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Empty(t, resp[0].ArrayOfFloat32)
-		require.NotNil(t, resp[0].ArrayOfInt32)
+		fmt.Printf("resp %T\n", resp[0])
+		require.Empty(t, resp[0].ContentAsFloat32())
+		require.NotNil(t, resp[0].ContentAsInt32())
 	})
 
 	t.Run("Test Create Embed with model option embeddings type int8", func(t *testing.T) {
@@ -77,8 +80,8 @@ func Test_ef(t *testing.T) {
 		require.Nil(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Empty(t, resp[0].ArrayOfFloat32)
-		require.NotNil(t, resp[0].ArrayOfInt32)
+		require.Empty(t, resp[0].ContentAsFloat32())
+		require.NotNil(t, resp[0].ContentAsInt32())
 	})
 
 	t.Run("Test Create Embed for query", func(t *testing.T) {
@@ -90,8 +93,8 @@ func Test_ef(t *testing.T) {
 		resp, err := ef.EmbedQuery(context.Background(), "This is a query")
 		require.Nil(t, err)
 		require.NotNil(t, resp)
-		require.NotNil(t, resp.ArrayOfFloat32)
-		require.Empty(t, resp.ArrayOfInt32)
+		require.NotNil(t, resp.ContentAsFloat32())
+		require.Empty(t, resp.ContentAsInt32())
 	})
 
 	t.Run("Test With API options", func(t *testing.T) {
@@ -105,7 +108,7 @@ func Test_ef(t *testing.T) {
 		resp, err := ef.EmbedQuery(context.Background(), "This is a query")
 		require.Nil(t, err)
 		require.NotNil(t, resp)
-		require.NotNil(t, resp.ArrayOfFloat32)
-		require.Empty(t, resp.ArrayOfInt32)
+		require.NotNil(t, resp.ContentAsFloat32())
+		require.Empty(t, resp.ContentAsInt32())
 	})
 }

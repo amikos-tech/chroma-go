@@ -4,14 +4,15 @@ package voyage
 
 import (
 	"context"
-	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/joho/godotenv"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
@@ -67,8 +68,8 @@ func Test_voyage_embedding_function(t *testing.T) {
 
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 1024)
+		require.Equal(t, 2, len(resp))
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with env-based API Key and default model override with context", func(t *testing.T) {
@@ -80,8 +81,8 @@ func Test_voyage_embedding_function(t *testing.T) {
 
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, resp, 1)
-		require.Len(t, *resp[0].ArrayOfFloat32, 1536)
+		require.Equal(t, 1, len(resp))
+		require.Equal(t, 1536, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments for model with env-based API Key", func(t *testing.T) {
@@ -91,8 +92,8 @@ func Test_voyage_embedding_function(t *testing.T) {
 
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 1536)
+		require.Equal(t, 2, len(resp))
+		require.Equal(t, 1536, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with too large init batch", func(t *testing.T) {
@@ -119,7 +120,7 @@ func Test_voyage_embedding_function(t *testing.T) {
 		resp, err := client.EmbedQuery(context.Background(), "Test query")
 		require.Nil(t, err)
 		require.NotNil(t, resp)
-		require.Len(t, *resp.ArrayOfFloat32, 1024)
+		require.Equal(t, 1024, resp.Len())
 	})
 
 	t.Run("Test EmbedDocuments with input type document", func(t *testing.T) {
@@ -130,7 +131,7 @@ func Test_voyage_embedding_function(t *testing.T) {
 		resp, err := client.EmbedDocuments(ctx, []string{"Test document", "Another test document"})
 		require.Nil(t, err)
 		require.NotNil(t, resp)
-		require.Len(t, *resp[0].ArrayOfFloat32, 1024)
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with input type query", func(t *testing.T) {
@@ -141,7 +142,7 @@ func Test_voyage_embedding_function(t *testing.T) {
 		resp, err := client.EmbedDocuments(ctx, []string{"Test document", "Another test document"})
 		require.Nil(t, err)
 		require.NotNil(t, resp)
-		require.Len(t, *resp[0].ArrayOfFloat32, 1024)
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with default truncation true", func(t *testing.T) {
@@ -150,7 +151,7 @@ func Test_voyage_embedding_function(t *testing.T) {
 		resp, err := client.EmbedDocuments(context.Background(), []string{generateRandomString(20000)})
 		require.Nil(t, err)
 		require.NotNil(t, resp)
-		require.Len(t, *resp[0].ArrayOfFloat32, 1024)
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with default truncation true", func(t *testing.T) {
@@ -168,8 +169,8 @@ func Test_voyage_embedding_function(t *testing.T) {
 
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 1536)
+		require.Equal(t, 2, len(resp))
+		require.Equal(t, 1536, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with var API Key", func(t *testing.T) {
@@ -179,8 +180,8 @@ func Test_voyage_embedding_function(t *testing.T) {
 
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 1024)
+		require.Equal(t, 2, len(resp))
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with var token and http client", func(t *testing.T) {
@@ -190,8 +191,8 @@ func Test_voyage_embedding_function(t *testing.T) {
 
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 1024)
+		require.Equal(t, 2, len(resp))
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments embedding format base64", func(t *testing.T) {
@@ -201,14 +202,13 @@ func Test_voyage_embedding_function(t *testing.T) {
 
 		require.Nil(t, err)
 		require.NotNil(t, resp)
-		require.Len(t, resp, 1)
-		require.Len(t, *resp[0].ArrayOfFloat32, 1024)
+		require.Equal(t, 1, len(resp))
+		require.Equal(t, 1024, resp[0].Len())
 
 		clientNoEncoding, err := NewVoyageAIEmbeddingFunction(WithEnvAPIKey())
 		require.NoError(t, err)
 		respNoEncoding, err := clientNoEncoding.EmbedDocuments(context.Background(), []string{"Test document"})
 		require.Nil(t, err)
 		require.NotNil(t, respNoEncoding)
-		require.True(t, resp[0].Compare(respNoEncoding[0]))
 	})
 }

@@ -63,7 +63,7 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 	})
 
 	t.Run("Test with model", func(t *testing.T) {
-		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey(), WithModel("jina-embeddings-v2-base-code"))
+		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey(), WithModel("jina-embeddings-v2-base"))
 		require.NoError(t, err)
 		documents := []string{
 			"import chromadb;client=chromadb.Client();collection=client.get_or_create_collection('col_name')",

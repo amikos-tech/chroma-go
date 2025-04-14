@@ -108,6 +108,7 @@ func Test_Huggingface_client_with_options(t *testing.T) {
 		resp, err := ef.EmbedDocuments(context.Background(), documents)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
+		require.Equal(t, 2, len(resp))
 	})
 
 	t.Run("Test with huggingface embedding inference", func(t *testing.T) {

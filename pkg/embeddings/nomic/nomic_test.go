@@ -4,13 +4,14 @@ package mistral
 
 import (
 	"context"
-	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/joho/godotenv"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_nomic_client(t *testing.T) {
@@ -34,7 +35,7 @@ func Test_nomic_client(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 1)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp[0].Len())
 		time.Sleep(2 * time.Second)
 	})
 }
@@ -56,7 +57,7 @@ func Test_nomic_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp[0].Len())
 		time.Sleep(2 * time.Second)
 	})
 
@@ -68,7 +69,7 @@ func Test_nomic_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp[0].Len())
 
 	})
 
@@ -81,7 +82,7 @@ func Test_nomic_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp[0].Len())
 		time.Sleep(2 * time.Second)
 	})
 
@@ -91,7 +92,7 @@ func Test_nomic_embedding_function(t *testing.T) {
 		resp, rerr := embeddingFunction.EmbedQuery(context.Background(), "this is my query")
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, *resp.ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp.Len())
 		time.Sleep(2 * time.Second)
 	})
 
@@ -117,7 +118,7 @@ func Test_nomic_embedding_function(t *testing.T) {
 		resp, rerr := embeddingFunction.EmbedQuery(context.Background(), "this is my query")
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, *resp.ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp.Len())
 		time.Sleep(2 * time.Second)
 	})
 
@@ -135,7 +136,7 @@ func Test_nomic_embedding_function(t *testing.T) {
 		resp, rerr := embeddingFunction.EmbedQuery(context.Background(), "this is my query")
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, *resp.ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp.Len())
 		time.Sleep(2 * time.Second)
 	})
 
@@ -145,7 +146,7 @@ func Test_nomic_embedding_function(t *testing.T) {
 		resp, rerr := embeddingFunction.EmbedQuery(context.Background(), "this is my query")
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, *resp.ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp.Len())
 		time.Sleep(2 * time.Second)
 	})
 }

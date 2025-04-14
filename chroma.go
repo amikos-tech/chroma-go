@@ -303,7 +303,7 @@ func (c *Client) GetCollection(ctx context.Context, collectionName string, embed
 		if err != nil {
 			return nil, err
 		}
-		embeddingFunction = ef
+		embeddingFunction = types.NewV2EmbeddingFunctionAdapter(ef)
 	}
 	return NewCollection(c, col.Id, col.Name, getMetadataFromAPI(col.Metadata), embeddingFunction, tenantName, databaseName), nil
 }
@@ -411,7 +411,7 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 		if err != nil {
 			return nil, err
 		}
-		embeddingFunction = ef
+		embeddingFunction = types.NewV2EmbeddingFunctionAdapter(ef)
 	}
 	if metadata["embedding_function"] == nil && embeddingFunction != nil {
 		_metadata["embedding_function"] = GetStringTypeOfEmbeddingFunction(embeddingFunction)
@@ -439,7 +439,9 @@ func (c *Client) CreateCollection(ctx context.Context, collectionName string, me
 	if err != nil || (rawResp.StatusCode >= 400 && rawResp.StatusCode < 599) {
 		// we defer close the EF if it implements the io.Closer interface
 		// TODO is this a good strategy, what if there are other collections that use the EF?
-		defer errorEfCloser()
+		if errorEfCloser != nil {
+			defer errorEfCloser()
+		}
 		chErr := chhttp.ChromaErrorFromHTTPResponse(rawResp, err)
 		return nil, chErr
 	}

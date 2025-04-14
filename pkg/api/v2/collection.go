@@ -1,345 +1,615 @@
 package v2
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/url"
-	"strconv"
 
 	"github.com/pkg/errors"
 
-	"github.com/amikos-tech/chroma-go/pkg/api"
-	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-type CollectionModel struct {
-	ID                string                 `json:"id"`
-	Name              string                 `json:"name"`
-	ConfigurationJSON map[string]interface{} `json:"configuration_json,omitempty"`
-	Metadata          api.CollectionMetadata `json:"metadata,omitempty"`
-	Dimension         int                    `json:"dimension,omitempty"`
-	Tenant            string                 `json:"tenant,omitempty"`
-	Database          string                 `json:"database,omitempty"`
-	Version           int                    `json:"version,omitempty"`
-	LogPosition       int                    `json:"log_position,omitempty"`
+type Collection interface {
+	// Name returns the name of the collection
+	Name() string
+	// ID returns the id of the collection
+	ID() string
+	// Tenant returns the tenant of the collection
+	Tenant() Tenant
+	// Database returns the database of the collection
+	Database() Database
+	// Metadata returns the metadata of the collection
+	Metadata() CollectionMetadata
+	// Configuration returns the configuration of the collection
+	Configuration() CollectionConfiguration
+	// Add adds a document to the collection
+	Add(ctx context.Context, opts ...CollectionUpdateOption) error
+	// Upsert updates or adds a document to the collection
+	Upsert(ctx context.Context, opts ...CollectionUpdateOption) error
+	// Update updates a document in the collection
+	Update(ctx context.Context, opts ...CollectionUpdateOption) error
+	// Delete deletes documents from the collection
+	Delete(ctx context.Context, opts ...CollectionDeleteOption) error
+	// Count returns the number of documents in the collection
+	Count(ctx context.Context) (int, error)
+	// ModifyName modifies the name of the collection
+	ModifyName(ctx context.Context, newName string) error
+	// ModifyMetadata modifies the metadata of the collection
+	ModifyMetadata(ctx context.Context, newMetadata CollectionMetadata) error
+	// ModifyConfiguration modifies the configuration of the collection
+	ModifyConfiguration(ctx context.Context, newConfig CollectionConfiguration) error // not supported yet
+	// Get gets documents from the collection
+	Get(ctx context.Context, opts ...CollectionGetOption) (GetResult, error)
+	// Query queries the collection
+	Query(ctx context.Context, opts ...CollectionQueryOption) (QueryResult, error)
+	// BatchAdd(ctx context.Context, opts ...CollectionUpdateOption) error
 }
 
-func (op *CollectionModel) MarshalJSON() ([]byte, error) {
-	type Alias CollectionModel
-	return json.Marshal(struct{ *Alias }{Alias: (*Alias)(op)})
+type CollectionOp interface {
+	// PrepareAndValidate validates the operation. Each operation must implement this method to ensure the operation is valid and can be sent over the wire
+	PrepareAndValidate() error
+	EmbedData(ctx context.Context, ef embeddings.EmbeddingFunction) error
+	// MarshalJSON marshals the operation to JSON
+	MarshalJSON() ([]byte, error)
+	// UnmarshalJSON unmarshals the operation from JSON
+	UnmarshalJSON(b []byte) error
 }
 
-func (op *CollectionModel) UnmarshalJSON(b []byte) error {
-	type Alias CollectionModel
-	aux := &struct {
-		*Alias
-		Metadata api.CollectionMetadata `json:"metadata,omitempty"`
-	}{Alias: (*Alias)(op), Metadata: api.NewMetadata()}
-	err := json.Unmarshal(b, aux)
-	if err != nil {
-		return err
-	}
-	op.Metadata = aux.Metadata
-	return nil
+type FilterOp struct {
+	Where         WhereFilter         `json:"where,omitempty"`
+	WhereDocument WhereDocumentFilter `json:"where_document,omitempty"`
 }
 
-type Collection struct {
-	api.CollectionBase
-	client *APIClientV2
+type FilterIDOp struct {
+	Ids []DocumentID `json:"ids,omitempty"`
 }
 
-type Option func(*Collection) error
-
-func (c *Collection) Name() string {
-	return c.CollectionBase.Name
+type FilterTextsOp struct {
+	QueryTexts []string `json:"-"`
 }
 
-func (c *Collection) ID() string {
-	return c.CollectionBase.CollectionID
+type FilterEmbeddingsOp struct {
+	QueryEmbeddings []embeddings.Embedding `json:"query_embeddings"`
 }
 
-func (c *Collection) Tenant() api.Tenant {
-	return c.CollectionBase.Tenant
+type ProjectOp struct {
+	Include []Include `json:"include,omitempty"`
 }
 
-func (c *Collection) Database() api.Database {
-	return c.CollectionBase.Database
+type LimitAndOffsetOp struct {
+	Limit  int `json:"limit,omitempty"`
+	Offset int `json:"offset,omitempty"`
 }
 
-func (c *Collection) Configuration() api.CollectionConfiguration {
-	return c.CollectionBase.Configuration
+type LimitResultOp struct {
+	NResults int `json:"n_results"`
 }
 
-func (c *Collection) Add(ctx context.Context, opts ...api.CollectionUpdateOption) error {
-	err := c.client.PreFlight(ctx)
-	if err != nil {
-		return errors.Wrap(err, "preflight failed")
-	}
-	addObject, err := api.NewCollectionUpdateOp(opts...)
-	if err != nil {
-		return errors.Wrap(err, "failed to create new collection update operation")
-	}
-	err = addObject.PrepareAndValidate()
-	if err != nil {
-		return errors.Wrap(err, "failed to prepare and validate collection update operation")
-	}
-	err = c.client.Satisfies(addObject, len(addObject.Ids), "documents")
-	if err != nil {
-		return errors.Wrap(err, "failed to satisfy collection update operation")
-	}
-	reqURL, err := url.JoinPath(c.client.BaseAPIClient.BaseURL(), "tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "add")
-	if err != nil {
-		return errors.Wrap(err, "error composing request URL")
-	}
-	reqJSON, err := addObject.MarshalJSON()
-	if err != nil {
-		return errors.Wrap(err, "error marshalling request JSON")
-	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	if err != nil {
-		return errors.Wrap(err, "error creating HTTP request")
-	}
-	_, err = c.client.BaseAPIClient.SendRequest(httpReq)
-	if err != nil {
-		return errors.Wrap(err, "error sending request")
-	}
-	return nil
+type SortOp struct {
+	Sort string `json:"sort,omitempty"`
 }
 
-func (c *Collection) Upsert(ctx context.Context, opts ...api.CollectionUpdateOption) error {
-	err := c.client.PreFlight(ctx)
-	if err != nil {
-		return err
-	}
-	upsertObject, err := api.NewCollectionUpdateOp(opts...)
-	if err != nil {
-		return err
-	}
-	err = upsertObject.PrepareAndValidate()
-	if err != nil {
-		return err
-	}
-	err = c.client.Satisfies(upsertObject, len(upsertObject.Ids), "documents")
-	if err != nil {
-		return err
-	}
-	reqURL, err := url.JoinPath(c.client.BaseAPIClient.BaseURL(), "tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "upsert")
-	if err != nil {
-		return err
-	}
-	reqJSON, err := upsertObject.MarshalJSON()
-	if err != nil {
-		return err
-	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	if err != nil {
-		return err
-	}
-	_, err = c.client.BaseAPIClient.SendRequest(httpReq)
-	if err != nil {
-		return err
-	}
-	return nil
+type CollectionGetOption func(get *CollectionGetOp) error
+
+type CollectionGetOp struct {
+	FilterOp          // ability to filter by where and whereDocument
+	FilterIDOp        // ability to filter by id
+	ProjectOp         // include metadatas, documents, embeddings, uris, ids
+	LimitAndOffsetOp  // limit and offset
+	SortOp            // sort
+	ResourceOperation `json:"-"`
 }
-func (c *Collection) Update(ctx context.Context, opts ...api.CollectionUpdateOption) error {
-	err := c.client.PreFlight(ctx)
-	if err != nil {
-		return err
+
+func NewCollectionGetOp(opts ...CollectionGetOption) (*CollectionGetOp, error) {
+	get := &CollectionGetOp{
+		ProjectOp: ProjectOp{Include: []Include{IncludeDocuments, IncludeMetadatas}},
 	}
-	updateObject, err := api.NewCollectionUpdateOp(opts...)
-	if err != nil {
-		return err
+	for _, opt := range opts {
+		err := opt(get)
+		if err != nil {
+			return nil, err
+		}
 	}
-	err = updateObject.PrepareAndValidate()
-	if err != nil {
-		return err
-	}
-	err = c.client.Satisfies(updateObject, len(updateObject.Ids), "documents")
-	if err != nil {
-		return err
-	}
-	reqURL, err := url.JoinPath(c.client.BaseAPIClient.BaseURL(), "tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "update")
-	if err != nil {
-		return err
-	}
-	reqJSON, err := updateObject.MarshalJSON()
-	if err != nil {
-		return err
-	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	if err != nil {
-		return err
-	}
-	_, err = c.client.BaseAPIClient.SendRequest(httpReq)
-	if err != nil {
-		return err
-	}
-	return nil
+	return get, nil
 }
-func (c *Collection) Delete(ctx context.Context, opts ...api.CollectionDeleteOption) error {
-	err := c.client.PreFlight(ctx)
-	if err != nil {
-		return err
-	}
-	deleteObject, err := api.NewCollectionDeleteOp(opts...)
-	if err != nil {
-		return err
-	}
-	err = deleteObject.Validate()
-	if err != nil {
-		return err
-	}
-	err = c.client.Satisfies(deleteObject, len(deleteObject.Ids), "documents")
-	if err != nil {
-		return err
-	}
-	reqURL, err := url.JoinPath(c.client.BaseAPIClient.BaseURL(), "tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "delete")
-	if err != nil {
-		return err
-	}
-	reqJSON, err := deleteObject.MarshalJSON()
-	if err != nil {
-		return err
-	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	if err != nil {
-		return err
-	}
-	_, err = c.client.BaseAPIClient.SendRequest(httpReq)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-func (c *Collection) Count(ctx context.Context) (int, error) {
-	reqURL, err := url.JoinPath(c.client.BaseAPIClient.BaseURL(), "tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "count")
-	if err != nil {
-		return 0, err
-	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
-	if err != nil {
-		return 0, err
+func (c *CollectionGetOp) PrepareAndValidate() error {
+	if c.Sort != "" {
+		return errors.New("sort is not supported yet")
 	}
-	resp, err := c.client.BaseAPIClient.SendRequest(httpReq)
-	if err != nil {
-		return 0, err
+	if c.Limit < 0 {
+		return errors.New("limit must be greater than or equal to 0")
 	}
-	respBody := chhttp.ReadRespBody(resp.Body)
-
-	return strconv.Atoi(respBody)
-}
-func (c *Collection) ModifyName(ctx context.Context, newName string) error {
-	if newName == "" {
-		return errors.New("newName cannot be empty")
+	if c.Offset < 0 {
+		return errors.New("offset must be greater than or equal to 0")
 	}
-
-	reqURL, err := url.JoinPath(c.client.BaseAPIClient.BaseURL(), "tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID())
-
-	if err != nil {
-		return err
+	if len(c.Include) == 0 {
+		return errors.New("at least one include option is required")
 	}
-
-	reqJSON, err := json.Marshal(map[string]string{"new_name": newName})
-	if err != nil {
-		return err
+	if c.Where != nil {
+		if err := c.Where.Validate(); err != nil {
+			return err
+		}
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPut, reqURL, bytes.NewReader(reqJSON))
-	if err != nil {
-		return err
-	}
-	_, err = c.client.BaseAPIClient.SendRequest(httpReq)
-	if err != nil {
-		return err
+	if c.WhereDocument != nil {
+		if err := c.WhereDocument.Validate(); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
-func (c *Collection) ModifyMetadata(ctx context.Context, newMetadata api.CollectionMetadata) error {
-	if newMetadata == nil {
-		return errors.New("newMetadata cannot be nil")
+
+func (c *CollectionGetOp) MarshalJSON() ([]byte, error) {
+	type Alias CollectionGetOp
+	return json.Marshal(struct{ *Alias }{Alias: (*Alias)(c)})
+}
+
+func (c *CollectionGetOp) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, c)
+}
+
+func (c *CollectionGetOp) Resource() Resource {
+	return ResourceCollection
+}
+
+func (c *CollectionGetOp) Operation() OperationType {
+	return OperationGet
+}
+
+func WithIDsGet(ids ...DocumentID) CollectionGetOption {
+	return func(query *CollectionGetOp) error {
+		for _, id := range ids {
+			query.Ids = append(query.Ids, DocumentID(id))
+		}
+		return nil
 	}
-	reqURL, err := url.JoinPath(c.client.BaseAPIClient.BaseURL(), "tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID())
-	if err != nil {
-		return err
+}
+
+func WithWhereGet(where WhereFilter) CollectionGetOption {
+	return func(query *CollectionGetOp) error {
+		query.Where = where
+		return nil
 	}
-	reqJSON, err := json.Marshal(map[string]interface{}{"new_metadata": newMetadata})
-	if err != nil {
-		return err
+}
+
+func WithWhereDocumentGet(whereDocument WhereDocumentFilter) CollectionGetOption {
+	return func(query *CollectionGetOp) error {
+		query.WhereDocument = whereDocument
+		return nil
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPut, reqURL, bytes.NewReader(reqJSON))
-	if err != nil {
-		return err
+}
+
+func WithIncludeGet(include ...Include) CollectionGetOption {
+	return func(query *CollectionGetOp) error {
+		query.Include = include
+		return nil
 	}
-	_, err = c.client.BaseAPIClient.SendRequest(httpReq)
-	if err != nil {
-		return err
+}
+
+func WithLimitGet(limit int) CollectionGetOption {
+	return func(query *CollectionGetOp) error {
+		if limit <= 0 {
+			return errors.New("limit must be greater than 0")
+		}
+		query.Limit = limit
+		return nil
+	}
+}
+
+func WithOffsetGet(offset int) CollectionGetOption {
+	return func(query *CollectionGetOp) error {
+		if offset < 0 {
+			return errors.New("offset must be greater than or equal to 0")
+		}
+		query.Offset = offset
+		return nil
+	}
+}
+
+// Query
+
+type CollectionQueryOp struct {
+	FilterOp
+	FilterEmbeddingsOp
+	FilterTextsOp
+	LimitResultOp
+}
+
+func NewCollectionQueryOp(opts ...CollectionQueryOption) (*CollectionQueryOp, error) {
+	query := &CollectionQueryOp{
+		LimitResultOp: LimitResultOp{NResults: 10},
+	}
+	for _, opt := range opts {
+		err := opt(query)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return query, nil
+}
+
+func (c *CollectionQueryOp) PrepareAndValidate() error {
+	if len(c.QueryEmbeddings) == 0 && len(c.QueryTexts) == 0 {
+		return errors.New("at least one query embedding or query text is required")
+	}
+	if c.NResults <= 0 {
+		return errors.New("nResults must be greater than 0")
+	}
+	if c.Where != nil {
+		if err := c.Where.Validate(); err != nil {
+			return err
+		}
+	}
+	if c.WhereDocument != nil {
+		if err := c.WhereDocument.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
-func (c *Collection) Get(ctx context.Context, opts ...api.CollectionGetOption) (api.GetResult, error) {
-	getObject, err := api.NewCollectionGetOp(opts...)
-	if err != nil {
-		return nil, err
+
+func (c *CollectionQueryOp) EmbedData(ctx context.Context, ef embeddings.EmbeddingFunction) error {
+	if len(c.QueryTexts) > 0 && len(c.QueryEmbeddings) == 0 {
+		if ef == nil {
+			return errors.New("embedding function is required")
+		}
+		embeddings, err := ef.EmbedDocuments(ctx, c.QueryTexts)
+		if err != nil {
+			return errors.Wrap(err, "embedding failed")
+		}
+		c.QueryEmbeddings = embeddings
 	}
-	err = getObject.Validate()
-	if err != nil {
-		return nil, err
-	}
-	reqURL, err := url.JoinPath(c.client.BaseAPIClient.BaseURL(), "tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "get")
-	if err != nil {
-		return nil, err
-	}
-	reqJSON, err := getObject.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	if err != nil {
-		return nil, err
-	}
-	_, err = c.client.BaseAPIClient.SendRequest(httpReq)
-	if err != nil {
-		return nil, err
-	}
-	// TODO: Implement GetResult
-	return nil, nil
-}
-func (c *Collection) Query(ctx context.Context, opts ...api.CollectionQueryOption) (api.QueryResult, error) {
-	querybject, err := api.NewCollectionQueryOp(opts...)
-	if err != nil {
-		return nil, err
-	}
-	err = querybject.Validate()
-	if err != nil {
-		return nil, err
-	}
-	reqURL, err := url.JoinPath(c.client.BaseAPIClient.BaseURL(), "tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "query")
-	if err != nil {
-		return nil, err
-	}
-	reqJSON, err := querybject.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	if err != nil {
-		return nil, err
-	}
-	_, err = c.client.BaseAPIClient.SendRequest(httpReq)
-	if err != nil {
-		return nil, err
-	}
-	// TODO: Implement QueryResult
-	return nil, nil
+	return nil
 }
 
-func (c *Collection) ModifyConfiguration(ctx context.Context, newConfig api.CollectionConfiguration) error {
-	return errors.New("not supported")
+func (c *CollectionQueryOp) MarshalJSON() ([]byte, error) {
+	type Alias CollectionQueryOp
+	return json.Marshal(struct{ *Alias }{Alias: (*Alias)(c)})
 }
 
-func (c *Collection) Metadata() api.CollectionMetadata {
-	return c.CollectionBase.Metadata
+func (c *CollectionQueryOp) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, c)
+}
+
+func (c *CollectionQueryOp) Resource() Resource {
+	return ResourceCollection
+}
+
+func (c *CollectionQueryOp) Operation() OperationType {
+	return OperationQuery
+}
+
+type CollectionQueryOption func(query *CollectionQueryOp) error
+
+func WithWhereQuery(where WhereFilter) CollectionQueryOption {
+	return func(query *CollectionQueryOp) error {
+		query.Where = where
+		return nil
+	}
+}
+
+func WithWhereDocumentQuery(whereDocument WhereDocumentFilter) CollectionQueryOption {
+	return func(query *CollectionQueryOp) error {
+		query.WhereDocument = whereDocument
+		return nil
+	}
+}
+
+func WithNResults(nResults int) CollectionQueryOption {
+	return func(query *CollectionQueryOp) error {
+		if nResults <= 0 {
+			return errors.New("nResults must be greater than 0")
+		}
+		query.NResults = nResults
+		return nil
+	}
+}
+
+func WithQueryTexts(queryTexts ...string) CollectionQueryOption {
+	return func(query *CollectionQueryOp) error {
+		if len(queryTexts) == 0 {
+			return errors.New("at least one query text is required")
+		}
+		query.QueryTexts = queryTexts
+		return nil
+	}
+}
+
+func WithQueryEmbeddings(queryEmbeddings ...embeddings.Embedding) CollectionQueryOption {
+	return func(query *CollectionQueryOp) error {
+		if len(queryEmbeddings) == 0 {
+			return errors.New("at least one query embedding is required")
+		}
+		query.QueryEmbeddings = queryEmbeddings
+		return nil
+	}
+}
+
+// Add, Upsert, Update
+
+type CollectionUpdateOp struct {
+	Ids         []DocumentID           `json:"ids"`
+	Documents   []Document             `json:"documents,omitempty"`
+	Metadatas   []DocumentMetadata     `json:"metadatas,omitempty"`
+	Embeddings  []embeddings.Embedding `json:"embeddings"`
+	Records     []Record               `json:"-"`
+	IDGenerator IDGenerator            `json:"-"`
+}
+
+func NewCollectionUpdateOp(opts ...CollectionUpdateOption) (*CollectionUpdateOp, error) {
+	update := &CollectionUpdateOp{}
+	for _, opt := range opts {
+		err := opt(update)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return update, nil
+}
+
+func (c *CollectionUpdateOp) EmbedData(ctx context.Context, ef embeddings.EmbeddingFunction) error {
+	// invariants:
+	// documents only - we embed
+	// documents + embeddings - we skip
+	// embeddings only - we skip
+	if len(c.Documents) > 0 && len(c.Embeddings) == 0 {
+		if ef == nil {
+			return errors.New("embedding function is required")
+		}
+		texts := make([]string, len(c.Documents))
+		for i, doc := range c.Documents {
+			texts[i] = doc.ContentString()
+		}
+		embeddings, err := ef.EmbedDocuments(ctx, texts)
+		if err != nil {
+			return errors.Wrap(err, "embedding failed")
+		}
+		for i, embedding := range embeddings {
+			if i >= len(c.Embeddings) {
+				c.Embeddings = append(c.Embeddings, embedding)
+			} else {
+				c.Embeddings[i] = embedding
+			}
+		}
+	}
+	return nil
+}
+
+func (c *CollectionUpdateOp) GenerateIDs() error {
+	if c.IDGenerator == nil {
+		return nil
+	}
+	generatedIDLen := 0
+	switch {
+	case len(c.Documents) > 0:
+		generatedIDLen = len(c.Documents)
+	case len(c.Embeddings) > 0:
+		generatedIDLen = len(c.Embeddings)
+	case len(c.Records) > 0:
+		return errors.New("not implemented yet")
+	default:
+		return errors.New("at least one document or embedding is required")
+	}
+	c.Ids = make([]DocumentID, 0)
+	for i := 0; i < generatedIDLen; i++ {
+		switch {
+		case len(c.Documents) > 0:
+			c.Ids = append(c.Ids, DocumentID(c.IDGenerator.Generate(WithDocument(c.Documents[i].ContentString()))))
+		case len(c.Embeddings) > 0:
+			c.Ids = append(c.Ids, DocumentID(c.IDGenerator.Generate()))
+
+		case len(c.Records) > 0:
+			return errors.New("not implemented yet")
+		}
+	}
+	return nil
+}
+
+func (c *CollectionUpdateOp) PrepareAndValidate() error {
+	// invariants
+	// - at least one ID or one record is required
+	// - if IDs are provided, they must be unique
+	// - if IDs are provided, the number of documents or embeddings must match the number of IDs
+	// - if IDs are provided, if metadatas are also provided they must match the number of IDs
+
+	if (len(c.Ids) == 0 && c.IDGenerator == nil) && len(c.Records) == 0 {
+		return errors.New("at least one record is required")
+	}
+
+	// should we generate IDs?
+	if c.IDGenerator != nil {
+		err := c.GenerateIDs()
+		if err != nil {
+			return errors.Wrap(err, "failed to generate IDs")
+		}
+	}
+
+	// if IDs are provided, they must be unique
+	idSet := make(map[DocumentID]struct{})
+	for _, id := range c.Ids {
+		if _, exists := idSet[id]; exists {
+			return errors.Errorf("duplicate id found: %s", id)
+		}
+		idSet[id] = struct{}{}
+	}
+
+	// if IDs are provided, the number of documents or embeddings must match the number of IDs
+	if len(c.Documents) > 0 && len(c.Ids) != len(c.Documents) {
+		return errors.Errorf("documents (%d) must match the number of ids (%d)", len(c.Documents), len(c.Ids))
+	}
+
+	if len(c.Embeddings) > 0 && len(c.Ids) != len(c.Embeddings) {
+		return errors.Errorf("embeddings (%d) must match the number of ids (%d)", len(c.Embeddings), len(c.Ids))
+	}
+
+	// if IDs are provided, if metadatas are also provided they must match the number of IDs
+
+	if len(c.Metadatas) > 0 && len(c.Ids) != len(c.Metadatas) {
+		return errors.Errorf("metadatas (%d) must match the number of ids (%d)", len(c.Metadatas), len(c.Ids))
+	}
+
+	if len(c.Records) > 0 {
+		for _, record := range c.Records {
+			err := record.Validate()
+			if err != nil {
+				return errors.Wrap(err, "record validation failed")
+			}
+			recordIds, recordDocuments, recordEmbeddings, recordMetadata := record.Unwrap()
+			c.Ids = append(c.Ids, recordIds)
+			c.Documents = append(c.Documents, recordDocuments)
+			c.Metadatas = append(c.Metadatas, recordMetadata)
+			c.Embeddings = append(c.Embeddings, recordEmbeddings)
+		}
+	}
+
+	return nil
+}
+
+func (c *CollectionUpdateOp) MarshalJSON() ([]byte, error) {
+	type Alias CollectionUpdateOp
+	return json.Marshal(struct{ *Alias }{Alias: (*Alias)(c)})
+}
+
+func (c *CollectionUpdateOp) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, c)
+}
+
+func (c *CollectionUpdateOp) Resource() Resource {
+	return ResourceCollection
+}
+
+func (c *CollectionUpdateOp) Operation() OperationType {
+	return OperationCreate
+}
+
+type CollectionUpdateOption func(update *CollectionUpdateOp) error
+
+func WithTexts(documents ...string) CollectionUpdateOption {
+	return func(update *CollectionUpdateOp) error {
+		if len(documents) == 0 {
+			return errors.New("at least one document is required")
+		}
+		if update.Documents == nil {
+			update.Documents = make([]Document, 0)
+		}
+		for _, text := range documents {
+			update.Documents = append(update.Documents, NewTextDocument(text))
+		}
+		return nil
+	}
+}
+
+func WithMetadatas(metadatas ...DocumentMetadata) CollectionUpdateOption {
+	return func(update *CollectionUpdateOp) error {
+		update.Metadatas = metadatas
+		return nil
+	}
+}
+
+func WithIDs(ids ...DocumentID) CollectionUpdateOption {
+	return func(update *CollectionUpdateOp) error {
+		for _, id := range ids {
+			update.Ids = append(update.Ids, DocumentID(id))
+		}
+		return nil
+	}
+}
+
+func WithIDGenerator(idGenerator IDGenerator) CollectionUpdateOption {
+	return func(update *CollectionUpdateOp) error {
+		update.IDGenerator = idGenerator
+		return nil
+	}
+}
+
+func WithEmbeddings(embeddings ...embeddings.Embedding) CollectionUpdateOption {
+	return func(update *CollectionUpdateOp) error {
+		update.Embeddings = embeddings
+		return nil
+	}
+}
+
+// Delete
+
+type CollectionDeleteOp struct {
+	FilterOp
+	FilterIDOp
+}
+
+func NewCollectionDeleteOp(opts ...CollectionDeleteOption) (*CollectionDeleteOp, error) {
+	del := &CollectionDeleteOp{}
+	for _, opt := range opts {
+		err := opt(del)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return del, nil
+}
+
+func (c *CollectionDeleteOp) PrepareAndValidate() error {
+	if len(c.Ids) == 0 && c.Where == nil && c.WhereDocument == nil {
+		return errors.New("at least one filter is required, ids, where or whereDocument")
+	}
+
+	if c.Where != nil {
+		if err := c.Where.Validate(); err != nil {
+			return err
+		}
+	}
+
+	if c.WhereDocument != nil {
+		if err := c.WhereDocument.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *CollectionDeleteOp) MarshalJSON() ([]byte, error) {
+	type Alias CollectionDeleteOp
+	return json.Marshal(struct{ *Alias }{Alias: (*Alias)(c)})
+}
+
+func (c *CollectionDeleteOp) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, c)
+}
+
+func (c *CollectionDeleteOp) Resource() Resource {
+	return ResourceCollection
+}
+
+func (c *CollectionDeleteOp) Operation() OperationType {
+	return OperationDelete
+}
+
+type CollectionDeleteOption func(update *CollectionDeleteOp) error
+
+func WithWhereDelete(where WhereFilter) CollectionDeleteOption {
+	return func(delete *CollectionDeleteOp) error {
+		delete.Where = where
+		return nil
+	}
+}
+
+func WithWhereDocumentDelete(whereDocument WhereDocumentFilter) CollectionDeleteOption {
+	return func(delete *CollectionDeleteOp) error {
+		delete.WhereDocument = whereDocument
+		return nil
+	}
+}
+
+func WithIDsDelete(ids ...DocumentID) CollectionDeleteOption {
+	return func(delete *CollectionDeleteOp) error {
+		for _, id := range ids {
+			delete.Ids = append(delete.Ids, DocumentID(id))
+		}
+		return nil
+	}
+}
+
+type CollectionConfiguration interface {
+	GetRaw(key string) (interface{}, bool)
 }

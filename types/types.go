@@ -14,7 +14,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/oklog/ulid"
+	"github.com/pkg/errors"
 
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	openapi "github.com/amikos-tech/chroma-go/swagger"
 	"github.com/amikos-tech/chroma-go/where"
 	wheredoc "github.com/amikos-tech/chroma-go/where_document"
@@ -284,6 +286,39 @@ type EmbeddingFunction interface {
 	// EmbedQuery embeds a single text.
 	EmbedQuery(ctx context.Context, text string) (*Embedding, error)
 	EmbedRecords(ctx context.Context, records []*Record, force bool) error
+}
+
+type V2EmbeddingFunctionAdapter struct {
+	v2Embedding embeddings.EmbeddingFunction
+}
+
+func NewV2EmbeddingFunctionAdapter(e embeddings.EmbeddingFunction) *V2EmbeddingFunctionAdapter {
+	return &V2EmbeddingFunctionAdapter{v2Embedding: e}
+}
+
+func (e *V2EmbeddingFunctionAdapter) EmbedDocuments(ctx context.Context, texts []string) ([]*Embedding, error) {
+	embeddings, err := e.v2Embedding.EmbedDocuments(ctx, texts)
+	if err != nil {
+		return nil, err
+	}
+	embeddingsV1 := make([]*Embedding, 0)
+	for _, embedding := range embeddings {
+		embeddingsV1 = append(embeddingsV1, NewEmbeddingFromFloat32(embedding.ContentAsFloat32()))
+	}
+	return embeddingsV1, nil
+}
+
+func (e *V2EmbeddingFunctionAdapter) EmbedQuery(ctx context.Context, text string) (*Embedding, error) {
+	embedding, err := e.v2Embedding.EmbedQuery(ctx, text)
+	if err != nil {
+		return nil, err
+	}
+	embd := NewEmbeddingFromFloat32(embedding.ContentAsFloat32())
+	return embd, nil
+}
+
+func (e *V2EmbeddingFunctionAdapter) EmbedRecords(ctx context.Context, records []*Record, force bool) error {
+	return errors.New("v2EmbeddingFunctionAdapter.EmbedRecords not implemented")
 }
 
 func EmbedRecordsDefaultImpl(e EmbeddingFunction, ctx context.Context, records []*Record, force bool) error {

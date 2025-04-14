@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/rerankings"
 )
 
 type Option func(c *HFRerankingFunction) error
@@ -26,7 +26,7 @@ func WithEnvAPIKey() Option {
 	}
 }
 
-func WithModel(model types.RerankingModel) Option {
+func WithModel(model rerankings.RerankingModel) Option {
 	return func(c *HFRerankingFunction) error {
 		c.defaultModel = &model
 		return nil

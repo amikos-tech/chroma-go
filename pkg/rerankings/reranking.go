@@ -8,6 +8,8 @@ import (
 	chromago "github.com/amikos-tech/chroma-go"
 )
 
+type RerankingModel string
+
 type RankedResult struct {
 	Index  int // Index in the original input []string
 	String string

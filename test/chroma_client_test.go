@@ -38,7 +38,7 @@ import (
 
 func TestChromaClient(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "latest"
+	var chromaVersion = "0.6.2"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
@@ -1185,7 +1185,7 @@ func TestChromaClient(t *testing.T) {
 		require.NoError(t, err)
 		ef, _, err := defaultef.NewDefaultEmbeddingFunction()
 		require.NoError(t, err)
-		_, err = client.NewCollection(context.Background(), "test", collection.WithEmbeddingFunction(ef))
+		_, err = client.NewCollection(context.Background(), "test", collection.WithEmbeddingFunction(types.NewV2EmbeddingFunctionAdapter(ef)))
 		require.NoError(t, err)
 		require.NoError(t, client.Close())
 	})

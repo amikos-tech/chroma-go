@@ -1,4 +1,4 @@
-package api
+package embeddings
 
 type DistanceMetric string
 
@@ -11,3 +11,6 @@ const (
 type DistanceMetricOperator interface {
 	Compare(a, b []float32) float64
 }
+
+type Distance float32
+type Distances []Distance

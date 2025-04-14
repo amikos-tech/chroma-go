@@ -8,13 +8,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
 	tcollama "github.com/testcontainers/testcontainers-go/modules/ollama"
 )
 
 func Test_ollama(t *testing.T) {
 	ctx := context.Background()
-	ollamaContainer, err := tcollama.RunContainer(ctx, testcontainers.WithImage("ollama/ollama:latest"))
+	ollamaContainer, err := tcollama.Run(ctx, "ollama/ollama:latest", tcollama.WithUseLocal("OLLAMA_DEBUG=true"))
 	require.NoError(t, err)
 	// Clean up the container
 	defer func() {
@@ -44,6 +43,6 @@ func Test_ollama(t *testing.T) {
 		resp, rerr := ef.EmbedDocuments(context.Background(), documents)
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, resp, 2)
+		require.Equal(t, 2, len(resp))
 	})
 }

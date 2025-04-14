@@ -9,6 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
+
+	"github.com/pkg/errors"
 )
 
 var libCacheDir = filepath.Join(os.Getenv("HOME"), ChromaCacheDir)
@@ -119,7 +122,11 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 	return nil
 }
 
+var mu sync.Mutex
+
 func EnsureOnnxRuntimeSharedLibrary() error {
+	mu.Lock()
+	defer mu.Unlock()
 	cos, carch := getOSAndArch()
 	if carch == "amd64" {
 		carch = "x64"
@@ -161,6 +168,7 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 	fmt.Println("Extracting onnxruntime shared library..." + onnxLibPath)
 	if err := extractSpecificFile(targetArchive, targetFile, onnxCacheDir); err != nil {
 		fmt.Println("Error:", err)
+		return errors.Wrapf(err, "could not extract onnxruntime shared library")
 	}
 
 	if cos == "linux" {

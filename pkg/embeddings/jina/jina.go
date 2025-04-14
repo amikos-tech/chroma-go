@@ -9,15 +9,15 @@ import (
 	"net/http"
 
 	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type EmbeddingType string
 
 const (
-	EmbeddingTypeFloat     EmbeddingType        = "float"
-	DefaultBaseAPIEndpoint                      = "https://api.jina.ai/v1/embeddings"
-	DefaultEmbeddingModel  types.EmbeddingModel = "jina-embeddings-v2-base-en"
+	EmbeddingTypeFloat     EmbeddingType             = "float"
+	DefaultBaseAPIEndpoint                           = "https://api.jina.ai/v1/embeddings"
+	DefaultEmbeddingModel  embeddings.EmbeddingModel = "jina-embeddings-v2-base-en"
 )
 
 type EmbeddingRequest struct {
@@ -41,7 +41,7 @@ type EmbeddingResponse struct {
 	}
 }
 
-var _ types.EmbeddingFunction = (*JinaEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*JinaEmbeddingFunction)(nil)
 
 func getDefaults() *JinaEmbeddingFunction {
 	return &JinaEmbeddingFunction{
@@ -56,7 +56,7 @@ func getDefaults() *JinaEmbeddingFunction {
 type JinaEmbeddingFunction struct {
 	httpClient        *http.Client
 	apiKey            string
-	defaultModel      types.EmbeddingModel
+	defaultModel      embeddings.EmbeddingModel
 	embeddingEndpoint string
 	normalized        bool
 	embeddingType     EmbeddingType
@@ -111,7 +111,7 @@ func (e *JinaEmbeddingFunction) sendRequest(ctx context.Context, req *EmbeddingR
 	return response, nil
 }
 
-func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	var Input = make([]map[string]string, len(documents))
 
 	for i, doc := range documents {
@@ -127,15 +127,15 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 	if err != nil {
 		return nil, err
 	}
-	var embeddings []*types.Embedding
+	var embs []embeddings.Embedding
 	for _, data := range response.Data {
-		embeddings = append(embeddings, types.NewEmbeddingFromFloat32(data.Embedding))
+		embs = append(embs, embeddings.NewEmbeddingFromFloat32(data.Embedding))
 	}
 
-	return embeddings, nil
+	return embs, nil
 }
 
-func (e *JinaEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *JinaEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	var Input = make([]map[string]string, 1)
 
 	Input[0] = map[string]string{
@@ -150,9 +150,5 @@ func (e *JinaEmbeddingFunction) EmbedQuery(ctx context.Context, document string)
 		return nil, err
 	}
 
-	return types.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
-}
-
-func (e *JinaEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
+	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
 }

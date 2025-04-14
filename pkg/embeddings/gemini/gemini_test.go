@@ -4,11 +4,12 @@ package gemini
 
 import (
 	"context"
+	"os"
+	"testing"
+
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"os"
-	"testing"
 )
 
 func Test_gemini_client(t *testing.T) {
@@ -60,7 +61,7 @@ func Test_gemini_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Len(t, resp[0].ContentAsFloat32(), 768)
 
 	})
 
@@ -78,7 +79,7 @@ func Test_gemini_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Len(t, resp[0].ContentAsFloat32(), 768)
 
 	})
 
@@ -96,7 +97,7 @@ func Test_gemini_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Len(t, resp[0].ContentAsFloat32(), 768)
 
 	})
 
@@ -112,7 +113,7 @@ func Test_gemini_embedding_function(t *testing.T) {
 		resp, rerr := embeddingFunction.EmbedQuery(context.Background(), "this is my query")
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, *resp.ArrayOfFloat32, 768)
+		require.Len(t, resp.ContentAsFloat32(), 768)
 	})
 
 	t.Run("Test wrong model", func(t *testing.T) {

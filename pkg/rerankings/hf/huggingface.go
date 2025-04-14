@@ -11,7 +11,6 @@ import (
 	chromago "github.com/amikos-tech/chroma-go"
 	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
-	"github.com/amikos-tech/chroma-go/types"
 )
 
 const (
@@ -41,7 +40,7 @@ func getDefaults() *HFRerankingFunction {
 type HFRerankingFunction struct {
 	httpClient        *http.Client
 	apiKey            string
-	defaultModel      *types.RerankingModel
+	defaultModel      *rerankings.RerankingModel
 	rerankingEndpoint string
 }
 

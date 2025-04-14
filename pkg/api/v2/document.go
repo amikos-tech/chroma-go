@@ -1,6 +1,10 @@
-package api
+package v2
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/pkg/errors"
+)
 
 type DocumentMetadata interface {
 	GetRaw(key string) (interface{}, bool)
@@ -15,16 +19,24 @@ type DocumentMetadata interface {
 	SetBool(key string, value bool)
 }
 
+type DocumentMetadatas []DocumentMetadata
+
 type DocumentID string
+
+type DocumentIDs []DocumentID
 
 type Document interface {
 	ContentRaw() []byte
 	ContentString() string
 }
 
+type Documents []Document
+
 type TextDocument struct {
 	Content string
 }
+
+type TextDocuments []TextDocument
 
 func NewTextDocument(content string) *TextDocument {
 	return &TextDocument{Content: content}
@@ -47,13 +59,36 @@ func (d *TextDocument) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + d.Content + `"`), nil
 }
 
+func NewTextDocumentsFromInterface(docs []interface{}) (TextDocuments, error) {
+	var textDocs = make([]TextDocument, 0)
+	for _, doc := range docs {
+		switch v := doc.(type) {
+		case string:
+			textDocs = append(textDocs, *NewTextDocument(v))
+		case []byte:
+			textDocs = append(textDocs, *NewTextDocument(string(v)))
+		default:
+			return nil, errors.Errorf("invalid document type (string and bytes are supported): %T for %v", v, doc)
+		}
+	}
+	return textDocs, nil
+}
+
 type DocumentMetadataImpl struct {
 	metadata map[string]MetadataValue
 }
 
-func NewDocumentMetadata(metadata map[string]interface{}) DocumentMetadata {
+func NewDocumentMetadata(attributes ...*MetaAttribute) DocumentMetadata {
+	metadata := make(map[string]MetadataValue)
+	for _, attribute := range attributes {
+		metadata[attribute.key] = attribute.value
+	}
+	return &DocumentMetadataImpl{metadata: metadata}
+}
+
+func NewDocumentMetadataFromMap(metadata map[string]interface{}) (DocumentMetadata, error) {
 	if metadata == nil {
-		return NewMetadata()
+		return NewMetadata(), nil
 	}
 
 	mv := &DocumentMetadataImpl{metadata: make(map[string]MetadataValue)}
@@ -74,9 +109,11 @@ func NewDocumentMetadata(metadata map[string]interface{}) DocumentMetadata {
 			mv.SetInt(k, val)
 		case string:
 			mv.SetString(k, val)
+		default:
+			return nil, errors.Errorf("invalid metadata value type: %T", v)
 		}
 	}
-	return mv
+	return mv, nil
 }
 
 func (cm *DocumentMetadataImpl) Keys() []string {
@@ -172,11 +209,9 @@ func (cm *DocumentMetadataImpl) MarshalJSON() ([]byte, error) {
 		switch val, _ := v.GetRaw(); val.(type) {
 		case bool:
 			processed[k], _ = v.GetBool()
-		case float32:
+		case float32, float64:
 			processed[k], _ = v.GetFloat()
-		case float64:
-			processed[k], _ = v.GetFloat()
-		case int:
+		case int, int32, int64:
 			processed[k], _ = v.GetInt()
 		case string:
 			processed[k], _ = v.GetString()

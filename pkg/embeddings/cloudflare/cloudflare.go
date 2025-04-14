@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 // Docs:  https://developers.cloudflare.com/workers-ai/ (Cloudflare Workers AI) and https://developers.cloudflare.com/workers-ai/models/embedding/ (Embedding API)
@@ -25,7 +25,7 @@ type CloudflareClient struct {
 	endpoint       string
 	APIToken       string
 	AccountID      string
-	DefaultModel   string
+	DefaultModel   embeddings.EmbeddingModel
 	IsGateway      bool
 	MaxBatchSize   int
 	DefaultHeaders map[string]string
@@ -147,7 +147,7 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	return &embeddings, nil
 }
 
-var _ types.EmbeddingFunction = (*CloudflareEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*CloudflareEmbeddingFunction)(nil)
 
 type CloudflareEmbeddingFunction struct {
 	apiClient *CloudflareClient
@@ -162,12 +162,12 @@ func NewCloudflareEmbeddingFunction(opts ...Option) (*CloudflareEmbeddingFunctio
 	return &CloudflareEmbeddingFunction{apiClient: client}, nil
 }
 
-func (e *CloudflareEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *CloudflareEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if len(documents) > e.apiClient.MaxBatchSize {
 		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if len(documents) == 0 {
-		return types.NewEmbeddingsFromFloat32(nil), nil
+		return embeddings.NewEmptyEmbeddings(), nil
 	}
 	req := &CreateEmbeddingRequest{
 		Text: documents,
@@ -176,10 +176,10 @@ func (e *CloudflareEmbeddingFunction) EmbedDocuments(ctx context.Context, docume
 	if err != nil {
 		return nil, err
 	}
-	return types.NewEmbeddingsFromFloat32(response.Result.Data), nil
+	return embeddings.NewEmbeddingsFromFloat32(response.Result.Data)
 }
 
-func (e *CloudflareEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *CloudflareEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	req := &CreateEmbeddingRequest{
 		Text: []string{document},
 	}
@@ -187,9 +187,5 @@ func (e *CloudflareEmbeddingFunction) EmbedQuery(ctx context.Context, document s
 	if err != nil {
 		return nil, err
 	}
-	return types.NewEmbeddingFromFloat32(response.Result.Data[0]), nil
-}
-
-func (e *CloudflareEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
+	return embeddings.NewEmbeddingFromFloat32(response.Result.Data[0]), nil
 }

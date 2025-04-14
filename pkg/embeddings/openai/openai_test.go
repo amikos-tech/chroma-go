@@ -63,8 +63,8 @@ func Test_openai_client(t *testing.T) {
 		require.Nil(t, reqErr)
 		require.NotNil(t, resp)
 		require.Empty(t, ef.apiClient.OrgID)
-		require.Len(t, resp, 1)
-		require.Len(t, *resp[0].GetFloat32(), 1536)
+		require.Equal(t, 1, len(resp))
+		require.Equal(t, 1536, resp[0].Len())
 	})
 
 	t.Run("Test With Model text-embedding-3-large", func(t *testing.T) {
@@ -77,7 +77,7 @@ func Test_openai_client(t *testing.T) {
 		require.Nil(t, reqErr)
 		require.NotNil(t, resp)
 		require.Empty(t, ef.apiClient.OrgID)
-		require.Len(t, *resp[0].GetFloat32(), 3072)
+		require.Equal(t, 3072, resp[0].Len())
 	})
 
 	t.Run("Test With Invalid Model", func(t *testing.T) {
@@ -96,7 +96,7 @@ func Test_openai_client(t *testing.T) {
 		require.Nil(t, err)
 		require.NotNil(t, resp)
 		require.Empty(t, ef.apiClient.OrgID)
-		require.Len(t, *resp[0].GetFloat32(), 512)
+		require.Equal(t, 512, resp[0].Len())
 	})
 
 	t.Run("Test With Model legacy model and reduced dimensions", func(t *testing.T) {
@@ -136,7 +136,7 @@ func Test_openai_client(t *testing.T) {
 		require.Nil(t, reqErr)
 		require.NotNil(t, resp)
 		require.Empty(t, ef.apiClient.OrgID)
-		require.Len(t, *resp.GetFloat32(), 3072)
+		require.Equal(t, 3072, resp.Len())
 	})
 
 	t.Run("Test Embed query With Model text-embedding-3-small", func(t *testing.T) {
@@ -146,7 +146,7 @@ func Test_openai_client(t *testing.T) {
 		require.Nil(t, reqErr)
 		require.NotNil(t, resp)
 		require.Empty(t, ef.apiClient.OrgID)
-		require.Len(t, *resp.GetFloat32(), 1536)
+		require.Equal(t, 1536, resp.Len())
 	})
 
 }
