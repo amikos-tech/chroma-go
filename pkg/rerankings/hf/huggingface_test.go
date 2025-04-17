@@ -5,12 +5,12 @@ package huggingface
 import (
 	"context"
 	"fmt"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,13 +45,17 @@ func TestRerankHFEI(t *testing.T) {
 
 			// Join the current working directory with the relative path
 			joinedPath := filepath.Join(cwd, "data")
+			if _, err := os.Stat(joinedPath); os.IsNotExist(err) {
+				// Create the directory if it doesn't exist
+				err = os.MkdirAll(joinedPath, 0755)
+				require.NoError(t, err)
+			}
 			dockerMounts = append(dockerMounts, mount.Mount{
 				Type:   mount.TypeBind,
 				Source: joinedPath,
 				Target: "/data",
 			})
 			hostConfig.Mounts = dockerMounts
-
 		},
 	}
 	hfei, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
