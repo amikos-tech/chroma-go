@@ -1,3 +1,5 @@
+//go:build basicv2
+
 package v2
 
 import (

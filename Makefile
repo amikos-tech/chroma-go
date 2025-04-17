@@ -9,6 +9,10 @@ build:
 test:
 	go test -tags=basic -count=1 -v ./...
 
+.PHONY: test-v2
+test:
+	go test -tags=basicv2 -count=1 -v ./...
+
 .PHONY: test-rf
 test-rf:
 	go test -tags=rf -count=1 -v ./...

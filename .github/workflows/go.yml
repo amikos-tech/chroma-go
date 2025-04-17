@@ -19,6 +19,8 @@ jobs:
         with:
           predicate-quantifier: 'some'
           filters: |
+            basev2:
+              - 'pkg/api/v2/**'
             embeddings:
               - 'pkg/embeddings/**'
               - 'pkg/commons/embed/**'
@@ -42,12 +44,12 @@ jobs:
         with:
           version: latest
   build:
-    name: Build and Test
+    name: Build and Test V1
     runs-on: ubuntu-latest
     needs: [lint,paths-filter]
     strategy:
       matrix:
-        chroma-version: ["0.4.8", "0.4.24","0.5.5", "0.5.17"]
+        chroma-version: ["0.4.8", "0.4.24","0.5.5", "0.5.17","0.6.2"]
     environment: Test
     steps:
     - uses: actions/checkout@v3
@@ -61,6 +63,25 @@ jobs:
       run: make test
       env:
         CHROMA_VERSION: ${{ matrix.chroma-version }}
+  build-and-test-v2:
+    name: Build and Test V2
+    runs-on: ubuntu-latest
+    needs: [build,paths-filter]
+    strategy:
+      matrix:
+        chroma-version: ["0.6.2","1.0.5"]
+    if: needs.paths-filter.outputs.basev2 == 'true'
+    environment: Test
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Build
+        run: make build
+      - name: Test
+        run: make test-v2
   ef:
     name: Test Embedding Functions
     runs-on: ubuntu-latest
