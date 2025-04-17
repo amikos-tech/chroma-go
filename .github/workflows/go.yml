@@ -12,6 +12,7 @@ jobs:
       embeddings: ${{ steps.changes.outputs.embeddings }}
       rerankings: ${{ steps.changes.outputs.rerankings }}
       docs: ${{ steps.changes.outputs.docs }}
+      basev2: ${{ steps.changes.outputs.basev2 }}
     steps:
       - name: Get changed paths
         id: changes
