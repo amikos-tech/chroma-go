@@ -1,3 +1,5 @@
+//go:build rf
+
 package rerankings
 
 import (

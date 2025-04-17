@@ -17,7 +17,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.36.0
-	github.com/testcontainers/testcontainers-go/modules/chroma v0.33.0
+	github.com/testcontainers/testcontainers-go/modules/chroma v0.36.0
 	github.com/testcontainers/testcontainers-go/modules/ollama v0.36.0
 	github.com/yalue/onnxruntime_go v1.19.0
 	google.golang.org/api v0.186.0

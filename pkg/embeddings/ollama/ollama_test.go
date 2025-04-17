@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	tcollama "github.com/testcontainers/testcontainers-go/modules/ollama"
 	"io"
+	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -24,16 +26,24 @@ func Test_ollama(t *testing.T) {
 	}()
 
 	model := "nomic-embed-text"
-	c, out, err := ollamaContainer.Exec(ctx, []string{"ollama", "pull", model})
-	require.NoError(t, err)
-	require.Equal(t, c, 0)
-	if out != nil {
-		outs, err := io.ReadAll(out)
-		require.NoError(t, err)
-		require.Contains(t, string(outs), "success")
-	}
 	connectionStr, err := ollamaContainer.ConnectionString(ctx)
 	require.NoError(t, err)
+	pullURL := fmt.Sprintf("%s/api/pull", connectionStr)
+	pullPayload := fmt.Sprintf(`{"name": "%s"}`, model)
+
+	resp, err := http.Post(
+		pullURL,
+		"application/json",
+		strings.NewReader(pullPayload),
+	)
+	require.NoError(t, err)
+	respStr, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Contains(t, string(respStr), "success")
+
+	// Ensure successful response
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 	client, err := NewOllamaClient(WithBaseURL(connectionStr), WithModel(embeddings.EmbeddingModel(model)))
 	require.NoError(t, err)
 	t.Run("Test Create Embed Single document", func(t *testing.T) {

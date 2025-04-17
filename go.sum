@@ -370,6 +370,8 @@ github.com/testcontainers/testcontainers-go v0.36.0 h1:YpffyLuHtdp5EUsI5mT4sRw8G
 github.com/testcontainers/testcontainers-go v0.36.0/go.mod h1:yk73GVJ0KUZIHUtFna6MO7QS144qYpoY8lEEtU9Hed0=
 github.com/testcontainers/testcontainers-go/modules/chroma v0.33.0 h1:gelkS3qem1+hTZv7R/PNr89AiaIgcxhHNqSM6f5UG/g=
 github.com/testcontainers/testcontainers-go/modules/chroma v0.33.0/go.mod h1:MoykG4ksnUufSOg6U6Svmtap0fAnu8+cm8bLWK8v208=
+github.com/testcontainers/testcontainers-go/modules/chroma v0.36.0 h1:aP1Xifh3Igcr3diGj/rP4MGasyjdb26hvkN/KCDPLyg=
+github.com/testcontainers/testcontainers-go/modules/chroma v0.36.0/go.mod h1:4VyK3KXTZ6ATn08mKfW6BdCTknMzj9wTd6ANFCkZ1N4=
 github.com/testcontainers/testcontainers-go/modules/ollama v0.36.0 h1:DftBZmS/UC1LL8ARCfSZynl45048sMYGD+Wao+0Yo18=
 github.com/testcontainers/testcontainers-go/modules/ollama v0.36.0/go.mod h1:oLmpHrL1s4D/5xfQaz7bXTk0QB12o69s/QOewSRFpqI=
 github.com/tklauser/go-sysconf v0.3.12 h1:0QaGUFOdQaIVdPgfITYzaTegZvdCjmYO52cSFAEVmqU=
