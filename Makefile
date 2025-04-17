@@ -10,7 +10,7 @@ test:
 	go test -tags=basic -count=1 -v ./...
 
 .PHONY: test-v2
-test:
+test-v2:
 	go test -tags=basicv2 -count=1 -v ./...
 
 .PHONY: test-rf
