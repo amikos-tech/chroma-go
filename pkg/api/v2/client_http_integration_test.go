@@ -23,7 +23,7 @@ import (
 
 func TestClientHTTPIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "0.6.3"
+	var chromaVersion = "1.0.5"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
@@ -31,16 +31,54 @@ func TestClientHTTPIntegration(t *testing.T) {
 	if os.Getenv("CHROMA_IMAGE") != "" {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
 	}
-	chromaContainer, err := tcchroma.Run(ctx,
-		fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
-		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
-	)
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	mounts := []HostMount{
+		{
+			Source: filepath.Join(cwd, "v1-config.yaml"),
+			Target: "/config.yaml",
+		},
+	}
+
+	req := testcontainers.ContainerRequest{
+		Image:        fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
+		ExposedPorts: []string{"8000/tcp"},
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort("8000/tcp"),
+			wait.ForHTTP("/api/v2/heartbeat").WithStatusCodeMatcher(func(status int) bool {
+				return status == 200
+			}),
+		),
+		Env: map[string]string{
+			"ALLOW_RESET": "true", // this does not work with 1.0.x
+		},
+		HostConfigModifier: func(hostConfig *container.HostConfig) {
+			dockerMounts := make([]mount.Mount, 0)
+			for _, mnt := range mounts {
+				dockerMounts = append(dockerMounts, mount.Mount{
+					Type:   mount.TypeBind,
+					Source: mnt.Source,
+					Target: mnt.Target,
+				})
+			}
+			hostConfig.Mounts = dockerMounts
+		},
+	}
+	chromaContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, chromaContainer.Terminate(ctx))
 	})
-	endpoint, err := chromaContainer.RESTEndpoint(context.Background())
+
+	ip, err := chromaContainer.Host(ctx)
 	require.NoError(t, err)
+	port, err := chromaContainer.MappedPort(ctx, "8000")
+	require.NoError(t, err)
+	endpoint := fmt.Sprintf("http://%s:%s", ip, port.Port())
+
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = endpoint
@@ -51,7 +89,11 @@ func TestClientHTTPIntegration(t *testing.T) {
 	t.Run("get version", func(t *testing.T) {
 		v, err := c.GetVersion(ctx)
 		require.NoError(t, err)
-		require.Equal(t, chromaVersion, v)
+		if strings.HasPrefix(chromaVersion, "1.0") {
+			require.Contains(t, v, "1.")
+		} else {
+			require.Equal(t, chromaVersion, v)
+		}
 	})
 	t.Run("heartbeat", func(t *testing.T) {
 		err := c.Heartbeat(ctx)
@@ -174,40 +216,54 @@ func TestClientHTTPIntegrationWithBasicAuth(t *testing.T) {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
 	}
 	cwd, err := os.Getwd()
+	require.NoError(t, err)
 	mounts := []HostMount{
 		{
 			Source: filepath.Join(cwd, "server.htpasswd"),
 			Target: "/chroma/chroma/server.htpasswd",
 		},
 	}
-	require.NoError(t, err)
-	chromaContainer, err := tcchroma.Run(ctx,
-		fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
-		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
-		testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_CREDENTIALS_FILE": "/chroma/chroma/server.htpasswd"}),
-		testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_PROVIDER": "chromadb.auth.basic_authn.BasicAuthenticationServerProvider"}),
-		testcontainers.CustomizeRequest(testcontainers.GenericContainerRequest{
-			ContainerRequest: testcontainers.ContainerRequest{
-				HostConfigModifier: func(hostConfig *container.HostConfig) {
-					dockerMounts := make([]mount.Mount, 0)
-					for _, mnt := range mounts {
-						dockerMounts = append(dockerMounts, mount.Mount{
-							Type:   mount.TypeBind,
-							Source: mnt.Source,
-							Target: mnt.Target,
-						})
-					}
-					hostConfig.Mounts = dockerMounts
-				},
-			},
-		}),
-	)
+
+	req := testcontainers.ContainerRequest{
+		Image:        fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
+		ExposedPorts: []string{"8000/tcp"},
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort("8000/tcp"),
+			wait.ForHTTP("/api/v2/heartbeat").WithStatusCodeMatcher(func(status int) bool {
+				return status == 200
+			}),
+		),
+		Env: map[string]string{
+			"ALLOW_RESET":                          "true",
+			"CHROMA_SERVER_AUTHN_CREDENTIALS_FILE": "/chroma/chroma/server.htpasswd",
+			"CHROMA_SERVER_AUTHN_PROVIDER":         "chromadb.auth.basic_authn.BasicAuthenticationServerProvider",
+		},
+		HostConfigModifier: func(hostConfig *container.HostConfig) {
+			dockerMounts := make([]mount.Mount, 0)
+			for _, mnt := range mounts {
+				dockerMounts = append(dockerMounts, mount.Mount{
+					Type:   mount.TypeBind,
+					Source: mnt.Source,
+					Target: mnt.Target,
+				})
+			}
+			hostConfig.Mounts = dockerMounts
+		},
+	}
+	chromaContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, chromaContainer.Terminate(ctx))
 	})
-	endpoint, err := chromaContainer.RESTEndpoint(context.Background())
+
+	ip, err := chromaContainer.Host(ctx)
 	require.NoError(t, err)
+	port, err := chromaContainer.MappedPort(ctx, "8000")
+	require.NoError(t, err)
+	endpoint := fmt.Sprintf("http://%s:%s", ip, port.Port())
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = endpoint
@@ -240,19 +296,51 @@ func TestClientHTTPIntegrationWithBearerAuthorizationHeaderAuth(t *testing.T) {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
 	}
 	token := "chr0ma-t0k3n"
-	chromaContainer, err := tcchroma.Run(ctx,
-		fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
-		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
-		testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_CREDENTIALS": token}),
-		testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_PROVIDER": "chromadb.auth.token_authn.TokenAuthenticationServerProvider"}),
-		testcontainers.WithEnv(map[string]string{"CHROMA_AUTH_TOKEN_TRANSPORT_HEADER": "Authorization"}),
-	)
+
+	req := testcontainers.ContainerRequest{
+		Image:        fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
+		ExposedPorts: []string{"8000/tcp"},
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort("8000/tcp"),
+			wait.ForHTTP("/api/v2/heartbeat").WithStatusCodeMatcher(func(status int) bool {
+				return status == 200
+			}),
+		),
+		Env: map[string]string{
+			"ALLOW_RESET":                        "true",
+			"CHROMA_SERVER_AUTHN_CREDENTIALS":    token,
+			"CHROMA_SERVER_AUTHN_PROVIDER":       "chromadb.auth.token_authn.TokenAuthenticationServerProvider",
+			"CHROMA_AUTH_TOKEN_TRANSPORT_HEADER": "Authorization",
+		},
+	}
+	chromaContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, chromaContainer.Terminate(ctx))
 	})
-	endpoint, err := chromaContainer.RESTEndpoint(context.Background())
+
+	ip, err := chromaContainer.Host(ctx)
 	require.NoError(t, err)
+	port, err := chromaContainer.MappedPort(ctx, "8000")
+	require.NoError(t, err)
+	endpoint := fmt.Sprintf("http://%s:%s", ip, port.Port())
+	//
+	//chromaContainer, err := tcchroma.Run(ctx,
+	//	fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
+	//	testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
+	//	testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_CREDENTIALS": token}),
+	//	testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_PROVIDER": "chromadb.auth.token_authn.TokenAuthenticationServerProvider"}),
+	//	testcontainers.WithEnv(map[string]string{"CHROMA_AUTH_TOKEN_TRANSPORT_HEADER": "Authorization"}),
+	//)
+	//require.NoError(t, err)
+	//t.Cleanup(func() {
+	//	require.NoError(t, chromaContainer.Terminate(ctx))
+	//})
+	//endpoint, err := chromaContainer.RESTEndpoint(context.Background())
+	//require.NoError(t, err)
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = endpoint
@@ -281,23 +369,58 @@ func TestClientHTTPIntegrationWithBearerXChromaTokenHeaderAuth(t *testing.T) {
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
+	if strings.HasPrefix(chromaVersion, "1.0") || chromaVersion == "latest" {
+		t.Skip("Not supported by Chroma 1.0.x")
+	}
 	if os.Getenv("CHROMA_IMAGE") != "" {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
 	}
 	token := "chr0ma-t0k3n"
-	chromaContainer, err := tcchroma.Run(ctx,
-		fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
-		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
-		testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_CREDENTIALS": token}),
-		testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_PROVIDER": "chromadb.auth.token_authn.TokenAuthenticationServerProvider"}),
-		testcontainers.WithEnv(map[string]string{"CHROMA_AUTH_TOKEN_TRANSPORT_HEADER": "X-Chroma-Token"}),
-	)
+
+	req := testcontainers.ContainerRequest{
+		Image:        fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
+		ExposedPorts: []string{"8000/tcp"},
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort("8000/tcp"),
+			wait.ForHTTP("/api/v2/heartbeat").WithStatusCodeMatcher(func(status int) bool {
+				return status == 200
+			}),
+		),
+		Env: map[string]string{
+			"ALLOW_RESET":                        "true",
+			"CHROMA_SERVER_AUTHN_CREDENTIALS":    token,
+			"CHROMA_SERVER_AUTHN_PROVIDER":       "chromadb.auth.token_authn.TokenAuthenticationServerProvider",
+			"CHROMA_AUTH_TOKEN_TRANSPORT_HEADER": "X-Chroma-Token",
+		},
+	}
+	chromaContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, chromaContainer.Terminate(ctx))
 	})
-	endpoint, err := chromaContainer.RESTEndpoint(context.Background())
+
+	ip, err := chromaContainer.Host(ctx)
 	require.NoError(t, err)
+	port, err := chromaContainer.MappedPort(ctx, "8000")
+	require.NoError(t, err)
+	endpoint := fmt.Sprintf("http://%s:%s", ip, port.Port())
+	//
+	//chromaContainer, err := tcchroma.Run(ctx,
+	//	fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
+	//	testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
+	//	testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_CREDENTIALS": token}),
+	//	testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_PROVIDER": "chromadb.auth.token_authn.TokenAuthenticationServerProvider"}),
+	//	testcontainers.WithEnv(map[string]string{"CHROMA_AUTH_TOKEN_TRANSPORT_HEADER": "X-Chroma-Token"}),
+	//)
+	//require.NoError(t, err)
+	//t.Cleanup(func() {
+	//	require.NoError(t, chromaContainer.Terminate(ctx))
+	//})
+	//endpoint, err := chromaContainer.RESTEndpoint(context.Background())
+	//require.NoError(t, err)
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = endpoint
@@ -320,11 +443,15 @@ func TestClientHTTPIntegrationWithBearerXChromaTokenHeaderAuth(t *testing.T) {
 }
 
 func TestClientHTTPIntegrationWithSSL(t *testing.T) {
+
 	ctx := context.Background()
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	var chromaVersion = "latest"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
+	}
+	if strings.HasPrefix(chromaVersion, "1.0") || chromaVersion == "latest" {
+		t.Skip("Not supported by Chroma 1.0.x")
 	}
 
 	if os.Getenv("CHROMA_IMAGE") != "" {

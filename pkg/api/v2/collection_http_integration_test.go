@@ -5,14 +5,13 @@ package v2
 import (
 	"context"
 	"fmt"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"os"
 	"testing"
 
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-	tcchroma "github.com/testcontainers/testcontainers-go/modules/chroma"
-
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 func TestCollectionAddIntegration(t *testing.T) {
@@ -25,16 +24,34 @@ func TestCollectionAddIntegration(t *testing.T) {
 	if os.Getenv("CHROMA_IMAGE") != "" {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
 	}
-	chromaContainer, err := tcchroma.Run(ctx,
-		fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
-		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
-	)
+	req := testcontainers.ContainerRequest{
+		Image:        fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
+		ExposedPorts: []string{"8000/tcp"},
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort("8000/tcp"),
+			wait.ForHTTP("/api/v2/heartbeat").WithStatusCodeMatcher(func(status int) bool {
+				return status == 200
+			}),
+		),
+		Env: map[string]string{
+			"ALLOW_RESET": "true",
+		},
+	}
+	chromaContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, chromaContainer.Terminate(ctx))
 	})
-	endpoint, err := chromaContainer.RESTEndpoint(context.Background())
+
+	ip, err := chromaContainer.Host(ctx)
 	require.NoError(t, err)
+	port, err := chromaContainer.MappedPort(ctx, "8000")
+	require.NoError(t, err)
+	endpoint := fmt.Sprintf("http://%s:%s", ip, port.Port())
+
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = endpoint
