@@ -5,8 +5,11 @@ package v2
 import (
 	"context"
 	"fmt"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
@@ -16,13 +19,21 @@ import (
 
 func TestCollectionAddIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "0.6.3"
+	var chromaVersion = "1.0.5"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
 	if os.Getenv("CHROMA_IMAGE") != "" {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
+	}
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	mounts := []HostMount{
+		{
+			Source: filepath.Join(cwd, "v1-config.yaml"),
+			Target: "/config.yaml",
+		},
 	}
 	req := testcontainers.ContainerRequest{
 		Image:        fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
@@ -34,7 +45,18 @@ func TestCollectionAddIntegration(t *testing.T) {
 			}),
 		),
 		Env: map[string]string{
-			"ALLOW_RESET": "true",
+			"ALLOW_RESET": "true", // does not work with Chroma v1.0.x
+		},
+		HostConfigModifier: func(hostConfig *container.HostConfig) {
+			dockerMounts := make([]mount.Mount, 0)
+			for _, mnt := range mounts {
+				dockerMounts = append(dockerMounts, mount.Mount{
+					Type:   mount.TypeBind,
+					Source: mnt.Source,
+					Target: mnt.Target,
+				})
+			}
+			hostConfig.Mounts = dockerMounts
 		},
 	}
 	chromaContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
