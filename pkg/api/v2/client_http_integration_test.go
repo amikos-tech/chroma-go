@@ -51,7 +51,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 	t.Run("get version", func(t *testing.T) {
 		v, err := c.GetVersion(ctx)
 		require.NoError(t, err)
-		require.Equal(t, "0.6.3", v)
+		require.Equal(t, chromaVersion, v)
 	})
 	t.Run("heartbeat", func(t *testing.T) {
 		err := c.Heartbeat(ctx)
