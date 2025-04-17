@@ -16,7 +16,7 @@ import (
 
 func Test_ollama(t *testing.T) {
 	ctx := context.Background()
-	ollamaContainer, err := tcollama.Run(ctx, "ollama/ollama:latest", tcollama.WithUseLocal("OLLAMA_DEBUG=true"))
+	ollamaContainer, err := tcollama.Run(ctx, "ollama/ollama:latest")
 	require.NoError(t, err)
 	// Clean up the container
 	defer func() {
