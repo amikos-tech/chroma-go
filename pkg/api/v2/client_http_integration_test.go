@@ -212,6 +212,9 @@ func TestClientHTTPIntegrationWithBasicAuth(t *testing.T) {
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
+	if strings.HasPrefix(chromaVersion, "1.0") || chromaVersion == "latest" {
+		t.Skip("Not supported by Chroma 1.0.x")
+	}
 	if os.Getenv("CHROMA_IMAGE") != "" {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
 	}
