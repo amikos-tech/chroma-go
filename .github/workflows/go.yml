@@ -17,7 +17,6 @@ jobs:
         id: changes
         uses: dorny/paths-filter@v3
         with:
-          predicate-quantifier: 'some'
           filters: |
             basev2:
               - 'pkg/api/v2/**'
@@ -66,7 +65,7 @@ jobs:
   build-and-test-v2:
     name: Build and Test V2
     runs-on: ubuntu-latest
-    needs: [paths-filter]
+    needs: [lint,paths-filter]
     strategy:
       matrix:
         chroma-version: ["0.6.2","1.0.5"]
@@ -82,6 +81,8 @@ jobs:
         run: make build
       - name: Test
         run: make test-v2
+        env:
+          CHROMA_VERSION: ${{ matrix.chroma-version }}
   ef:
     name: Test Embedding Functions
     runs-on: ubuntu-latest
