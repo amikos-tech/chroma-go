@@ -12,6 +12,7 @@ jobs:
       embeddings: ${{ steps.changes.outputs.embeddings }}
       rerankings: ${{ steps.changes.outputs.rerankings }}
       docs: ${{ steps.changes.outputs.docs }}
+      basev1: ${{ steps.changes.outputs.basev1 }}
       basev2: ${{ steps.changes.outputs.basev2 }}
     steps:
       - name: Get changed paths
@@ -62,6 +63,7 @@ jobs:
   apiv1:
     name: Test Chroma API V1
     runs-on: ubuntu-latest
+    if: needs.paths-filter.outputs.basev1 == 'true'
     needs: [lint,paths-filter]
     strategy:
       matrix:
