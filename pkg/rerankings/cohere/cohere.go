@@ -12,15 +12,13 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
 )
 
-type CohereModel = ccommons.CohereModel
-
 const (
-	DefaultRerankingEndpoint               = "rerank"
-	ModelRerankEnglishV30      CohereModel = "rerank-english-v3.0"
-	DefaultModel               CohereModel = ModelRerankEnglishV30
-	ModelRerankMultilingualV30 CohereModel = "rerank-multilingual-v3.0"
-	ModelRerankEnglishV20      CohereModel = "rerank-english-v2.0"
-	ModelRerankMultilingualV20 CohereModel = "rerank-multilingual-v2.0"
+	DefaultRerankingEndpoint                             = "rerank"
+	ModelRerankEnglishV30      rerankings.RerankingModel = "rerank-english-v3.0"
+	DefaultModel               rerankings.RerankingModel = ModelRerankEnglishV30
+	ModelRerankMultilingualV30 rerankings.RerankingModel = "rerank-multilingual-v3.0"
+	ModelRerankEnglishV20      rerankings.RerankingModel = "rerank-english-v2.0"
+	ModelRerankMultilingualV20 rerankings.RerankingModel = "rerank-multilingual-v2.0"
 )
 
 type RerankRequest struct {
@@ -61,7 +59,7 @@ var _ rerankings.RerankingFunction = &CohereRerankingFunction{}
 func NewCohereRerankingFunction(opts ...Option) (*CohereRerankingFunction, error) {
 	rf := &CohereRerankingFunction{}
 	ccOpts := make([]ccommons.Option, 0)
-	ccOpts = append(ccOpts, ccommons.WithDefaultModel(DefaultModel))
+	opts = append(opts, WithDefaultModel(DefaultModel))
 	// stagger the options to pass to the cohere client
 	for _, opt := range opts {
 		ccOpts = append(ccOpts, opt(rf))
@@ -85,7 +83,7 @@ func (c CohereRerankingFunction) Rerank(ctx context.Context, query string, resul
 		docs = append(docs, d)
 	}
 	req := &RerankRequest{
-		Model:           c.DefaultModel.String(),
+		Model:           string(c.DefaultModel),
 		Query:           query,
 		Documents:       docs,
 		TopN:            c.TopN,
@@ -167,7 +165,7 @@ func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryResults
 			docs = append(docs, result)
 		}
 		req := &RerankRequest{
-			Model:           c.DefaultModel.String(),
+			Model:           string(c.DefaultModel),
 			Query:           queryResults.QueryTexts[i],
 			Documents:       docs,
 			TopN:            c.TopN,

@@ -8,10 +8,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
-
-// Docs:  https://developers.cloudflare.com/workers-ai/ (Cloudflare Workers AI) and https://developers.cloudflare.com/workers-ai/models/embedding/ (Embedding API)
 
 const (
 	DefaultEmbeddingModel = "mistral-embed"
@@ -107,7 +105,7 @@ func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	return string(data), nil
 }
 
-func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest) ([]*types.Embedding, error) {
+func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest) ([]embeddings.Embedding, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
 		return nil, err
@@ -142,14 +140,14 @@ func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest
 	if err := json.Unmarshal(respData, &embeddingResponse); err != nil {
 		return nil, err
 	}
-	embeddings := make([]*types.Embedding, len(embeddingResponse.Data))
+	embs := make([]embeddings.Embedding, len(embeddingResponse.Data))
 	for i, e := range embeddingResponse.Data {
-		embeddings[i] = types.NewEmbeddingFromFloat32(e.Embedding)
+		embs[i] = embeddings.NewEmbeddingFromFloat32(e.Embedding)
 	}
-	return embeddings, nil
+	return embs, nil
 }
 
-var _ types.EmbeddingFunction = (*MistralEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*MistralEmbeddingFunction)(nil)
 
 type MistralEmbeddingFunction struct {
 	apiClient *Client
@@ -164,7 +162,7 @@ func NewMistralEmbeddingFunction(opts ...Option) (*MistralEmbeddingFunction, err
 	return &MistralEmbeddingFunction{apiClient: client}, nil
 }
 
-func (e *MistralEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *MistralEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if len(documents) > e.apiClient.MaxBatchSize {
 		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
@@ -172,7 +170,7 @@ func (e *MistralEmbeddingFunction) EmbedDocuments(ctx context.Context, documents
 		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if len(documents) == 0 {
-		return types.NewEmbeddingsFromFloat32(nil), nil
+		return embeddings.NewEmptyEmbeddings(), nil
 	}
 	var model = e.apiClient.DefaultModel
 	if ctx.Value(ModelContextVar) != nil {
@@ -189,7 +187,7 @@ func (e *MistralEmbeddingFunction) EmbedDocuments(ctx context.Context, documents
 	return response, nil
 }
 
-func (e *MistralEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *MistralEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	var model = e.apiClient.DefaultModel
 	if ctx.Value(ModelContextVar) != nil {
 		model = ctx.Value(ModelContextVar).(string)
@@ -203,8 +201,4 @@ func (e *MistralEmbeddingFunction) EmbedQuery(ctx context.Context, document stri
 		return nil, err
 	}
 	return response[0], nil
-}
-
-func (e *MistralEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
 }

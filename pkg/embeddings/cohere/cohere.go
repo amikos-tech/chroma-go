@@ -6,25 +6,26 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+
+	"github.com/pkg/errors"
 
 	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 const (
 	DefaultEmbedEndpoint = "embed"
 )
 
-type CohereModel = ccommons.CohereModel
-
 const (
-	ModelEmbedEnglishV20      CohereModel = "embed-english-v2.0"
-	ModelEmbedEnglishV30      CohereModel = "embed-english-v3.0"
-	ModelEmbedMultilingualV20 CohereModel = "embed-multilingual-v2.0"
-	ModelEmbedMultilingualV30 CohereModel = "embed-multilingual-v3.0"
-	ModelEmbedEnglishLightV20 CohereModel = "embed-english-light-v2.0"
-	ModelEmbedEnglishLightV30 CohereModel = "embed-english-light-v3.0"
-	DefaultEmbedModel         CohereModel = ModelEmbedEnglishV20
+	ModelEmbedEnglishV20      embeddings.EmbeddingModel = "embed-english-v2.0"
+	ModelEmbedEnglishV30      embeddings.EmbeddingModel = "embed-english-v3.0"
+	ModelEmbedMultilingualV20 embeddings.EmbeddingModel = "embed-multilingual-v2.0"
+	ModelEmbedMultilingualV30 embeddings.EmbeddingModel = "embed-multilingual-v3.0"
+	ModelEmbedEnglishLightV20 embeddings.EmbeddingModel = "embed-english-light-v2.0"
+	ModelEmbedEnglishLightV30 embeddings.EmbeddingModel = "embed-english-light-v3.0"
+	DefaultEmbedModel         embeddings.EmbeddingModel = ModelEmbedEnglishV20
 )
 
 type TruncateMode string
@@ -62,18 +63,51 @@ type CreateEmbeddingRequest struct {
 	InputType      InputType       `json:"input_type,omitempty"`
 }
 
-type EmbeddingTypes struct {
-	Float32 [][]float32 `json:"float"`
-	Int8    [][]int8    `json:"int8"`
-	UInt8   [][]uint8   `json:"uint8"`
-}
-
 type EmbeddingsResponse struct {
-	Embeddings      [][]float32
-	EmbeddingsTypes *EmbeddingTypes
+	Float32 [][]float32 `json:"float,omitempty"`
+	Int8    [][]int8    `json:"int8,omitempty"`
+	UInt8   [][]uint8   `json:"uint8,omitempty"`
 }
 
-var _ types.EmbeddingFunction = (*CohereEmbeddingFunction)(nil)
+func (e *EmbeddingsResponse) UnmarshalJSON(b []byte) error {
+	s := string(b)
+	switch {
+	case strings.Contains(s, "uint"):
+		var tstruct = struct {
+			Uint8 [][]uint8 `json:"uint8,omitempty"`
+		}{
+			Uint8: make([][]uint8, 0),
+		}
+		err := json.Unmarshal(b, &tstruct)
+		if err != nil {
+			return err
+		}
+		e.UInt8 = tstruct.Uint8
+	case strings.Contains(string(b), "int8"):
+		var tstruct = struct {
+			Int8 [][]int8 `json:"int8,omitempty"`
+		}{
+			Int8: make([][]int8, 0),
+		}
+		err := json.Unmarshal(b, &tstruct)
+		if err != nil {
+			return err
+		}
+		e.Int8 = tstruct.Int8
+	case strings.Contains(string(b), "binary"):
+		return errors.New("binary embedding type not supported")
+	case strings.Contains(string(b), "ubinary"):
+		return errors.New("ubinary embedding type not supported")
+	default:
+		err := json.Unmarshal(b, &e.Float32)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var _ embeddings.EmbeddingFunction = (*CohereEmbeddingFunction)(nil)
 
 type CohereEmbeddingFunction struct {
 	ccommons.CohereClient
@@ -128,7 +162,7 @@ func (c *CohereEmbeddingFunction) CreateEmbedding(ctx context.Context, req *Crea
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println(string(respData))
 	var createEmbeddingResponse CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &createEmbeddingResponse); err != nil {
 		return nil, err
@@ -140,10 +174,10 @@ func (c *CohereEmbeddingFunction) CreateEmbedding(ctx context.Context, req *Crea
 // EmbedDocuments embeds the given documents and returns the embeddings.
 // Accepts value model in context to override the default model.
 // Accepts value embedding_types in context to override the default embedding types.
-func (c *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (c *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	_model := c.CohereClient.DefaultModel
 	if ctx.Value("model") != nil {
-		_model = ctx.Value("model").(CohereModel)
+		_model = embeddings.EmbeddingModel(ctx.Value("model").(string))
 	}
 	_embeddingTypes := c.DefaultEmbeddingTypes
 	if ctx.Value("embedding_types") != nil {
@@ -151,44 +185,36 @@ func (c *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 	}
 	response, err := c.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Texts:          documents,
-		Model:          _model.String(),
+		Model:          string(_model),
 		InputType:      InputTypeSearchDocument,
 		EmbeddingTypes: _embeddingTypes,
 	})
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("response.Embeddings.EmbeddingsTypes: ", response.Embeddings.Float32)
 	switch {
-	case response.Embeddings.Embeddings != nil:
-		return types.NewEmbeddingsFromFloat32(response.Embeddings.Embeddings), nil
+	case len(response.Embeddings.Float32) > 0:
+		return embeddings.NewEmbeddingsFromFloat32(response.Embeddings.Float32)
 
-	case response.Embeddings.EmbeddingsTypes != nil:
-		switch {
-		case response.Embeddings.EmbeddingsTypes.Float32 != nil:
-			return types.NewEmbeddingsFromFloat32(response.Embeddings.EmbeddingsTypes.Float32), nil
+	case len(response.Embeddings.Int8) > 0:
+		return embeddings.NewEmbeddingsFromInt32(int32FromInt8Embeddings(response.Embeddings.Int8))
 
-		case response.Embeddings.EmbeddingsTypes.Int8 != nil:
-			return types.NewEmbeddingsFromInt32(int32FromInt8Embeddings(response.Embeddings.EmbeddingsTypes.Int8)), nil
-
-		case response.Embeddings.EmbeddingsTypes.UInt8 != nil:
-			return types.NewEmbeddingsFromInt32(int32FromUInt8Embeddings(response.Embeddings.EmbeddingsTypes.UInt8)), nil
-
-		default:
-			return nil, fmt.Errorf("unsupported embedding type")
-		}
+	case len(response.Embeddings.UInt8) > 0:
+		return embeddings.NewEmbeddingsFromInt32(int32FromUInt8Embeddings(response.Embeddings.UInt8))
 
 	default:
-		return nil, fmt.Errorf("unexpected response from API")
+		return nil, fmt.Errorf("unsupported embedding type")
 	}
 }
 
 // EmbedQuery embeds the given query and returns the embedding.
 // Accepts value model in context to override the default model.
 // Accepts value embedding_types in context to override the default embedding types.
-func (c *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (c *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	_model := c.CohereClient.DefaultModel
 	if ctx.Value("model") != nil {
-		_model = ctx.Value("model").(CohereModel)
+		_model = embeddings.EmbeddingModel(ctx.Value("model").(string))
 	}
 	_embeddingTypes := c.DefaultEmbeddingTypes
 	if ctx.Value("embedding_types") != nil {
@@ -196,7 +222,7 @@ func (c *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	}
 	response, err := c.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Texts:          []string{document},
-		Model:          _model.String(),
+		Model:          string(_model),
 		InputType:      InputTypeSearchQuery,
 		EmbeddingTypes: _embeddingTypes,
 	})
@@ -204,54 +230,18 @@ func (c *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 		return nil, err
 	}
 	switch {
-	case response.Embeddings.Embeddings != nil:
-		return types.NewEmbeddingFromFloat32(response.Embeddings.Embeddings[0]), nil
+	case len(response.Embeddings.Float32) > 0:
+		return embeddings.NewEmbeddingFromFloat32(response.Embeddings.Float32[0]), nil
 
-	case response.Embeddings.EmbeddingsTypes != nil:
-		switch {
-		case response.Embeddings.EmbeddingsTypes.Float32 != nil:
-			return types.NewEmbeddingFromFloat32(response.Embeddings.EmbeddingsTypes.Float32[0]), nil
+	case len(response.Embeddings.Int8) > 0:
+		return embeddings.NewInt32Embedding(int32FromInt8Embeddings(response.Embeddings.Int8)[0]), nil
 
-		case response.Embeddings.EmbeddingsTypes.Int8 != nil:
-			return types.NewEmbeddingFromInt32(int32FromInt8Embeddings(response.Embeddings.EmbeddingsTypes.Int8)[0]), nil
-
-		case response.Embeddings.EmbeddingsTypes.UInt8 != nil:
-			return types.NewEmbeddingFromInt32(int32FromUInt8Embeddings(response.Embeddings.EmbeddingsTypes.UInt8)[0]), nil
-
-		default:
-			return nil, fmt.Errorf("unsupported embedding type")
-		}
+	case len(response.Embeddings.UInt8) > 0:
+		return embeddings.NewInt32Embedding(int32FromUInt8Embeddings(response.Embeddings.UInt8)[0]), nil
 
 	default:
-		return nil, fmt.Errorf("unexpected response from API")
+		return nil, fmt.Errorf("unsupported embedding type")
 	}
-}
-
-// EmbedRecords embeds the given records and returns the embeddings.
-// Accepts value model in context to override the default model.
-// Accepts value embedding_types in context to override the default embedding types.
-func (c *CohereEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	return types.EmbedRecordsDefaultImpl(c, ctx, records, force)
-}
-
-func (e *EmbeddingsResponse) UnmarshalJSON(b []byte) error {
-	if err := json.Unmarshal(b, &e.Embeddings); err == nil {
-		return nil
-	}
-	if err := json.Unmarshal(b, &e.EmbeddingsTypes); err == nil {
-		return nil
-	}
-	return fmt.Errorf("EmbeddingInput must be a string or an array of strings")
-}
-
-func (e *EmbeddingsResponse) MarshalJSON() ([]byte, error) {
-	if e.Embeddings != nil {
-		return json.Marshal(e.Embeddings)
-	}
-	if e.EmbeddingsTypes != nil {
-		return json.Marshal(e.EmbeddingsTypes)
-	}
-	return nil, fmt.Errorf("EmbeddingsResponse has no data")
 }
 
 type CreateEmbeddingResponse struct {

@@ -1,4 +1,5 @@
 generate:
+	echo "This is deprecated. 1.0 does not use generated client."
 	sh ./gen_api_v3.sh
 
 build:
@@ -7,6 +8,10 @@ build:
 .PHONY: test
 test:
 	go test -tags=basic -count=1 -v ./...
+
+.PHONY: test-v2
+test-v2:
+	go test -tags=basicv2 -count=1 -v ./...
 
 .PHONY: test-rf
 test-rf:

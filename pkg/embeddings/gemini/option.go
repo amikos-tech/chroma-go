@@ -5,12 +5,14 @@ import (
 	"os"
 
 	"github.com/google/generative-ai-go/genai"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type Option func(p *Client) error
 
 // WithDefaultModel sets the default model for the client
-func WithDefaultModel(model string) Option {
+func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 	return func(p *Client) error {
 		p.DefaultModel = model
 		return nil

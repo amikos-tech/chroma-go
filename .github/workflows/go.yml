@@ -1,4 +1,4 @@
-name: Go
+name: Go Tests
 
 on:
   pull_request:
@@ -12,13 +12,15 @@ jobs:
       embeddings: ${{ steps.changes.outputs.embeddings }}
       rerankings: ${{ steps.changes.outputs.rerankings }}
       docs: ${{ steps.changes.outputs.docs }}
+      basev2: ${{ steps.changes.outputs.basev2 }}
     steps:
       - name: Get changed paths
         id: changes
         uses: dorny/paths-filter@v3
         with:
-          predicate-quantifier: 'some'
           filters: |
+            basev2:
+              - 'pkg/api/v2/**'
             embeddings:
               - 'pkg/embeddings/**'
               - 'pkg/commons/embed/**'
@@ -32,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: Test
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -41,16 +43,22 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: latest
-  build:
-    name: Build and Test
+  apiv1:
+    name: Test Chroma API V1
     runs-on: ubuntu-latest
     needs: [lint,paths-filter]
     strategy:
       matrix:
-        chroma-version: ["0.4.8", "0.4.24","0.5.5", "0.5.17"]
+        chroma-version: ["0.4.8", "0.4.24","0.5.5", "0.5.17","0.6.2"]
     environment: Test
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
@@ -61,14 +69,47 @@ jobs:
       run: make test
       env:
         CHROMA_VERSION: ${{ matrix.chroma-version }}
+  apiv2:
+    name: Test Chroma API V2
+    runs-on: ubuntu-latest
+    needs: [lint,paths-filter]
+    strategy:
+      matrix:
+        chroma-version: ["0.6.3","1.0.5"]
+    if: needs.paths-filter.outputs.basev2 == 'true'
+    environment: Test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Build
+        run: make build
+      - name: Test
+        run: make test-v2
+        env:
+          CHROMA_VERSION: ${{ matrix.chroma-version }}
   ef:
     name: Test Embedding Functions
     runs-on: ubuntu-latest
-    needs: [build,paths-filter]
+    needs: [lint,paths-filter]
     if: needs.paths-filter.outputs.embeddings == 'true'
     environment: Test
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -93,11 +134,17 @@ jobs:
   rf:
     name: Test Ranking Functions
     runs-on: ubuntu-latest
-    needs: [build,ef,paths-filter]
+    needs: [lint,paths-filter]
     if: needs.paths-filter.outputs.rerankings == 'true'
     environment: Test
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Go
         uses: actions/setup-go@v4
         with:

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type Option func(c *JinaEmbeddingFunction) error
@@ -26,7 +26,7 @@ func WithEnvAPIKey() Option {
 	}
 }
 
-func WithModel(model types.EmbeddingModel) Option {
+func WithModel(model embeddings.EmbeddingModel) Option {
 	return func(c *JinaEmbeddingFunction) error {
 		c.defaultModel = model
 		return nil

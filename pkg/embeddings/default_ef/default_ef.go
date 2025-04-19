@@ -11,13 +11,13 @@ import (
 
 	ort "github.com/yalue/onnxruntime_go"
 
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	tokenizers "github.com/amikos-tech/chroma-go/pkg/tokenizers/libtokenizers"
-	"github.com/amikos-tech/chroma-go/types"
 )
 
 type Option func(p *DefaultEmbeddingFunction) error
 
-var _ types.EmbeddingFunction = (*DefaultEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*DefaultEmbeddingFunction)(nil)
 
 type DefaultEmbeddingFunction struct {
 	tokenizer *tokenizers.Tokenizer
@@ -159,7 +159,7 @@ func (e *DefaultEmbeddingFunction) tokenize(documents []string) (*EmbeddingInput
 	return NewEmbeddingInput(inputIDs, attnMask, typeIDs, numInputs, vlen)
 }
 
-func (e *DefaultEmbeddingFunction) encode(embeddingInput *EmbeddingInput) ([]*types.Embedding, error) {
+func (e *DefaultEmbeddingFunction) encode(embeddingInput *EmbeddingInput) ([]embeddings.Embedding, error) {
 	outputShape := ort.NewShape(append(*embeddingInput.shape, 384)...)
 	shapeInt32 := make([]int, len(outputShape))
 
@@ -215,13 +215,12 @@ func (e *DefaultEmbeddingFunction) encode(embeddingInput *EmbeddingInput) ([]*ty
 	}
 	summedExpandedMaskF32 := ConvertTensor2D[int64, float32](summedExpandedMask)
 	clippedSummed := clip(summedExpandedMaskF32, 1e-9, math.MaxFloat32)
-	embeddings := divide(summed, clippedSummed)
-	normalizedEmbeddings := normalize(embeddings)
-	out := types.NewEmbeddingsFromFloat32(normalizedEmbeddings)
-	return out, nil
+	emb := divide(summed, clippedSummed)
+	normalizedEmbeddings := normalize(emb)
+	return embeddings.NewEmbeddingsFromFloat32(normalizedEmbeddings)
 }
 
-func (e *DefaultEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *DefaultEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if atomic.LoadInt32(&e.closed) == 1 {
 		return nil, fmt.Errorf("embedding function is closed")
 	}
@@ -232,7 +231,7 @@ func (e *DefaultEmbeddingFunction) EmbedDocuments(ctx context.Context, documents
 	return e.encode(embeddingInputs)
 }
 
-func (e *DefaultEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *DefaultEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	if atomic.LoadInt32(&e.closed) == 1 {
 		return nil, fmt.Errorf("embedding function is closed")
 	}
@@ -247,12 +246,12 @@ func (e *DefaultEmbeddingFunction) EmbedQuery(ctx context.Context, document stri
 	return embeddings[0], nil
 }
 
-func (e *DefaultEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	if atomic.LoadInt32(&e.closed) == 1 {
-		return fmt.Errorf("embedding function is closed")
-	}
-	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
-}
+// func (e *DefaultEmbeddingFunction) EmbedRecords(ctx context.Context, records []v2.Record, force bool) error {
+//	if atomic.LoadInt32(&e.closed) == 1 {
+//		return fmt.Errorf("embedding function is closed")
+//	}
+//	return embeddings.EmbedRecordsDefaultImpl(e, ctx, records, force)
+//}
 
 func updateConfig(filename string) ([]byte, error) {
 	// Read the file

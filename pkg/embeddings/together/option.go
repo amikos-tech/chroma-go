@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type Option func(p *TogetherAIClient) error
 
-func WithDefaultModel(model string) Option {
+func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 	return func(p *TogetherAIClient) error {
 		p.DefaultModel = model
 		return nil

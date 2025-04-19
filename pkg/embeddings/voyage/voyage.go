@@ -11,7 +11,7 @@ import (
 	"math"
 	"net/http"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 // Docs:  https://docs.together.ai/docs/embeddings-rest.  Models - https://docs.together.ai/docs/embeddings-models.
@@ -38,7 +38,7 @@ const (
 type VoyageAIClient struct {
 	BaseAPI               string
 	APIKey                string
-	DefaultModel          string
+	DefaultModel          embeddings.EmbeddingModel
 	MaxBatchSize          int
 	DefaultHeaders        map[string]string
 	DefaultTruncation     *bool
@@ -221,7 +221,7 @@ func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddi
 	return &embeddings, nil
 }
 
-var _ types.EmbeddingFunction = (*VoyageAIEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*VoyageAIEmbeddingFunction)(nil)
 
 type VoyageAIEmbeddingFunction struct {
 	apiClient *VoyageAIClient
@@ -237,10 +237,10 @@ func NewVoyageAIEmbeddingFunction(opts ...Option) (*VoyageAIEmbeddingFunction, e
 }
 
 // getModel returns the model from the context if it exists, otherwise it returns the default model
-func (e *VoyageAIEmbeddingFunction) getModel(ctx context.Context) string {
+func (e *VoyageAIEmbeddingFunction) getModel(ctx context.Context) embeddings.EmbeddingModel {
 	model := e.apiClient.DefaultModel
 	if m, ok := ctx.Value(ModelContextVar).(string); ok {
-		model = m
+		model = embeddings.EmbeddingModel(m)
 	}
 	return model
 }
@@ -271,16 +271,16 @@ func (e *VoyageAIEmbeddingFunction) getEncodingFormat(ctx context.Context) *Enco
 	return model
 }
 
-func (e *VoyageAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *VoyageAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if len(documents) > e.apiClient.MaxBatchSize {
 		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if len(documents) == 0 {
-		return types.NewEmbeddingsFromFloat32(nil), nil
+		return embeddings.NewEmptyEmbeddings(), nil
 	}
 
 	req := &CreateEmbeddingRequest{
-		Model:          e.getModel(ctx),
+		Model:          string(e.getModel(ctx)),
 		Input:          &EmbeddingInputs{Inputs: documents},
 		Truncation:     e.getTruncation(ctx),
 		InputType:      e.getInputType(ctx, InputTypeDocument),
@@ -290,16 +290,16 @@ func (e *VoyageAIEmbeddingFunction) EmbedDocuments(ctx context.Context, document
 	if err != nil {
 		return nil, err
 	}
-	embeddings := make([]*types.Embedding, 0, len(response.Data))
+	embs := make([]embeddings.Embedding, 0, len(response.Data))
 	for _, result := range response.Data {
-		embeddings = append(embeddings, types.NewEmbeddingFromFloat32(result.Embedding.Floats))
+		embs = append(embs, embeddings.NewEmbeddingFromFloat32(result.Embedding.Floats))
 	}
-	return embeddings, nil
+	return embs, nil
 }
 
-func (e *VoyageAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *VoyageAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	req := &CreateEmbeddingRequest{
-		Model:          e.getModel(ctx),
+		Model:          string(e.getModel(ctx)),
 		Input:          &EmbeddingInputs{Input: document},
 		Truncation:     e.getTruncation(ctx),
 		InputType:      e.getInputType(ctx, InputTypeDocument),
@@ -309,9 +309,5 @@ func (e *VoyageAIEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 	if err != nil {
 		return nil, err
 	}
-	return types.NewEmbeddingFromFloat32(response.Data[0].Embedding.Floats), nil
-}
-
-func (e *VoyageAIEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
+	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding.Floats), nil
 }

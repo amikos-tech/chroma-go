@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 // Docs:  https://docs.together.ai/docs/embeddings-rest.  Models - https://docs.together.ai/docs/embeddings-models.
@@ -22,7 +22,7 @@ const (
 type TogetherAIClient struct {
 	BaseAPI        string
 	APIToken       string
-	DefaultModel   string
+	DefaultModel   embeddings.EmbeddingModel
 	MaxBatchSize   int
 	DefaultHeaders map[string]string
 	Client         *http.Client
@@ -148,7 +148,7 @@ func (c *TogetherAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	return &embeddings, nil
 }
 
-var _ types.EmbeddingFunction = (*TogetherEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*TogetherEmbeddingFunction)(nil)
 
 type TogetherEmbeddingFunction struct {
 	apiClient *TogetherAIClient
@@ -163,48 +163,44 @@ func NewTogetherEmbeddingFunction(opts ...Option) (*TogetherEmbeddingFunction, e
 	return &TogetherEmbeddingFunction{apiClient: client}, nil
 }
 
-func (e *TogetherEmbeddingFunction) getModelFromContext(ctx context.Context) string {
+func (e *TogetherEmbeddingFunction) getModelFromContext(ctx context.Context) embeddings.EmbeddingModel {
 	model := e.apiClient.DefaultModel
 	if m, ok := ctx.Value("model").(string); ok {
-		model = m
+		model = embeddings.EmbeddingModel(m)
 	}
 	return model
 }
 
-func (e *TogetherEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *TogetherEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if len(documents) > e.apiClient.MaxBatchSize {
 		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if len(documents) == 0 {
-		return types.NewEmbeddingsFromFloat32(nil), nil
+		return embeddings.NewEmptyEmbeddings(), nil
 	}
 	req := &CreateEmbeddingRequest{
-		Model: e.getModelFromContext(ctx),
+		Model: string(e.getModelFromContext(ctx)),
 		Input: &EmbeddingInputs{Inputs: documents},
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	embeddings := make([]*types.Embedding, 0, len(response.Data))
+	emb := make([]embeddings.Embedding, 0, len(response.Data))
 	for _, result := range response.Data {
-		embeddings = append(embeddings, types.NewEmbeddingFromFloat32(result.Embedding))
+		emb = append(emb, embeddings.NewEmbeddingFromFloat32(result.Embedding))
 	}
-	return embeddings, nil
+	return emb, nil
 }
 
-func (e *TogetherEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *TogetherEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	req := &CreateEmbeddingRequest{
-		Model: e.getModelFromContext(ctx),
+		Model: string(e.getModelFromContext(ctx)),
 		Input: &EmbeddingInputs{Input: document},
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	return types.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
-}
-
-func (e *TogetherEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
+	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
 }

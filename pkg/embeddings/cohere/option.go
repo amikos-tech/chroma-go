@@ -5,6 +5,7 @@ import (
 
 	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
 	httpc "github.com/amikos-tech/chroma-go/pkg/commons/http"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type Option func(p *CohereEmbeddingFunction) ccommons.Option
@@ -43,7 +44,7 @@ func WithAPIVersion(apiVersion ccommons.APIVersion) Option {
 // embed-english-v2.0 4096 (default)
 // embed-english-light-v2.0 1024
 // embed-multilingual-v2.0 768
-func WithModel(model CohereModel) Option {
+func WithModel(model embeddings.EmbeddingModel) Option {
 	return func(p *CohereEmbeddingFunction) ccommons.Option {
 		return ccommons.WithDefaultModel(model)
 	}
@@ -57,7 +58,7 @@ func WithModel(model CohereModel) Option {
 // embed-english-v2.0 4096 (default)
 // embed-english-light-v2.0 1024
 // embed-multilingual-v2.0 768
-func WithDefaultModel(model CohereModel) Option {
+func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 	return func(p *CohereEmbeddingFunction) ccommons.Option {
 		return ccommons.WithDefaultModel(model)
 	}

@@ -9,12 +9,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type OllamaClient struct {
 	BaseURL        string
-	Model          string
+	Model          embeddings.EmbeddingModel
 	Client         *http.Client
 	DefaultHeaders map[string]string
 }
@@ -110,7 +110,7 @@ type OllamaEmbeddingFunction struct {
 	apiClient *OllamaClient
 }
 
-var _ types.EmbeddingFunction = (*OllamaEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*OllamaEmbeddingFunction)(nil)
 
 func NewOllamaEmbeddingFunction(option ...Option) (*OllamaEmbeddingFunction, error) {
 	client, err := NewOllamaClient(option...)
@@ -122,28 +122,24 @@ func NewOllamaEmbeddingFunction(option ...Option) (*OllamaEmbeddingFunction, err
 	}, nil
 }
 
-func (e *OllamaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]*types.Embedding, error) {
+func (e *OllamaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	response, err := e.apiClient.createEmbedding(ctx, &CreateEmbeddingRequest{
-		Model: e.apiClient.Model,
+		Model: string(e.apiClient.Model),
 		Input: &EmbeddingInput{Inputs: documents},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return types.NewEmbeddingsFromFloat32(response.Embeddings), nil
+	return embeddings.NewEmbeddingsFromFloat32(response.Embeddings)
 }
 
-func (e *OllamaEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (*types.Embedding, error) {
+func (e *OllamaEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	response, err := e.apiClient.createEmbedding(ctx, &CreateEmbeddingRequest{
-		Model: e.apiClient.Model,
+		Model: string(e.apiClient.Model),
 		Input: &EmbeddingInput{Input: document},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return types.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
-}
-
-func (e *OllamaEmbeddingFunction) EmbedRecords(ctx context.Context, records []*types.Record, force bool) error {
-	return types.EmbedRecordsDefaultImpl(e, ctx, records, force)
+	return embeddings.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
 }

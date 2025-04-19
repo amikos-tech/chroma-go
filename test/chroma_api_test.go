@@ -22,7 +22,7 @@ import (
 
 func TestAPIErrorHandling(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "latest"
+	var chromaVersion = "0.6.2"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")

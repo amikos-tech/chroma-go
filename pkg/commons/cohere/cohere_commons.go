@@ -12,6 +12,7 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	httpc "github.com/amikos-tech/chroma-go/pkg/commons/http"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type APIVersion string
@@ -36,7 +37,7 @@ type CohereClient struct {
 	APIVersion    APIVersion `validate:"required"`
 	apiKey        string     `validate:"required"`
 	Client        *http.Client
-	DefaultModel  CohereModel `validate:"required"`
+	DefaultModel  embeddings.EmbeddingModel `validate:"required"`
 	RetryStrategy httpc.RetryStrategy
 }
 
@@ -150,7 +151,7 @@ func WithHTTPClient(client *http.Client) Option {
 }
 
 // WithDefaultModel sets the default model for the Cohere client
-func WithDefaultModel(model CohereModel) Option {
+func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 	return func(p *CohereClient) error {
 		if model == "" {
 			return fmt.Errorf("model can't be empty")

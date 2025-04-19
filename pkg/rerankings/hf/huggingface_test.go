@@ -5,12 +5,12 @@ package huggingface
 import (
 	"context"
 	"fmt"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,13 +45,17 @@ func TestRerankHFEI(t *testing.T) {
 
 			// Join the current working directory with the relative path
 			joinedPath := filepath.Join(cwd, "data")
+			if _, err := os.Stat(joinedPath); os.IsNotExist(err) {
+				// Create the directory if it doesn't exist
+				err = os.MkdirAll(joinedPath, 0755)
+				require.NoError(t, err)
+			}
 			dockerMounts = append(dockerMounts, mount.Mount{
 				Type:   mount.TypeBind,
 				Source: joinedPath,
 				Target: "/data",
 			})
 			hostConfig.Mounts = dockerMounts
-
 		},
 	}
 	hfei, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -79,7 +83,7 @@ func TestRerankHFEI(t *testing.T) {
 		highestScoreIndex    int
 	}{
 		{
-			name: "Test Rerank basic",
+			name: "Test Rerank Inference Endpoint",
 			rankingFunction: func() *HFRerankingFunction {
 				rf, err := NewHFRerankingFunction(WithRerankingEndpoint(endpoint))
 				require.NoError(t, err, "Failed to create HFRerankingFunction")
@@ -136,15 +140,55 @@ func TestRerankHFEI(t *testing.T) {
 }
 
 func TestRerankChromaResults(t *testing.T) {
-	apiKey := os.Getenv("JINA_API_KEY")
+	apiKey := os.Getenv("HF_API_KEY")
 	if apiKey == "" {
 		err := godotenv.Load("../../../.env")
 		if err != nil {
 			assert.Failf(t, "Error loading .env file", "%s", err)
 		}
-		apiKey = os.Getenv("JINA_API_KEY")
+		apiKey = os.Getenv("HF_API_KEY")
 	}
 
+	ctx := context.Background()
+	req := testcontainers.ContainerRequest{
+		Image:         "ghcr.io/huggingface/text-embeddings-inference:cpu-latest",
+		ExposedPorts:  []string{"80/tcp"},
+		WaitingFor:    wait.ForLog("Ready"),
+		ImagePlatform: "linux/amd64",
+		Cmd:           []string{"--model-id", "BAAI/bge-reranker-base"},
+		HostConfigModifier: func(hostConfig *container.HostConfig) {
+			dockerMounts := make([]mount.Mount, 0)
+			cwd, err := os.Getwd()
+			require.NoError(t, err)
+
+			// Join the current working directory with the relative path
+			joinedPath := filepath.Join(cwd, "data")
+			if _, err := os.Stat(joinedPath); os.IsNotExist(err) {
+				// Create the directory if it doesn't exist
+				err = os.MkdirAll(joinedPath, 0755)
+				require.NoError(t, err)
+			}
+			dockerMounts = append(dockerMounts, mount.Mount{
+				Type:   mount.TypeBind,
+				Source: joinedPath,
+				Target: "/data",
+			})
+			hostConfig.Mounts = dockerMounts
+		},
+	}
+	hfei, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, hfei.Terminate(ctx))
+	})
+	ip, err := hfei.Host(ctx)
+	require.NoError(t, err)
+	port, err := hfei.MappedPort(ctx, "80")
+	require.NoError(t, err)
+	endpoint := fmt.Sprintf("http://%s:%s", ip, port.Port())
 	tests := []struct {
 		name                 string
 		rankingFunction      func() *HFRerankingFunction
@@ -157,7 +201,7 @@ func TestRerankChromaResults(t *testing.T) {
 		{
 			name: "Test Rerank basic",
 			rankingFunction: func() *HFRerankingFunction {
-				rf, err := NewHFRerankingFunction(WithAPIKey(apiKey))
+				rf, err := NewHFRerankingFunction(WithRerankingEndpoint(endpoint))
 				require.NoError(t, err, "Failed to create HFRerankingFunction")
 				return rf
 			},

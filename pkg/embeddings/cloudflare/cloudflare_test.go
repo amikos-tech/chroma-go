@@ -4,12 +4,13 @@ package cloudflare
 
 import (
 	"context"
-	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"os"
 	"testing"
+
+	"github.com/joho/godotenv"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_client(t *testing.T) {
@@ -56,7 +57,7 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Len(t, resp[0].ContentAsFloat32(), 768)
 
 	})
 
@@ -68,7 +69,7 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Len(t, resp[0].ContentAsFloat32(), 768)
 
 	})
 
@@ -80,7 +81,7 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 384)
+		require.Len(t, resp[0].ContentAsFloat32(), 384)
 	})
 
 	t.Run("Test EmbedDocuments with too large init batch", func(t *testing.T) {
@@ -107,7 +108,7 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 		resp, err := client.EmbedQuery(context.Background(), "Test query")
 		require.Nil(t, err)
 		require.NotNil(t, resp)
-		require.Len(t, *resp.ArrayOfFloat32, 768)
+		require.Len(t, resp.ContentAsFloat32(), 768)
 	})
 
 	t.Run("Test EmbedDocuments with env-based token and account id and WithDefaultHeaders", func(t *testing.T) {
@@ -118,7 +119,7 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 384)
+		require.Len(t, resp[0].ContentAsFloat32(), 384)
 	})
 
 	t.Run("Test EmbedDocuments with var token and account id", func(t *testing.T) {
@@ -129,7 +130,7 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Len(t, resp[0].ContentAsFloat32(), 768)
 	})
 	t.Run("Test EmbedDocuments with var token and gateway", func(t *testing.T) {
 		client, err := NewCloudflareEmbeddingFunction(WithAPIToken(os.Getenv("CF_API_TOKEN")), WithGatewayEndpoint(os.Getenv("CF_GATEWAY_ENDPOINT")))
@@ -139,7 +140,7 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Len(t, resp[0].ContentAsFloat32(), 768)
 	})
 
 	t.Run("Test EmbedDocuments with var token and account id and http client", func(t *testing.T) {
@@ -150,6 +151,6 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Len(t, resp[0].ContentAsFloat32(), 768)
 	})
 }

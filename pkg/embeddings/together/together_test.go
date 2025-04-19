@@ -4,12 +4,13 @@ package together
 
 import (
 	"context"
-	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"os"
 	"testing"
+
+	"github.com/joho/godotenv"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_client(t *testing.T) {
@@ -55,7 +56,7 @@ func Test_together_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp[0].Len())
 
 	})
 
@@ -67,7 +68,7 @@ func Test_together_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with too large init batch", func(t *testing.T) {
@@ -94,7 +95,7 @@ func Test_together_embedding_function(t *testing.T) {
 		resp, err := client.EmbedQuery(context.Background(), "Test query")
 		require.Nil(t, err)
 		require.NotNil(t, resp)
-		require.Len(t, *resp.ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp.Len())
 	})
 
 	t.Run("Test EmbedDocuments with env-based API Key and WithDefaultHeaders", func(t *testing.T) {
@@ -105,7 +106,7 @@ func Test_together_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with var API Key", func(t *testing.T) {
@@ -116,7 +117,7 @@ func Test_together_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Equal(t, 768, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with var token and account id and http client", func(t *testing.T) {
@@ -126,7 +127,7 @@ func Test_together_embedding_function(t *testing.T) {
 
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
-		require.Len(t, resp, 2)
-		require.Len(t, *resp[0].ArrayOfFloat32, 768)
+		require.Equal(t, 2, len(resp))
+		require.Equal(t, 768, resp[0].Len())
 	})
 }

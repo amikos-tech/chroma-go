@@ -199,7 +199,7 @@ func (rs *RecordSet) GetMetadatas() []map[string]interface{} {
 	return metadatas
 }
 
-// Validate the whole record set by calling record.Validate
+// Validate the whole record set by calling record.PrepareAndValidate
 func (rs *RecordSet) Validate() error {
 	if rs.EmbeddingFunction == nil {
 		return fmt.Errorf("embedding function is required")

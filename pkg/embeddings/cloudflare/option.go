@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type Option func(p *CloudflareClient) error
@@ -16,7 +18,7 @@ func WithGatewayEndpoint(endpoint string) Option {
 	}
 }
 
-func WithDefaultModel(model string) Option {
+func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 	return func(p *CloudflareClient) error {
 		p.DefaultModel = model
 		return nil
