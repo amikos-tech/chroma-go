@@ -19,6 +19,7 @@ type APIClientV2 struct {
 	BaseAPIClient
 	preflightLimits    map[string]interface{}
 	preflightCompleted bool
+	collectionCache    map[string]Collection
 }
 
 func NewHTTPClient(opts ...ClientOption) (Client, error) {
@@ -39,6 +40,7 @@ func NewHTTPClient(opts ...ClientOption) (Client, error) {
 		BaseAPIClient:      *bc,
 		preflightLimits:    map[string]interface{}{},
 		preflightCompleted: false,
+		collectionCache:    map[string]Collection{},
 	}
 	return c, nil
 }
@@ -115,8 +117,12 @@ func (client *APIClientV2) Heartbeat(ctx context.Context) error {
 	}
 }
 
-func (client *APIClientV2) GetTenant(ctx context.Context, tenant string) (Tenant, error) {
-	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", tenant)
+func (client *APIClientV2) GetTenant(ctx context.Context, tenant Tenant) (Tenant, error) {
+	err := tenant.Validate()
+	if err != nil {
+		return nil, errors.Wrap(err, "error validating tenant")
+	}
+	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", tenant.Name())
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +139,10 @@ func (client *APIClientV2) GetTenant(ctx context.Context, tenant string) (Tenant
 }
 
 func (client *APIClientV2) CreateTenant(ctx context.Context, tenant Tenant) (Tenant, error) {
+	err := tenant.Validate()
+	if err != nil {
+		return nil, errors.Wrap(err, "error validating tenant")
+	}
 	reqJSON, err := json.Marshal(tenant)
 	if err != nil {
 		return nil, err
@@ -152,8 +162,12 @@ func (client *APIClientV2) CreateTenant(ctx context.Context, tenant Tenant) (Ten
 	return tenant, nil
 }
 
-func (client *APIClientV2) ListDatabases(ctx context.Context, tenant string) ([]Database, error) {
-	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", tenant, "databases")
+func (client *APIClientV2) ListDatabases(ctx context.Context, tenant Tenant) ([]Database, error) {
+	err := tenant.Validate()
+	if err != nil {
+		return nil, errors.Wrap(err, "error validating tenant")
+	}
+	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", tenant.Name(), "databases")
 	if err != nil {
 		return nil, err
 	}
@@ -181,8 +195,12 @@ func (client *APIClientV2) ListDatabases(ctx context.Context, tenant string) ([]
 	return databases, nil
 }
 
-func (client *APIClientV2) GetDatabase(ctx context.Context, tenant, database string) (Database, error) {
-	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", tenant, "databases", database)
+func (client *APIClientV2) GetDatabase(ctx context.Context, db Database) (Database, error) {
+	err := db.Validate()
+	if err != nil {
+		return nil, errors.Wrap(err, "error validating database")
+	}
+	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", db.Tenant().Name(), "databases", db.Name())
 	if err != nil {
 		return nil, err
 	}
@@ -195,19 +213,22 @@ func (client *APIClientV2) GetDatabase(ctx context.Context, tenant, database str
 		return nil, err
 	}
 	respBody := chhttp.ReadRespBody(resp.Body)
-	db, err := NewDatabaseFromJSON(respBody)
+	newDB, err := NewDatabaseFromJSON(respBody)
 	if err != nil {
 		return nil, errors.Wrap(err, "error decoding response")
 	}
-	return db, nil
+	return newDB, nil
 }
 
-func (client *APIClientV2) CreateDatabase(ctx context.Context, tenant, database string) (Database, error) {
-	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", tenant, "databases")
+func (client *APIClientV2) CreateDatabase(ctx context.Context, db Database) (Database, error) {
+	err := db.Validate()
+	if err != nil {
+		return nil, errors.Wrap(err, "error validating database")
+	}
+	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", db.Tenant().Name(), "databases")
 	if err != nil {
 		return nil, err
 	}
-	db := NewDatabase(database, NewTenant(tenant))
 	reqJSON, err := json.Marshal(db)
 	if err != nil {
 		return nil, err
@@ -223,8 +244,12 @@ func (client *APIClientV2) CreateDatabase(ctx context.Context, tenant, database 
 	return db, nil
 }
 
-func (client *APIClientV2) DeleteDatabase(ctx context.Context, tenant, database string) error {
-	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", tenant, "databases", database)
+func (client *APIClientV2) DeleteDatabase(ctx context.Context, db Database) error {
+	err := db.Validate()
+	if err != nil {
+		return errors.Wrap(err, "error validating database")
+	}
+	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", db.Tenant().Name(), "databases", db.Name())
 	if err != nil {
 		return err
 	}
@@ -256,7 +281,8 @@ func (client *APIClientV2) Reset(ctx context.Context) error {
 }
 
 func (client *APIClientV2) CreateCollection(ctx context.Context, name string, options ...CreateCollectionOption) (Collection, error) {
-	req, err := NewCreateCollectionOp(name, options...)
+	newOptions := append([]CreateCollectionOption{WithDatabaseCreate(client.CurrentDatabase())}, options...)
+	req, err := NewCreateCollectionOp(name, newOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing collection create request")
 	}
@@ -264,18 +290,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 	if err != nil {
 		return nil, errors.Wrap(err, "error validating collection create request")
 	}
-	var tenant, database string
-	if req.Tenant != nil {
-		tenant = req.Tenant.Name()
-	} else {
-		tenant = client.BaseAPIClient.Tenant().Name()
-	}
-	if req.Database != nil {
-		database = req.Database.Name()
-	} else {
-		database = client.BaseAPIClient.Database().Name()
-	}
-	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", tenant, "databases", database, "collections")
+	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", req.Database.Tenant().Name(), "databases", req.Database.Name(), "collections")
 	if err != nil {
 		return nil, errors.Wrap(err, "error composing request URL")
 	}
@@ -304,6 +319,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		client:            client,
 		embeddingFunction: req.embeddingFunction,
 	}
+	client.collectionCache[cm.Name] = c
 	return c, nil
 }
 
@@ -312,8 +328,17 @@ func (client *APIClientV2) GetOrCreateCollection(ctx context.Context, name strin
 	return client.CreateCollection(ctx, name, options...)
 }
 
-func (client *APIClientV2) DeleteCollection(ctx context.Context, name string) error {
-	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", client.BaseAPIClient.Tenant().Name(), "databases", client.BaseAPIClient.Database().Name(), "collections", name)
+func (client *APIClientV2) DeleteCollection(ctx context.Context, name string, options ...DeleteCollectionOption) error {
+	newOpts := append([]DeleteCollectionOption{WithDatabaseDelete(client.CurrentDatabase())}, options...)
+	req, err := NewDeleteCollectionOp(newOpts...)
+	if err != nil {
+		return errors.Wrap(err, "error preparing collection delete request")
+	}
+	err = req.PrepareAndValidateCollectionRequest()
+	if err != nil {
+		return errors.Wrap(err, "error validating collection delete request")
+	}
+	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", req.Database.Tenant().Name(), "databases", req.Database.Name(), "collections", name)
 	if err != nil {
 		return errors.Wrap(err, "error composing request URL")
 	}
@@ -325,11 +350,19 @@ func (client *APIClientV2) DeleteCollection(ctx context.Context, name string) er
 	if err != nil {
 		return errors.Wrap(err, "error sending request")
 	}
+	if _, ok := client.collectionCache[name]; ok {
+		delete(client.collectionCache, name)
+	}
 	return nil
 }
 
 func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts ...GetCollectionOption) (Collection, error) {
-	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", client.BaseAPIClient.Tenant().Name(), "databases", client.BaseAPIClient.Database().Name(), "collections", name)
+	newOpts := append([]GetCollectionOption{WithDatabaseGet(client.CurrentDatabase())}, opts...)
+	req, err := NewGetCollectionOp(newOpts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "error preparing collection get request")
+	}
+	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", req.Database.Tenant().Name(), "databases", req.Database.Name(), "collections", name)
 	if err != nil {
 		return nil, errors.Wrap(err, "error composing request URL")
 	}
@@ -364,11 +397,21 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		client:            client,
 		embeddingFunction: getOp.embeddingFunction,
 	}
+	client.collectionCache[name] = c
 	return c, nil
 }
 
-func (client *APIClientV2) CountCollections(ctx context.Context) (int, error) {
-	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", client.BaseAPIClient.Tenant().Name(), "databases", client.BaseAPIClient.Database().Name(), "collections_count")
+func (client *APIClientV2) CountCollections(ctx context.Context, opts ...CountCollectionsOption) (int, error) {
+	newOpts := append([]CountCollectionsOption{WithDatabaseCount(client.CurrentDatabase())}, opts...)
+	req, err := NewCountCollectionsOp(newOpts...)
+	if err != nil {
+		return 0, errors.Wrap(err, "error preparing collection count request")
+	}
+	err = req.PrepareAndValidateCollectionRequest()
+	if err != nil {
+		return 0, errors.Wrap(err, "error validating collection count request")
+	}
+	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", req.Database.Tenant().Name(), "databases", req.Database.Name(), "collections_count")
 	if err != nil {
 		return 0, errors.Wrap(err, "error composing request URL")
 	}
@@ -389,39 +432,31 @@ func (client *APIClientV2) CountCollections(ctx context.Context) (int, error) {
 }
 
 func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListCollectionsOption) ([]Collection, error) {
-	listOpts := &ListCollectionOp{}
-	for _, opt := range opts {
-		err := opt(listOpts)
-		if err != nil {
-			return nil, errors.Wrap(err, "error applying list collection option")
-		}
+	newOpts := append([]ListCollectionsOption{WithDatabaseList(client.CurrentDatabase())}, opts...)
+	req, err := NewListCollectionsOp(newOpts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "error preparing collection list request")
 	}
-	reqURL, err := url.JoinPath("tenants", client.BaseAPIClient.Tenant().Name(), "databases", client.BaseAPIClient.Database().Name(), "collections")
+	err = req.PrepareAndValidateCollectionRequest()
+	if err != nil {
+		return nil, errors.Wrap(err, "error validating collection list request")
+	}
+	reqURL, err := url.JoinPath("tenants", req.Database.Tenant().Name(), "databases", req.Database.Name(), "collections")
 	if err != nil {
 		return nil, errors.Wrap(err, "error composing request URL")
 	}
 	queryParams := url.Values{}
-	if listOpts.Limit() > 0 {
-		queryParams.Set("limit", strconv.Itoa(listOpts.Limit()))
+	if req.Limit() > 0 {
+		queryParams.Set("limit", strconv.Itoa(req.Limit()))
 	}
-	if listOpts.Offset() > 0 {
-		queryParams.Set("offset", strconv.Itoa(listOpts.Offset()))
+	if req.Offset() > 0 {
+		queryParams.Set("offset", strconv.Itoa(req.Offset()))
 	}
 	reqURL = fmt.Sprintf("%s?%s", reqURL, queryParams.Encode())
-
 	resp, err := client.ExecuteRequest(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "error executing request")
 	}
-
-	// httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "error creating HTTP request")
-	// }
-	// resp, err := client.BaseAPIClient.SendRequest(httpReq)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "error sending request")
-	// }
 	var cols []CollectionModel
 	if err := json.Unmarshal(resp, &cols); err != nil {
 		return nil, errors.Wrap(err, "error decoding response")
@@ -444,32 +479,36 @@ func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListColl
 	return apiCollections, nil
 }
 
-func (client *APIClientV2) UseTenant(ctx context.Context, tenant string) error {
+func (client *APIClientV2) UseTenant(ctx context.Context, tenant Tenant) error {
 	t, err := client.GetTenant(ctx, tenant)
 	if err != nil {
 		return err
 	}
 	client.BaseAPIClient.SetTenant(t)
+	client.BaseAPIClient.SetDatabase(t.Database(DefaultDatabase)) //TODO is this optimal?
 	return nil
 }
 
-func (client *APIClientV2) UseDatabase(ctx context.Context, database string) error {
-	d, err := client.GetDatabase(ctx, client.BaseAPIClient.Tenant().Name(), database)
+func (client *APIClientV2) UseDatabase(ctx context.Context, database Database) error {
+	err := database.Validate()
+	if err != nil {
+		return errors.Wrap(err, "error validating database")
+	}
+	d, err := client.GetDatabase(ctx, database)
 	if err != nil {
 		return err
 	}
 	client.BaseAPIClient.SetDatabase(d)
+	client.BaseAPIClient.SetTenant(d.Tenant())
 	return nil
 }
 
-func (client *APIClientV2) UseTenantAndDatabase(ctx context.Context, tenant, database string) error {
-	db, err := client.GetDatabase(ctx, tenant, database)
-	if err != nil {
-		return err
-	}
-	client.BaseAPIClient.SetDatabase(db)
-	client.BaseAPIClient.SetTenant(db.Tenant())
-	return nil
+func (client *APIClientV2) CurrentTenant() Tenant {
+	return client.BaseAPIClient.Tenant()
+}
+
+func (client *APIClientV2) CurrentDatabase() Database {
+	return client.BaseAPIClient.Database()
 }
 
 func (client *APIClientV2) GetPreFlightConditionsRaw() map[string]interface{} {
@@ -514,4 +553,23 @@ func (client *APIClientV2) GetIdentity(ctx context.Context) (Identity, error) {
 		return identity, errors.Wrap(err, "error decoding response")
 	}
 	return identity, nil
+}
+
+func (client *APIClientV2) Close() error {
+	if client.BaseAPIClient.httpClient != nil {
+		client.BaseAPIClient.httpClient.CloseIdleConnections()
+	}
+	var errs []error
+	if len(client.collectionCache) > 0 {
+		for _, c := range client.collectionCache {
+			err := c.Close()
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return errors.Errorf("error closing collections: %v", errs)
+	}
+	return nil
 }

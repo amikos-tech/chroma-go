@@ -10,6 +10,8 @@ import (
 type Tenant interface {
 	Name() string
 	String() string
+	Database(dbName string) Database
+	Validate() error
 }
 
 type Database interface {
@@ -17,6 +19,7 @@ type Database interface {
 	Name() string
 	Tenant() Tenant
 	String() string
+	Validate() error
 }
 
 type Include string
@@ -59,6 +62,18 @@ func (t *TenantBase) String() string {
 	return t.Name()
 }
 
+func (t *TenantBase) Validate() error {
+	if t.TenantName == "" {
+		return errors.New("tenant name cannot be empty")
+	}
+	return nil
+}
+
+// Database returns a new Database object that can be used for creating collections
+func (t *TenantBase) Database(dbName string) Database {
+	return NewDatabase(dbName, t)
+}
+
 // TODO this may fail for v1 API
 // func (t *TenantBase) MarshalJSON() ([]byte, error) {
 //	return []byte(`"` + t.Name() + `"`), nil
@@ -92,6 +107,15 @@ func (d DatabaseBase) String() string {
 
 func (d DatabaseBase) ID() string {
 	return d.DBID
+}
+func (d DatabaseBase) Validate() error {
+	if d.DBName == "" {
+		return errors.New("database name cannot be empty")
+	}
+	if d.tenant == nil {
+		return errors.New("tenant cannot be empty")
+	}
+	return nil
 }
 
 // TODO this may fail for v1 API

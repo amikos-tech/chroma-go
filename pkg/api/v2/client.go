@@ -29,23 +29,25 @@ type Client interface {
 	// GetIdentity returns the identity of the chroma instance. This is noop for v1 API.
 	GetIdentity(ctx context.Context) (Identity, error)
 	// GetTenant gets a tenant with the given name.
-	GetTenant(ctx context.Context, tenant string) (Tenant, error)
+	GetTenant(ctx context.Context, tenant Tenant) (Tenant, error)
 	// UseTenant sets the current tenant to the given name.
-	UseTenant(ctx context.Context, tenant string) error
+	UseTenant(ctx context.Context, tenant Tenant) error
 	// UseDatabase sets the current database to the given name from the current tenant.
-	UseDatabase(ctx context.Context, database string) error
-	// UseTenantAndDatabase sets the given tenant and database.
-	UseTenantAndDatabase(ctx context.Context, tenant, database string) error
+	UseDatabase(ctx context.Context, database Database) error
 	// CreateTenant creates a new tenant with the given name.
 	CreateTenant(ctx context.Context, tenant Tenant) (Tenant, error)
 	// ListDatabases returns a list of databases in the given tenant.
-	ListDatabases(ctx context.Context, tenant string) ([]Database, error)
+	ListDatabases(ctx context.Context, tenant Tenant) ([]Database, error)
 	// GetDatabase gets a database with the given name from the given tenant.
-	GetDatabase(ctx context.Context, tenant, database string) (Database, error)
+	GetDatabase(ctx context.Context, db Database) (Database, error)
 	// CreateDatabase creates a new database with the given name in the given tenant.
-	CreateDatabase(ctx context.Context, tenant, database string) (Database, error)
+	CreateDatabase(ctx context.Context, db Database) (Database, error)
 	// DeleteDatabase deletes a database with the given name from the given tenant.
-	DeleteDatabase(ctx context.Context, tenant, database string) error
+	DeleteDatabase(ctx context.Context, db Database) error
+	// CurrentTenant returns the current tenant.
+	CurrentTenant() Tenant
+	// CurrentDatabase returns the current database.
+	CurrentDatabase() Database
 	// Reset resets the chroma instance by all data. Use with caution.
 	// Returns an error if ALLOW_RESET is not set to true.
 	Reset(ctx context.Context) error
@@ -55,15 +57,15 @@ type Client interface {
 	// If the collection exists but the metadata does not match the options, it returns an error. Use Collection.ModifyMetadata to update the metadata.
 	GetOrCreateCollection(ctx context.Context, name string, options ...CreateCollectionOption) (Collection, error)
 	// DeleteCollection deletes the collection with the given name.
-	DeleteCollection(ctx context.Context, name string) error
+	DeleteCollection(ctx context.Context, name string, options ...DeleteCollectionOption) error
 	// GetCollection gets a collection with the given name.
 	GetCollection(ctx context.Context, name string, opts ...GetCollectionOption) (Collection, error)
 	// CountCollections returns the number of collections in the current tenant and database.
-	CountCollections(ctx context.Context) (int, error)
+	CountCollections(ctx context.Context, opts ...CountCollectionsOption) (int, error)
 	// ListCollections returns a list of collections in the current tenant and database.
 	ListCollections(ctx context.Context, opts ...ListCollectionsOption) ([]Collection, error)
-	// DeleteDatabase(ctx context.Context, tenant, database string) error
-	// DeleteTenant(ctx context.Context, tenant string) error
+	// Close closes the client and releases any resources.
+	Close() error
 }
 
 type CollectionLifecycleOp interface {
@@ -71,8 +73,9 @@ type CollectionLifecycleOp interface {
 }
 
 type ListCollectionOp struct {
-	limit  int
-	offset int
+	limit    int
+	offset   int
+	Database Database `json:"-"`
 }
 
 func (op *ListCollectionOp) Limit() int {
@@ -107,6 +110,20 @@ func ListWithOffset(offset int) ListCollectionsOption {
 	}
 }
 
+func WithDatabaseList(database Database) ListCollectionsOption {
+	return func(op *ListCollectionOp) error {
+		if database == nil {
+			return errors.New("database cannot be nil")
+		}
+		err := database.Validate()
+		if err != nil {
+			return errors.Wrap(err, "error validating database")
+		}
+		op.Database = database
+		return nil
+	}
+}
+
 func (op *ListCollectionOp) PrepareAndValidateCollectionRequest() error {
 	if op.limit < 1 {
 		return fmt.Errorf("limit cannot be less than 1")
@@ -114,11 +131,33 @@ func (op *ListCollectionOp) PrepareAndValidateCollectionRequest() error {
 	if op.offset < 0 {
 		return fmt.Errorf("offset cannot be negative")
 	}
+	if op.Database == nil {
+		return fmt.Errorf("database cannot be nil")
+	}
+	err := op.Database.Validate()
+	if err != nil {
+		return errors.Wrap(err, "error validating database")
+	}
 	return nil
+}
+
+func NewListCollectionsOp(opts ...ListCollectionsOption) (*ListCollectionOp, error) {
+	op := &ListCollectionOp{
+		limit:  100,
+		offset: 0,
+	}
+	for _, opt := range opts {
+		err := opt(op)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return op, nil
 }
 
 type GetCollectionOp struct {
 	embeddingFunction embeddings.EmbeddingFunction
+	Database          Database `json:"-"`
 }
 
 func (op *GetCollectionOp) Resource() Resource {
@@ -137,6 +176,20 @@ func WithEmbeddingFunctionGet(embeddingFunction embeddings.EmbeddingFunction) Ge
 			return errors.New("embedding function cannot be nil")
 		}
 		op.embeddingFunction = embeddingFunction
+		return nil
+	}
+}
+
+func WithDatabaseGet(database Database) GetCollectionOption {
+	return func(op *GetCollectionOp) error {
+		if database == nil {
+			return errors.New("database cannot be nil")
+		}
+		err := database.Validate()
+		if err != nil {
+			return errors.Wrap(err, "error validating database")
+		}
+		op.Database = database
 		return nil
 	}
 }
@@ -168,7 +221,6 @@ type CreateCollectionOp struct {
 	CreateIfNotExists bool   `json:"get_or_create,omitempty"`
 	embeddingFunction embeddings.EmbeddingFunction
 	Metadata          CollectionMetadata `json:"metadata,omitempty"`
-	Tenant            Tenant             `json:"-"`
 	Database          Database           `json:"-"`
 }
 
@@ -234,16 +286,16 @@ func WithCollectionMetadataCreate(metadata CollectionMetadata) CreateCollectionO
 	}
 }
 
-func WithTenantCreate(tenant string) CreateCollectionOption {
+func WithDatabaseCreate(database Database) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
-		op.Tenant = NewTenant(tenant)
-		return nil
-	}
-}
-
-func WithDatabaseCreate(database string) CreateCollectionOption {
-	return func(op *CreateCollectionOp) error {
-		op.Database = NewDatabase(database, op.Tenant)
+		if database == nil {
+			return errors.New("database cannot be nil")
+		}
+		err := database.Validate()
+		if err != nil {
+			return errors.Wrap(err, "error validating database")
+		}
+		op.Database = database
 		return nil
 	}
 }
@@ -371,6 +423,105 @@ func (op *CreateCollectionOp) String() string {
 		return ""
 	}
 	return string(j)
+}
+
+type DeleteCollectionOp struct {
+	Database Database `json:"-"`
+}
+type DeleteCollectionOption func(*DeleteCollectionOp) error
+
+func WithDatabaseDelete(database Database) DeleteCollectionOption {
+	return func(op *DeleteCollectionOp) error {
+		if database == nil {
+			return errors.New("database cannot be nil")
+		}
+		err := database.Validate()
+		if err != nil {
+			return errors.Wrap(err, "error validating database")
+		}
+		op.Database = database
+		return nil
+	}
+}
+
+func (op *DeleteCollectionOp) Resource() Resource {
+	return ResourceDatabase
+}
+
+func (op *DeleteCollectionOp) Operation() OperationType {
+	return OperationDelete
+}
+
+func (op *DeleteCollectionOp) PrepareAndValidateCollectionRequest() error {
+	if op.Database == nil {
+		return fmt.Errorf("database cannot be nil")
+	}
+	err := op.Database.Validate()
+	if err != nil {
+		return errors.Wrap(err, "error validating database")
+	}
+	return nil
+}
+
+func NewDeleteCollectionOp(opts ...DeleteCollectionOption) (*DeleteCollectionOp, error) {
+	op := &DeleteCollectionOp{}
+	for _, opt := range opts {
+		err := opt(op)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return op, nil
+}
+
+type CountCollectionsOp struct {
+	Database Database `json:"-"`
+}
+
+type CountCollectionsOption func(*CountCollectionsOp) error
+
+func WithDatabaseCount(database Database) CountCollectionsOption {
+	return func(op *CountCollectionsOp) error {
+		if database == nil {
+			return errors.New("database cannot be nil")
+		}
+		err := database.Validate()
+		if err != nil {
+			return errors.Wrap(err, "error validating database")
+		}
+		op.Database = database
+		return nil
+	}
+}
+
+func (op *CountCollectionsOp) Resource() Resource {
+	return ResourceDatabase
+}
+
+func (op *CountCollectionsOp) Operation() OperationType {
+	return OperationGet
+}
+
+func (op *CountCollectionsOp) PrepareAndValidateCollectionRequest() error {
+	if op.Database == nil {
+		return fmt.Errorf("database cannot be nil")
+	}
+	err := op.Database.Validate()
+	if err != nil {
+		return errors.Wrap(err, "error validating database")
+	}
+	return nil
+}
+
+func NewCountCollectionsOp(opts ...CountCollectionsOption) (*CountCollectionsOp, error) {
+	op := &CountCollectionsOp{}
+	for _, opt := range opts {
+		err := opt(op)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return op, nil
 }
 
 type BaseAPIClient struct {
@@ -539,7 +690,7 @@ func WithInsecure() ClientOption {
 
 func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 	client := &BaseAPIClient{
-		baseURL:           "http://localhost:8000/api/v2/",
+		baseURL:           "http://localhost:8000/api/v2",
 		httpClient:        http.DefaultClient,
 		tenant:            NewDefaultTenant(),
 		database:          NewDefaultDatabase(),

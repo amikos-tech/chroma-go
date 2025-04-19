@@ -42,7 +42,8 @@ type Collection interface {
 	Get(ctx context.Context, opts ...CollectionGetOption) (GetResult, error)
 	// Query queries the collection
 	Query(ctx context.Context, opts ...CollectionQueryOption) (QueryResult, error)
-	// BatchAdd(ctx context.Context, opts ...CollectionUpdateOption) error
+	// Close closes the collection and releases any resources
+	Close() error
 }
 
 type CollectionOp interface {
@@ -414,7 +415,7 @@ func (c *CollectionUpdateOp) PrepareAndValidate() error {
 	// - if IDs are provided, if metadatas are also provided they must match the number of IDs
 
 	if (len(c.Ids) == 0 && c.IDGenerator == nil) && len(c.Records) == 0 {
-		return errors.New("at least one record is required")
+		return errors.New("at least one ID or record is required. Alternatively, an ID generator can be provided") // TODO add link to docs
 	}
 
 	// should we generate IDs?

@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -379,6 +380,15 @@ func (c *CollectionImpl) ModifyConfiguration(ctx context.Context, newConfig Coll
 
 func (c *CollectionImpl) Metadata() CollectionMetadata {
 	return c.metadata
+}
+
+func (c *CollectionImpl) Close() error {
+	if c.embeddingFunction != nil {
+		if closer, ok := c.embeddingFunction.(io.Closer); ok {
+			return closer.Close()
+		}
+	}
+	return nil
 }
 
 // TODO add utility methods for metadata lookups

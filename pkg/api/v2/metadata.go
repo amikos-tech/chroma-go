@@ -188,7 +188,15 @@ type CollectionMetadataImpl struct {
 	metadata map[string]MetadataValue
 }
 
-func NewMetadata() CollectionMetadata {
+func NewMetadata(attributes ...*MetaAttribute) CollectionMetadata {
+	metadata := make(map[string]MetadataValue)
+	for _, attribute := range attributes {
+		metadata[attribute.key] = attribute.value
+	}
+	return &DocumentMetadataImpl{metadata: metadata}
+}
+
+func NewEmptyMetadata() CollectionMetadata {
 	return &CollectionMetadataImpl{metadata: map[string]MetadataValue{}}
 }
 

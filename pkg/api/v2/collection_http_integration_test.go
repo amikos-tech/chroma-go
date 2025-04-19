@@ -81,6 +81,11 @@ func TestCollectionAddIntegration(t *testing.T) {
 	c, err := NewHTTPClient(WithBaseURL(chromaURL), WithDebug())
 	require.NoError(t, err)
 
+	t.Cleanup(func() {
+		err := c.Close()
+		require.NoError(t, err)
+	})
+
 	t.Run("add documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)

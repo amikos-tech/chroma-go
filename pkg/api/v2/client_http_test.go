@@ -262,7 +262,7 @@ func TestAPIClient(t *testing.T) {
 	})
 
 	t.Run("GetTenant", func(t *testing.T) {
-		tenant, err := client.GetTenant(context.Background(), "default_tenant")
+		tenant, err := client.GetTenant(context.Background(), NewDefaultTenant())
 		require.NoError(t, err)
 		require.NotNil(t, tenant)
 		require.Equal(t, "default_tenant", tenant.Name())
@@ -276,14 +276,14 @@ func TestAPIClient(t *testing.T) {
 	})
 
 	t.Run("CreateDatabase", func(t *testing.T) {
-		db, err := client.CreateDatabase(context.Background(), "test_tenant", "test_db")
+		db, err := client.CreateDatabase(context.Background(), NewTenant("test_tenant").Database("test_db"))
 		require.NoError(t, err)
 		require.NotNil(t, db)
 		require.Equal(t, "test_db", db.Name())
 	})
 
 	t.Run("ListDatabases", func(t *testing.T) {
-		dbs, err := client.ListDatabases(context.Background(), "test_tenant")
+		dbs, err := client.ListDatabases(context.Background(), NewTenant("test_tenant"))
 		require.NoError(t, err)
 		require.NotNil(t, dbs)
 		require.Len(t, dbs, 2)
@@ -294,7 +294,7 @@ func TestAPIClient(t *testing.T) {
 	})
 
 	t.Run("GetDatabase", func(t *testing.T) {
-		db, err := client.GetDatabase(context.Background(), "test_tenant", "test_db")
+		db, err := client.GetDatabase(context.Background(), NewTenant("test_tenant").Database("test_db"))
 		require.NoError(t, err)
 		require.NotNil(t, db)
 		require.Equal(t, "test_db", db.Name())
@@ -303,7 +303,7 @@ func TestAPIClient(t *testing.T) {
 	})
 
 	t.Run("DeleteDatabase", func(t *testing.T) {
-		err := client.DeleteDatabase(context.Background(), "test_tenant", "test_db")
+		err := client.DeleteDatabase(context.Background(), NewTenant("test_tenant").Database("test_db"))
 		require.NoError(t, err)
 	})
 
@@ -606,7 +606,6 @@ func TestCreateCollection(t *testing.T) {
 				require.Equal(t, int64(999), hnswSearchEf)
 			},
 		},
-
 		{
 			name: "with tenant and database",
 			validateRequestWithResponse: func(w http.ResponseWriter, r *http.Request) {
@@ -632,8 +631,7 @@ func TestCreateCollection(t *testing.T) {
 					context.Background(),
 					"test",
 					WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
-					WithTenantCreate("mytenant"),
-					WithDatabaseCreate("mydb"),
+					WithDatabaseCreate(NewTenant("mytenant").Database("mydb")),
 				)
 				require.NoError(t, err)
 				require.NotNil(t, collection)
@@ -664,6 +662,29 @@ func TestCreateCollection(t *testing.T) {
 			client, err := NewHTTPClient(WithBaseURL(server.URL), WithDebug())
 			require.NoError(t, err)
 			tt.sendRequest(client)
+			err = client.Close()
+			require.NoError(t, err)
 		})
 	}
+}
+
+func TestClientClose(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("Request: %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
+		matched, err := regexp.MatchString(`/api/v2/tenants/[^/]+/databases/[^/]+/collections`, r.URL.Path)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		switch {
+		case matched && r.Method == http.MethodPost:
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithDebug())
+	require.NoError(t, err)
+	err = client.Close()
+	require.NoError(t, err)
+
 }

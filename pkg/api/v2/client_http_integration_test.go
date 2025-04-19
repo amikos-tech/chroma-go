@@ -107,7 +107,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.Equal(t, NewDefaultDatabase().Name(), id.Databases[0])
 	})
 	t.Run("get tenant", func(t *testing.T) {
-		tenant, err := c.GetTenant(ctx, NewDefaultTenant().Name())
+		tenant, err := c.GetTenant(ctx, NewDefaultTenant())
 		require.NoError(t, err)
 		require.Equal(t, NewDefaultTenant().Name(), tenant.Name())
 	})
@@ -117,26 +117,26 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.Equal(t, "test", tenant.Name())
 	})
 	t.Run("list databases", func(t *testing.T) {
-		databases, err := c.ListDatabases(ctx, NewDefaultTenant().Name())
+		databases, err := c.ListDatabases(ctx, NewDefaultTenant())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(databases))
 		require.Equal(t, NewDefaultDatabase().Name(), databases[0].Name())
 	})
 
 	t.Run("get database", func(t *testing.T) {
-		db, err := c.GetDatabase(ctx, NewDefaultTenant().Name(), NewDefaultDatabase().Name())
+		db, err := c.GetDatabase(ctx, NewDefaultDatabase())
 		require.NoError(t, err)
 		require.Equal(t, NewDefaultDatabase().Name(), db.Name())
 	})
 	t.Run("create database", func(t *testing.T) {
-		db, err := c.CreateDatabase(ctx, NewDefaultTenant().Name(), "test_database")
+		db, err := c.CreateDatabase(ctx, NewDefaultTenant().Database("test_database"))
 		require.NoError(t, err)
 		require.Equal(t, "test_database", db.Name())
 	})
 	t.Run("delete database", func(t *testing.T) {
-		_, err := c.CreateDatabase(ctx, NewDefaultTenant().Name(), "testdb_to_delete")
+		_, err := c.CreateDatabase(ctx, NewDefaultTenant().Database("testdb_to_delete"))
 		require.NoError(t, err)
-		err = c.DeleteDatabase(ctx, NewDefaultTenant().Name(), "testdb_to_delete")
+		err = c.DeleteDatabase(ctx, NewDefaultTenant().Database("testdb_to_delete"))
 		require.NoError(t, err)
 	})
 
@@ -187,10 +187,10 @@ func TestClientHTTPIntegration(t *testing.T) {
 		tenant, err := c.CreateTenant(ctx, NewTenant("test"))
 		require.NoError(t, err)
 		require.Equal(t, "test", tenant.Name())
-		db, err := c.CreateDatabase(ctx, tenant.Name(), "test_db")
+		db, err := c.CreateDatabase(ctx, tenant.Database("test_db"))
 		require.NoError(t, err)
 		require.Equal(t, "test_db", db.Name())
-		err = c.UseTenantAndDatabase(ctx, tenant.Name(), db.Name())
+		err = c.UseDatabase(ctx, db)
 		require.NoError(t, err)
 		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
