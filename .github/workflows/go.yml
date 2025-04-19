@@ -19,8 +19,24 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
+            basev1:
+              - 'pkg/commons/**'
+              - 'internal/**'
+              - 'metadata/**'
+              - 'types/**'
+              - 'collection/**'
+              - 'tests/**'
+              - 'where/**'
+              - 'where_document/**'
+              - 'chroma.go'
+              - 'go.mod'
+              - 'go.sum'
             basev2:
               - 'pkg/api/v2/**'
+              - 'pkg/commons/**'
+              - 'internal/**'
+              - 'go.mod'
+              - 'go.sum'
             embeddings:
               - 'pkg/embeddings/**'
               - 'pkg/commons/embed/**'
