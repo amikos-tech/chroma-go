@@ -350,9 +350,7 @@ func (client *APIClientV2) DeleteCollection(ctx context.Context, name string, op
 	if err != nil {
 		return errors.Wrap(err, "error sending request")
 	}
-	if _, ok := client.collectionCache[name]; ok {
-		delete(client.collectionCache, name)
-	}
+	delete(client.collectionCache, name)
 	return nil
 }
 
@@ -485,7 +483,7 @@ func (client *APIClientV2) UseTenant(ctx context.Context, tenant Tenant) error {
 		return err
 	}
 	client.BaseAPIClient.SetTenant(t)
-	client.BaseAPIClient.SetDatabase(t.Database(DefaultDatabase)) //TODO is this optimal?
+	client.BaseAPIClient.SetDatabase(t.Database(DefaultDatabase)) // TODO is this optimal?
 	return nil
 }
 
