@@ -99,7 +99,7 @@ jobs:
   ef:
     name: Test Embedding Functions
     runs-on: ubuntu-latest
-    needs: [paths-filter]
+    needs: [lint,paths-filter]
     if: needs.paths-filter.outputs.embeddings == 'true'
     environment: Test
     steps:
@@ -134,7 +134,7 @@ jobs:
   rf:
     name: Test Ranking Functions
     runs-on: ubuntu-latest
-    needs: [paths-filter]
+    needs: [lint,paths-filter]
     if: needs.paths-filter.outputs.rerankings == 'true'
     environment: Test
     steps:
