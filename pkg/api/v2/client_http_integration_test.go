@@ -89,7 +89,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 	t.Run("get version", func(t *testing.T) {
 		v, err := c.GetVersion(ctx)
 		require.NoError(t, err)
-		if strings.HasPrefix(chromaVersion, "1.0") {
+		if strings.HasPrefix(chromaVersion, "1.0") || chromaVersion == "latest" {
 			require.Contains(t, v, "1.")
 		} else {
 			require.Equal(t, chromaVersion, v)
