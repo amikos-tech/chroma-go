@@ -307,7 +307,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("query with query IDs", func(t *testing.T) {
 		v, err := c.GetVersion(ctx)
 		require.NoError(t, err)
-		if !strings.HasPrefix("1.", v) {
+		if !strings.HasPrefix(v, "1.") {
 			t.Skipf("skipping for chroma version %s", v)
 		}
 		err = c.Reset(ctx)
