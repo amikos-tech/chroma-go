@@ -215,7 +215,8 @@ type CollectionQueryOp struct {
 	FilterEmbeddingsOp
 	FilterTextsOp
 	LimitResultOp
-	ProjectOp // include metadatas, documents, embeddings, uris, ids
+	ProjectOp // include metadatas, documents, embeddings, uris
+	FilterIDOp
 }
 
 func NewCollectionQueryOp(opts ...CollectionQueryOption) (*CollectionQueryOp, error) {
@@ -328,9 +329,24 @@ func WithQueryEmbeddings(queryEmbeddings ...embeddings.Embedding) CollectionQuer
 	}
 }
 
+// WithIncludeQuery is used to include metadatas, documents, embeddings, uris in the query response.
 func WithIncludeQuery(include ...Include) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
 		query.Include = include
+		return nil
+	}
+}
+
+// WithIDsQuery is used to filter the query by IDs. This is only available for Chroma version 1.0.3 and above.
+func WithIDsQuery(ids ...DocumentID) CollectionQueryOption {
+	return func(query *CollectionQueryOp) error {
+		if len(ids) == 0 {
+			return errors.New("at least one id is required")
+		}
+		if query.Ids == nil {
+			query.Ids = make([]DocumentID, 0)
+		}
+		query.Ids = append(query.Ids, ids...)
 		return nil
 	}
 }
