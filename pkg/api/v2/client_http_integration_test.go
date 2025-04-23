@@ -23,7 +23,7 @@ import (
 
 func TestClientHTTPIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "1.0.5"
+	var chromaVersion = "1.0.6"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")

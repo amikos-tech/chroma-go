@@ -55,6 +55,10 @@ func (d *TextDocument) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (d *TextDocument) String() string {
+	return d.Content
+}
+
 func (d *TextDocument) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + d.Content + `"`), nil
 }

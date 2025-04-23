@@ -26,11 +26,11 @@ type GetResult interface {
 }
 
 type GetResultImpl struct {
-	Ids        DocumentIDs
-	Documents  Documents
-	Metadatas  DocumentMetadatas
-	Embeddings embeddings.Embeddings
-	Include    []Include
+	Ids        DocumentIDs           `json:"ids,omitempty"`
+	Documents  Documents             `json:"documents,omitempty"`
+	Metadatas  DocumentMetadatas     `json:"metadatas,omitempty"`
+	Embeddings embeddings.Embeddings `json:"embeddings,omitempty"`
+	Include    []Include             `json:"include,omitempty"`
 }
 
 func (r *GetResultImpl) GetIDs() DocumentIDs {
@@ -133,13 +133,21 @@ func (r *GetResultImpl) UnmarshalJSON(data []byte) error {
 	}
 	if _, ok := temp["include"]; ok {
 		r.Include = make([]Include, 0)
-		if lst, ok := temp["include"].([]string); ok {
+		if lst, ok := temp["include"].([]any); ok {
 			for _, i := range lst {
-				r.Include = append(r.Include, Include(i))
+				r.Include = append(r.Include, Include(i.(string)))
 			}
 		}
 	}
 	return nil
+}
+
+func (r *GetResultImpl) String() string {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 type QueryResult interface {
@@ -153,31 +161,32 @@ type QueryResult interface {
 }
 
 type QueryResultImpl struct {
-	idLists         []DocumentIDs
-	documentsLists  []Documents
-	metadatasLists  []DocumentMetadatas
-	embeddingsLists []embeddings.Embeddings
-	distancesLists  []embeddings.Distances
+	IDLists         []DocumentIDs           `json:"ids"`
+	DocumentsLists  []Documents             `json:"documents,omitempty"`
+	MetadatasLists  []DocumentMetadatas     `json:"metadatas,omitempty"`
+	EmbeddingsLists []embeddings.Embeddings `json:"embeddings,omitempty"`
+	DistancesLists  []embeddings.Distances  `json:"distances,omitempty"`
+	Include         []Include               `json:"include,omitempty"`
 }
 
 func (r *QueryResultImpl) GetIDGroups() []DocumentIDs {
-	return r.idLists
+	return r.IDLists
 }
 
 func (r *QueryResultImpl) GetDocumentsGroups() []Documents {
-	return r.documentsLists
+	return r.DocumentsLists
 }
 
 func (r *QueryResultImpl) GetMetadatasGroups() []DocumentMetadatas {
-	return r.metadatasLists
+	return r.MetadatasLists
 }
 
 func (r *QueryResultImpl) GetEmbeddingsGroups() []embeddings.Embeddings {
-	return r.embeddingsLists
+	return r.EmbeddingsLists
 }
 
 func (r *QueryResultImpl) GetDistancesGroups() []embeddings.Distances {
-	return r.distancesLists
+	return r.DistancesLists
 }
 
 func (r *QueryResultImpl) ToRecordsGroups() []Records {
@@ -185,7 +194,7 @@ func (r *QueryResultImpl) ToRecordsGroups() []Records {
 }
 
 func (r *QueryResultImpl) CountGroups() int {
-	return len(r.idLists)
+	return len(r.IDLists)
 }
 
 func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
@@ -194,7 +203,7 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 		return errors.Wrap(err, "failed to unmarshal QueryResult")
 	}
 	if _, ok := temp["ids"]; ok {
-		r.idLists = make([]DocumentIDs, 0)
+		r.IDLists = make([]DocumentIDs, 0)
 		if lst, ok := temp["ids"].([]interface{}); ok {
 			for _, id := range lst {
 				switch val := id.(type) {
@@ -208,7 +217,7 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 							return errors.Errorf("invalid id type: %T for %v", idVal, id)
 						}
 					}
-					r.idLists = append(r.idLists, ids)
+					r.IDLists = append(r.IDLists, ids)
 				default:
 					return errors.Errorf("invalid ids: %v", temp["ids"])
 				}
@@ -218,8 +227,9 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 		}
 	}
 	if _, ok := temp["documents"]; ok {
-		r.documentsLists = make([]Documents, 0)
+		r.DocumentsLists = make([]Documents, 0)
 		if lst, ok := temp["documents"].([]interface{}); ok {
+			innerDocList := make([]Document, 0)
 			for _, docList := range lst {
 				switch val := docList.(type) {
 				case []interface{}:
@@ -229,19 +239,20 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 					}
 					for _, doc := range docs {
 						document := doc
-						r.documentsLists = append(r.documentsLists, Documents{&document})
+						innerDocList = append(innerDocList, &document)
 					}
 				default:
 					return errors.Errorf("invalid documents: %v", temp["documents"])
 				}
 			}
+			r.DocumentsLists = append(r.DocumentsLists, innerDocList)
 		} else if lst != nil {
 			return errors.Errorf("invalid documents: %v", temp["documents"])
 		}
 	}
 
 	if _, ok := temp["metadatas"]; ok {
-		r.metadatasLists = make([]DocumentMetadatas, 0)
+		r.MetadatasLists = make([]DocumentMetadatas, 0)
 		if lst, ok := temp["metadatas"].([]interface{}); ok {
 			for _, metadataList := range lst {
 				switch val := metadataList.(type) {
@@ -263,7 +274,7 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 							return errors.Errorf("invalid metadata type: %T for %v", val, metadataItem)
 						}
 					}
-					r.metadatasLists = append(r.metadatasLists, metadata)
+					r.MetadatasLists = append(r.MetadatasLists, metadata)
 				default:
 					return errors.Errorf("invalid metadatas: %v", temp["metadatas"])
 				}
@@ -274,11 +285,11 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 	}
 
 	if _, ok := temp["embeddings"]; ok {
-		r.embeddingsLists = make([]embeddings.Embeddings, 0)
+		r.EmbeddingsLists = make([]embeddings.Embeddings, 0)
 		if lst, ok := temp["embeddings"].([]interface{}); ok {
 			for _, embeddingList := range lst {
 				if embeddingList == nil {
-					r.embeddingsLists = append(r.embeddingsLists, nil)
+					r.EmbeddingsLists = append(r.EmbeddingsLists, nil)
 					continue
 				}
 				switch val := embeddingList.(type) {
@@ -287,7 +298,7 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 					if err != nil {
 						return errors.Errorf("invalid embeddings: %v", err)
 					}
-					r.embeddingsLists = append(r.embeddingsLists, embeddings)
+					r.EmbeddingsLists = append(r.EmbeddingsLists, embeddings)
 				default:
 					return errors.Errorf("invalid embeddings: %v", temp["embeddings"])
 				}
@@ -297,7 +308,7 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 		}
 	}
 	if _, ok := temp["distances"]; ok {
-		r.distancesLists = make([]embeddings.Distances, 0)
+		r.DistancesLists = make([]embeddings.Distances, 0)
 		if lst, ok := temp["distances"].([]interface{}); ok {
 			for _, distanceList := range lst {
 				switch val := distanceList.(type) {
@@ -311,7 +322,7 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 							return errors.Errorf("invalid distance type: %T for %v", val, distanceItem)
 						}
 					}
-					r.distancesLists = append(r.distancesLists, distances)
+					r.DistancesLists = append(r.DistancesLists, distances)
 				default:
 					return errors.Errorf("invalid distances: %v", temp["distances"])
 				}
@@ -320,5 +331,22 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 			return errors.Errorf("invalid distances: %v", temp["distances"])
 		}
 	}
+
+	if _, ok := temp["include"]; ok {
+		r.Include = make([]Include, 0)
+		if lst, ok := temp["include"].([]any); ok {
+			for _, i := range lst {
+				r.Include = append(r.Include, Include(i.(string)))
+			}
+		}
+	}
 	return nil
+}
+
+func (r *QueryResultImpl) String() string {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }

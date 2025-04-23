@@ -19,7 +19,7 @@ import (
 
 func TestCollectionAddIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "1.0.5"
+	var chromaVersion = "1.0.6"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
@@ -263,5 +263,59 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.Equal(t, 1, len(res.GetMetadatasGroups()))
 		require.Equal(t, 0, len(res.GetDocumentsGroups()))
 		require.Equal(t, 0, len(res.GetDistancesGroups()))
+	})
+
+	t.Run("query with n_results", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"))
+		require.NoError(t, err)
+		res, err := collection.Query(ctx, WithQueryTexts("test_document_1"), WithNResults(2))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(res.GetIDGroups()))
+		require.Equal(t, 2, len(res.GetIDGroups()[0]))
+		require.Equal(t, 1, len(res.GetMetadatasGroups()))
+		require.Equal(t, 2, len(res.GetMetadatasGroups()[0]))
+		require.Equal(t, 1, len(res.GetDocumentsGroups()))
+		require.Equal(t, 2, len(res.GetDocumentsGroups()[0]))
+		require.Equal(t, 1, len(res.GetDistancesGroups()))
+		require.Equal(t, 2, len(res.GetDistancesGroups()[0]))
+	})
+
+	t.Run("query with query embeddings", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"))
+		require.NoError(t, err)
+		ef := embeddings.NewConsistentHashEmbeddingFunction()
+		embedding, err := ef.EmbedQuery(ctx, "test_document_1")
+		require.NoError(t, err)
+		res, err := collection.Query(ctx, WithQueryEmbeddings(embedding))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(res.GetIDGroups()))
+		require.Equal(t, 3, len(res.GetIDGroups()[0]))
+		require.Equal(t, 1, len(res.GetDocumentsGroups()))
+		require.Equal(t, 3, len(res.GetDocumentsGroups()[0]))
+		require.Equal(t, "test_document_1", res.GetDocumentsGroups()[0][0].ContentString())
+	})
+
+	t.Run("query with query IDs", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("test_document_1", "test_document_2", "test_document_3"))
+		require.NoError(t, err)
+		res, err := collection.Query(ctx, WithQueryTexts("test_document_1"), WithIDsQuery("1", "3"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(res.GetIDGroups()))
+		require.Equal(t, 2, len(res.GetIDGroups()[0]))
+		require.Equal(t, 1, len(res.GetDocumentsGroups()))
+		require.Equal(t, 2, len(res.GetDocumentsGroups()[0]))
+		require.Equal(t, "test_document_1", res.GetDocumentsGroups()[0][0].ContentString())
 	})
 }
