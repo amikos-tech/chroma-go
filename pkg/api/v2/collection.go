@@ -329,6 +329,7 @@ func WithQueryEmbeddings(queryEmbeddings ...embeddings.Embedding) CollectionQuer
 	}
 }
 
+// WithIncludeQuery is used to include metadatas, documents, embeddings, uris in the query response.
 func WithIncludeQuery(include ...Include) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
 		query.Include = include
@@ -336,6 +337,7 @@ func WithIncludeQuery(include ...Include) CollectionQueryOption {
 	}
 }
 
+// WithIDsQuery is used to filter the query by IDs. This is only available for Chroma version 1.0.3 and above.
 func WithIDsQuery(ids ...DocumentID) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
 		if len(ids) == 0 {

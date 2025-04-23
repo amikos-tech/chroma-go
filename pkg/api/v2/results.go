@@ -135,7 +135,11 @@ func (r *GetResultImpl) UnmarshalJSON(data []byte) error {
 		r.Include = make([]Include, 0)
 		if lst, ok := temp["include"].([]any); ok {
 			for _, i := range lst {
-				r.Include = append(r.Include, Include(i.(string)))
+				if v, ok := i.(string); ok {
+					r.Include = append(r.Include, Include(v))
+				} else {
+					return errors.Errorf("invalid include type: %T for %v", i, lst)
+				}
 			}
 		}
 	}
@@ -336,7 +340,11 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 		r.Include = make([]Include, 0)
 		if lst, ok := temp["include"].([]any); ok {
 			for _, i := range lst {
-				r.Include = append(r.Include, Include(i.(string)))
+				if v, ok := i.(string); ok {
+					r.Include = append(r.Include, Include(v))
+				} else {
+					return errors.Errorf("invalid include type: %T for %v", i, lst)
+				}
 			}
 		}
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
@@ -304,7 +305,12 @@ func TestCollectionAddIntegration(t *testing.T) {
 	})
 
 	t.Run("query with query IDs", func(t *testing.T) {
-		err := c.Reset(ctx)
+		v, err := c.GetVersion(ctx)
+		require.NoError(t, err)
+		if !strings.HasPrefix("1.", v) {
+			t.Skipf("skipping for chroma version %s", v)
+		}
+		err = c.Reset(ctx)
 		require.NoError(t, err)
 		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
