@@ -215,6 +215,7 @@ type CollectionQueryOp struct {
 	FilterEmbeddingsOp
 	FilterTextsOp
 	LimitResultOp
+	ProjectOp // include metadatas, documents, embeddings, uris, ids
 }
 
 func NewCollectionQueryOp(opts ...CollectionQueryOption) (*CollectionQueryOp, error) {
@@ -323,6 +324,13 @@ func WithQueryEmbeddings(queryEmbeddings ...embeddings.Embedding) CollectionQuer
 			return errors.New("at least one query embedding is required")
 		}
 		query.QueryEmbeddings = queryEmbeddings
+		return nil
+	}
+}
+
+func WithIncludeQuery(include ...Include) CollectionQueryOption {
+	return func(query *CollectionQueryOp) error {
+		query.Include = include
 		return nil
 	}
 }

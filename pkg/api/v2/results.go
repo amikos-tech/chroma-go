@@ -235,7 +235,7 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 					return errors.Errorf("invalid documents: %v", temp["documents"])
 				}
 			}
-		} else {
+		} else if lst != nil {
 			return errors.Errorf("invalid documents: %v", temp["documents"])
 		}
 	}
@@ -268,7 +268,7 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 					return errors.Errorf("invalid metadatas: %v", temp["metadatas"])
 				}
 			}
-		} else {
+		} else if lst != nil {
 			return errors.Errorf("invalid metadatas: %v", temp["metadatas"])
 		}
 	}
@@ -316,7 +316,7 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 					return errors.Errorf("invalid distances: %v", temp["distances"])
 				}
 			}
-		} else {
+		} else if lst != nil {
 			return errors.Errorf("invalid distances: %v", temp["distances"])
 		}
 	}

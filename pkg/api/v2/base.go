@@ -29,7 +29,6 @@ const (
 	IncludeDocuments  Include = "documents"
 	IncludeEmbeddings Include = "embeddings"
 	IncludeURIs       Include = "uris"
-	IncludeIDs        Include = "ids"
 )
 
 type Identity struct {
