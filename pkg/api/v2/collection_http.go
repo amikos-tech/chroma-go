@@ -98,7 +98,7 @@ func (c *CollectionImpl) Add(ctx context.Context, opts ...CollectionUpdateOption
 	if err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
-	reqURL, err := url.JoinPath("tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "add")
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "add")
 	if err != nil {
 		return errors.Wrap(err, "error composing request URL")
 	}
@@ -130,7 +130,7 @@ func (c *CollectionImpl) Upsert(ctx context.Context, opts ...CollectionUpdateOpt
 	if err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
-	reqURL, err := url.JoinPath("tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "upsert")
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "upsert")
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func (c *CollectionImpl) Update(ctx context.Context, opts ...CollectionUpdateOpt
 	if err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
-	reqURL, err := url.JoinPath("tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "update")
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "update")
 	if err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func (c *CollectionImpl) Delete(ctx context.Context, opts ...CollectionDeleteOpt
 	if err != nil {
 		return err
 	}
-	reqURL, err := url.JoinPath("tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "delete")
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "delete")
 	if err != nil {
 		return err
 	}
@@ -226,7 +226,7 @@ func (c *CollectionImpl) Delete(ctx context.Context, opts ...CollectionDeleteOpt
 	return nil
 }
 func (c *CollectionImpl) Count(ctx context.Context) (int, error) {
-	reqURL, err := url.JoinPath("tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "count")
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "count")
 	if err != nil {
 		return 0, errors.Wrap(err, "error composing request URL")
 	}
@@ -251,7 +251,7 @@ func (c *CollectionImpl) ModifyName(ctx context.Context, newName string) error {
 	if newName == "" {
 		return errors.New("newName cannot be empty")
 	}
-	reqURL, err := url.JoinPath("tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID())
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID())
 
 	if err != nil {
 		return errors.Wrap(err, "error composing request URL")
@@ -276,7 +276,7 @@ func (c *CollectionImpl) ModifyMetadata(ctx context.Context, newMetadata Collect
 	if newMetadata == nil {
 		return errors.New("newMetadata cannot be nil")
 	}
-	reqURL, err := url.JoinPath("tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID())
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID())
 	if err != nil {
 		return err
 	}
@@ -304,7 +304,7 @@ func (c *CollectionImpl) Get(ctx context.Context, opts ...CollectionGetOption) (
 	if err != nil {
 		return nil, err
 	}
-	reqURL, err := url.JoinPath("tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "get")
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "get")
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func (c *CollectionImpl) Query(ctx context.Context, opts ...CollectionQueryOptio
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to embed data")
 	}
-	reqURL, err := url.JoinPath("tenants", c.client.BaseAPIClient.Tenant().Name(), "databases", c.client.BaseAPIClient.Database().Name(), "collections", c.ID(), "query")
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "query")
 	if err != nil {
 		return nil, errors.Wrap(err, "error building query url")
 	}
