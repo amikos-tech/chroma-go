@@ -60,7 +60,7 @@ func (d *TextDocument) String() string {
 }
 
 func (d *TextDocument) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + d.Content + `"`), nil
+	return json.Marshal(d.Content)
 }
 
 func NewTextDocumentsFromInterface(docs []interface{}) (TextDocuments, error) {
