@@ -5,21 +5,65 @@ generate:
 build:
 	go build -v ./...
 
+.PHONY: gotestsum-bin
+gotestsum-bin:
+	go install gotest.tools/gotestsum@latest
+
 .PHONY: test
-test:
-	go test -tags=basic -count=1 -v ./...
+test: gotestsum-bin
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=5 \
+		--packages="./..." \
+		--junitfile unit-v1.xml \
+		-- \
+		-v \
+		-tags=basic \
+		-coverprofile=coverage-v1.out \
+		-timeout=30m \
+		-race
 
 .PHONY: test-v2
-test-v2:
-	go test -tags=basicv2 -count=1 -v ./...
+test-v2: gotestsum-bin
+	gotestsum \
+        --format short-verbose \
+        --rerun-fails=5 \
+        --packages="./..." \
+        --junitfile unit-v2.xml \
+        -- \
+        -v \
+        -tags=basicv2 \
+        -coverprofile=coverage-v2.out \
+        -timeout=30m \
+        -race
 
 .PHONY: test-rf
-test-rf:
-	go test -tags=rf -count=1 -v ./...
+test-rf: gotestsum-bin
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=5 \
+		--packages="./..." \
+		--junitfile unit-rf.xml \
+		-- \
+		-v \
+		-tags=rf \
+		-coverprofile=coverage-rf.out \
+		-timeout=30m \
+		-race
 
 .PHONY: test-ef
-test-ef:
-	go test -tags=ef -count=1 -v ./...
+test-ef: gotestsum-bin
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=5 \
+		--packages="./..." \
+		--junitfile unit-ef.xml \
+		-- \
+		-v \
+		-tags=ef \
+		-coverprofile=coverage-ef.out \
+		-timeout=30m \
+		-race
 
 .PHONY: lint
 lint:
