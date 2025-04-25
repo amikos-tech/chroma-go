@@ -87,6 +87,14 @@ jobs:
       run: make test
       env:
         CHROMA_VERSION: ${{ matrix.chroma-version }}
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: v1-test-results
+        path: |
+          coverage-v1.out
+          unit-v1.xml
   apiv2:
     name: Test Chroma API V2
     runs-on: ubuntu-latest
@@ -114,6 +122,14 @@ jobs:
         run: make test-v2
         env:
           CHROMA_VERSION: ${{ matrix.chroma-version }}
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-test-results
+          path: |
+            coverage-v2.out
+            unit-v2.xml
   ef:
     name: Test Embedding Functions
     runs-on: ubuntu-latest
@@ -149,6 +165,14 @@ jobs:
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           NOMIC_API_KEY: ${{ secrets.NOMIC_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ef-test-results
+          path: |
+            coverage-ef.out
+            unit-ef.xml
   rf:
     name: Test Ranking Functions
     runs-on: ubuntu-latest
@@ -184,3 +208,11 @@ jobs:
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           NOMIC_API_KEY: ${{ secrets.NOMIC_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rf-test-results
+          path: |
+            coverage-rf.out
+            unit-rf.xml
