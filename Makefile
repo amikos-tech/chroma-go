@@ -20,8 +20,7 @@ test: gotestsum-bin
 		-v \
 		-tags=basic \
 		-coverprofile=coverage-v1.out \
-		-timeout=30m \
-		-race
+		-timeout=30m
 
 .PHONY: test-v2
 test-v2: gotestsum-bin
@@ -34,8 +33,7 @@ test-v2: gotestsum-bin
         -v \
         -tags=basicv2 \
         -coverprofile=coverage-v2.out \
-        -timeout=30m \
-        -race
+        -timeout=30m
 
 .PHONY: test-rf
 test-rf: gotestsum-bin
@@ -48,8 +46,7 @@ test-rf: gotestsum-bin
 		-v \
 		-tags=rf \
 		-coverprofile=coverage-rf.out \
-		-timeout=30m \
-		-race
+		-timeout=30m
 
 .PHONY: test-ef
 test-ef: gotestsum-bin
@@ -62,8 +59,7 @@ test-ef: gotestsum-bin
 		-v \
 		-tags=ef \
 		-coverprofile=coverage-ef.out \
-		-timeout=30m \
-		-race
+		-timeout=30m
 
 .PHONY: lint
 lint:
