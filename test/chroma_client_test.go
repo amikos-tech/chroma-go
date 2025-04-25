@@ -1228,7 +1228,7 @@ func TestChromaClient(t *testing.T) {
 func TestClientSecurity(t *testing.T) {
 	ctx := context.Background()
 	var chromaImage = "ghcr.io/chroma-core/chroma"
-	var chromaVersion = "latest"
+	var chromaVersion = "0.6.2"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
@@ -1294,6 +1294,7 @@ func TestClientSecurity(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, chromaContainer.Terminate(ctx))
 	})
+	time.Sleep(5 * time.Second)
 	endpoint, err := chromaContainer.RESTEndpoint(context.Background())
 	require.NoError(t, err)
 	chromaURL := os.Getenv("CHROMA_URL")

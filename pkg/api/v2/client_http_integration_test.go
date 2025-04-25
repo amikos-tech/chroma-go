@@ -197,6 +197,9 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.Equal(t, "test_collection", collection.Name())
 		require.Equal(t, tenant.Name(), collection.Tenant().Name())
 		require.Equal(t, db.Name(), collection.Database().Name())
+		count, err := collection.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
 	})
 }
 
