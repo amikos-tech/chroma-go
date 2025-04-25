@@ -134,15 +134,6 @@ func (c *CollectionImpl) Upsert(ctx context.Context, opts ...CollectionUpdateOpt
 	if err != nil {
 		return err
 	}
-	// reqJSON, err := upsertObject.MarshalJSON()
-	// if err != nil {
-	//	return err
-	//}
-	// httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	// if err != nil {
-	//	return err
-	//}
-	// _, err = c.client.BaseAPIClient.SendRequest(httpReq)
 	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, upsertObject)
 	if err != nil {
 		return err
@@ -174,15 +165,6 @@ func (c *CollectionImpl) Update(ctx context.Context, opts ...CollectionUpdateOpt
 	if err != nil {
 		return err
 	}
-	// reqJSON, err := updateObject.MarshalJSON()
-	// if err != nil {
-	//	return err
-	//}
-	// httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	// if err != nil {
-	//	return err
-	//}
-	// _, err = c.client.BaseAPIClient.SendRequest(httpReq)
 	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, updateObject)
 	if err != nil {
 		return err
@@ -210,15 +192,6 @@ func (c *CollectionImpl) Delete(ctx context.Context, opts ...CollectionDeleteOpt
 	if err != nil {
 		return err
 	}
-	// reqJSON, err := deleteObject.MarshalJSON()
-	// if err != nil {
-	//	return err
-	//}
-	// httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	// if err != nil {
-	//	return err
-	//}
-	// _, err = c.client.BaseAPIClient.SendRequest(httpReq)
 	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, deleteObject)
 	if err != nil {
 		return err
@@ -230,16 +203,6 @@ func (c *CollectionImpl) Count(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, errors.Wrap(err, "error composing request URL")
 	}
-	//
-	// httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
-	// if err != nil {
-	//	return 0, err
-	//}
-	// resp, err := c.client.BaseAPIClient.SendRequest(httpReq)
-	// if err != nil {
-	//	return 0, err
-	//}
-	// respBody := chhttp.ReadRespBody(resp.Body)
 	respBody, err := c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return 0, errors.Wrap(err, "error getting collection count")
@@ -256,16 +219,6 @@ func (c *CollectionImpl) ModifyName(ctx context.Context, newName string) error {
 	if err != nil {
 		return errors.Wrap(err, "error composing request URL")
 	}
-	//
-	// reqJSON, err := json.Marshal(map[string]string{"new_name": newName})
-	// if err != nil {
-	//	return err
-	//}
-	// httpReq, err := http.NewRequestWithContext(ctx, http.MethodPut, reqURL, bytes.NewReader(reqJSON))
-	// if err != nil {
-	//	return err
-	//}
-	// _, err = c.client.BaseAPIClient.SendRequest(httpReq)
 	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPut, reqURL, map[string]string{"new_name": newName})
 	if err != nil {
 		return errors.Wrap(err, "error modifying collection name")
@@ -280,15 +233,6 @@ func (c *CollectionImpl) ModifyMetadata(ctx context.Context, newMetadata Collect
 	if err != nil {
 		return err
 	}
-	// reqJSON, err := json.Marshal(map[string]interface{}{"new_metadata": newMetadata})
-	// if err != nil {
-	//	return err
-	//}
-	// httpReq, err := http.NewRequestWithContext(ctx, http.MethodPut, reqURL, bytes.NewReader(reqJSON))
-	// if err != nil {
-	//	return err
-	//}
-	// _, err = c.client.BaseAPIClient.SendRequest(httpReq)
 	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPut, reqURL, map[string]interface{}{"new_metadata": newMetadata})
 	if err != nil {
 		return err
@@ -308,19 +252,6 @@ func (c *CollectionImpl) Get(ctx context.Context, opts ...CollectionGetOption) (
 	if err != nil {
 		return nil, err
 	}
-	// reqJSON, err := getObject.MarshalJSON()
-	// if err != nil {
-	//	return nil, err
-	//}
-	// httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	// if err != nil {
-	//	return nil, err
-	//}
-	// resp, err := c.client.BaseAPIClient.SendRequest(httpReq)
-	// if err != nil {
-	//	return nil, err
-	//}
-	// respBody := chhttp.ReadRespBody(resp.Body)
 	respBody, err := c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, getObject)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting collection")
@@ -349,19 +280,6 @@ func (c *CollectionImpl) Query(ctx context.Context, opts ...CollectionQueryOptio
 	if err != nil {
 		return nil, errors.Wrap(err, "error building query url")
 	}
-	// reqJSON, err := querybject.MarshalJSON()
-	// if err != nil {
-	//	return nil, errors.Wrap(err, "error marshalling query object to JSON")
-	//}
-	// httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(reqJSON))
-	// if err != nil {
-	//	return nil, errors.Wrap(err, "error creating HTTP request")
-	//}
-	// resp, err := c.client.BaseAPIClient.SendRequest(httpReq)
-	// if err != nil {
-	//	return nil, err
-	//}
-	// respBody := chhttp.ReadRespBody(resp.Body)
 	respBody, err := c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, querybject)
 	if err != nil {
 		return nil, errors.Wrap(err, "error sending query request")
