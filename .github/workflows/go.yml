@@ -26,7 +26,7 @@ jobs:
               - 'metadata/**'
               - 'types/**'
               - 'collection/**'
-              - 'tests/**'
+              - 'test/**'
               - 'where/**'
               - 'where_document/**'
               - 'chroma.go'
