@@ -91,7 +91,7 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: v1-test-results
+        name: v1-test-results-${{ matrix.chroma-version }}
         path: |
           coverage-v1.out
           unit-v1.xml
@@ -126,7 +126,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v2-test-results
+          name: v2-test-results-${{ matrix.chroma-version }}
           path: |
             coverage-v2.out
             unit-v2.xml
