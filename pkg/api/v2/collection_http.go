@@ -77,12 +77,12 @@ func (c *CollectionImpl) Configuration() CollectionConfiguration {
 	return c.configuration
 }
 
-func (c *CollectionImpl) Add(ctx context.Context, opts ...CollectionUpdateOption) error {
+func (c *CollectionImpl) Add(ctx context.Context, opts ...CollectionAddOption) error {
 	err := c.client.PreFlight(ctx)
 	if err != nil {
 		return errors.Wrap(err, "preflight failed")
 	}
-	addObject, err := NewCollectionUpdateOp(opts...)
+	addObject, err := NewCollectionAddOp(opts...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create new collection update operation")
 	}
@@ -109,12 +109,12 @@ func (c *CollectionImpl) Add(ctx context.Context, opts ...CollectionUpdateOption
 	return nil
 }
 
-func (c *CollectionImpl) Upsert(ctx context.Context, opts ...CollectionUpdateOption) error {
+func (c *CollectionImpl) Upsert(ctx context.Context, opts ...CollectionAddOption) error {
 	err := c.client.PreFlight(ctx)
 	if err != nil {
 		return err
 	}
-	upsertObject, err := NewCollectionUpdateOp(opts...)
+	upsertObject, err := NewCollectionAddOp(opts...)
 	if err != nil {
 		return err
 	}

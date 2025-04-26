@@ -101,7 +101,7 @@ jobs:
     needs: [lint,paths-filter]
     strategy:
       matrix:
-        chroma-version: ["0.6.3","1.0.6"]
+        chroma-version: ["0.6.3","1.0.7"]
     if: needs.paths-filter.outputs.basev2 == 'true'
     environment: Test
     steps:

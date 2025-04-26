@@ -5,6 +5,7 @@ package v2
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +24,7 @@ import (
 
 func TestClientHTTPIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "1.0.6"
+	var chromaVersion = "1.0.7"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
@@ -100,60 +101,228 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("get identity", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
 		id, err := c.GetIdentity(ctx)
 		require.NoError(t, err)
 		require.Equal(t, NewDefaultTenant().Name(), id.Tenant)
 		require.Equal(t, 1, len(id.Databases))
 		require.Equal(t, NewDefaultDatabase().Name(), id.Databases[0])
 	})
+
 	t.Run("get tenant", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
 		tenant, err := c.GetTenant(ctx, NewDefaultTenant())
 		require.NoError(t, err)
 		require.Equal(t, NewDefaultTenant().Name(), tenant.Name())
 	})
+
+	t.Run("get tenant with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		_, err = c.GetTenant(ctx, NewTenant("dummy"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Tenant [dummy] not found")
+	})
+
 	t.Run("create tenant", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
 		tenant, err := c.CreateTenant(ctx, NewTenant("test"))
 		require.NoError(t, err)
 		require.Equal(t, "test", tenant.Name())
 	})
+
+	t.Run("create tenant with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		_, err = c.CreateTenant(ctx, NewTenant("test"))
+		require.NoError(t, err)
+
+		_, err = c.CreateTenant(ctx, NewTenant("test"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Tenant [test] already exists")
+
+		_, err = c.CreateTenant(ctx, NewTenant(""))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "tenant name cannot be empty")
+
+		_, err = c.CreateTenant(ctx, NewTenant("l"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Validation error: length")
+	})
+
 	t.Run("list databases", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
 		databases, err := c.ListDatabases(ctx, NewDefaultTenant())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(databases))
 		require.Equal(t, NewDefaultDatabase().Name(), databases[0].Name())
 	})
 
+	t.Run("list databases with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		// this is "weird" but perhaps intentional
+		databases, err := c.ListDatabases(ctx, NewTenant("test"))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(databases))
+	})
+
 	t.Run("get database", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
 		db, err := c.GetDatabase(ctx, NewDefaultDatabase())
 		require.NoError(t, err)
 		require.Equal(t, NewDefaultDatabase().Name(), db.Name())
 	})
+
+	t.Run("get database with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		_, err = c.GetDatabase(ctx, NewDatabase("testdb", NewDefaultTenant()))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Database [testdb] not found")
+
+		_, err = c.GetDatabase(ctx, NewDatabase("testdb", NewTenant("test")))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Database [testdb] not found")
+	})
+
 	t.Run("create database", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
 		db, err := c.CreateDatabase(ctx, NewDefaultTenant().Database("test_database"))
 		require.NoError(t, err)
 		require.Equal(t, "test_database", db.Name())
 	})
+
+	t.Run("create tenant with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		_, err = c.CreateDatabase(ctx, NewDefaultTenant().Database("test_database"))
+		require.NoError(t, err)
+
+		_, err = c.CreateDatabase(ctx, NewDefaultTenant().Database("test_database"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Database [test_database] already exists")
+
+		_, err = c.CreateDatabase(ctx, NewDefaultTenant().Database(""))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "database name cannot be empty")
+
+		_, err = c.CreateDatabase(ctx, NewDefaultTenant().Database("l"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Validation error: length")
+	})
+
 	t.Run("delete database", func(t *testing.T) {
-		_, err := c.CreateDatabase(ctx, NewDefaultTenant().Database("testdb_to_delete"))
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		_, err = c.CreateDatabase(ctx, NewDefaultTenant().Database("testdb_to_delete"))
 		require.NoError(t, err)
 		err = c.DeleteDatabase(ctx, NewDefaultTenant().Database("testdb_to_delete"))
 		require.NoError(t, err)
 	})
 
+	t.Run("delete database with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		err = c.DeleteDatabase(ctx, NewDefaultTenant().Database("testdb_to_delete"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Database [testdb_to_delete] not found")
+	})
+
 	t.Run("create collection", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
 		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		require.Equal(t, "test_collection", collection.Name())
+
+		db, err := c.CreateDatabase(ctx, NewDefaultTenant().Database("test"))
+		require.NoError(t, err)
+		newCWithtenant, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()), WithDatabaseCreate(db))
+		require.NoError(t, err)
+		require.Equal(t, "test_collection", newCWithtenant.Name())
+		require.Equal(t, "test", newCWithtenant.Database().Name())
 	})
+
+	t.Run("create collection with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		_, err = c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		_, err = c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Collection [test_collection] already exists")
+		_, err = c.CreateCollection(ctx, "test_collection1", WithDatabaseCreate(NewDatabase("test", NewDefaultTenant())))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Database [test] does not exist")
+
+		_, err = c.CreateCollection(ctx, "")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "collection name cannot be empty")
+
+		_, err = c.CreateCollection(ctx, "1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Expected a name containing 3-512 characters")
+
+		_, err = c.CreateCollection(ctx, "11111$$")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Expected a name containing 3-512 characters")
+
+		_, err = c.CreateCollection(ctx, "_1abc2")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Expected a name containing 3-512 characters")
+	})
+
 	t.Run("get collection", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
 		newCollection, err := c.CreateCollection(ctx, "test_collection_2", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		collection, err := c.GetCollection(ctx, newCollection.Name(), WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		require.Equal(t, newCollection.Name(), collection.Name())
+
+		db, err := c.CreateDatabase(ctx, NewDefaultTenant().Database("test_database"))
+		require.NoError(t, err)
+		newCollection, err = c.CreateCollection(ctx, "test_collection_2", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()), WithDatabaseCreate(NewDatabase("test_database", NewDefaultTenant())))
+		require.NoError(t, err)
+		collection, err = c.GetCollection(ctx, newCollection.Name(), WithDatabaseGet(db))
 	})
+
+	t.Run("get collection with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+
+		_, err = c.GetCollection(ctx, "non_existing_collection")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "embedding function cannot be nil")
+		_, err = c.GetCollection(ctx, "non_existing_collection", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Collection [non_existing_collection] does not exists")
+
+		_, err = c.GetCollection(ctx, "", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "collection name cannot be empty")
+
+		_, err = c.GetCollection(ctx, "l", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Collection [l] does not exists")
+
+		_, err = c.GetCollection(ctx, "_1111", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Collection [_1111] does not exists")
+	})
+
 	t.Run("list collections", func(t *testing.T) {
-		_, err := c.CreateCollection(ctx, "test_collection_3", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		_, err = c.CreateCollection(ctx, "test_collection_3", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		collections, err := c.ListCollections(ctx)
 		require.NoError(t, err)
@@ -164,18 +333,86 @@ func TestClientHTTPIntegration(t *testing.T) {
 		}
 		require.Contains(t, collectionNames, "test_collection_3")
 	})
+
+	t.Run("list collections with limit and offset", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		for i := 0; i < 10; i++ {
+			_, err := c.CreateCollection(ctx, fmt.Sprintf("collection-%s", uuid.New().String()), WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+			require.NoError(t, err)
+		}
+		collections, err := c.ListCollections(ctx, ListWithLimit(5), ListWithOffset(0))
+		require.NoError(t, err)
+		require.Equal(t, len(collections), 5)
+		collections, err = c.ListCollections(ctx, ListWithLimit(5), ListWithOffset(1))
+		require.NoError(t, err)
+		require.Equal(t, len(collections), 5)
+		_, err = c.ListCollections(ctx, ListWithOffset(10000000))
+		require.NoError(t, err)
+		_, err = c.ListCollections(ctx, ListWithLimit(10000000))
+		require.NoError(t, err)
+		_, err = c.ListCollections(ctx, ListWithOffset(10000000), ListWithLimit(10000000))
+		require.NoError(t, err)
+	})
+
+	t.Run("list collections with invalid limit and offset", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		for i := 0; i < 10; i++ {
+			_, err := c.CreateCollection(ctx, fmt.Sprintf("collection-%s", uuid.New().String()), WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+			require.NoError(t, err)
+		}
+		_, err = c.ListCollections(ctx, ListWithLimit(-1), ListWithOffset(1))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "limit cannot be less than 1")
+		_, err = c.ListCollections(ctx, ListWithOffset(-1))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "offset cannot be negative")
+
+	})
+
 	t.Run("delete collection", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
 		newCollection, err := c.CreateCollection(ctx, "test_collection_4", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = c.DeleteCollection(ctx, newCollection.Name())
 		require.NoError(t, err)
 	})
+
+	t.Run("delete collection with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		err = c.DeleteCollection(ctx, "non_existing_collection")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "does not exists")
+	})
+
 	t.Run("count collections", func(t *testing.T) {
-		_, err := c.CreateCollection(ctx, "test_collection_5", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		_, err = c.CreateCollection(ctx, "test_collection_5", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		count, err := c.CountCollections(ctx)
 		require.NoError(t, err)
-		require.GreaterOrEqual(t, count, 1)
+		require.Equal(t, count, 1)
+
+		db, err := c.CreateDatabase(ctx, NewDefaultTenant().Database("test"))
+		require.NoError(t, err)
+		_, err = c.CreateCollection(ctx, "test_collection_5", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()), WithDatabaseCreate(db))
+		require.NoError(t, err)
+		count, err = c.CountCollections(ctx, WithDatabaseCount(db))
+		require.NoError(t, err)
+		require.Equal(t, count, 1)
+	})
+
+	t.Run("count collections with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		// TODO this is odd behaviour
+		count, err := c.CountCollections(ctx, WithDatabaseCount(NewDefaultTenant().Database("test_count_error")))
+		require.NoError(t, err)
+		require.Equal(t, count, 0)
 	})
 
 	t.Run("reset", func(t *testing.T) {
@@ -184,6 +421,8 @@ func TestClientHTTPIntegration(t *testing.T) {
 	})
 
 	t.Run("create tenant, db and collection", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
 		tenant, err := c.CreateTenant(ctx, NewTenant("test"))
 		require.NoError(t, err)
 		require.Equal(t, "test", tenant.Name())
@@ -335,20 +574,6 @@ func TestClientHTTPIntegrationWithBearerAuthorizationHeaderAuth(t *testing.T) {
 	port, err := chromaContainer.MappedPort(ctx, "8000")
 	require.NoError(t, err)
 	endpoint := fmt.Sprintf("http://%s:%s", ip, port.Port())
-	//
-	//chromaContainer, err := tcchroma.Run(ctx,
-	//	fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
-	//	testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
-	//	testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_CREDENTIALS": token}),
-	//	testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_PROVIDER": "chromadb.auth.token_authn.TokenAuthenticationServerProvider"}),
-	//	testcontainers.WithEnv(map[string]string{"CHROMA_AUTH_TOKEN_TRANSPORT_HEADER": "Authorization"}),
-	//)
-	//require.NoError(t, err)
-	//t.Cleanup(func() {
-	//	require.NoError(t, chromaContainer.Terminate(ctx))
-	//})
-	//endpoint, err := chromaContainer.RESTEndpoint(context.Background())
-	//require.NoError(t, err)
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = endpoint
