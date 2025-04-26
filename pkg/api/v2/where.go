@@ -414,9 +414,6 @@ func (w *WhereClauseWhereClauses) Operand() interface{} {
 }
 
 func (w *WhereClauseWhereClauses) Validate() error {
-	if w.key == "" {
-		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
-	}
 	if w.operator != OrOperator && w.operator != AndOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
