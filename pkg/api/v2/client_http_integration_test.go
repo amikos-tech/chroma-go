@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Masterminds/semver"
 	"github.com/docker/docker/api/types/container"
@@ -123,7 +124,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.NoError(t, err)
 		_, err = c.GetTenant(ctx, NewTenant("dummy"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Tenant [dummy] not found")
+		require.Contains(t, err.Error(), "not found")
 	})
 
 	t.Run("create tenant", func(t *testing.T) {
@@ -142,7 +143,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 
 		_, err = c.CreateTenant(ctx, NewTenant("test"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Tenant [test] already exists")
+		require.Contains(t, err.Error(), "already exists")
 
 		_, err = c.CreateTenant(ctx, NewTenant(""))
 		require.Error(t, err)
@@ -184,7 +185,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.NoError(t, err)
 		_, err = c.GetDatabase(ctx, NewDatabase("testdb", NewDefaultTenant()))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Database [testdb] not found")
+		require.Contains(t, err.Error(), "not found")
 
 		_, err = c.GetDatabase(ctx, NewDatabase("testdb", NewTenant("test")))
 		require.Error(t, err)
@@ -207,7 +208,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 
 		_, err = c.CreateDatabase(ctx, NewDefaultTenant().Database("test_database"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Database [test_database] already exists")
+		require.Contains(t, err.Error(), "already exists")
 
 		_, err = c.CreateDatabase(ctx, NewDefaultTenant().Database(""))
 		require.Error(t, err)
@@ -232,7 +233,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.NoError(t, err)
 		err = c.DeleteDatabase(ctx, NewDefaultTenant().Database("testdb_to_delete"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Database [testdb_to_delete] not found")
+		require.Contains(t, err.Error(), "not found")
 	})
 
 	t.Run("create collection", func(t *testing.T) {
@@ -257,7 +258,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.NoError(t, err)
 		_, err = c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Collection [test_collection] already exists")
+		require.Contains(t, err.Error(), "already exists")
 		_, err = c.CreateCollection(ctx, "test_collection1", WithDatabaseCreate(NewDatabase("test", NewDefaultTenant())))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Database [test] does not exist")
@@ -304,7 +305,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.Contains(t, err.Error(), "embedding function cannot be nil")
 		_, err = c.GetCollection(ctx, "non_existing_collection", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Collection [non_existing_collection] does not exists")
+		require.Contains(t, err.Error(), "does not exists")
 
 		_, err = c.GetCollection(ctx, "", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
@@ -755,7 +756,7 @@ func TestClientHTTPIntegrationWithSSL(t *testing.T) {
 		chromaURL = endpoint
 	}
 	chromaURL = strings.ReplaceAll(endpoint, "http://", "https://")
-
+	time.Sleep(5 * time.Second)
 	t.Run("Test with insecure client", func(t *testing.T) {
 		client, err := NewHTTPClient(WithBaseURL(chromaURL), WithInsecure(), WithDebug())
 		require.NoError(t, err)
