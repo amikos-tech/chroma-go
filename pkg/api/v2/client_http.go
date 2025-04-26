@@ -28,7 +28,7 @@ func NewHTTPClient(opts ...ClientOption) (Client, error) {
 		return nil, err
 	}
 	if bc.BaseURL() == "" {
-		bc.SetBaseURL("http://localhost:8080/api/v2")
+		bc.SetBaseURL("http://localhost:8000/api/v2")
 	} else if !strings.HasSuffix(bc.BaseURL(), "/api/v2") {
 		newBasePath, err := url.JoinPath(bc.BaseURL(), "/api/v2")
 		if err != nil {
