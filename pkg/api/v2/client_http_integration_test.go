@@ -25,7 +25,7 @@ import (
 
 func TestClientHTTPIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "0.6.3"
+	var chromaVersion = "1.0.7"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
@@ -683,7 +683,7 @@ func TestClientHTTPIntegrationWithSSL(t *testing.T) {
 
 	ctx := context.Background()
 	var chromaImage = "ghcr.io/chroma-core/chroma"
-	var chromaVersion = "latest"
+	var chromaVersion = "0.6.3"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}

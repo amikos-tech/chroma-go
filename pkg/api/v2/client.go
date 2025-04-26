@@ -747,7 +747,7 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 	}
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil || (resp.StatusCode >= 400 && resp.StatusCode < 599) {
-		if bc.debug {
+		if bc.debug && resp != nil {
 			dump, err := httputil.DumpResponse(resp, true)
 			if err == nil {
 				log.Printf("%s\n", string(dump))
