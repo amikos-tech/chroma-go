@@ -54,7 +54,7 @@ func TestCollectionAdd(t *testing.T) {
 	var tests = []struct {
 		name                 string
 		serverSideValidation func(resp string)
-		addOptions           []CollectionUpdateOption
+		addOptions           []CollectionAddOption
 		limits               string
 	}{
 		{
@@ -66,7 +66,7 @@ func TestCollectionAdd(t *testing.T) {
 				require.Equal(t, []string{"1", "2", "3"}, req.IDs)
 				require.Equal(t, []string{"doc1", "doc2", "doc3"}, req.Documents)
 			},
-			addOptions: []CollectionUpdateOption{
+			addOptions: []CollectionAddOption{
 				WithIDs("1", "2", "3"),
 				WithTexts("doc1", "doc2", "doc3"),
 			},
@@ -82,7 +82,7 @@ func TestCollectionAdd(t *testing.T) {
 				require.Equal(t, []string{"doc1", "doc2", "doc3"}, req.Documents)
 				require.Equal(t, [][]float64{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}}, req.Embeddings)
 			},
-			addOptions: []CollectionUpdateOption{
+			addOptions: []CollectionAddOption{
 				WithIDs("1", "2", "3"),
 				WithTexts("doc1", "doc2", "doc3"),
 				WithEmbeddings(embeddings.NewEmbeddingFromFloat32([]float32{1.0, 2.0, 3.0}), embeddings.NewEmbeddingFromFloat32([]float32{4.0, 5.0, 6.0}), embeddings.NewEmbeddingFromFloat32([]float32{7.0, 8.0, 9.0})),
@@ -105,7 +105,7 @@ func TestCollectionAdd(t *testing.T) {
 					{"metadata1": "metadata1", "metadata2": float64(4), "metadata3": true},
 				}, req.Metadatas)
 			},
-			addOptions: []CollectionUpdateOption{
+			addOptions: []CollectionAddOption{
 				WithIDs("1", "2", "3"),
 				WithTexts("doc1", "doc2", "doc3"),
 				WithEmbeddings(
@@ -180,8 +180,8 @@ func TestCollectionUpdate(t *testing.T) {
 				require.Equal(t, []string{"doc1", "doc2", "doc3"}, req.Documents)
 			},
 			updateOptions: []CollectionUpdateOption{
-				WithIDs("1", "2", "3"),
-				WithTexts("doc1", "doc2", "doc3"),
+				WithIDsUpdate("1", "2", "3"),
+				WithTextsUpdate("doc1", "doc2", "doc3"),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -196,9 +196,9 @@ func TestCollectionUpdate(t *testing.T) {
 				require.Equal(t, [][]float64{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}}, req.Embeddings)
 			},
 			updateOptions: []CollectionUpdateOption{
-				WithIDs("1", "2", "3"),
-				WithTexts("doc1", "doc2", "doc3"),
-				WithEmbeddings(
+				WithIDsUpdate("1", "2", "3"),
+				WithTextsUpdate("doc1", "doc2", "doc3"),
+				WithEmbeddingsUpdate(
 					embeddings.NewEmbeddingFromFloat32([]float32{1.0, 2.0, 3.0}),
 					embeddings.NewEmbeddingFromFloat32([]float32{4.0, 5.0, 6.0}),
 					embeddings.NewEmbeddingFromFloat32([]float32{7.0, 8.0, 9.0}),
@@ -223,14 +223,14 @@ func TestCollectionUpdate(t *testing.T) {
 				}, req.Metadatas)
 			},
 			updateOptions: []CollectionUpdateOption{
-				WithIDs("1", "2", "3"),
-				WithTexts("doc1", "doc2", "doc3"),
-				WithEmbeddings(
+				WithIDsUpdate("1", "2", "3"),
+				WithTextsUpdate("doc1", "doc2", "doc3"),
+				WithEmbeddingsUpdate(
 					embeddings.NewEmbeddingFromFloat32([]float32{1.0, 2.0, 3.0}),
 					embeddings.NewEmbeddingFromFloat32([]float32{4.0, 5.0, 6.0}),
 					embeddings.NewEmbeddingFromFloat32([]float32{7.0, 8.0, 9.0}),
 				),
-				WithMetadatas(
+				WithMetadatasUpdate(
 					NewDocumentMetadata(NewStringAttribute("metadata1", "metadata1"), NewIntAttribute("metadata2", 2), NewBoolAttribute("metadata3", true)),
 					NewDocumentMetadata(NewStringAttribute("metadata1", "metadata1"), NewIntAttribute("metadata2", 3), NewBoolAttribute("metadata3", true)),
 					NewDocumentMetadata(NewStringAttribute("metadata1", "metadata1"), NewIntAttribute("metadata2", 4), NewBoolAttribute("metadata3", true)),
@@ -284,7 +284,7 @@ func TestCollectionUpsert(t *testing.T) {
 	var tests = []struct {
 		name                 string
 		serverSideValidation func(resp string)
-		updateOptions        []CollectionUpdateOption
+		updateOptions        []CollectionAddOption
 		limits               string
 	}{
 		{
@@ -296,7 +296,7 @@ func TestCollectionUpsert(t *testing.T) {
 				require.Equal(t, []string{"1", "2", "3"}, req.IDs)
 				require.Equal(t, []string{"doc1", "doc2", "doc3"}, req.Documents)
 			},
-			updateOptions: []CollectionUpdateOption{
+			updateOptions: []CollectionAddOption{
 				WithIDs("1", "2", "3"),
 				WithTexts("doc1", "doc2", "doc3"),
 			},
@@ -312,7 +312,7 @@ func TestCollectionUpsert(t *testing.T) {
 				require.Equal(t, []string{"doc1", "doc2", "doc3"}, req.Documents)
 				require.Equal(t, [][]float64{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}}, req.Embeddings)
 			},
-			updateOptions: []CollectionUpdateOption{
+			updateOptions: []CollectionAddOption{
 				WithIDs("1", "2", "3"),
 				WithTexts("doc1", "doc2", "doc3"),
 				WithEmbeddings(
@@ -339,7 +339,7 @@ func TestCollectionUpsert(t *testing.T) {
 					{"metadata1": "metadata1", "metadata2": float64(4), "metadata3": true},
 				}, req.Metadatas)
 			},
-			updateOptions: []CollectionUpdateOption{
+			updateOptions: []CollectionAddOption{
 				WithIDs("1", "2", "3"),
 				WithTexts("doc1", "doc2", "doc3"),
 				WithEmbeddings(

@@ -23,9 +23,9 @@ type Collection interface {
 	// Configuration returns the configuration of the collection
 	Configuration() CollectionConfiguration
 	// Add adds a document to the collection
-	Add(ctx context.Context, opts ...CollectionUpdateOption) error
+	Add(ctx context.Context, opts ...CollectionAddOption) error
 	// Upsert updates or adds a document to the collection
-	Upsert(ctx context.Context, opts ...CollectionUpdateOption) error
+	Upsert(ctx context.Context, opts ...CollectionAddOption) error
 	// Update updates a document in the collection
 	Update(ctx context.Context, opts ...CollectionUpdateOption) error
 	// Delete deletes documents from the collection
@@ -241,7 +241,7 @@ func (c *CollectionQueryOp) PrepareAndValidate() error {
 	}
 	if c.Where != nil {
 		if err := c.Where.Validate(); err != nil {
-			return err
+			return errors.Wrap(err, "where validation failed")
 		}
 	}
 	if c.WhereDocument != nil {
@@ -353,7 +353,7 @@ func WithIDsQuery(ids ...DocumentID) CollectionQueryOption {
 
 // Add, Upsert, Update
 
-type CollectionUpdateOp struct {
+type CollectionAddOp struct {
 	Ids         []DocumentID           `json:"ids"`
 	Documents   []Document             `json:"documents,omitempty"`
 	Metadatas   []DocumentMetadata     `json:"metadatas,omitempty"`
@@ -362,8 +362,8 @@ type CollectionUpdateOp struct {
 	IDGenerator IDGenerator            `json:"-"`
 }
 
-func NewCollectionUpdateOp(opts ...CollectionUpdateOption) (*CollectionUpdateOp, error) {
-	update := &CollectionUpdateOp{}
+func NewCollectionAddOp(opts ...CollectionAddOption) (*CollectionAddOp, error) {
+	update := &CollectionAddOp{}
 	for _, opt := range opts {
 		err := opt(update)
 		if err != nil {
@@ -373,7 +373,7 @@ func NewCollectionUpdateOp(opts ...CollectionUpdateOption) (*CollectionUpdateOp,
 	return update, nil
 }
 
-func (c *CollectionUpdateOp) EmbedData(ctx context.Context, ef embeddings.EmbeddingFunction) error {
+func (c *CollectionAddOp) EmbedData(ctx context.Context, ef embeddings.EmbeddingFunction) error {
 	// invariants:
 	// documents only - we embed
 	// documents + embeddings - we skip
@@ -401,7 +401,7 @@ func (c *CollectionUpdateOp) EmbedData(ctx context.Context, ef embeddings.Embedd
 	return nil
 }
 
-func (c *CollectionUpdateOp) GenerateIDs() error {
+func (c *CollectionAddOp) GenerateIDs() error {
 	if c.IDGenerator == nil {
 		return nil
 	}
@@ -431,7 +431,7 @@ func (c *CollectionUpdateOp) GenerateIDs() error {
 	return nil
 }
 
-func (c *CollectionUpdateOp) PrepareAndValidate() error {
+func (c *CollectionAddOp) PrepareAndValidate() error {
 	// invariants
 	// - at least one ID or one record is required
 	// - if IDs are provided, they must be unique
@@ -491,6 +491,171 @@ func (c *CollectionUpdateOp) PrepareAndValidate() error {
 	return nil
 }
 
+func (c *CollectionAddOp) MarshalJSON() ([]byte, error) {
+	type Alias CollectionAddOp
+	return json.Marshal(struct{ *Alias }{Alias: (*Alias)(c)})
+}
+
+func (c *CollectionAddOp) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, c)
+}
+
+func (c *CollectionAddOp) Resource() Resource {
+	return ResourceCollection
+}
+
+func (c *CollectionAddOp) Operation() OperationType {
+	return OperationCreate
+}
+
+type CollectionAddOption func(update *CollectionAddOp) error
+
+func WithTexts(documents ...string) CollectionAddOption {
+	return func(update *CollectionAddOp) error {
+		if len(documents) == 0 {
+			return errors.New("at least one document is required")
+		}
+		if update.Documents == nil {
+			update.Documents = make([]Document, 0)
+		}
+		for _, text := range documents {
+			update.Documents = append(update.Documents, NewTextDocument(text))
+		}
+		return nil
+	}
+}
+
+func WithMetadatas(metadatas ...DocumentMetadata) CollectionAddOption {
+	return func(update *CollectionAddOp) error {
+		update.Metadatas = metadatas
+		return nil
+	}
+}
+
+func WithIDs(ids ...DocumentID) CollectionAddOption {
+	return func(update *CollectionAddOp) error {
+		for _, id := range ids {
+			update.Ids = append(update.Ids, DocumentID(id))
+		}
+		return nil
+	}
+}
+
+func WithIDGenerator(idGenerator IDGenerator) CollectionAddOption {
+	return func(update *CollectionAddOp) error {
+		update.IDGenerator = idGenerator
+		return nil
+	}
+}
+
+func WithEmbeddings(embeddings ...embeddings.Embedding) CollectionAddOption {
+	return func(update *CollectionAddOp) error {
+		update.Embeddings = embeddings
+		return nil
+	}
+}
+
+// Update
+
+type CollectionUpdateOp struct {
+	Ids        []DocumentID           `json:"ids"`
+	Documents  []Document             `json:"documents,omitempty"`
+	Metadatas  []DocumentMetadata     `json:"metadatas,omitempty"`
+	Embeddings []embeddings.Embedding `json:"embeddings"`
+	Records    []Record               `json:"-"`
+}
+
+func NewCollectionUpdateOp(opts ...CollectionUpdateOption) (*CollectionUpdateOp, error) {
+	update := &CollectionUpdateOp{}
+	for _, opt := range opts {
+		err := opt(update)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return update, nil
+}
+
+func (c *CollectionUpdateOp) EmbedData(ctx context.Context, ef embeddings.EmbeddingFunction) error {
+	// invariants:
+	// documents only - we embed
+	// documents + embeddings - we skip
+	// embeddings only - we skip
+	if len(c.Documents) > 0 && len(c.Embeddings) == 0 {
+		if ef == nil {
+			return errors.New("embedding function is required")
+		}
+		texts := make([]string, len(c.Documents))
+		for i, doc := range c.Documents {
+			texts[i] = doc.ContentString()
+		}
+		embeddings, err := ef.EmbedDocuments(ctx, texts)
+		if err != nil {
+			return errors.Wrap(err, "embedding failed")
+		}
+		for i, embedding := range embeddings {
+			if i >= len(c.Embeddings) {
+				c.Embeddings = append(c.Embeddings, embedding)
+			} else {
+				c.Embeddings[i] = embedding
+			}
+		}
+	}
+	return nil
+}
+
+func (c *CollectionUpdateOp) PrepareAndValidate() error {
+	// invariants
+	// - at least one ID or one record is required
+	// - if IDs are provided, they must be unique
+	// - if IDs are provided, the number of documents or embeddings must match the number of IDs
+	// - if IDs are provided, if metadatas are also provided they must match the number of IDs
+
+	if len(c.Ids) == 0 && len(c.Records) == 0 {
+		return errors.New("at least one ID or record is required.") // TODO add link to docs
+	}
+
+	// if IDs are provided, they must be unique
+	idSet := make(map[DocumentID]struct{})
+	for _, id := range c.Ids {
+		if _, exists := idSet[id]; exists {
+			return errors.Errorf("duplicate id found: %s", id)
+		}
+		idSet[id] = struct{}{}
+	}
+
+	// if IDs are provided, the number of documents or embeddings must match the number of IDs
+	if len(c.Documents) > 0 && len(c.Ids) != len(c.Documents) {
+		return errors.Errorf("documents (%d) must match the number of ids (%d)", len(c.Documents), len(c.Ids))
+	}
+
+	if len(c.Embeddings) > 0 && len(c.Ids) != len(c.Embeddings) {
+		return errors.Errorf("embeddings (%d) must match the number of ids (%d)", len(c.Embeddings), len(c.Ids))
+	}
+
+	// if IDs are provided, if metadatas are also provided they must match the number of IDs
+
+	if len(c.Metadatas) > 0 && len(c.Ids) != len(c.Metadatas) {
+		return errors.Errorf("metadatas (%d) must match the number of ids (%d)", len(c.Metadatas), len(c.Ids))
+	}
+
+	if len(c.Records) > 0 {
+		for _, record := range c.Records {
+			err := record.Validate()
+			if err != nil {
+				return errors.Wrap(err, "record validation failed")
+			}
+			recordIds, recordDocuments, recordEmbeddings, recordMetadata := record.Unwrap()
+			c.Ids = append(c.Ids, recordIds)
+			c.Documents = append(c.Documents, recordDocuments)
+			c.Metadatas = append(c.Metadatas, recordMetadata)
+			c.Embeddings = append(c.Embeddings, recordEmbeddings)
+		}
+	}
+
+	return nil
+}
+
 func (c *CollectionUpdateOp) MarshalJSON() ([]byte, error) {
 	type Alias CollectionUpdateOp
 	return json.Marshal(struct{ *Alias }{Alias: (*Alias)(c)})
@@ -505,12 +670,12 @@ func (c *CollectionUpdateOp) Resource() Resource {
 }
 
 func (c *CollectionUpdateOp) Operation() OperationType {
-	return OperationCreate
+	return OperationUpdate
 }
 
 type CollectionUpdateOption func(update *CollectionUpdateOp) error
 
-func WithTexts(documents ...string) CollectionUpdateOption {
+func WithTextsUpdate(documents ...string) CollectionUpdateOption {
 	return func(update *CollectionUpdateOp) error {
 		if len(documents) == 0 {
 			return errors.New("at least one document is required")
@@ -525,14 +690,14 @@ func WithTexts(documents ...string) CollectionUpdateOption {
 	}
 }
 
-func WithMetadatas(metadatas ...DocumentMetadata) CollectionUpdateOption {
+func WithMetadatasUpdate(metadatas ...DocumentMetadata) CollectionUpdateOption {
 	return func(update *CollectionUpdateOp) error {
 		update.Metadatas = metadatas
 		return nil
 	}
 }
 
-func WithIDs(ids ...DocumentID) CollectionUpdateOption {
+func WithIDsUpdate(ids ...DocumentID) CollectionUpdateOption {
 	return func(update *CollectionUpdateOp) error {
 		for _, id := range ids {
 			update.Ids = append(update.Ids, DocumentID(id))
@@ -541,14 +706,7 @@ func WithIDs(ids ...DocumentID) CollectionUpdateOption {
 	}
 }
 
-func WithIDGenerator(idGenerator IDGenerator) CollectionUpdateOption {
-	return func(update *CollectionUpdateOp) error {
-		update.IDGenerator = idGenerator
-		return nil
-	}
-}
-
-func WithEmbeddings(embeddings ...embeddings.Embedding) CollectionUpdateOption {
+func WithEmbeddingsUpdate(embeddings ...embeddings.Embedding) CollectionUpdateOption {
 	return func(update *CollectionUpdateOp) error {
 		update.Embeddings = embeddings
 		return nil

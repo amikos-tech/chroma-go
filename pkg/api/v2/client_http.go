@@ -340,7 +340,7 @@ func (client *APIClientV2) DeleteCollection(ctx context.Context, name string, op
 	}
 	reqURL, err := url.JoinPath(client.BaseAPIClient.BaseURL(), "tenants", req.Database.Tenant().Name(), "databases", req.Database.Name(), "collections", name)
 	if err != nil {
-		return errors.Wrap(err, "error composing request URL")
+		return errors.Wrap(err, "error composing delete request URL")
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, reqURL, nil)
 	if err != nil {
@@ -348,14 +348,14 @@ func (client *APIClientV2) DeleteCollection(ctx context.Context, name string, op
 	}
 	_, err = client.BaseAPIClient.SendRequest(httpReq)
 	if err != nil {
-		return errors.Wrap(err, "error sending request")
+		return errors.Wrap(err, "delete request error")
 	}
 	delete(client.collectionCache, name)
 	return nil
 }
 
 func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts ...GetCollectionOption) (Collection, error) {
-	newOpts := append([]GetCollectionOption{WithDatabaseGet(client.CurrentDatabase())}, opts...)
+	newOpts := append([]GetCollectionOption{WithCollectionNameGet(name), WithDatabaseGet(client.CurrentDatabase())}, opts...)
 	req, err := NewGetCollectionOp(newOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing collection get request")
@@ -364,11 +364,7 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 	if err != nil {
 		return nil, errors.Wrap(err, "error composing request URL")
 	}
-	getOp, err := NewGetCollectionOp(opts...)
-	if err != nil {
-		return nil, errors.Wrap(err, "error preparing collection get request")
-	}
-	err = getOp.PrepareAndValidateCollectionRequest()
+	err = req.PrepareAndValidateCollectionRequest()
 	if err != nil {
 		return nil, errors.Wrap(err, "error validating collection get request")
 	}
@@ -393,7 +389,7 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
 		metadata:          cm.Metadata,
 		client:            client,
-		embeddingFunction: getOp.embeddingFunction,
+		embeddingFunction: req.embeddingFunction,
 	}
 	client.collectionCache[name] = c
 	return c, nil

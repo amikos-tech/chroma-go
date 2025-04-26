@@ -2,7 +2,8 @@ package v2
 
 import (
 	"encoding/json"
-	"errors"
+
+	"github.com/pkg/errors"
 )
 
 type WhereFilterOperator string
@@ -59,6 +60,9 @@ func (w *WhereClauseString) Operand() interface{} {
 }
 
 func (w *WhereClauseString) Validate() error {
+	if w.key == "" {
+		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
 	return nil
 }
 
@@ -98,6 +102,9 @@ func (w *WhereClauseStrings) Operand() interface{} {
 }
 
 func (w *WhereClauseStrings) Validate() error {
+	if w.key == "" {
+		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
@@ -142,6 +149,9 @@ func (w *WhereClauseInt) Operand() interface{} {
 }
 
 func (w *WhereClauseInt) Validate() error {
+	if w.key == "" {
+		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
 	return nil
 }
 
@@ -181,6 +191,9 @@ func (w *WhereClauseInts) Operand() interface{} {
 }
 
 func (w *WhereClauseInts) Validate() error {
+	if w.key == "" {
+		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
@@ -225,6 +238,9 @@ func (w *WhereClauseFloat) Operand() interface{} {
 }
 
 func (w *WhereClauseFloat) Validate() error {
+	if w.key == "" {
+		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
 	return nil
 }
 
@@ -264,6 +280,9 @@ func (w *WhereClauseFloats) Operand() interface{} {
 }
 
 func (w *WhereClauseFloats) Validate() error {
+	if w.key == "" {
+		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
@@ -308,6 +327,9 @@ func (w *WhereClauseBool) Operand() interface{} {
 }
 
 func (w *WhereClauseBool) Validate() error {
+	if w.key == "" {
+		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
 	return nil
 }
 
@@ -347,6 +369,9 @@ func (w *WhereClauseBools) Operand() interface{} {
 }
 
 func (w *WhereClauseBools) Validate() error {
+	if w.key == "" {
+		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
@@ -389,9 +414,6 @@ func (w *WhereClauseWhereClauses) Operand() interface{} {
 }
 
 func (w *WhereClauseWhereClauses) Validate() error {
-	if w.key != "" {
-		return errors.New("invalid key, expected empty")
-	}
 	if w.operator != OrOperator && w.operator != AndOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}

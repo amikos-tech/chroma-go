@@ -157,6 +157,7 @@ func NewListCollectionsOp(opts ...ListCollectionsOption) (*ListCollectionOp, err
 
 type GetCollectionOp struct {
 	embeddingFunction embeddings.EmbeddingFunction
+	name              string
 	Database          Database `json:"-"`
 }
 
@@ -169,6 +170,16 @@ func (op *GetCollectionOp) Operation() OperationType {
 }
 
 type GetCollectionOption func(*GetCollectionOp) error
+
+func WithCollectionNameGet(name string) GetCollectionOption {
+	return func(op *GetCollectionOp) error {
+		if name == "" {
+			return errors.New("collection name cannot be empty")
+		}
+		op.name = name
+		return nil
+	}
+}
 
 func WithEmbeddingFunctionGet(embeddingFunction embeddings.EmbeddingFunction) GetCollectionOption {
 	return func(op *GetCollectionOp) error {
@@ -195,8 +206,11 @@ func WithDatabaseGet(database Database) GetCollectionOption {
 }
 
 func (op *GetCollectionOp) PrepareAndValidateCollectionRequest() error {
+	if op.name == "" {
+		return errors.New("collection name cannot be empty")
+	}
 	if op.embeddingFunction == nil {
-		return fmt.Errorf("embedding function cannot be nil")
+		return errors.New("embedding function cannot be nil")
 	}
 	return nil
 }
@@ -733,6 +747,15 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 	}
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil || (resp.StatusCode >= 400 && resp.StatusCode < 599) {
+		if bc.debug && resp != nil {
+			dump, err := httputil.DumpResponse(resp, true)
+			if err == nil {
+				log.Printf("%s\n", string(dump))
+			}
+			if err != nil {
+				log.Printf("[DEBUG] Failed to get body response: %s\n", err.Error())
+			}
+		}
 		chErr := chhttp.ChromaErrorFromHTTPResponse(resp, err)
 		return nil, errors.Wrap(chErr, "error sending request")
 	}

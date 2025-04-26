@@ -20,7 +20,7 @@ import (
 
 func TestCollectionAddIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "1.0.6"
+	var chromaVersion = "1.0.7"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
@@ -97,7 +97,38 @@ func TestCollectionAddIntegration(t *testing.T) {
 		count, err := collection.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 3, count)
+
+		err = collection.Add(ctx, WithIDs("4", "5", "6"), WithTexts("test_document_4", "test_document_5", "test_document_6"))
+		require.NoError(t, err)
+
+		err = collection.Add(ctx, WithIDGenerator(NewSHA256Generator()), WithTexts("test_document_7", "test_document_8", "test_document_9"))
+		require.NoError(t, err)
+
+		err = collection.Add(ctx, WithIDGenerator(NewULIDGenerator()), WithTexts("test_document_10", "test_document_11", "test_document_12"))
+		require.NoError(t, err)
 	})
+
+	t.Run("add documents with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		// no ids or id generator
+		err = collection.Add(ctx, WithTexts("test_document_1", "test_document_2", "test_document_3"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one ID or record is required. Alternatively, an ID generator can be provided")
+
+		err = collection.Add(ctx, WithEmbeddings(embeddings.NewEmbeddingFromFloat32([]float32{1.0, 2.0, 3.0})))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one ID or record is required. Alternatively, an ID generator can be provided")
+
+		// no documents or embeddings
+		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one document or embedding is required")
+
+	})
+
 	t.Run("get documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
@@ -108,7 +139,38 @@ func TestCollectionAddIntegration(t *testing.T) {
 		res, err := collection.Get(ctx, WithIDsGet("1", "2", "3"))
 		require.NoError(t, err)
 		require.Equal(t, 3, len(res.GetIDs()))
+
+		res, err = collection.Get(ctx, WithIDsGet("1_1", "2_3", "3_0"))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(res.GetIDs()))
+
+		res, err = collection.Get(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(res.GetIDs()))
+
 	})
+
+	t.Run("get documents with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+
+		// wrong limit
+		_, err = collection.Get(ctx, WithLimitGet(-1))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "limit must be greater than 0")
+
+		_, err = collection.Get(ctx, WithLimitGet(0))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "limit must be greater than 0")
+
+		// wrong offset
+		_, err = collection.Get(ctx, WithOffsetGet(-1))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "offset must be greater than or equal to 0")
+	})
+
 	t.Run("get documents with limit and offset", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
@@ -163,6 +225,19 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, count)
 	})
+
+	t.Run("delete documents with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+
+		// No Filters
+		err = collection.Delete(ctx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one filter is required, ids, where or whereDocument")
+	})
+
 	t.Run("upsert documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
@@ -184,6 +259,26 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.Equal(t, "test_document_3_updated", res.GetDocuments()[2].ContentString())
 	})
 
+	t.Run("upsert with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		// no ids or id generator
+		err = collection.Upsert(ctx, WithTexts("test_document_1", "test_document_2", "test_document_3"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one ID or record is required. Alternatively, an ID generator can be provided")
+
+		err = collection.Upsert(ctx, WithEmbeddings(embeddings.NewEmbeddingFromFloat32([]float32{1.0, 2.0, 3.0})))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one ID or record is required. Alternatively, an ID generator can be provided")
+
+		// no documents or embeddings
+		err = collection.Upsert(ctx, WithIDGenerator(NewUUIDGenerator()))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one document or embedding is required")
+	})
+
 	t.Run("update documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
@@ -191,7 +286,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
-		err = collection.Update(ctx, WithIDs("1", "2", "3"), WithTexts("test_document_1_updated", "test_document_2_updated", "test_document_3_updated"))
+		err = collection.Update(ctx, WithIDsUpdate("1", "2", "3"), WithTextsUpdate("test_document_1_updated", "test_document_2_updated", "test_document_3_updated"))
 		require.NoError(t, err)
 		count, err := collection.Count(ctx)
 		require.NoError(t, err)
@@ -203,6 +298,27 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.Equal(t, "test_document_2_updated", res.GetDocuments()[1].ContentString())
 		require.Equal(t, "test_document_3_updated", res.GetDocuments()[2].ContentString())
 	})
+
+	t.Run("update documents with errors", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		// silent ignore of update
+		err = collection.Update(ctx, WithIDsUpdate("1", "2", "3"), WithTextsUpdate("test_document_1_updated", "test_document_2_updated", "test_document_3_updated"))
+		require.NoError(t, err)
+		count, err := collection.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+
+		// no ids
+		err = collection.Update(ctx, WithTextsUpdate("test_document_1_updated", "test_document_2_updated", "test_document_3_updated"))
+		require.Error(t, err)
+		fmt.Println("error", err)
+		require.Contains(t, err.Error(), "at least one ID or record is required.")
+
+	})
+
 	t.Run("query documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
@@ -323,5 +439,35 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.Equal(t, 1, len(res.GetDocumentsGroups()))
 		require.Equal(t, 2, len(res.GetDocumentsGroups()[0]))
 		require.Equal(t, "test_document_1", res.GetDocumentsGroups()[0][0].ContentString())
+	})
+
+	t.Run("query with errors ", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		// no options
+		_, err = collection.Query(ctx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one query embedding or query text is required")
+
+		// empty query texts
+
+		_, err = collection.Query(ctx, WithQueryTexts())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one query text is required")
+		// empty query embeddings
+		_, err = collection.Query(ctx, WithQueryEmbeddings())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one query embedding is required")
+		// empty query IDs
+		_, err = collection.Query(ctx, WithIDsQuery(), WithQueryTexts("test"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one id is required")
+
+		// empty where
+		_, err = collection.Query(ctx, WithWhereQuery(EqString("", "")), WithQueryTexts("test"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid key for $eq, expected non-empty")
 	})
 }
