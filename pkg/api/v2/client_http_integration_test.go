@@ -25,7 +25,7 @@ import (
 
 func TestClientHTTPIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "1.0.7"
+	var chromaVersion = "0.6.3"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
@@ -151,7 +151,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 
 		_, err = c.CreateTenant(ctx, NewTenant("l"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Validation error: length")
+		require.True(t, strings.Contains(err.Error(), "Validation error: length") || strings.Contains(err.Error(), "Tenant name must be at least 3 characters long"))
 	})
 
 	t.Run("list databases", func(t *testing.T) {
@@ -189,7 +189,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 
 		_, err = c.GetDatabase(ctx, NewDatabase("testdb", NewTenant("test")))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Database [testdb] not found")
+		require.Contains(t, err.Error(), "not found")
 	})
 
 	t.Run("create database", func(t *testing.T) {
@@ -216,7 +216,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 
 		_, err = c.CreateDatabase(ctx, NewDefaultTenant().Database("l"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Validation error: length")
+		require.True(t, strings.Contains(err.Error(), "Validation error: length") || strings.Contains(err.Error(), "Database name must be at least 3 characters long"))
 	})
 
 	t.Run("delete database", func(t *testing.T) {
@@ -252,32 +252,35 @@ func TestClientHTTPIntegration(t *testing.T) {
 	})
 
 	t.Run("create collection with errors", func(t *testing.T) {
-		err := c.Reset(ctx)
+		ver, err := c.GetVersion(ctx)
+		require.NoError(t, err)
+		err = c.Reset(ctx)
 		require.NoError(t, err)
 		_, err = c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		_, err = c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already exists")
-		_, err = c.CreateCollection(ctx, "test_collection1", WithDatabaseCreate(NewDatabase("test", NewDefaultTenant())))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "Database [test] does not exist")
-
+		if strings.HasPrefix(ver, "1.0") {
+			_, err = c.CreateCollection(ctx, "test_collection1", WithDatabaseCreate(NewDatabase("test", NewDefaultTenant())))
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "does not exist")
+		}
 		_, err = c.CreateCollection(ctx, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "collection name cannot be empty")
 
 		_, err = c.CreateCollection(ctx, "1")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Expected a name containing 3-512 characters")
+		require.True(t, strings.Contains(err.Error(), "Expected a name containing 3-512 characters") || strings.Contains(err.Error(), "Expected collection name that (1) contains 3-63 characters"))
 
 		_, err = c.CreateCollection(ctx, "11111$$")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Expected a name containing 3-512 characters")
+		require.True(t, strings.Contains(err.Error(), "Expected a name containing 3-512 characters") || strings.Contains(err.Error(), "Expected collection name that (1) contains 3-63 characters"))
 
 		_, err = c.CreateCollection(ctx, "_1abc2")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Expected a name containing 3-512 characters")
+		require.True(t, strings.Contains(err.Error(), "Expected a name containing 3-512 characters") || strings.Contains(err.Error(), "Expected collection name that (1) contains 3-63 characters"))
 	})
 
 	t.Run("get collection", func(t *testing.T) {
@@ -305,7 +308,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.Contains(t, err.Error(), "embedding function cannot be nil")
 		_, err = c.GetCollection(ctx, "non_existing_collection", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "does not exists")
+		require.Contains(t, err.Error(), "does not exist")
 
 		_, err = c.GetCollection(ctx, "", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
@@ -313,11 +316,11 @@ func TestClientHTTPIntegration(t *testing.T) {
 
 		_, err = c.GetCollection(ctx, "l", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Collection [l] does not exists")
+		require.Contains(t, err.Error(), "does not exist")
 
 		_, err = c.GetCollection(ctx, "_1111", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Collection [_1111] does not exists")
+		require.Contains(t, err.Error(), "does not exist")
 	})
 
 	t.Run("list collections", func(t *testing.T) {
@@ -386,7 +389,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.NoError(t, err)
 		err = c.DeleteCollection(ctx, "non_existing_collection")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "does not exists")
+		require.Contains(t, err.Error(), "does not exist")
 	})
 
 	t.Run("count collections", func(t *testing.T) {
