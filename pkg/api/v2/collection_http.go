@@ -50,6 +50,7 @@ type CollectionImpl struct {
 	tenant            Tenant
 	database          Database
 	metadata          CollectionMetadata
+	dimension         int
 	configuration     CollectionConfiguration
 	client            *APIClientV2
 	embeddingFunction embeddings.EmbeddingFunction
@@ -71,6 +72,10 @@ func (c *CollectionImpl) Tenant() Tenant {
 
 func (c *CollectionImpl) Database() Database {
 	return c.database
+}
+
+func (c *CollectionImpl) Dimension() int {
+	return c.dimension
 }
 
 func (c *CollectionImpl) Configuration() CollectionConfiguration {
