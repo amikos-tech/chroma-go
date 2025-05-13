@@ -318,6 +318,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		metadata:          cm.Metadata,
 		client:            client,
 		embeddingFunction: req.embeddingFunction,
+		dimension:         cm.Dimension,
 	}
 	client.collectionCache[cm.Name] = c
 	return c, nil
