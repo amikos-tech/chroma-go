@@ -45,3 +45,10 @@ func WithDefaultHeaders(headers map[string]string) Option {
 		return nil
 	}
 }
+
+func WithIsHFEIEndpoint() Option {
+	return func(p *HuggingFaceClient) error {
+		p.IsHFEIEndpoint = true
+		return nil
+	}
+}

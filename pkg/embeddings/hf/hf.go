@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
+
+	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
@@ -18,11 +20,12 @@ type HuggingFaceClient struct {
 	Model          string
 	Client         *http.Client
 	DefaultHeaders map[string]string
+	IsHFEIEndpoint bool
 }
 
 func NewHuggingFaceClient(apiKey string, model string) *HuggingFaceClient {
 	return &HuggingFaceClient{
-		BaseURL: "https://api-inference.huggingface.co/pipeline/feature-extraction/",
+		BaseURL: "https://router.huggingface.co/hf-inference/models/",
 		Client:  &http.Client{},
 		APIKey:  apiKey,
 		Model:   model,
@@ -31,7 +34,7 @@ func NewHuggingFaceClient(apiKey string, model string) *HuggingFaceClient {
 
 func NewHuggingFaceClientFromOptions(opts ...Option) (*HuggingFaceClient, error) {
 	c := &HuggingFaceClient{
-		BaseURL: "https://api-inference.huggingface.co/pipeline/feature-extraction/",
+		BaseURL: "https://router.huggingface.co/hf-inference/models/",
 		Client:  &http.Client{},
 	}
 
@@ -81,11 +84,17 @@ func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbe
 	if err != nil {
 		return nil, err
 	}
-	var url = c.BaseURL + c.Model
-	if !strings.HasSuffix(c.BaseURL, "/") && c.Model != "" {
-		url = c.BaseURL + "/" + c.Model
+	var reqURL string
+	if c.IsHFEIEndpoint {
+		reqURL = c.BaseURL
+	} else {
+		reqURL, err = url.JoinPath(c.BaseURL, c.Model, "pipeline", "feature-extraction")
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to build HF request URL")
+		}
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBufferString(reqJSON))
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", reqURL, bytes.NewBufferString(reqJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +113,7 @@ func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbe
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected code [%v] while making a request to %v", resp.Status, url)
+		return nil, fmt.Errorf("unexpected code [%v] while making a request to %v", resp.Status, reqURL)
 	}
 
 	respData, err := io.ReadAll(resp.Body)
@@ -112,12 +121,12 @@ func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbe
 		return nil, err
 	}
 
-	var embeddings [][]float32
-	if err := json.Unmarshal(respData, &embeddings); err != nil {
+	var embds [][]float32
+	if err := json.Unmarshal(respData, &embds); err != nil {
 		return nil, err
 	}
 	var createEmbeddingResponse = CreateEmbeddingResponse{
-		Embeddings: embeddings,
+		Embeddings: embds,
 	}
 
 	return &createEmbeddingResponse, nil
@@ -149,7 +158,7 @@ func NewHuggingFaceEmbeddingFunctionFromOptions(opts ...Option) (*HuggingFaceEmb
 }
 
 func NewHuggingFaceEmbeddingInferenceFunction(baseURL string, opts ...Option) (*HuggingFaceEmbeddingFunction, error) {
-	opts = append(opts, WithBaseURL(baseURL))
+	opts = append(opts, WithBaseURL(baseURL), WithIsHFEIEndpoint())
 	cli, err := NewHuggingFaceClientFromOptions(opts...)
 	if err != nil {
 		return nil, err
