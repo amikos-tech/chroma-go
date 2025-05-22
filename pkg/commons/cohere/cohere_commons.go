@@ -9,10 +9,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
-
 	httpc "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/go-playground/validator/v10"
 )
 
 type APIVersion string

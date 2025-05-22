@@ -67,7 +67,7 @@ lint:
 
 .PHONY: lint-fix
 lint-fix:
-	golangci-lint run --fix --skip-dirs=./swagger ./...
+	golangci-lint run --fix ./...
 
 .PHONY: clean-lint-cache
 clean-lint-cache:

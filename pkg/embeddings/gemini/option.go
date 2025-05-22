@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/google/generative-ai-go/genai"
-
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/google/generative-ai-go/genai"
 )
 
 type Option func(p *Client) error

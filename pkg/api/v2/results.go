@@ -3,9 +3,8 @@ package v2
 import (
 	"encoding/json"
 
-	"github.com/pkg/errors"
-
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/pkg/errors"
 )
 
 type GetResult interface {

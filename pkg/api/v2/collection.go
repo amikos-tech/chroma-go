@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/pkg/errors"
-
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/pkg/errors"
 )
 
 type Collection interface {

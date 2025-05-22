@@ -8,10 +8,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -141,13 +140,13 @@ func (c *CohereEmbeddingFunction) CreateEmbedding(ctx context.Context, req *Crea
 		return nil, err
 	}
 
-	httpReq, err := c.CohereClient.GetRequest(ctx, "POST", c.EmbeddingEndpoint, reqJSON)
+	httpReq, err := c.GetRequest(ctx, "POST", c.EmbeddingEndpoint, reqJSON)
 	if err != nil {
 		return nil, err
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := c.CohereClient.DoRequest(httpReq)
+	resp, err := c.DoRequest(httpReq)
 
 	if err != nil {
 		return nil, err
@@ -175,7 +174,7 @@ func (c *CohereEmbeddingFunction) CreateEmbedding(ctx context.Context, req *Crea
 // Accepts value model in context to override the default model.
 // Accepts value embedding_types in context to override the default embedding types.
 func (c *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
-	_model := c.CohereClient.DefaultModel
+	_model := c.DefaultModel
 	if ctx.Value("model") != nil {
 		_model = embeddings.EmbeddingModel(ctx.Value("model").(string))
 	}
@@ -212,7 +211,7 @@ func (c *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 // Accepts value model in context to override the default model.
 // Accepts value embedding_types in context to override the default embedding types.
 func (c *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
-	_model := c.CohereClient.DefaultModel
+	_model := c.DefaultModel
 	if ctx.Value("model") != nil {
 		_model = embeddings.EmbeddingModel(ctx.Value("model").(string))
 	}
