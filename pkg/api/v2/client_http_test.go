@@ -320,6 +320,7 @@ func TestAPIClient(t *testing.T) {
 		require.Len(t, cols, 1)
 		c := cols[0]
 		require.Equal(t, "8ecf0f7e-e806-47f8-96a1-4732ef42359e", c.ID())
+		require.Equal(t, 384, c.Dimension())
 		require.Equal(t, "testcoll", c.Name())
 		require.Equal(t, NewDefaultTenant(), c.Tenant())
 		require.Equal(t, NewDefaultDatabase(), c.Database())
@@ -381,11 +382,12 @@ func TestAPIClient(t *testing.T) {
 				err = json.Unmarshal([]byte(respBody), &op)
 				require.NoError(t, err)
 				cm := CollectionModel{
-					ID:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
-					Name:     op.Name,
-					Tenant:   values.Get("tenant"),
-					Database: values.Get("database"),
-					Metadata: op.Metadata,
+					ID:        "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+					Name:      op.Name,
+					Tenant:    values.Get("tenant"),
+					Database:  values.Get("database"),
+					Metadata:  op.Metadata,
+					Dimension: 9001,
 				}
 				err = json.NewEncoder(w).Encode(&cm)
 				require.NoError(t, err)
@@ -399,6 +401,9 @@ func TestAPIClient(t *testing.T) {
 		c, err := innerClient.GetOrCreateCollection(context.Background(), "test", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		require.NotNil(t, c)
+		require.Equal(t, "8ecf0f7e-e806-47f8-96a1-4732ef42359e", c.ID())
+		require.Equal(t, "test", c.Name())
+		require.Equal(t, 9001, c.Dimension())
 	})
 
 	t.Run("GetCollection", func(t *testing.T) {
@@ -410,11 +415,12 @@ func TestAPIClient(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				require.NoError(t, err)
 				cm := CollectionModel{
-					ID:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
-					Name:     "test",
-					Tenant:   "default_tenant",
-					Database: "default_database",
-					Metadata: NewMetadataFromMap(map[string]any{"t": 1}),
+					ID:        "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+					Name:      "test",
+					Tenant:    "default_tenant",
+					Database:  "default_database",
+					Metadata:  NewMetadataFromMap(map[string]any{"t": 1}),
+					Dimension: 9001,
 				}
 				err = json.NewEncoder(w).Encode(&cm)
 				require.NoError(t, err)
@@ -434,6 +440,7 @@ func TestAPIClient(t *testing.T) {
 		require.Equal(t, NewDefaultTenant(), c.Tenant())
 		require.Equal(t, NewDefaultDatabase(), c.Database())
 		require.NotNil(t, c.Metadata())
+		require.Equal(t, 9001, c.Dimension())
 		vi, ok := c.Metadata().GetInt("t")
 		require.True(t, ok)
 		require.Equal(t, int64(1), vi)

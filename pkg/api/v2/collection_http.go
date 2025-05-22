@@ -107,7 +107,7 @@ func (c *CollectionImpl) Add(ctx context.Context, opts ...CollectionAddOption) e
 	if err != nil {
 		return errors.Wrap(err, "error composing request URL")
 	}
-	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, addObject)
+	_, err = c.client.ExecuteRequest(ctx, http.MethodPost, reqURL, addObject)
 	if err != nil {
 		return errors.Wrap(err, "error sending request")
 	}
@@ -139,7 +139,7 @@ func (c *CollectionImpl) Upsert(ctx context.Context, opts ...CollectionAddOption
 	if err != nil {
 		return err
 	}
-	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, upsertObject)
+	_, err = c.client.ExecuteRequest(ctx, http.MethodPost, reqURL, upsertObject)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func (c *CollectionImpl) Update(ctx context.Context, opts ...CollectionUpdateOpt
 	if err != nil {
 		return err
 	}
-	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, updateObject)
+	_, err = c.client.ExecuteRequest(ctx, http.MethodPost, reqURL, updateObject)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func (c *CollectionImpl) Delete(ctx context.Context, opts ...CollectionDeleteOpt
 	if err != nil {
 		return err
 	}
-	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, deleteObject)
+	_, err = c.client.ExecuteRequest(ctx, http.MethodPost, reqURL, deleteObject)
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (c *CollectionImpl) Count(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, errors.Wrap(err, "error composing request URL")
 	}
-	respBody, err := c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodGet, reqURL, nil)
+	respBody, err := c.client.ExecuteRequest(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return 0, errors.Wrap(err, "error getting collection count")
 	}
@@ -224,7 +224,7 @@ func (c *CollectionImpl) ModifyName(ctx context.Context, newName string) error {
 	if err != nil {
 		return errors.Wrap(err, "error composing request URL")
 	}
-	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPut, reqURL, map[string]string{"new_name": newName})
+	_, err = c.client.ExecuteRequest(ctx, http.MethodPut, reqURL, map[string]string{"new_name": newName})
 	if err != nil {
 		return errors.Wrap(err, "error modifying collection name")
 	}
@@ -238,7 +238,7 @@ func (c *CollectionImpl) ModifyMetadata(ctx context.Context, newMetadata Collect
 	if err != nil {
 		return err
 	}
-	_, err = c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPut, reqURL, map[string]interface{}{"new_metadata": newMetadata})
+	_, err = c.client.ExecuteRequest(ctx, http.MethodPut, reqURL, map[string]interface{}{"new_metadata": newMetadata})
 	if err != nil {
 		return err
 	}
@@ -257,7 +257,7 @@ func (c *CollectionImpl) Get(ctx context.Context, opts ...CollectionGetOption) (
 	if err != nil {
 		return nil, err
 	}
-	respBody, err := c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, getObject)
+	respBody, err := c.client.ExecuteRequest(ctx, http.MethodPost, reqURL, getObject)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting collection")
 	}
@@ -285,7 +285,7 @@ func (c *CollectionImpl) Query(ctx context.Context, opts ...CollectionQueryOptio
 	if err != nil {
 		return nil, errors.Wrap(err, "error building query url")
 	}
-	respBody, err := c.client.BaseAPIClient.ExecuteRequest(ctx, http.MethodPost, reqURL, querybject)
+	respBody, err := c.client.ExecuteRequest(ctx, http.MethodPost, reqURL, querybject)
 	if err != nil {
 		return nil, errors.Wrap(err, "error sending query request")
 	}
