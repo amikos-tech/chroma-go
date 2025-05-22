@@ -10,8 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/pkg/errors"
+
+	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 )
 
 type APIClientV2 struct {

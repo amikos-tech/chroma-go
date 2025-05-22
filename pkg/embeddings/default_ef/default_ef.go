@@ -9,9 +9,10 @@ import (
 	"sync"
 	"sync/atomic"
 
+	ort "github.com/yalue/onnxruntime_go"
+
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	tokenizers "github.com/amikos-tech/chroma-go/pkg/tokenizers/libtokenizers"
-	ort "github.com/yalue/onnxruntime_go"
 )
 
 type Option func(p *DefaultEmbeddingFunction) error

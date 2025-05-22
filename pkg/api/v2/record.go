@@ -1,8 +1,9 @@
 package v2
 
 import (
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type Record interface {

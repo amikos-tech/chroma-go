@@ -8,8 +8,9 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type CollectionModel struct {

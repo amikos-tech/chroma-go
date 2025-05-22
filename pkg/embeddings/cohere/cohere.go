@@ -8,9 +8,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	"github.com/pkg/errors"
 )
 
 const (

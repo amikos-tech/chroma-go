@@ -12,13 +12,14 @@ import (
 	"strings"
 	time "time"
 
+	"github.com/google/uuid"
+	"github.com/oklog/ulid"
+	"github.com/pkg/errors"
+
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	openapi "github.com/amikos-tech/chroma-go/swagger"
 	"github.com/amikos-tech/chroma-go/where"
 	wheredoc "github.com/amikos-tech/chroma-go/where_document"
-	"github.com/google/uuid"
-	"github.com/oklog/ulid"
-	"github.com/pkg/errors"
 )
 
 type DistanceFunction string

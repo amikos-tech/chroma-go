@@ -13,10 +13,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
+
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
-	"github.com/pkg/errors"
 )
 
 type Client interface {
