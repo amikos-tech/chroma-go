@@ -20,6 +20,8 @@ type Collection interface {
 	Database() Database
 	// Metadata returns the metadata of the collection
 	Metadata() CollectionMetadata
+	// Dimension returns the dimension of the embeddings in the collection
+	Dimension() int
 	// Configuration returns the configuration of the collection
 	Configuration() CollectionConfiguration
 	// Add adds a document to the collection
