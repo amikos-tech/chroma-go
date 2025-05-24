@@ -135,11 +135,12 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	if err != nil {
 		return nil, errors.Wrap(err, "failed send request to Cloudflare API")
 	}
+	defer resp.Body.Close()
+
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
-	defer resp.Body.Close()
 	// we also process any embedding errors in the response
 	var embeddings CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddings); err != nil {

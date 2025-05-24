@@ -135,11 +135,13 @@ func (c *TogetherAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request to TogetherAI API")
 	}
+	defer resp.Body.Close()
+
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
-	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.BaseAPI, string(respData))
 	}

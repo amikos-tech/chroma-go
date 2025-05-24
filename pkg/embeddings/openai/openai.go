@@ -169,11 +169,12 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request to OpenAI API")
 	}
+	defer resp.Body.Close()
+
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("unexpected response %v, %v", resp.Status, string(respData))

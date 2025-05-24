@@ -1,6 +1,6 @@
 //go:build ef
 
-package mistral
+package nomic
 
 import (
 	"context"

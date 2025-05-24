@@ -128,12 +128,12 @@ func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request to Mistral API")
 	}
+	defer resp.Body.Close()
 
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("unexpected code [%v] while making a request to %v: %v", resp.Status, c.EmbeddingEndpoint, string(respData))

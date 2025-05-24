@@ -1,4 +1,4 @@
-package mistral
+package nomic
 
 import (
 	"net/http"

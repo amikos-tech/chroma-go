@@ -149,16 +149,15 @@ func (c *CohereEmbeddingFunction) CreateEmbedding(ctx context.Context, req *Crea
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	httpReq.Header.Set("Content-Type", "application/json")
 	resp, err := c.DoRequest(httpReq)
-
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request")
 	}
+	defer resp.Body.Close()
 
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("unexpected code %v for response: %s", resp.Status, string(respData))

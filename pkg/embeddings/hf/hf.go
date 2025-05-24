@@ -96,11 +96,12 @@ func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbe
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request to Hugging Face API")
 	}
+	defer resp.Body.Close()
+
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("unexpected code [%v] while making a request to %v: %v", resp.Status, reqURL, string(respData))

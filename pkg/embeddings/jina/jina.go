@@ -94,12 +94,12 @@ func (e *JinaEmbeddingFunction) sendRequest(ctx context.Context, req *EmbeddingR
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to send embedding request")
 	}
+	defer resp.Body.Close()
 
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read response body")
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("unexpected response %v: %s", resp.Status, string(respData))
