@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
+	"github.com/pkg/errors"
+
+	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
@@ -45,13 +47,13 @@ func applyDefaults(c *TogetherAIClient) {
 
 func validate(c *TogetherAIClient) error {
 	if c.APIToken == "" {
-		return fmt.Errorf("API key is required")
+		return errors.New("API key is required")
 	}
-	if c.MaxBatchSize < 1 {
-		return fmt.Errorf("max batch size must be greater than 0")
+	if c.MaxBatchSize <= 0 {
+		return errors.New("max batch size must be greater than 0")
 	}
 	if c.MaxBatchSize > defaultMaxSize {
-		return fmt.Errorf("max batch size must be less than %d", defaultMaxSize)
+		return errors.Errorf("max batch size must be less than %d", defaultMaxSize)
 	}
 	return nil
 }
@@ -62,12 +64,12 @@ func NewTogetherClient(opts ...Option) (*TogetherAIClient, error) {
 	for _, opt := range opts {
 		err := opt(client)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to apply TogetherAI option")
 		}
 	}
 	applyDefaults(client)
 	if err := validate(client); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to validate TogetherAI client options")
 	}
 	return client, nil
 }
@@ -84,7 +86,7 @@ func (e *EmbeddingInputs) MarshalJSON() ([]byte, error) {
 	if e.Inputs != nil {
 		return json.Marshal(e.Inputs)
 	}
-	return nil, fmt.Errorf("EmbeddingInput has no data")
+	return nil, errors.New("EmbeddingInput has no data")
 }
 
 type CreateEmbeddingRequest struct {
@@ -108,7 +110,7 @@ type CreateEmbeddingResponse struct {
 func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	data, err := json.Marshal(c)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to marshal embedding request JSON")
 	}
 	return string(data), nil
 }
@@ -116,33 +118,34 @@ func (c *CreateEmbeddingRequest) JSON() (string, error) {
 func (c *TogetherAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to marshal embedding request JSON")
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.BaseAPI, bytes.NewBufferString(reqJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseAPI, bytes.NewBufferString(reqJSON))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create http request")
 	}
 	for k, v := range c.DefaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken)
 	resp, err := c.Client.Do(httpReq)
-
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to send request to TogetherAI API")
 	}
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.BaseAPI, string(respData))
 	}
 	var embeddings CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddings); err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.BaseAPI, string(respData))
+		return nil, errors.Wrap(err, "failed to unmarshal response body")
 	}
 
 	return &embeddings, nil
@@ -157,7 +160,7 @@ type TogetherEmbeddingFunction struct {
 func NewTogetherEmbeddingFunction(opts ...Option) (*TogetherEmbeddingFunction, error) {
 	client, err := NewTogetherClient(opts...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to initialize TogetherAI client")
 	}
 
 	return &TogetherEmbeddingFunction{apiClient: client}, nil
@@ -173,7 +176,7 @@ func (e *TogetherEmbeddingFunction) getModelFromContext(ctx context.Context) emb
 
 func (e *TogetherEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if len(documents) > e.apiClient.MaxBatchSize {
-		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
+		return nil, errors.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if len(documents) == 0 {
 		return embeddings.NewEmptyEmbeddings(), nil
@@ -184,7 +187,7 @@ func (e *TogetherEmbeddingFunction) EmbedDocuments(ctx context.Context, document
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed documents")
 	}
 	emb := make([]embeddings.Embedding, 0, len(response.Data))
 	for _, result := range response.Data {
@@ -200,7 +203,7 @@ func (e *TogetherEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
 }

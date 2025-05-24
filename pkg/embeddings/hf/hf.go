@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 
 	"github.com/pkg/errors"
 
+	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
@@ -40,26 +40,10 @@ func NewHuggingFaceClientFromOptions(opts ...Option) (*HuggingFaceClient, error)
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to apply HuggingFace option")
 		}
 	}
 	return c, nil
-}
-
-func (c *HuggingFaceClient) SetAPIKey(apiKey string) {
-	c.APIKey = apiKey
-}
-
-func (c *HuggingFaceClient) SetBaseURL(baseURL string) {
-	c.BaseURL = baseURL
-}
-
-func (c *HuggingFaceClient) getAPIKey() string {
-	return c.APIKey
-}
-
-func (c *HuggingFaceClient) SetModel(model string) {
-	c.Model = model
 }
 
 type CreateEmbeddingRequest struct {
@@ -74,7 +58,7 @@ type CreateEmbeddingResponse struct {
 func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	data, err := json.Marshal(c)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to marshal embedding request")
 	}
 	return string(data), nil
 }
@@ -82,7 +66,7 @@ func (c *CreateEmbeddingRequest) JSON() (string, error) {
 func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to marshal request to JSON")
 	}
 	var reqURL string
 	if c.IsHFEIEndpoint {
@@ -94,36 +78,37 @@ func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbe
 		}
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", reqURL, bytes.NewBufferString(reqJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBufferString(reqJSON))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create HTTP request")
 	}
 	for k, v := range c.DefaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
 	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	httpReq.Header.Set("Content-Type", "application/json")
-	if c.getAPIKey() != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.getAPIKey())
+	if c.APIKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
 	}
 
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to send request to Hugging Face API")
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected code [%v] while making a request to %v", resp.Status, reqURL)
-	}
-
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v: %v", resp.Status, reqURL, string(respData))
 	}
 
 	var embds [][]float32
 	if err := json.Unmarshal(respData, &embds); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal response body")
 	}
 	var createEmbeddingResponse = CreateEmbeddingResponse{
 		Embeddings: embds,
@@ -149,7 +134,7 @@ func NewHuggingFaceEmbeddingFunction(apiKey string, model string) *HuggingFaceEm
 func NewHuggingFaceEmbeddingFunctionFromOptions(opts ...Option) (*HuggingFaceEmbeddingFunction, error) {
 	cli, err := NewHuggingFaceClientFromOptions(opts...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create HuggingFace client")
 	}
 
 	return &HuggingFaceEmbeddingFunction{
@@ -161,7 +146,7 @@ func NewHuggingFaceEmbeddingInferenceFunction(baseURL string, opts ...Option) (*
 	opts = append(opts, WithBaseURL(baseURL), WithIsHFEIEndpoint())
 	cli, err := NewHuggingFaceClientFromOptions(opts...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create HFEI client")
 	}
 
 	return &HuggingFaceEmbeddingFunction{
@@ -174,7 +159,7 @@ func (e *HuggingFaceEmbeddingFunction) EmbedDocuments(ctx context.Context, docum
 		Inputs: documents,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed documents")
 	}
 	return embeddings.NewEmbeddingsFromFloat32(response.Embeddings)
 }
@@ -184,7 +169,7 @@ func (e *HuggingFaceEmbeddingFunction) EmbedQuery(ctx context.Context, document 
 		Inputs: []string{document},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
 }

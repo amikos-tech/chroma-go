@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pkg/errors"
+
+	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
@@ -57,19 +60,19 @@ func applyDefaults(c *CloudflareClient) {
 
 func validate(c *CloudflareClient) error {
 	if c.APIToken == "" {
-		return fmt.Errorf("API key is required")
+		return errors.Errorf("API key is required")
 	}
 	if c.AccountID == "" && !c.IsGateway {
-		return fmt.Errorf("account ID is required")
+		return errors.Errorf("account ID is required")
 	}
 	if c.AccountID != "" && c.IsGateway {
-		fmt.Printf("account ID is ignored when using gateway mode")
+		return errors.New("account ID is ignored when using gateway mode")
 	}
 	if c.MaxBatchSize < 1 {
-		return fmt.Errorf("max batch size must be greater than 0")
+		return errors.Errorf("max batch size must be greater than 0")
 	}
 	if c.MaxBatchSize > defaultMaxSize {
-		return fmt.Errorf("max batch size must be less than %d", defaultMaxSize)
+		return errors.Errorf("max batch size must be less than %d", defaultMaxSize)
 	}
 	return nil
 }
@@ -80,12 +83,12 @@ func NewCloudflareClient(opts ...Option) (*CloudflareClient, error) {
 	for _, opt := range opts {
 		err := opt(client)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to initialize CloudflareClient")
 		}
 	}
 	applyDefaults(client)
 	if err := validate(client); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to validate CloudflareClient configuration")
 	}
 	return client, nil
 }
@@ -117,7 +120,7 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	if err != nil {
 		return nil, err
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.endpoint, bytes.NewBufferString(reqJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewBufferString(reqJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -126,22 +129,24 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken)
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed send request to Cloudflare API")
 	}
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read response body")
 	}
-
+	defer resp.Body.Close()
+	// we also process any embedding errors in the response
 	var embeddings CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddings); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal response body")
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.endpoint, embeddings.Errors)
+	if resp.StatusCode != http.StatusOK || len(embeddings.Errors) > 0 {
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v\n%v", resp.Status, c.endpoint, embeddings.Errors, string(respData))
 	}
 
 	return &embeddings, nil
@@ -156,7 +161,7 @@ type CloudflareEmbeddingFunction struct {
 func NewCloudflareEmbeddingFunction(opts ...Option) (*CloudflareEmbeddingFunction, error) {
 	client, err := NewCloudflareClient(opts...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to initialize CloudflareClient")
 	}
 
 	return &CloudflareEmbeddingFunction{apiClient: client}, nil
@@ -164,7 +169,7 @@ func NewCloudflareEmbeddingFunction(opts ...Option) (*CloudflareEmbeddingFunctio
 
 func (e *CloudflareEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if len(documents) > e.apiClient.MaxBatchSize {
-		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
+		return nil, errors.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if len(documents) == 0 {
 		return embeddings.NewEmptyEmbeddings(), nil
@@ -174,7 +179,7 @@ func (e *CloudflareEmbeddingFunction) EmbedDocuments(ctx context.Context, docume
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed documents")
 	}
 	return embeddings.NewEmbeddingsFromFloat32(response.Result.Data)
 }
@@ -185,7 +190,7 @@ func (e *CloudflareEmbeddingFunction) EmbedQuery(ctx context.Context, document s
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Result.Data[0]), nil
 }

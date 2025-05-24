@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
 
+	"github.com/pkg/errors"
+
+	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
@@ -54,7 +57,7 @@ type CreateEmbeddingRequest struct {
 func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	data, err := json.Marshal(c)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to marshal embedding request JSON")
 	}
 	return string(data), nil
 }
@@ -100,9 +103,19 @@ func applyDefaults(c *OpenAIClient) {
 	if c.BaseURL == "" {
 		c.BaseURL = "https://api.openai.com/v1/"
 	}
-	if !strings.HasSuffix(c.BaseURL, "/") {
-		c.BaseURL += "/"
+	if c.Client == nil {
+		c.Client = &http.Client{}
 	}
+}
+
+func validate(c *OpenAIClient) error {
+	if c.APIKey == "" {
+		return errors.New("API key is required")
+	}
+	if c.BaseURL == "" {
+		return errors.New("Base URL is required")
+	}
+	return nil
 }
 
 func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
@@ -112,31 +125,17 @@ func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
 		APIKey:  apiKey,
 		Model:   string(TextEmbeddingAda002),
 	}
-	err := applyClientOptions(client, opts...)
-	if err != nil {
-		return nil, err
+	for _, opt := range opts {
+		err := opt(client)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to apply OpenAI option")
+		}
 	}
 	applyDefaults(client)
-	return client, nil
-}
-
-func (c *OpenAIClient) SetAPIKey(apiKey string) {
-	c.APIKey = apiKey
-}
-
-func (c *OpenAIClient) SetOrgID(orgID string) {
-	c.OrgID = orgID
-}
-
-func (c *OpenAIClient) SetBaseURL(baseURL string) {
-	c.BaseURL = baseURL
-}
-
-func (c *OpenAIClient) getAPIKey() string {
-	if c.APIKey == "" {
-		panic("API Key not set")
+	if err := validate(client); err != nil {
+		return nil, errors.Wrap(err, "failed to validate OpenAI client options")
 	}
-	return c.APIKey
+	return client, nil
 }
 
 func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
@@ -145,16 +144,21 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	}
 	reqJSON, err := req.JSON()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to marshal request JSON")
+	}
+	endpoint, err := url.JoinPath(c.BaseURL, "embeddings")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse URL")
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"embeddings", bytes.NewBufferString(reqJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBufferString(reqJSON))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create http request")
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.getAPIKey())
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
 
 	// OpenAI Organization ID (Optional)
 	if c.OrgID != "" {
@@ -163,20 +167,21 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to send request to OpenAI API")
 	}
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read response body")
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected response %v, %v", resp.Status, string(respData))
+		return nil, errors.Errorf("unexpected response %v, %v", resp.Status, string(respData))
 	}
 
 	var createEmbeddingResponse CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &createEmbeddingResponse); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal response body")
 	}
 
 	return &createEmbeddingResponse, nil
@@ -191,7 +196,7 @@ type OpenAIEmbeddingFunction struct {
 func NewOpenAIEmbeddingFunction(apiKey string, opts ...Option) (*OpenAIEmbeddingFunction, error) {
 	apiClient, err := NewOpenAIClient(apiKey, opts...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to initialize OpenAI client")
 	}
 	cli := &OpenAIEmbeddingFunction{
 		apiClient: apiClient,
@@ -230,7 +235,7 @@ func (e *OpenAIEmbeddingFunction) getDimensions(ctx context.Context) *int {
 
 func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
-		User:  "chroma-go-client",
+		User:  chttp.ChromaGoClientUserAgent, // do we need to expose this to users?
 		Model: e.getModel(ctx),
 		Input: &Input{
 			Texts: documents,
@@ -238,7 +243,7 @@ func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 		Dimensions: e.getDimensions(ctx),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed documents")
 	}
 	return embeddings.NewEmbeddingsFromFloat32(ConvertToMatrix(response))
 }
@@ -246,13 +251,13 @@ func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Model: e.getModel(ctx),
-		User:  "chroma-go-client",
+		User:  chttp.ChromaGoClientUserAgent,
 		Input: &Input{
 			Texts: []string{document},
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return embeddings.NewEmbeddingFromFloat32(ConvertToMatrix(response)[0]), nil
 }

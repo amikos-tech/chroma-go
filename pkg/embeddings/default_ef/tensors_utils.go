@@ -251,7 +251,7 @@ func ReshapeFlattenedTensor[T Number](flatTensor []T, shape []int) (interface{},
 	}
 }
 
-func ExpandDims(input []int64, shape []int64) [][][]int64 {
+func ExpandDims(input []int64, shape []int64) ([][][]int64, error) {
 	// Calculate the total size of the input
 	var totalSize int64 = 1
 	for _, dim := range shape {
@@ -260,7 +260,7 @@ func ExpandDims(input []int64, shape []int64) [][][]int64 {
 
 	// Check if the input size matches the shape
 	if int64(len(input)) != totalSize {
-		panic("Input size does not match the given shape")
+		return nil, errors.New("input slice length does not match the specified shape")
 	}
 
 	// Reshape the input according to the given shape
@@ -281,7 +281,7 @@ func ExpandDims(input []int64, shape []int64) [][][]int64 {
 		}
 	}
 
-	return output
+	return output, nil
 }
 
 // BroadcastTo simulates np.broadcast_to for any 3D tensor

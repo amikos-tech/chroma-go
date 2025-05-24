@@ -2,15 +2,13 @@ package gemini
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/generative-ai-go/genai"
+	"github.com/pkg/errors"
 	"google.golang.org/api/option"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
-
-// Docs:  https://developers.cloudflare.com/workers-ai/ (Cloudflare Workers AI) and https://developers.cloudflare.com/workers-ai/models/embedding/ (Embedding API)
 
 const (
 	DefaultEmbeddingModel = "text-embedding-004"
@@ -39,7 +37,7 @@ func applyDefaults(c *Client) (err error) {
 	if c.Client == nil {
 		c.Client, err = genai.NewClient(*c.DefaultContext, option.WithAPIKey(c.apiKey))
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 	}
 	return nil
@@ -47,7 +45,7 @@ func applyDefaults(c *Client) (err error) {
 
 func validate(c *Client) error {
 	if c.apiKey == "" {
-		return fmt.Errorf("API key is required")
+		return errors.New("API key is required")
 	}
 	return nil
 }
@@ -58,7 +56,7 @@ func NewGeminiClient(opts ...Option) (*Client, error) {
 	for _, opt := range opts {
 		err := opt(client)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to apply Gemini option")
 		}
 	}
 	err := applyDefaults(client)
@@ -66,7 +64,7 @@ func NewGeminiClient(opts ...Option) (*Client, error) {
 		return nil, err
 	}
 	if err := validate(client); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to validate Gemini client options")
 	}
 	return client, nil
 }
@@ -84,7 +82,7 @@ func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]embedding
 	}
 	res, err := em.BatchEmbedContents(ctx, b)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed contents")
 	}
 	var embs = make([][]float32, 0)
 	for _, e := range res.Embeddings {
@@ -125,7 +123,7 @@ func (e *GeminiEmbeddingFunction) close() error {
 
 func (e *GeminiEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if e.apiClient.MaxBatchSize > 0 && len(documents) > e.apiClient.MaxBatchSize {
-		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
+		return nil, errors.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if len(documents) == 0 {
 		return embeddings.NewEmptyEmbeddings(), nil
@@ -133,7 +131,7 @@ func (e *GeminiEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 
 	response, err := e.apiClient.CreateEmbedding(ctx, documents)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed documents")
 	}
 	return response, nil
 }
@@ -141,7 +139,7 @@ func (e *GeminiEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 func (e *GeminiEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, []string{document})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return response[0], nil
 }

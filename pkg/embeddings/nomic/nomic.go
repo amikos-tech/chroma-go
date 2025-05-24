@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
+	"github.com/pkg/errors"
+
+	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
@@ -68,32 +71,35 @@ func applyDefaults(c *Client) (err error) {
 	if c.EmbeddingsEndpointSuffix == "" {
 		c.EmbeddingsEndpointSuffix = TextEmbeddingsEndpoint
 	}
-	c.EmbeddingEndpoint = fmt.Sprintf("%s%s", c.BaseURL, c.EmbeddingsEndpointSuffix)
+	c.EmbeddingEndpoint, err = url.JoinPath(c.BaseURL, c.EmbeddingsEndpointSuffix)
+	if err != nil {
+		return errors.Wrap(err, "failed parse embedding endpoint")
+	}
 	return nil
 }
 
 func validate(c *Client) error {
 	if c.apiKey == "" {
-		return fmt.Errorf("API key is required")
+		return errors.New("API key is required")
 	}
 	return nil
 }
 
 func NewNomicClient(opts ...Option) (*Client, error) {
 	client := &Client{}
-
+	err := applyDefaults(client)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to apply Nomic default options")
+	}
 	for _, opt := range opts {
 		err := opt(client)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to apply Nomic options")
 		}
 	}
-	err := applyDefaults(client)
-	if err != nil {
-		return nil, err
-	}
+
 	if err := validate(client); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to validate Nomic client options")
 	}
 	return client, nil
 }
@@ -113,7 +119,7 @@ type CreateEmbeddingResponse struct {
 func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	data, err := json.Marshal(c)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to marshal embedding request JSON")
 	}
 	return string(data), nil
 }
@@ -121,37 +127,37 @@ func (c *CreateEmbeddingRequest) JSON() (string, error) {
 func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest) ([]embeddings.Embedding, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to marshal embedding request JSON")
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.EmbeddingEndpoint, bytes.NewBufferString(reqJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.EmbeddingEndpoint, bytes.NewBufferString(reqJSON))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create http request")
 	}
 	for k, v := range c.DefaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to send request to Nomic API")
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected code [%v] while making a request to %v", resp.Status, c.EmbeddingEndpoint)
-	}
-
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read response body")
 	}
+	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v: %v", resp.Status, c.EmbeddingEndpoint, string(respData))
+	}
 	var embeddingResponse CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddingResponse); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal embedding response")
 	}
 	embs := make([]embeddings.Embedding, len(embeddingResponse.Embeddings))
 	for i, e := range embeddingResponse.Embeddings {
@@ -169,7 +175,7 @@ type NomicEmbeddingFunction struct {
 func NewNomicEmbeddingFunction(opts ...Option) (*NomicEmbeddingFunction, error) {
 	client, err := NewNomicClient(opts...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to initialize Nomic client")
 	}
 
 	return &NomicEmbeddingFunction{apiClient: client}, nil
@@ -177,10 +183,10 @@ func NewNomicEmbeddingFunction(opts ...Option) (*NomicEmbeddingFunction, error) 
 
 func (e *NomicEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if len(documents) > e.apiClient.MaxBatchSize {
-		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
+		return nil, errors.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if e.apiClient.MaxBatchSize > 0 && len(documents) > e.apiClient.MaxBatchSize {
-		return nil, fmt.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
+		return nil, errors.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	if len(documents) == 0 {
 		return embeddings.NewEmptyEmbeddings(), nil
@@ -205,7 +211,7 @@ func (e *NomicEmbeddingFunction) EmbedDocuments(ctx context.Context, documents [
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed documents")
 	}
 	return response, nil
 }
@@ -231,7 +237,7 @@ func (e *NomicEmbeddingFunction) EmbedQuery(ctx context.Context, document string
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return response[0], nil
 }

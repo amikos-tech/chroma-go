@@ -3,7 +3,6 @@ package cohere
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
+	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
@@ -80,7 +80,7 @@ func (e *EmbeddingsResponse) UnmarshalJSON(b []byte) error {
 		}
 		err := json.Unmarshal(b, &tstruct)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to unmarshal uint8 embeddings")
 		}
 		e.UInt8 = tstruct.Uint8
 	case strings.Contains(string(b), "int8"):
@@ -91,7 +91,7 @@ func (e *EmbeddingsResponse) UnmarshalJSON(b []byte) error {
 		}
 		err := json.Unmarshal(b, &tstruct)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to unmarshal int8 embeddings")
 		}
 		e.Int8 = tstruct.Int8
 	case strings.Contains(string(b), "binary"):
@@ -101,7 +101,7 @@ func (e *EmbeddingsResponse) UnmarshalJSON(b []byte) error {
 	default:
 		err := json.Unmarshal(b, &e.Float32)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to unmarshal float32 embeddings")
 		}
 	}
 	return nil
@@ -127,7 +127,7 @@ func NewCohereEmbeddingFunction(opts ...Option) (*CohereEmbeddingFunction, error
 	}
 	cohereCommonClient, err := ccommons.NewCohereClient(ccOpts...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to initialize CohereClient")
 	}
 	ef.CohereClient = *cohereCommonClient
 	ef.EmbeddingEndpoint = cohereCommonClient.GetAPIEndpoint(DefaultEmbedEndpoint)
@@ -138,34 +138,34 @@ func NewCohereEmbeddingFunction(opts ...Option) (*CohereEmbeddingFunction, error
 func (c *CohereEmbeddingFunction) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to marshal JSON")
 	}
 
-	httpReq, err := c.GetRequest(ctx, "POST", c.EmbeddingEndpoint, reqJSON)
+	httpReq, err := c.GetRequest(ctx, http.MethodPost, c.EmbeddingEndpoint, reqJSON)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create request")
 	}
 	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	httpReq.Header.Set("Content-Type", "application/json")
 	resp, err := c.DoRequest(httpReq)
 
 	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		respData, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected code %v for response: %s", resp.Status, respData)
+		return nil, errors.Wrap(err, "failed to send request")
 	}
 
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read response body")
 	}
-	fmt.Println(string(respData))
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("unexpected code %v for response: %s", resp.Status, string(respData))
+	}
 	var createEmbeddingResponse CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &createEmbeddingResponse); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal response")
 	}
 
 	return &createEmbeddingResponse, nil
@@ -190,9 +190,8 @@ func (c *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 		EmbeddingTypes: _embeddingTypes,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed documents")
 	}
-	fmt.Println("response.Embeddings.EmbeddingsTypes: ", response.Embeddings.Float32)
 	switch {
 	case len(response.Embeddings.Float32) > 0:
 		return embeddings.NewEmbeddingsFromFloat32(response.Embeddings.Float32)
@@ -204,7 +203,7 @@ func (c *CohereEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 		return embeddings.NewEmbeddingsFromInt32(int32FromUInt8Embeddings(response.Embeddings.UInt8))
 
 	default:
-		return nil, fmt.Errorf("unsupported embedding type")
+		return nil, errors.New("unsupported embedding type")
 	}
 }
 
@@ -227,7 +226,7 @@ func (c *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 		EmbeddingTypes: _embeddingTypes,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	switch {
 	case len(response.Embeddings.Float32) > 0:
@@ -240,7 +239,7 @@ func (c *CohereEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 		return embeddings.NewInt32Embedding(int32FromUInt8Embeddings(response.Embeddings.UInt8)[0]), nil
 
 	default:
-		return nil, fmt.Errorf("unsupported embedding type")
+		return nil, errors.Errorf("unsupported embedding type")
 	}
 }
 
@@ -254,7 +253,7 @@ type CreateEmbeddingResponse struct {
 func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	data, err := json.Marshal(c)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to marshal embedding request JSON")
 	}
 	return string(data), nil
 }

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/pkg/errors"
 	ort "github.com/yalue/onnxruntime_go"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
@@ -35,27 +36,27 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 	defer initLock.Unlock()
 	err := EnsureLibTokenizersSharedLibrary()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "failed to ensure lib tokenizers")
 	}
 	err = EnsureOnnxRuntimeSharedLibrary()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "failed to ensure onnx runtime shared library")
 	}
 	err = EnsureDefaultEmbeddingFunctionModel()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "failed to ensure default embedding function model")
 	}
 	err = tokenizers.LoadLibrary(libTokenizersLibPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "failed to load libtokenizers shared library")
 	}
 	updatedConfigBytes, err := updateConfig(onnxModelTokenizerConfigPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "failed to update tokenizer config")
 	}
 	tk, err := tokenizers.FromBytes(updatedConfigBytes)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "failed to create tokenizer from bytes")
 	}
 	ef := &DefaultEmbeddingFunction{tokenizer: tk}
 	if !ort.IsInitialized() {
@@ -85,15 +86,14 @@ func NewEmbeddingInput(inputIDs []int64, attnMask []int64, typeIDs []int64, numI
 	inputShape := ort.NewShape(numInputs, vlen)
 	inputTensor, err := ort.NewTensor(inputShape, inputIDs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create input tensor")
 	}
 	attentionTensor, err := ort.NewTensor(inputShape, attnMask)
 	if err != nil {
 		derr := inputTensor.Destroy()
 		if derr != nil {
-			fmt.Printf("potential memory leak. Failed to destroy input tensor %e", derr)
+			return nil, errors.Wrap(derr, "failed to destroy input tensor on failure, potential memory leak")
 		}
-		return nil, err
 	}
 	typeTensor, err := ort.NewTensor(inputShape, typeIDs)
 	if err != nil {
@@ -105,7 +105,7 @@ func NewEmbeddingInput(inputIDs []int64, attnMask []int64, typeIDs []int64, numI
 		if derr != nil {
 			fmt.Printf("potential memory leak. Failed to destroy attention tensor %e", derr)
 		}
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create type IDs tensor")
 	}
 	return &EmbeddingInput{
 		shape:           &inputShape,
@@ -131,7 +131,7 @@ func (ei *EmbeddingInput) Close() error {
 		errOut = append(errOut, err3)
 	}
 	if len(errOut) > 0 {
-		return fmt.Errorf("errors: %v", errOut)
+		return errors.Errorf("errors: %v", errOut)
 	}
 	return nil
 }
@@ -180,7 +180,7 @@ func (e *DefaultEmbeddingFunction) encode(embeddingInput *EmbeddingInput) ([]emb
 		[]string{"input_ids", "attention_mask", "token_type_ids"}, []string{"last_hidden_state"},
 		[]ort.Value{embeddingInput.inputTensor, embeddingInput.attentionTensor, embeddingInput.typeIDSTensor}, []ort.Value{outputTensor}, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create session")
 	}
 	defer func(session *ort.AdvancedSession) {
 		err := session.Destroy()
@@ -191,27 +191,31 @@ func (e *DefaultEmbeddingFunction) encode(embeddingInput *EmbeddingInput) ([]emb
 
 	err = session.Run()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to run session")
 	}
 	outputData := outputTensor.GetData()
 	t, err := ReshapeFlattenedTensor(outputData, shapeInt32)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to reshape flattened tensor")
 	}
 
-	expandedMask := BroadcastTo(ExpandDims(embeddingInput.attentionTensor.GetData(), *embeddingInput.shape), [3]int(shapeInt32))
+	expandedDims, err := ExpandDims(embeddingInput.attentionTensor.GetData(), *embeddingInput.shape)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to expand dimensions of attention mask")
+	}
+	expandedMask := BroadcastTo(expandedDims, [3]int(shapeInt32))
 	mtpl, err := multiply(t.(Tensor3D[float32]), expandedMask)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to multiply tensor")
 	}
 
 	summed, err := mtpl.Sum(1)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to sum tensor")
 	}
 	summedExpandedMask, err := expandedMask.Sum(1)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to expanded mask")
 	}
 	summedExpandedMaskF32 := ConvertTensor2D[int64, float32](summedExpandedMask)
 	clippedSummed := clip(summedExpandedMaskF32, 1e-9, math.MaxFloat32)
@@ -222,28 +226,52 @@ func (e *DefaultEmbeddingFunction) encode(embeddingInput *EmbeddingInput) ([]emb
 
 func (e *DefaultEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	if atomic.LoadInt32(&e.closed) == 1 {
-		return nil, fmt.Errorf("embedding function is closed")
+		return nil, errors.New("embedding function is closed")
 	}
 	embeddingInputs, err := e.tokenize(documents)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to tokenize documents")
 	}
-	return e.encode(embeddingInputs)
+	ebmds, err := e.encode(embeddingInputs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to embed documents")
+	}
+	defer func() {
+		if err := embeddingInputs.Close(); err != nil {
+			fmt.Printf("failed to close embedding input %v", err.Error())
+		}
+	}()
+	if len(ebmds) == 0 {
+		return embeddings.NewEmptyEmbeddings(), nil
+	}
+	if len(ebmds) != len(documents) {
+		return nil, errors.Errorf("number of embeddings %d does not match number of documents %d", len(ebmds), len(documents))
+	}
+	return ebmds, nil
 }
 
 func (e *DefaultEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	if atomic.LoadInt32(&e.closed) == 1 {
-		return nil, fmt.Errorf("embedding function is closed")
+		return nil, errors.New("embedding function is closed")
 	}
 	embeddingInputs, err := e.tokenize([]string{document})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to tokenize query")
 	}
-	embeddings, err := e.encode(embeddingInputs)
+	embds, err := e.encode(embeddingInputs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to encode query")
 	}
-	return embeddings[0], nil
+	defer func() {
+		if err := embeddingInputs.Close(); err != nil {
+			fmt.Printf("failed to close embedding input %v", err.Error())
+		}
+	}()
+	if len(embds) == 0 {
+		return embeddings.NewEmptyEmbedding(), nil
+	}
+
+	return embds[0], nil
 }
 
 // func (e *DefaultEmbeddingFunction) EmbedRecords(ctx context.Context, records []v2.Record, force bool) error {
@@ -257,25 +285,25 @@ func updateConfig(filename string) ([]byte, error) {
 	// Read the file
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("error reading file: %v", err)
+		return nil, errors.Wrap(err, "error reading file")
 	}
 
 	// Unmarshal JSON into a map
 	var jsonMap map[string]json.RawMessage
 	if err := json.Unmarshal(data, &jsonMap); err != nil {
-		return nil, fmt.Errorf("error unmarshaling JSON: %v", err)
+		return nil, errors.Wrap(err, "error unmarshaling JSON")
 	}
 
 	// Update truncation.max_length
 	if truncation, ok := jsonMap["truncation"]; ok {
 		var truncationMap map[string]interface{}
 		if err := json.Unmarshal(truncation, &truncationMap); err != nil {
-			return nil, fmt.Errorf("error unmarshaling truncation: %v", err)
+			return nil, errors.Wrap(err, "error unmarshaling truncation")
 		}
 		truncationMap["max_length"] = 256
 		updatedTruncation, err := json.Marshal(truncationMap)
 		if err != nil {
-			return nil, fmt.Errorf("error marshaling updated truncation: %v", err)
+			return nil, errors.Wrap(err, "error marshaling updated truncation")
 		}
 		jsonMap["truncation"] = updatedTruncation
 	}
@@ -284,23 +312,23 @@ func updateConfig(filename string) ([]byte, error) {
 	if padding, ok := jsonMap["padding"]; ok {
 		var paddingMap map[string]json.RawMessage
 		if err := json.Unmarshal(padding, &paddingMap); err != nil {
-			return nil, fmt.Errorf("error unmarshaling padding: %v", err)
+			return nil, errors.Wrap(err, "error unmarshaling padding")
 		}
 		if strategy, ok := paddingMap["strategy"]; ok {
 			var strategyMap map[string]int
 			if err := json.Unmarshal(strategy, &strategyMap); err != nil {
-				return nil, fmt.Errorf("error unmarshaling strategy: %v", err)
+				return nil, errors.Wrap(err, "error unmarshaling strategy")
 			}
 			strategyMap["Fixed"] = 256
 			updatedStrategy, err := json.Marshal(strategyMap)
 			if err != nil {
-				return nil, fmt.Errorf("error marshaling updated strategy: %v", err)
+				return nil, errors.Wrap(err, "error marshaling updated strategy")
 			}
 			paddingMap["strategy"] = updatedStrategy
 		}
 		updatedPadding, err := json.Marshal(paddingMap)
 		if err != nil {
-			return nil, fmt.Errorf("error marshaling updated padding: %v", err)
+			return nil, errors.Wrap(err, "error marshaling updated padding")
 		}
 		jsonMap["padding"] = updatedPadding
 	}
@@ -308,7 +336,7 @@ func updateConfig(filename string) ([]byte, error) {
 	// Marshal the updated map back to JSON
 	updatedData, err := json.MarshalIndent(jsonMap, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("error marshaling updated JSON: %v", err)
+		return nil, errors.Wrap(err, "error marshaling updated JSON")
 	}
 
 	return updatedData, nil
@@ -336,7 +364,7 @@ func (e *DefaultEmbeddingFunction) Close() error {
 				}
 			}
 			if len(errs) > 0 {
-				closeErr = fmt.Errorf("errors: %v", errs)
+				closeErr = errors.Errorf("errors: %v", errs)
 			}
 			atomic.StoreInt32(&e.closed, 1)
 		})

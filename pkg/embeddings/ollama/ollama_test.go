@@ -21,7 +21,7 @@ func Test_ollama(t *testing.T) {
 	// Clean up the container
 	defer func() {
 		if err := ollamaContainer.Terminate(ctx); err != nil {
-			fmt.Printf("failed to terminate container: %s\n", err)
+			t.Logf("failed to terminate container: %s\n", err)
 		}
 	}()
 

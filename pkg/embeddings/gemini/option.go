@@ -1,10 +1,10 @@
 package gemini
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/google/generative-ai-go/genai"
+	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
@@ -14,6 +14,9 @@ type Option func(p *Client) error
 // WithDefaultModel sets the default model for the client
 func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 	return func(p *Client) error {
+		if model == "" {
+			return errors.New("model cannot be empty")
+		}
 		p.DefaultModel = model
 		return nil
 	}
@@ -22,6 +25,9 @@ func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 // WithAPIKey sets the API key for the client
 func WithAPIKey(apiKey string) Option {
 	return func(p *Client) error {
+		if apiKey == "" {
+			return errors.New("API key cannot be empty")
+		}
 		p.apiKey = apiKey
 		return nil
 	}
@@ -34,7 +40,7 @@ func WithEnvAPIKey() Option {
 			p.apiKey = apiKey
 			return nil
 		}
-		return fmt.Errorf(APIKeyEnvVar + " not set")
+		return errors.Errorf("%s not set", APIKeyEnvVar)
 	}
 }
 
@@ -42,7 +48,7 @@ func WithEnvAPIKey() Option {
 func WithClient(client *genai.Client) Option {
 	return func(p *Client) error {
 		if client == nil {
-			return fmt.Errorf("google generative AI client is nil")
+			return errors.New("google generative AI client is nil")
 		}
 		p.Client = client
 		return nil
@@ -53,7 +59,7 @@ func WithClient(client *genai.Client) Option {
 func WithMaxBatchSize(maxBatchSize int) Option {
 	return func(p *Client) error {
 		if maxBatchSize < 1 {
-			return fmt.Errorf("max batch size must be greater than 0")
+			return errors.New("max batch size must be greater than 0")
 		}
 		p.MaxBatchSize = maxBatchSize
 		return nil

@@ -222,7 +222,7 @@ func NewConsistentHashEmbeddingFunction() EmbeddingFunction {
 
 func (e *ConsistentHashEmbeddingFunction) EmbedQuery(_ context.Context, document string) (Embedding, error) {
 	if document == "" {
-		return nil, fmt.Errorf("document must not be empty")
+		return nil, errors.Errorf("document must not be empty")
 	}
 	hasher := sha256.New()
 	hasher.Write([]byte(document))
@@ -285,7 +285,7 @@ func (e *ConsistentHashEmbeddingFunction) EmbedDocuments(ctx context.Context, do
 	for _, document := range documents {
 		embedding, err := e.EmbedQuery(ctx, document)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to embed document")
 		}
 		embeddings = append(embeddings, embedding)
 	}

@@ -1,7 +1,7 @@
 package cohere
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 
 	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
 	httpc "github.com/amikos-tech/chroma-go/pkg/commons/http"
@@ -70,6 +70,11 @@ func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 // END (default)
 func WithTruncateMode(truncate TruncateMode) Option {
 	return func(p *CohereEmbeddingFunction) ccommons.Option {
+		if truncate != NONE && truncate != START && truncate != END {
+			return func(c *ccommons.CohereClient) error {
+				return errors.Errorf("invalid truncate mode %s", truncate)
+			}
+		}
 		p.DefaultTruncateMode = truncate
 		return ccommons.NoOp()
 	}
@@ -88,7 +93,7 @@ func WithEmbeddingTypes(embeddingTypes ...EmbeddingType) Option {
 		for _, et := range embeddingTypes {
 			if et == EmbeddingTypeBinary || et == EmbeddingTypeUBinary {
 				return func(c *ccommons.CohereClient) error {
-					return fmt.Errorf("embedding type %s is not supported", et)
+					return errors.Errorf("embedding type %s is not supported", et)
 				}
 			}
 		}

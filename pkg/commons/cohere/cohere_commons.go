@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/pkg/errors"
 
 	httpc "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
@@ -51,18 +52,18 @@ func NewCohereClient(opts ...Option) (*CohereClient, error) {
 	for _, opt := range opts {
 		err := opt(client)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to apply Cohere option")
 		}
 	}
 	validate := validator.New(validator.WithRequiredStructEnabled(), validator.WithPrivateFieldValidation())
 	err := validate.Struct(client)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to validate Cohere client options")
 	}
 	if client.RetryStrategy == nil {
 		client.RetryStrategy, err = httpc.NewSimpleRetryStrategy(httpc.WithRetryableStatusCodes(429), httpc.WithExponentialBackOff())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to create retry strategy")
 		}
 	}
 	return client, nil
@@ -75,11 +76,11 @@ func (c *CohereClient) GetAPIEndpoint(endpoint string) string {
 // TODO GetRequest is misleading, it should be renamed to GetHTTPRequest
 func (c *CohereClient) GetRequest(ctx context.Context, method string, endpoint string, content string) (*http.Request, error) {
 	if _, err := url.ParseRequestURI(endpoint); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse endpoint URL")
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewBufferString(content))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create Cohere request")
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -107,6 +108,9 @@ func NoOp() Option {
 
 func WithBaseURL(baseURL string) Option {
 	return func(p *CohereClient) error {
+		if baseURL == "" {
+			return errors.New("base URL cannot be empty")
+		}
 		p.BaseURL = strings.TrimSuffix(baseURL, "/")
 		return nil
 	}
@@ -114,6 +118,9 @@ func WithBaseURL(baseURL string) Option {
 
 func WithAPIKey(apiKey string) Option {
 	return func(p *CohereClient) error {
+		if apiKey == "" {
+			return errors.New("API key cannot be empty")
+		}
 		p.apiKey = apiKey
 		return nil
 	}
@@ -125,14 +132,14 @@ func WithEnvAPIKey() Option {
 			p.apiKey = apiKey
 			return nil
 		}
-		return fmt.Errorf("API key env variable %s not found or does not contain a key", APIKeyEnv)
+		return errors.Errorf("API key env variable %s not found or does not contain a key", APIKeyEnv)
 	}
 }
 
 func WithAPIVersion(version APIVersion) Option {
 	return func(p *CohereClient) error {
 		if version == "" {
-			return fmt.Errorf("API version can't be empty")
+			return errors.New("API Version cannot be empty")
 		}
 		p.APIVersion = version
 		return nil
@@ -143,7 +150,7 @@ func WithAPIVersion(version APIVersion) Option {
 func WithHTTPClient(client *http.Client) Option {
 	return func(p *CohereClient) error {
 		if client == nil {
-			return fmt.Errorf("HTTP client is nil")
+			return errors.New("http client cannot be nil")
 		}
 		p.Client = client
 		return nil
@@ -154,7 +161,7 @@ func WithHTTPClient(client *http.Client) Option {
 func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 	return func(p *CohereClient) error {
 		if model == "" {
-			return fmt.Errorf("model can't be empty")
+			return errors.New("model cannot be empty")
 		}
 		p.DefaultModel = model
 		return nil
@@ -165,7 +172,7 @@ func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 func WithRetryStrategy(retryStrategy httpc.RetryStrategy) Option {
 	return func(p *CohereClient) error {
 		if retryStrategy == nil {
-			return fmt.Errorf("retry strategy cannot be nil")
+			return errors.New("retry strategy cannot be nil")
 		}
 		p.RetryStrategy = retryStrategy
 		return nil
