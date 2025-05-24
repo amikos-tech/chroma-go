@@ -49,7 +49,7 @@ func WithEnvAPIKey() Option {
 func WithHTTPClient(client *http.Client) Option {
 	return func(p *Client) error {
 		if client == nil {
-			return errors.New("mistral client is nil")
+			return errors.New("http client cannot be nil")
 		}
 		p.Client = client
 		return nil
