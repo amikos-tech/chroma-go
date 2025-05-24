@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/pkg/errors"
 
 	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
@@ -76,36 +77,36 @@ func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
 func (e *JinaEmbeddingFunction) sendRequest(ctx context.Context, req *EmbeddingRequest) (*EmbeddingResponse, error) {
 	payload, err := json.Marshal(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to marshal embedding request body")
 	}
 
-	httpReq, err := http.NewRequest("POST", e.embeddingEndpoint, bytes.NewBuffer(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, e.embeddingEndpoint, bytes.NewBuffer(payload))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to create embedding request")
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", e.apiKey))
+	httpReq.Header.Set("Authorization", "Bearer "+e.apiKey)
 
 	resp, err := e.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to send embedding request")
 	}
 	defer resp.Body.Close()
+
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to read response body")
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		// TODO serialize body in error
-		return nil, fmt.Errorf("unexpected response %v: %s", resp.Status, respData)
+		return nil, errors.Errorf("unexpected response %v: %s", resp.Status, string(respData))
 	}
 	var response *EmbeddingResponse
 	if err := json.Unmarshal(respData, &response); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to unmarshal embedding response")
 	}
 
 	return response, nil
@@ -125,7 +126,7 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to embed documents")
 	}
 	var embs []embeddings.Embedding
 	for _, data := range response.Data {
@@ -147,7 +148,7 @@ func (e *JinaEmbeddingFunction) EmbedQuery(ctx context.Context, document string)
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to embed query")
 	}
 
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil

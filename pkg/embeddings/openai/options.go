@@ -1,7 +1,9 @@
 package openai
 
 import (
-	"fmt"
+	"net/url"
+
+	"github.com/pkg/errors"
 )
 
 // Option is a function type that can be used to modify the client.
@@ -10,7 +12,10 @@ type Option func(c *OpenAIClient) error
 func WithBaseURL(baseURL string) Option {
 	return func(p *OpenAIClient) error {
 		if baseURL == "" {
-			return fmt.Errorf("empty base URL")
+			return errors.New("Base URL cannot be empty")
+		}
+		if _, err := url.ParseRequestURI(baseURL); err != nil {
+			return errors.Wrap(err, "invalid base URL")
 		}
 		p.BaseURL = baseURL
 		return nil
@@ -18,9 +23,23 @@ func WithBaseURL(baseURL string) Option {
 }
 
 // WithOpenAIOrganizationID is an option for setting the OpenAI org id.
-func WithOpenAIOrganizationID(openAiAPIKey string) Option {
+func WithOpenAIOrganizationID(orgID string) Option {
 	return func(c *OpenAIClient) error {
-		c.SetOrgID(openAiAPIKey)
+		if orgID == "" {
+			return errors.New("OrgID cannot be empty")
+		}
+		c.OrgID = orgID
+		return nil
+	}
+}
+
+// WithOpenAIUser is an option for setting the OpenAI user. The user is passed with every request to OpenAI. It serves for auditing purposes. If not set the user defaults to ChromaGo client.
+func WithOpenAIUser(user string) Option {
+	return func(c *OpenAIClient) error {
+		if user == "" {
+			return errors.New("User cannot be empty")
+		}
+		c.User = user
 		return nil
 	}
 }
@@ -29,10 +48,10 @@ func WithOpenAIOrganizationID(openAiAPIKey string) Option {
 func WithModel(model EmbeddingModel) Option {
 	return func(c *OpenAIClient) error {
 		if string(model) == "" {
-			return fmt.Errorf("empty model name")
+			return errors.New("Model cannot be empty")
 		}
 		if model != TextEmbeddingAda002 && model != TextEmbedding3Small && model != TextEmbedding3Large {
-			return fmt.Errorf("invalid model name %s. Must be one of: %v", model, []string{string(TextEmbeddingAda002), string(TextEmbedding3Small), string(TextEmbedding3Large)})
+			return errors.Errorf("invalid model name %s. Must be one of: %v", model, []string{string(TextEmbeddingAda002), string(TextEmbedding3Small), string(TextEmbedding3Large)})
 		}
 		c.Model = string(model)
 		return nil
@@ -41,19 +60,9 @@ func WithModel(model EmbeddingModel) Option {
 func WithDimensions(dimensions int) Option {
 	return func(c *OpenAIClient) error {
 		if dimensions <= 0 {
-			return fmt.Errorf("invalid dimensions %d", dimensions)
+			return errors.Errorf("dimensions must be greater than 0, got %d", dimensions)
 		}
 		c.Dimensions = &dimensions
 		return nil
 	}
-}
-
-func applyClientOptions(c *OpenAIClient, opts ...Option) error {
-	for _, opt := range opts {
-		err := opt(c)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

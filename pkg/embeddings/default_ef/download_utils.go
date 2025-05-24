@@ -2,8 +2,8 @@ package defaultef
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -28,23 +28,28 @@ var onnxModelTokenizerConfigPath = filepath.Join(onnxModelCachePath, "tokenizer.
 func downloadFile(filepath string, url string) error {
 	resp, err := http.Get(url)
 	if err != nil {
-		return fmt.Errorf("failed to make HTTP request: %w", err)
+		return errors.Wrap(err, "failed to make HTTP request")
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return errors.Wrap(err, "failed to read response body")
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
+		return errors.Errorf("unexpected response %s for URL %s: %v", resp.Status, url, string(respBody))
 	}
 
 	out, err := os.Create(filepath)
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+		return errors.Wrapf(err, "failed to create file: %s", filepath)
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, resp.Body)
+	_, err = io.Copy(out, bytes.NewReader(respBody))
 	if err != nil {
-		return fmt.Errorf("failed to copy file contents: %w", err)
+		return errors.Wrapf(err, "failed to copy file contents: %s", filepath)
 	}
 
 	return nil
@@ -58,14 +63,14 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 	// Open the .tar.gz file
 	f, err := os.Open(tarGzPath)
 	if err != nil {
-		return fmt.Errorf("could not open tar.gz file: %v", err)
+		return errors.Wrapf(err, "could not open tar.gz file: %s", tarGzPath)
 	}
 	defer f.Close()
 
 	// Create a gzip reader
 	gzipReader, err := gzip.NewReader(f)
 	if err != nil {
-		return fmt.Errorf("could not create gzip reader: %v", err)
+		return errors.Wrap(err, "could not create gzip reader")
 	}
 	defer gzipReader.Close()
 
@@ -81,7 +86,7 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 		}
 
 		if err != nil {
-			return fmt.Errorf("could not read tar header: %v", err)
+			return errors.Wrap(err, "could not read tar header")
 		}
 
 		// Check if this is the file we're looking for
@@ -89,35 +94,33 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 			// Create the destination file
 			outFile, err := os.Create(filepath.Join(destPath, filepath.Base(targetFile)))
 			if err != nil {
-				return fmt.Errorf("could not create output file: %v", err)
+				return errors.Wrapf(err, "could not create output file: %s", filepath.Join(destPath, filepath.Base(targetFile)))
 			}
 			defer outFile.Close()
 
 			// Copy the file data from the tar archive to the destination file
 			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return fmt.Errorf("could not copy file data: %v", err)
+				return errors.Wrap(err, "could not copy file data")
 			}
-
-			fmt.Printf("Successfully extracted %s to %s\n", targetFile, destPath)
 			return nil // Successfully extracted the file
 		}
 		if targetFile == "" {
 			// Create the destination file
 			outFile, err := os.Create(filepath.Join(destPath, filepath.Base(header.Name)))
 			if err != nil {
-				return fmt.Errorf("could not create output file: %v", err)
+				return errors.Wrapf(err, "could not create output file: %s", filepath.Join(destPath, filepath.Base(header.Name)))
 			}
 			defer outFile.Close()
 
 			// Copy the file data from the tar archive to the destination file
 			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return fmt.Errorf("could not copy file data: %v", err)
+				return errors.Wrap(err, "could not copy file data")
 			}
 		}
 	}
 
 	if targetFile != "" {
-		return fmt.Errorf("file %s not found in the archive", targetFile)
+		return errors.Errorf("file %s not found in the archive", targetFile)
 	}
 	return nil
 }
@@ -142,7 +145,7 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 	if _, err := os.Stat(onnxLibPath); os.IsNotExist(err) {
 		downloadAndExtractNeeded = true
 		if err := os.MkdirAll(onnxCacheDir, 0755); err != nil {
-			return err
+			return errors.Wrap(err, "failed to create onnx cache")
 		}
 	}
 	if !downloadAndExtractNeeded {
@@ -153,7 +156,7 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 		// Download the library
 		url := "https://github.com/microsoft/onnxruntime/releases/download/v" + LibOnnxRuntimeVersion + "/onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + ".tgz"
 
-		fmt.Println("Downloading onnxruntime from GitHub...")
+		// fmt.Println("Downloading onnxruntime from GitHub...")
 		// TODO integrity check
 		if _, err := os.Stat(targetArchive); os.IsNotExist(err) {
 			if err := downloadFile(targetArchive, url); err != nil {
@@ -165,9 +168,9 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 	if cos == "linux" {
 		targetFile = "onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + "/lib/libonnxruntime." + getExtensionForOs() + "." + LibOnnxRuntimeVersion
 	}
-	fmt.Println("Extracting onnxruntime shared library..." + onnxLibPath)
+	// fmt.Println("Extracting onnxruntime shared library..." + onnxLibPath)
 	if err := extractSpecificFile(targetArchive, targetFile, onnxCacheDir); err != nil {
-		fmt.Println("Error:", err)
+		// fmt.Println("Error:", err)
 		return errors.Wrapf(err, "could not extract onnxruntime shared library")
 	}
 
@@ -181,7 +184,7 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 
 	err := os.RemoveAll(targetArchive)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "could not remove temporary archive: %s", targetArchive)
 	}
 	return nil
 }
@@ -192,7 +195,7 @@ func EnsureLibTokenizersSharedLibrary() error {
 	if _, err := os.Stat(libTokenizersLibPath); os.IsNotExist(err) {
 		downloadAndExtractNeeded = true
 		if err := os.MkdirAll(libTokenizersCacheDir, 0755); err != nil {
-			return err
+			return errors.Wrap(err, "failed to create libtokenizers cache")
 		}
 	}
 	if !downloadAndExtractNeeded {
@@ -203,23 +206,24 @@ func EnsureLibTokenizersSharedLibrary() error {
 		// Download the library
 		url := "https://github.com/amikos-tech/tokenizers/releases/download/v" + LibTokenizersVersion + "/libtokenizers." + cos + "-" + carch + ".tar.gz"
 
-		fmt.Println("Downloading libtokenizers from GitHub...")
+		// fmt.Println("Downloading libtokenizers from GitHub...")
 		// TODO integrity check
 		if _, err := os.Stat(targetArchive); os.IsNotExist(err) {
 			if err := downloadFile(targetArchive, url); err != nil {
-				return err
+				return errors.Wrap(err, "failed to download libtokenizers.tar.gz")
 			}
 		}
 	}
 	targetFile := "libtokenizers." + getExtensionForOs()
-	fmt.Println("Extracting libtokenizers shared library..." + onnxLibPath)
+	// fmt.Println("Extracting libtokenizers shared library..." + onnxLibPath)
 	if err := extractSpecificFile(targetArchive, targetFile, libTokenizersCacheDir); err != nil {
-		fmt.Println("Error:", err)
+		// fmt.Println("Error:", err)
+		return errors.Wrapf(err, "could not extract libtokenizers shared library")
 	}
 
 	err := os.RemoveAll(targetArchive)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "could not remove temporary archive: %s", targetArchive)
 	}
 	return nil
 }
@@ -229,7 +233,7 @@ func EnsureDefaultEmbeddingFunctionModel() error {
 	if _, err := os.Stat(onnxModelCachePath); os.IsNotExist(err) {
 		downloadAndExtractNeeded = true
 		if err := os.MkdirAll(onnxModelCachePath, 0755); err != nil {
-			return err
+			return errors.Wrap(err, "failed to create onnx model cache")
 		}
 	}
 	if !downloadAndExtractNeeded {
@@ -237,16 +241,16 @@ func EnsureDefaultEmbeddingFunctionModel() error {
 	}
 	targetArchive := filepath.Join(onnxModelsCachePath, "onnx.tar.gz")
 	if _, err := os.Stat(targetArchive); os.IsNotExist(err) {
-		fmt.Println("Downloading onnx model from S3...")
+		// fmt.Println("Downloading onnx model from S3...")
 		// TODO integrity check
 		if err := downloadFile(targetArchive, onnxModelDownloadEndpoint); err != nil {
-			return err
+			return errors.Wrap(err, "failed to download onnx model")
 		}
 	}
-	fmt.Println("Extracting onnx model..." + onnxModelCachePath)
+	// fmt.Println("Extracting onnx model..." + onnxModelCachePath)
 	if err := extractSpecificFile(targetArchive, "", onnxModelCachePath); err != nil {
-		fmt.Println("Error:", err)
-		return err
+		// fmt.Println("Error:", err)
+		return errors.Wrapf(err, "could not extract onnx model")
 	}
 
 	// err := os.RemoveAll(targetArchive)

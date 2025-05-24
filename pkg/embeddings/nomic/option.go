@@ -1,10 +1,11 @@
-package mistral
+package nomic
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+
+	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
@@ -14,6 +15,9 @@ type Option func(p *Client) error
 // WithDefaultModel sets the default model for the client
 func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 	return func(p *Client) error {
+		if model == "" {
+			return errors.New("default model cannot be empty")
+		}
 		p.DefaultModel = model
 		return nil
 	}
@@ -22,6 +26,9 @@ func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 // WithAPIKey sets the API key for the client
 func WithAPIKey(apiKey string) Option {
 	return func(p *Client) error {
+		if apiKey == "" {
+			return errors.New("api key cannot be empty")
+		}
 		p.apiKey = apiKey
 		return nil
 	}
@@ -34,7 +41,7 @@ func WithEnvAPIKey() Option {
 			p.apiKey = apiKey
 			return nil
 		}
-		return fmt.Errorf(APIKeyEnvVar + " not set")
+		return errors.Errorf("%s not set", APIKeyEnvVar)
 	}
 }
 
@@ -42,7 +49,7 @@ func WithEnvAPIKey() Option {
 func WithHTTPClient(client *http.Client) Option {
 	return func(p *Client) error {
 		if client == nil {
-			return fmt.Errorf("mistral client is nil")
+			return errors.New("http client cannot be nil")
 		}
 		p.Client = client
 		return nil
@@ -52,8 +59,8 @@ func WithHTTPClient(client *http.Client) Option {
 // WithMaxBatchSize sets the max batch size for the client - this acts as a limit for the number of embeddings that can be sent in a single request
 func WithMaxBatchSize(maxBatchSize int) Option {
 	return func(p *Client) error {
-		if maxBatchSize < 1 {
-			return fmt.Errorf("max batch size must be greater than 0")
+		if maxBatchSize <= 0 {
+			return errors.New("max batch size must be greater than 0")
 		}
 		p.MaxBatchSize = maxBatchSize
 		return nil
@@ -64,10 +71,10 @@ func WithMaxBatchSize(maxBatchSize int) Option {
 func WithBaseURL(baseURL string) Option {
 	return func(p *Client) error {
 		if baseURL == "" {
-			return fmt.Errorf("base can't be empty")
+			return errors.New("base URL cannot be empty")
 		}
 		if _, err := url.ParseRequestURI(baseURL); err != nil {
-			return fmt.Errorf("invalid basePath URL: %s", err)
+			return errors.Wrap(err, "invalid basePath URL")
 		}
 		p.BaseURL = baseURL
 		return nil

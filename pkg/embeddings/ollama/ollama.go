@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
 
+	"github.com/pkg/errors"
+
+	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
@@ -26,9 +28,17 @@ type EmbeddingInput struct {
 
 func (e EmbeddingInput) MarshalJSON() ([]byte, error) {
 	if e.Input != "" {
-		return json.Marshal(e.Input)
+		b, err := json.Marshal(e.Input)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to marshal embedding input")
+		}
+		return b, nil
 	} else if len(e.Inputs) > 0 {
-		return json.Marshal(e.Inputs)
+		b, err := json.Marshal(e.Inputs)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to marshal embedding input")
+		}
+		return b, nil
 	}
 	return json.Marshal(nil)
 }
@@ -45,7 +55,7 @@ type CreateEmbeddingResponse struct {
 func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	data, err := json.Marshal(c)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to marshal embedding request JSON")
 	}
 	return string(data), nil
 }
@@ -57,7 +67,7 @@ func NewOllamaClient(opts ...Option) (*OllamaClient, error) {
 	for _, opt := range opts {
 		err := opt(client)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to apply Ollama option")
 		}
 	}
 	return client, nil
@@ -66,42 +76,42 @@ func NewOllamaClient(opts ...Option) (*OllamaClient, error) {
 func (c *OllamaClient) createEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
 	reqJSON, err := req.JSON()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to marshal embedding request JSON")
 	}
-	var url string
-	if !strings.HasSuffix(c.BaseURL, "/") {
-		url = c.BaseURL + "/api/embed"
-	} else {
-		url = c.BaseURL + "api/embed"
+	endpoint, err := url.JoinPath(c.BaseURL, "/api/embed")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse Ollama embedding endpoint")
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBufferString(reqJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBufferString(reqJSON))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create HTTP request")
 	}
 	for k, v := range c.DefaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to make HTTP request to Ollama embedding endpoint")
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected code [%v] while making a request to %v", resp.Status, url)
-	}
+	defer resp.Body.Close()
 
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v: %v", resp.Status, endpoint, string(respData))
 	}
 
 	var embeddingResponse CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddingResponse); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal embedding response")
 	}
 	return &embeddingResponse, nil
 }
@@ -115,7 +125,7 @@ var _ embeddings.EmbeddingFunction = (*OllamaEmbeddingFunction)(nil)
 func NewOllamaEmbeddingFunction(option ...Option) (*OllamaEmbeddingFunction, error) {
 	client, err := NewOllamaClient(option...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to initialize OllamaClient")
 	}
 	return &OllamaEmbeddingFunction{
 		apiClient: client,
@@ -128,7 +138,7 @@ func (e *OllamaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 		Input: &EmbeddingInput{Inputs: documents},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed documents")
 	}
 	return embeddings.NewEmbeddingsFromFloat32(response.Embeddings)
 }
@@ -139,7 +149,7 @@ func (e *OllamaEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 		Input: &EmbeddingInput{Input: document},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
 }

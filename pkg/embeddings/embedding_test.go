@@ -2,7 +2,6 @@ package embeddings
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,8 +9,6 @@ import (
 
 func TestMarshalEmbeddings(t *testing.T) {
 	embed := NewEmbeddingFromFloat32([]float32{1.1234567891, 2.4, 3.5})
-
-	fmt.Printf("%v\n", embed.ContentAsFloat32())
 
 	bytes, err := json.Marshal(embed)
 	require.NoError(t, err)

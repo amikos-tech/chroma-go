@@ -1,9 +1,10 @@
 package cloudflare
 
 import (
-	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
@@ -12,6 +13,9 @@ type Option func(p *CloudflareClient) error
 
 func WithGatewayEndpoint(endpoint string) Option {
 	return func(p *CloudflareClient) error {
+		if endpoint == "" {
+			return errors.New("endpoint cannot be empty")
+		}
 		p.BaseAPI = endpoint
 		p.IsGateway = true
 		return nil
@@ -27,6 +31,9 @@ func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 
 func WithMaxBatchSize(size int) Option {
 	return func(p *CloudflareClient) error {
+		if size <= 0 {
+			return errors.New("max batch size must be greater than 0")
+		}
 		p.MaxBatchSize = size
 		return nil
 	}
@@ -48,6 +55,9 @@ func WithAPIToken(apiToken string) Option {
 
 func WithAccountID(accountID string) Option {
 	return func(p *CloudflareClient) error {
+		if accountID == "" {
+			return errors.New("account ID cannot be empty")
+		}
 		p.AccountID = accountID
 		return nil
 	}
@@ -59,7 +69,7 @@ func WithEnvAPIToken() Option {
 			p.APIToken = apiToken
 			return nil
 		}
-		return fmt.Errorf("CF_API_TOKEN not set")
+		return errors.Errorf("CF_API_TOKEN not set")
 	}
 }
 
@@ -69,12 +79,15 @@ func WithEnvAccountID() Option {
 			p.AccountID = accountID
 			return nil
 		}
-		return fmt.Errorf("CF_ACCOUNT_ID not set")
+		return errors.Errorf("CF_ACCOUNT_ID not set")
 	}
 }
 
 func WithHTTPClient(client *http.Client) Option {
 	return func(p *CloudflareClient) error {
+		if client == nil {
+			return errors.New("http client cannot be nil")
+		}
 		p.Client = client
 		return nil
 	}
@@ -87,6 +100,6 @@ func WithEnvGatewayEndpoint() Option {
 			p.IsGateway = true
 			return nil
 		}
-		return fmt.Errorf("CF_GATEWAY_ENDPOINT not set")
+		return errors.Errorf("CF_GATEWAY_ENDPOINT not set")
 	}
 }

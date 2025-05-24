@@ -1,8 +1,9 @@
 package jina
 
 import (
-	"fmt"
 	"os"
+
+	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
@@ -19,7 +20,7 @@ func WithAPIKey(apiKey string) Option {
 func WithEnvAPIKey() Option {
 	return func(c *JinaEmbeddingFunction) error {
 		if os.Getenv("JINA_API_KEY") == "" {
-			return fmt.Errorf("JINA_API_KEY not set")
+			return errors.Errorf("JINA_API_KEY not set")
 		}
 		c.apiKey = os.Getenv("JINA_API_KEY")
 		return nil
@@ -28,6 +29,9 @@ func WithEnvAPIKey() Option {
 
 func WithModel(model embeddings.EmbeddingModel) Option {
 	return func(c *JinaEmbeddingFunction) error {
+		if model == "" {
+			return errors.New("model cannot be empty")
+		}
 		c.defaultModel = model
 		return nil
 	}
@@ -35,6 +39,9 @@ func WithModel(model embeddings.EmbeddingModel) Option {
 
 func WithEmbeddingEndpoint(endpoint string) Option {
 	return func(c *JinaEmbeddingFunction) error {
+		if endpoint == "" {
+			return errors.New("embedding endpoint cannot be empty")
+		}
 		c.embeddingEndpoint = endpoint
 		return nil
 	}
@@ -51,6 +58,9 @@ func WithNormalized(normalized bool) Option {
 // WithEmbeddingType sets the type of the embedding to be returned by Jina. The default is float. Right now no other options are supported
 func WithEmbeddingType(embeddingType EmbeddingType) Option {
 	return func(c *JinaEmbeddingFunction) error {
+		if embeddingType == "" {
+			return errors.New("embedding type cannot be empty")
+		}
 		c.embeddingType = embeddingType
 		return nil
 	}

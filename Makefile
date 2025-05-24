@@ -1,5 +1,5 @@
 generate:
-	echo "This is deprecated. 1.0 does not use generated client."
+	echo "This is deprecated. 0.2.x or later does not use generated client."
 	sh ./gen_api_v3.sh
 
 build:
