@@ -92,8 +92,9 @@ func NewEmbeddingInput(inputIDs []int64, attnMask []int64, typeIDs []int64, numI
 	if err != nil {
 		derr := inputTensor.Destroy()
 		if derr != nil {
-			return nil, errors.Wrap(derr, "failed to destroy input tensor on failure, potential memory leak")
+			return nil, errors.Wrapf(err, "failed to create attention mask tensor. destroyed input tensor %v (potential memory leak)", derr)
 		}
+		return nil, errors.Wrap(err, "failed to create attention mask tensor")
 	}
 	typeTensor, err := ort.NewTensor(inputShape, typeIDs)
 	if err != nil {
