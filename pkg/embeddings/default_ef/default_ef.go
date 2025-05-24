@@ -232,15 +232,15 @@ func (e *DefaultEmbeddingFunction) EmbedDocuments(ctx context.Context, documents
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to tokenize documents")
 	}
-	ebmds, err := e.encode(embeddingInputs)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to embed documents")
-	}
 	defer func() {
 		if err := embeddingInputs.Close(); err != nil {
 			fmt.Printf("failed to close embedding input %v", err.Error())
 		}
 	}()
+	ebmds, err := e.encode(embeddingInputs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to embed documents")
+	}
 	if len(ebmds) == 0 {
 		return embeddings.NewEmptyEmbeddings(), nil
 	}

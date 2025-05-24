@@ -185,9 +185,6 @@ func (e *NomicEmbeddingFunction) EmbedDocuments(ctx context.Context, documents [
 	if len(documents) > e.apiClient.MaxBatchSize {
 		return nil, errors.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
-	if e.apiClient.MaxBatchSize > 0 && len(documents) > e.apiClient.MaxBatchSize {
-		return nil, errors.Errorf("number of documents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
-	}
 	if len(documents) == 0 {
 		return embeddings.NewEmptyEmbeddings(), nil
 	}

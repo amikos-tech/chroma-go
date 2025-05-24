@@ -30,11 +30,12 @@ func downloadFile(filepath string, url string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to make HTTP request")
 	}
+	defer resp.Body.Close()
+
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return errors.Wrap(err, "failed to read response body")
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.Errorf("unexpected response %s for URL %s: %v", resp.Status, url, string(respBody))
