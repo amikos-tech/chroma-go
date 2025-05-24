@@ -33,6 +33,17 @@ func WithOpenAIOrganizationID(orgID string) Option {
 	}
 }
 
+// WithOpenAIUser is an option for setting the OpenAI user. The user is passed with every request to OpenAI. It serves for auditing purposes. If not set the user defaults to ChromaGo client.
+func WithOpenAIUser(user string) Option {
+	return func(c *OpenAIClient) error {
+		if user == "" {
+			return errors.New("User cannot be empty")
+		}
+		c.User = user
+		return nil
+	}
+}
+
 // WithModel is an option for setting the model to use. Must be one of: text-embedding-ada-002, text-embedding-3-small, text-embedding-3-large
 func WithModel(model EmbeddingModel) Option {
 	return func(c *OpenAIClient) error {

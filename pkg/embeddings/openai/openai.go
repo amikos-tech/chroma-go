@@ -97,6 +97,7 @@ type OpenAIClient struct {
 	Client     *http.Client
 	Model      string
 	Dimensions *int
+	User       string
 }
 
 func applyDefaults(c *OpenAIClient) {
@@ -105,6 +106,9 @@ func applyDefaults(c *OpenAIClient) {
 	}
 	if c.Client == nil {
 		c.Client = &http.Client{}
+	}
+	if c.User == "" {
+		c.User = chttp.ChromaGoClientUserAgent
 	}
 }
 
@@ -236,7 +240,7 @@ func (e *OpenAIEmbeddingFunction) getDimensions(ctx context.Context) *int {
 
 func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
-		User:  chttp.ChromaGoClientUserAgent, // do we need to expose this to users?
+		User:  e.apiClient.User,
 		Model: e.getModel(ctx),
 		Input: &Input{
 			Texts: documents,
@@ -252,7 +256,7 @@ func (e *OpenAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents 
 func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Model: e.getModel(ctx),
-		User:  chttp.ChromaGoClientUserAgent,
+		User:  e.apiClient.User,
 		Input: &Input{
 			Texts: []string{document},
 		},

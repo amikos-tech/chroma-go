@@ -65,10 +65,7 @@ func validate(c *CloudflareClient) error {
 	if c.AccountID == "" && !c.IsGateway {
 		return errors.Errorf("account ID is required")
 	}
-	if c.AccountID != "" && c.IsGateway {
-		return errors.New("account ID is ignored when using gateway mode")
-	}
-	if c.MaxBatchSize < 1 {
+	if c.MaxBatchSize <= 0 {
 		return errors.Errorf("max batch size must be greater than 0")
 	}
 	if c.MaxBatchSize > defaultMaxSize {
