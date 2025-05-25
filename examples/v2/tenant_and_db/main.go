@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
 	"log"
 	"math/rand"
+
+	chroma "github.com/guiperry/chroma-go_cerebras/pkg/api/v2"
 )
 
 func main() {

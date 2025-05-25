@@ -1,6 +1,6 @@
 site_name: ChromaDB Go Client
 site_url: https://go-client.chromadb.dev
-repo_url: https://github.com/amikos-tech/chroma-go
+repo_url: https://github.com/guiperry/chroma-go_cerebras
 copyright: "Amikos Tech LTD, 2024 (core ChromaDB contributors)"
 theme:
   name: material

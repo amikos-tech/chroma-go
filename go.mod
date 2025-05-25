@@ -1,4 +1,4 @@
-module github.com/amikos-tech/chroma-go
+module github.com/guiperry/chroma-go_cerebras
 
 go 1.23.0
 

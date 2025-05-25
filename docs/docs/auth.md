@@ -15,7 +15,7 @@ package main
 import (
 	"context"
 	"log"
-	chroma "github.com/amikos-tech/chroma-go"
+	chroma "github.com/guiperry/chroma-go_cerebras"
 )
 
 func main() {
@@ -39,8 +39,8 @@ package main
 import (
     "context"
     "log"
-    chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/types"
+    chroma "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/types"
 )
 
 func main() {
@@ -66,8 +66,8 @@ package main
 import (
     "context"
     "log"
-    chroma "github.com/amikos-tech/chroma-go"
-    "github.com/amikos-tech/chroma-go/types"
+    chroma "github.com/guiperry/chroma-go_cerebras"
+    "github.com/guiperry/chroma-go_cerebras/types"
 )
 
 func main() {
@@ -93,8 +93,8 @@ package main
 import (
     "context"
     "log"
-    chroma "github.com/amikos-tech/chroma-go"
-    "github.com/amikos-tech/chroma-go/types"
+    chroma "github.com/guiperry/chroma-go_cerebras"
+    "github.com/guiperry/chroma-go_cerebras/types"
 )
 
 func main() {

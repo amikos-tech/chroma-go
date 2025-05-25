@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/api/option"
 
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
 )
 
 const (

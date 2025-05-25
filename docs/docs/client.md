@@ -28,7 +28,7 @@ import (
 	"log"
 	"os"
 
-	chroma "github.com/amikos-tech/chroma-go"
+	chroma "github.com/guiperry/chroma-go_cerebras"
 )
 
 func main() {

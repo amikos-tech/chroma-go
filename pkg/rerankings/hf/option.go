@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/amikos-tech/chroma-go/pkg/rerankings"
+	"github.com/guiperry/chroma-go_cerebras/pkg/rerankings"
 )
 
 type Option func(c *HFRerankingFunction) error

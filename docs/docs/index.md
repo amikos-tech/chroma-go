@@ -7,7 +7,7 @@ An experimental Go client for ChromaDB.
 Add the library to your project:
 
 ```bash
-go get github.com/amikos-tech/chroma-go
+go get github.com/guiperry/chroma-go_cerebras
 ```
 
 ## Getting Started
@@ -25,9 +25,9 @@ Import the library:
 package main
 
 import (
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/collection"
-	"github.com/amikos-tech/chroma-go/types"
+	chroma "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/collection"
+	"github.com/guiperry/chroma-go_cerebras/types"
 )
 ```
 
@@ -41,7 +41,7 @@ New client:
 package main
 
 import (
-	chroma "github.com/amikos-tech/chroma-go"
+	chroma "github.com/guiperry/chroma-go_cerebras"
 	"fmt"
 )
 
@@ -75,9 +75,9 @@ import (
 	"log"
 	"os"
 
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/types"
-	openai "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
+	chroma "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/types"
+	openai "github.com/guiperry/chroma-go_cerebras/pkg/embeddings/openai"
 )
 
 func main() {
@@ -131,9 +131,9 @@ import (
 	"log"
 	"os"
 
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
-	"github.com/amikos-tech/chroma-go/types"
+	chroma "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings/openai"
+	"github.com/guiperry/chroma-go_cerebras/types"
 )
 
 func main() {
@@ -181,8 +181,8 @@ import (
 	"log"
 	"os"
 
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
+	chroma "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings/openai"
 )
 
 func main() {
@@ -226,8 +226,8 @@ import (
 	"log"
 	"os"
 
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
+	chroma "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings/openai"
 )
 
 func main() {

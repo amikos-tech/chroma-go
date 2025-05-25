@@ -5,12 +5,13 @@ package v2
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/Masterminds/semver"
 	"github.com/docker/docker/api/types/container"
@@ -20,7 +21,7 @@ import (
 	tcchroma "github.com/testcontainers/testcontainers-go/modules/chroma"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
 )
 
 func TestClientHTTPIntegration(t *testing.T) {

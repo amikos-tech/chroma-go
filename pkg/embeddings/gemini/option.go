@@ -6,7 +6,7 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"github.com/pkg/errors"
 
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
 )
 
 type Option func(p *Client) error

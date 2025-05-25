@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/guiperry/chroma-go_cerebras/types"
 )
 
 func TestCollectionBuilder(t *testing.T) {

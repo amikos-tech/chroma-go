@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
-	openai "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
+	chroma "github.com/guiperry/chroma-go_cerebras/pkg/api/v2"
+	openai "github.com/guiperry/chroma-go_cerebras/pkg/embeddings/openai"
 )
 
 func main() {

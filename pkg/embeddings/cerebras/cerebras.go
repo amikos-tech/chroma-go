@@ -1,4 +1,5 @@
 package cerebras
+
 import (
 	"bytes"
 	"context"
@@ -11,8 +12,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	chttp "github.com/guiperry/chroma-go_cerebras/pkg/commons/http"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
 )
 
 // CerebrasModel represents the available LLM models from Cerebras.

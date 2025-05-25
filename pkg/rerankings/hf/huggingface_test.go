@@ -5,11 +5,12 @@ package huggingface
 import (
 	"context"
 	"fmt"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
@@ -17,8 +18,8 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	chromago "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/pkg/rerankings"
+	chromago "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/pkg/rerankings"
 )
 
 func TestRerankHFEI(t *testing.T) {

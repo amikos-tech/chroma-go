@@ -16,10 +16,10 @@ package main
 import (
 	"context"
 	"fmt"
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
-	"github.com/amikos-tech/chroma-go/types"
-	"github.com/amikos-tech/chroma-go/where"
+	chroma "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings/openai"
+	"github.com/guiperry/chroma-go_cerebras/types"
+	"github.com/guiperry/chroma-go_cerebras/where"
 )
 
 func main() {
@@ -70,10 +70,10 @@ package main
 import (
 	"context"
 	"fmt"
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
-	"github.com/amikos-tech/chroma-go/types"
-	"github.com/amikos-tech/chroma-go/where_document"
+	chroma "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings/openai"
+	"github.com/guiperry/chroma-go_cerebras/types"
+	"github.com/guiperry/chroma-go_cerebras/where_document"
 )
 
 func main() {

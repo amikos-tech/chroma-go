@@ -3,8 +3,8 @@ package collection
 import (
 	"fmt"
 
-	"github.com/amikos-tech/chroma-go/metadata"
-	"github.com/amikos-tech/chroma-go/types"
+	"github.com/guiperry/chroma-go_cerebras/metadata"
+	"github.com/guiperry/chroma-go_cerebras/types"
 )
 
 type Builder struct {

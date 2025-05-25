@@ -9,9 +9,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
-	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	ccommons "github.com/guiperry/chroma-go_cerebras/pkg/commons/cohere"
+	chttp "github.com/guiperry/chroma-go_cerebras/pkg/commons/http"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
 )
 
 const (

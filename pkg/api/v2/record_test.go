@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
 )
 
 func TestSimpleRecord(t *testing.T) {
