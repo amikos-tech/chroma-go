@@ -46,6 +46,14 @@ type Client struct {
 // Option is a function that configures a Client.
 type Option func(*Client) error
 
+// WithAPIKey sets the API key for the client.
+func WithAPIKey(apiKey string) Option {
+	return func(c *Client) error {
+		c.APIKey = apiKey
+		return nil
+	}
+}
+
 // NewClient creates a new Cerebras client.
 func NewClient(apiKey string, opts ...Option) (*Client, error) {
 	c := &Client{
