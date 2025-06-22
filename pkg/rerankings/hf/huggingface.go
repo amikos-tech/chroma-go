@@ -8,9 +8,9 @@ import (
 	"io"
 	"net/http"
 
-	chromago "github.com/amikos-tech/chroma-go"
-	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
-	"github.com/amikos-tech/chroma-go/pkg/rerankings"
+	chromago "github.com/guiperry/chroma-go_cerebras"
+	chttp "github.com/guiperry/chroma-go_cerebras/pkg/commons/http"
+	"github.com/guiperry/chroma-go_cerebras/pkg/rerankings"
 )
 
 const (

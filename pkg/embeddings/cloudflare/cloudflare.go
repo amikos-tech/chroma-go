@@ -11,8 +11,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	chttp "github.com/guiperry/chroma-go_cerebras/pkg/commons/http"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
 )
 
 // Docs:  https://developers.cloudflare.com/workers-ai/ (Cloudflare Workers AI) and https://developers.cloudflare.com/workers-ai/models/embedding/ (Embedding API)

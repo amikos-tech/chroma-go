@@ -16,10 +16,10 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/pkg/errors"
 
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	openapi "github.com/amikos-tech/chroma-go/swagger"
-	"github.com/amikos-tech/chroma-go/where"
-	wheredoc "github.com/amikos-tech/chroma-go/where_document"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
+	openapi "github.com/guiperry/chroma-go_cerebras/swagger"
+	"github.com/guiperry/chroma-go_cerebras/where"
+	wheredoc "github.com/guiperry/chroma-go_cerebras/where_document"
 )
 
 type DistanceFunction string

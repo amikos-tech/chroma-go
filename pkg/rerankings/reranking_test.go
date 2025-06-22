@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	chromago "github.com/amikos-tech/chroma-go"
+	chromago "github.com/guiperry/chroma-go_cerebras"
 )
 
 type DummyRerankingFunction struct {

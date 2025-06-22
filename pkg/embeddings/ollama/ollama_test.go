@@ -5,13 +5,14 @@ package ollama
 import (
 	"context"
 	"fmt"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	"github.com/stretchr/testify/require"
-	tcollama "github.com/testcontainers/testcontainers-go/modules/ollama"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
+	"github.com/stretchr/testify/require"
+	tcollama "github.com/testcontainers/testcontainers-go/modules/ollama"
 )
 
 func Test_ollama(t *testing.T) {

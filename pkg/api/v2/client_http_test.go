@@ -19,8 +19,8 @@ import (
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/require"
 
-	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	chhttp "github.com/guiperry/chroma-go_cerebras/pkg/commons/http"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
 )
 
 func MetadataModel() gopter.Gen {

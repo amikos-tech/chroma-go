@@ -5,15 +5,16 @@ package v2
 import (
 	"context"
 	"fmt"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 )

@@ -1,10 +1,10 @@
 package cohere
 
 import (
-	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
-	httpc "github.com/amikos-tech/chroma-go/pkg/commons/http"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	"github.com/amikos-tech/chroma-go/pkg/rerankings"
+	ccommons "github.com/guiperry/chroma-go_cerebras/pkg/commons/cohere"
+	httpc "github.com/guiperry/chroma-go_cerebras/pkg/commons/http"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
+	"github.com/guiperry/chroma-go_cerebras/pkg/rerankings"
 )
 
 type Option func(p *CohereRerankingFunction) ccommons.Option

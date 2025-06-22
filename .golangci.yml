@@ -50,7 +50,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/amikos-tech/chroma-go)
+        - prefix(github.com/guiperry/chroma-go_cerebras)
         - blank
         - dot
       custom-order: true

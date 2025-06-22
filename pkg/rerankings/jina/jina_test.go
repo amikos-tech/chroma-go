@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	chromago "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/pkg/rerankings"
+	chromago "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/pkg/rerankings"
 )
 
 func TestRerank(t *testing.T) {

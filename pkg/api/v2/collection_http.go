@@ -10,7 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/guiperry/chroma-go_cerebras/pkg/embeddings"
 )
 
 type CollectionModel struct {

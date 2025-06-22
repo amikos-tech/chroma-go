@@ -11,12 +11,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	testcontainers "github.com/testcontainers/testcontainers-go"
-	tcchroma "github.com/testcontainers/testcontainers-go/modules/chroma"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -25,15 +19,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
+	defaultef "github.com/guiperry/chroma-go_cerebras/pkg/embeddings/default_ef"
+	testcontainers "github.com/testcontainers/testcontainers-go"
+	tcchroma "github.com/testcontainers/testcontainers-go/modules/chroma"
+	"github.com/testcontainers/testcontainers-go/wait"
+
 	"github.com/Masterminds/semver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/collection"
-	"github.com/amikos-tech/chroma-go/types"
-	"github.com/amikos-tech/chroma-go/where"
-	wheredoc "github.com/amikos-tech/chroma-go/where_document"
+	chroma "github.com/guiperry/chroma-go_cerebras"
+	"github.com/guiperry/chroma-go_cerebras/collection"
+	"github.com/guiperry/chroma-go_cerebras/types"
+	"github.com/guiperry/chroma-go_cerebras/where"
+	wheredoc "github.com/guiperry/chroma-go_cerebras/where_document"
 )
 
 func TestChromaClient(t *testing.T) {

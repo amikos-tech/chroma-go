@@ -83,18 +83,18 @@ From release `0.2.0` the Chroma Go client also supports Reranking functions. The
 > There are many new changes leading up to `v0.2.0`, as documented below. If you'd like to use them please install the
 > latest version of the client.
 > ```bash
-> go get github.com/amikos-tech/chroma-go@main
+> go get github.com/guiperry/chroma-go_cerebras@main
 > ```
 
 ```bash
-go get github.com/amikos-tech/chroma-go
+go get github.com/guiperry/chroma-go_cerebras
 ```
 
 Import `v1`:
 
 ```go
 import (
-chroma "github.com/amikos-tech/chroma-go"
+chroma "github.com/guiperry/chroma-go_cerebras"
 )
 ```
 
@@ -134,7 +134,7 @@ import (
 	"fmt"
 	"log"
 
-	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+	chroma "github.com/guiperry/chroma-go_cerebras/pkg/api/v2"
 )
 
 func main() {

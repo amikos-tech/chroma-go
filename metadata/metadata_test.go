@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/amikos-tech/chroma-go/test"
+	"github.com/guiperry/chroma-go_cerebras/test"
 )
 
 func TestWithMetadata(t *testing.T) {
