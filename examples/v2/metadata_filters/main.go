@@ -12,14 +12,15 @@ func main() {
 	// Create a new Chroma client
 	client, err := chroma.NewHTTPClient(chroma.WithDebug())
 	if err != nil {
-		log.Fatalf("Error creating client: %s \n", err)
+		log.Printf("Error creating client: %s \n", err)
 		return
 	}
 	// Close the client to release any resources such as local embedding functions
 	defer func() {
 		err = client.Close()
 		if err != nil {
-			log.Fatalf("Error closing client: %s \n", err)
+			log.Printf("Error closing client: %s \n", err)
+			return
 		}
 	}()
 
@@ -34,12 +35,13 @@ func main() {
 		),
 	)
 	if err != nil {
-		log.Fatalf("Error creating collection: %s \n", err)
+		_ = client.Close() // Ensure the client is closed before exiting
+		log.Printf("Error creating collection: %s \n", err)
 		return
 	}
 
 	err = col.Add(context.Background(),
-		//chroma.WithIDGenerator(chroma.NewULIDGenerator()),
+		// chroma.WithIDGenerator(chroma.NewULIDGenerator()),
 		chroma.WithIDs("1", "2"),
 		chroma.WithTexts("hello world", "goodbye world"),
 		chroma.WithMetadatas(
@@ -47,12 +49,13 @@ func main() {
 			chroma.NewDocumentMetadata(chroma.NewStringAttribute("str1", "hello2")),
 		))
 	if err != nil {
-		log.Fatalf("Error adding collection: %s \n", err)
+		log.Printf("Error adding collection: %s \n", err)
+		return
 	}
 
 	count, err := col.Count(context.Background())
 	if err != nil {
-		log.Fatalf("Error counting collection: %s \n", err)
+		log.Printf("Error counting collection: %s \n", err)
 		return
 	}
 	fmt.Printf("Count collection: %d\n", count)
@@ -63,21 +66,21 @@ func main() {
 		chroma.WithIncludeQuery(chroma.IncludeDocuments, chroma.IncludeMetadatas),
 		// Example with a single filter:
 		// chroma.WithWhereQuery(StringFilter)
-		
+
 		// Example with multiple combined filters:
 		chroma.WithWhereQuery(
 			chroma.Or(StringFilter, IntFilter),
 		),
 	)
 	if err != nil {
-		log.Fatalf("Error querying collection: %s \n", err)
+		log.Printf("Error querying collection: %s \n", err)
 		return
 	}
-	fmt.Printf("Query result: %v\n", qr.GetDocumentsGroups()[0][0])
+	fmt.Printf("Query result expected: 'hello world', actual: '%v'\n", qr.GetDocumentsGroups()[0][0]) // goodbye world is also returned because of the OR filter
 
 	err = col.Delete(context.Background(), chroma.WithIDsDelete("1", "2"))
 	if err != nil {
-		log.Fatalf("Error deleting collection: %s \n", err)
+		log.Printf("Error deleting collection: %s \n", err)
 		return
 	}
 }
