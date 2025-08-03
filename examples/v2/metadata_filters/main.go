@@ -61,11 +61,12 @@ func main() {
 	qr, err := col.Query(context.Background(),
 		chroma.WithQueryTexts("say hello"),
 		chroma.WithIncludeQuery(chroma.IncludeDocuments, chroma.IncludeMetadatas),
+		// Example with a single filter:
+		// chroma.WithWhereQuery(StringFilter)
+		
+		// Example with multiple combined filters:
 		chroma.WithWhereQuery(
-			StringFilter, // For Single Filter
-		),
-		chroma.WithWhereQuery(
-			chroma.And(StringFilter, IntFilter), // For Mutiple filters
+			chroma.And(StringFilter, IntFilter),
 		),
 	)
 	if err != nil {
