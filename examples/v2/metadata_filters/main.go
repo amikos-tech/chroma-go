@@ -66,7 +66,7 @@ func main() {
 		
 		// Example with multiple combined filters:
 		chroma.WithWhereQuery(
-			chroma.And(StringFilter, IntFilter),
+			chroma.Or(StringFilter, IntFilter),
 		),
 	)
 	if err != nil {
