@@ -12,6 +12,8 @@ type WhereDocumentFilterOperator string
 const (
 	ContainsOperator    WhereDocumentFilterOperator = "$contains"
 	NotContainsOperator WhereDocumentFilterOperator = "$not_contains"
+	RegexOperator       WhereDocumentFilterOperator = "$regex"
+	NotRegexOperator    WhereDocumentFilterOperator = "$not_regex"
 	OrDocumentOperator  WhereDocumentFilterOperator = "$or"
 	AndDocumentOperator WhereDocumentFilterOperator = "$and"
 )
@@ -82,6 +84,37 @@ func (w *WhereDocumentClauseContainsOrNotContains) Validate() error {
 }
 
 func (w *WhereDocumentClauseContainsOrNotContains) String() string {
+	return fmt.Sprintf("%s: %s", w.operator, w.content)
+}
+
+type WhereDocumentClauseRegexNotRegex struct {
+	WhereDocumentFilterBase
+	content string
+}
+
+func (w *WhereDocumentClauseRegexNotRegex) MarshalJSON() ([]byte, error) {
+	err := w.Validate()
+	if err != nil {
+		return nil, err
+	}
+	var x = map[WhereDocumentFilterOperator]string{
+		w.operator: w.content,
+	}
+	return json.Marshal(x)
+}
+
+func (w *WhereDocumentClauseRegexNotRegex) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, w)
+}
+
+func (w *WhereDocumentClauseRegexNotRegex) Validate() error {
+	if w.operator != RegexOperator && w.operator != NotRegexOperator {
+		return errors.New("invalid operator, expected in regex or not regex")
+	}
+	return nil
+}
+
+func (w *WhereDocumentClauseRegexNotRegex) String() string {
 	return fmt.Sprintf("%s: %s", w.operator, w.content)
 }
 
@@ -176,6 +209,24 @@ func NotContains(content string) WhereDocumentFilter {
 	return &WhereDocumentClauseContainsOrNotContains{
 		WhereDocumentFilterBase: WhereDocumentFilterBase{
 			operator: NotContainsOperator,
+		},
+		content: content,
+	}
+}
+
+func Regex(content string) WhereDocumentFilter {
+	return &WhereDocumentClauseRegexNotRegex{
+		WhereDocumentFilterBase: WhereDocumentFilterBase{
+			operator: RegexOperator,
+		},
+		content: content,
+	}
+}
+
+func NotRegex(content string) WhereDocumentFilter {
+	return &WhereDocumentClauseRegexNotRegex{
+		WhereDocumentFilterBase: WhereDocumentFilterBase{
+			operator: NotRegexOperator,
 		},
 		content: content,
 	}
