@@ -5,6 +5,7 @@ package v2
 import (
 	"context"
 	"fmt"
+	"github.com/Masterminds/semver"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -20,7 +21,7 @@ import (
 
 func TestCollectionAddIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "1.0.7"
+	var chromaVersion = "1.0.15"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
@@ -182,6 +183,25 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(res.GetIDs()))
 	})
+
+	t.Run("get documents where_document regex", func(t *testing.T) {
+		cVersion, err := semver.NewVersion(chromaVersion)
+		require.NoError(t, err)
+		if !semver.MustParse("1.0.8").LessThan(cVersion) {
+			t.Skipf("skipping for chroma version %s", cVersion)
+		}
+		err = c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("this is document 1", "another document", "384km is the distance between the earth and the moon"))
+		require.NoError(t, err)
+		res, err := collection.Get(ctx, WithWhereDocumentGet(Regex("[0-9]+km")))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(res.GetIDs()))
+		require.Equal(t, "384km is the distance between the earth and the moon", res.GetDocuments()[0].ContentString())
+	})
+
 	t.Run("get documents with where", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
@@ -366,6 +386,26 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.Equal(t, 1, len(res.GetIDGroups()[0]))
 		require.Equal(t, "test_document_1", res.GetDocumentsGroups()[0][0].ContentString())
 	})
+
+	t.Run("query documents with where document - regex", func(t *testing.T) {
+		cVersion, err := semver.NewVersion(chromaVersion)
+		require.NoError(t, err)
+		if !semver.MustParse("1.0.8").LessThan(cVersion) {
+			t.Skipf("skipping for chroma version %s", cVersion)
+		}
+		err = c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("this is document about cats", "123141231", "$@!123115"))
+		require.NoError(t, err)
+		res, err := collection.Query(ctx, WithQueryTexts("123"), WithWhereDocumentQuery(Regex("^\\d+$")))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(res.GetIDGroups()))
+		require.Equal(t, 1, len(res.GetIDGroups()[0]))
+		require.Equal(t, "123141231", res.GetDocumentsGroups()[0][0].ContentString())
+	})
+
 	t.Run("query documents with include", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
