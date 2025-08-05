@@ -185,10 +185,12 @@ func TestCollectionAddIntegration(t *testing.T) {
 	})
 
 	t.Run("get documents where_document regex", func(t *testing.T) {
-		cVersion, err := semver.NewVersion(chromaVersion)
-		require.NoError(t, err)
-		if !semver.MustParse("1.0.8").LessThan(cVersion) {
-			t.Skipf("skipping for chroma version %s", cVersion)
+		if chromaVersion != "latest" {
+			cVersion, err := semver.NewVersion(chromaVersion)
+			require.NoError(t, err)
+			if !semver.MustParse("1.0.8").LessThan(cVersion) {
+				t.Skipf("skipping for chroma version %s", cVersion)
+			}
 		}
 		err = c.Reset(ctx)
 		require.NoError(t, err)
@@ -388,10 +390,12 @@ func TestCollectionAddIntegration(t *testing.T) {
 	})
 
 	t.Run("query documents with where document - regex", func(t *testing.T) {
-		cVersion, err := semver.NewVersion(chromaVersion)
-		require.NoError(t, err)
-		if !semver.MustParse("1.0.8").LessThan(cVersion) {
-			t.Skipf("skipping for chroma version %s", cVersion)
+		if chromaVersion != "latest" {
+			cVersion, err := semver.NewVersion(chromaVersion)
+			require.NoError(t, err)
+			if !semver.MustParse("1.0.8").LessThan(cVersion) {
+				t.Skipf("skipping for chroma version %s", cVersion)
+			}
 		}
 		err = c.Reset(ctx)
 		require.NoError(t, err)
