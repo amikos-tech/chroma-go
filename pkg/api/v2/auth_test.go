@@ -18,11 +18,12 @@ func TestObfuscateRequestDump(t *testing.T) {
 User-Agent: chroma-go-client/1.0
 Accept: application/json
 Content-Type: application/json
-X-Chroma-Token: ck-1dummyapikey1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+X-Chroma-Token: ` + apiKey + `
 Accept-Encoding: gzip
 `
 		obfuscatedDump := _obfuscateRequestDump(reqDump)
 		require.NotContains(t, obfuscatedDump, apiKey, "API key should be obfuscated in request dump")
+		fmt.Println(obfuscatedDump)
 	})
 	t.Run("Authorization Bearer Token Obfuscation", func(t *testing.T) {
 		token := "my-super-secret-token"
@@ -30,7 +31,7 @@ Accept-Encoding: gzip
 User-Agent: chroma-go-client/1.0
 Accept: application/json
 Content-Type: application/json
-Authorization: Bearer token
+Authorization: Bearer ` + token + `
 Accept-Encoding: gzip
 `
 		obfuscatedDump := _obfuscateRequestDump(reqDump)

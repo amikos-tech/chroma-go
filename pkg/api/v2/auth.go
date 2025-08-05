@@ -69,6 +69,9 @@ func (t *TokenAuthCredentialsProvider) Authenticate(client *BaseAPIClient) error
 func _obfuscateToken(token string) string {
 	// This is a placeholder for any obfuscation logic you might want to implement.
 	// For now, it just returns the token as is.
+	if len(token) < 8 {
+		return "****"
+	}
 	return token[:4] + "****" + token[len(token)-4:]
 }
 func (t *TokenAuthCredentialsProvider) String() string {
