@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/pkg/errors"
@@ -45,7 +44,6 @@ func NewCloudAPIClient(options ...ClientOption) (*CloudAPIClient, error) {
 	} else if c.authProvider == nil {
 		c.authProvider = NewTokenAuthCredentialsProvider(os.Getenv("CHROMA_API_KEY"), XChromaTokenHeader)
 	}
-	fmt.Println(c.authProvider)
 	return c, nil
 }
 
