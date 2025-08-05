@@ -22,6 +22,10 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		WithCloudAPIKey(os.Getenv("CHROMA_API_KEY")),
 	)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := client.Close()
+		require.NoError(t, err)
+	})
 
 	t.Run("Get Version", func(t *testing.T) {
 		ctx := context.Background()
