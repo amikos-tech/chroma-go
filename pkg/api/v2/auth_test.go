@@ -1,3 +1,5 @@
+//go:build basicv2
+
 package v2
 
 import (
@@ -11,12 +13,12 @@ import (
 func TestObfuscateRequestDump(t *testing.T) {
 
 	t.Run("Obfuscate API Key in Request Dump", func(t *testing.T) {
-		apiKey := "ck-21312cddfewqerwq2313dwqeqwe21312d1221213231"
+		apiKey := "ck-1dummyapikey1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 		reqDump := `Host: api.trychroma.com:8000
 User-Agent: chroma-go-client/1.0
 Accept: application/json
 Content-Type: application/json
-X-Chroma-Token: ck-21312cddfewqerwq2313dwqeqwe21312d1221213231
+X-Chroma-Token: ck-1dummyapikey1234567890abcdef1234567890abcdef1234567890abcdef1234567890
 Accept-Encoding: gzip
 `
 		obfuscatedDump := _obfuscateRequestDump(reqDump)
