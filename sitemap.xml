@@ -2,30 +2,30 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://go-client.chromadb.dev/</loc>
-         <lastmod>2025-08-04</lastmod>
+         <lastmod>2025-08-05</lastmod>
     </url>
     <url>
          <loc>https://go-client.chromadb.dev/auth/</loc>
-         <lastmod>2025-08-04</lastmod>
+         <lastmod>2025-08-05</lastmod>
     </url>
     <url>
          <loc>https://go-client.chromadb.dev/client/</loc>
-         <lastmod>2025-08-04</lastmod>
+         <lastmod>2025-08-05</lastmod>
     </url>
     <url>
          <loc>https://go-client.chromadb.dev/embeddings/</loc>
-         <lastmod>2025-08-04</lastmod>
+         <lastmod>2025-08-05</lastmod>
     </url>
     <url>
          <loc>https://go-client.chromadb.dev/filtering/</loc>
-         <lastmod>2025-08-04</lastmod>
+         <lastmod>2025-08-05</lastmod>
     </url>
     <url>
          <loc>https://go-client.chromadb.dev/records/</loc>
-         <lastmod>2025-08-04</lastmod>
+         <lastmod>2025-08-05</lastmod>
     </url>
     <url>
          <loc>https://go-client.chromadb.dev/rerankers/</loc>
-         <lastmod>2025-08-04</lastmod>
+         <lastmod>2025-08-05</lastmod>
     </url>
 </urlset>
