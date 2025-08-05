@@ -738,7 +738,6 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 	}
 	if bc.authProvider != nil {
 		err := bc.authProvider.Authenticate(bc)
-		fmt.Println("Authenticated with provider:", bc.authProvider)
 		if err != nil {
 			return nil, errors.Wrap(err, "error getting authorization header")
 		}
