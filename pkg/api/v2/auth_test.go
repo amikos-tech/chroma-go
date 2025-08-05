@@ -1,0 +1,53 @@
+package v2
+
+import (
+	"encoding/base64"
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestObfuscateRequestDump(t *testing.T) {
+
+	t.Run("Obfuscate API Key in Request Dump", func(t *testing.T) {
+		apiKey := "ck-21312cddfewqerwq2313dwqeqwe21312d1221213231"
+		reqDump := `Host: api.trychroma.com:8000
+User-Agent: chroma-go-client/1.0
+Accept: application/json
+Content-Type: application/json
+X-Chroma-Token: ck-21312cddfewqerwq2313dwqeqwe21312d1221213231
+Accept-Encoding: gzip
+`
+		obfuscatedDump := _obfuscateRequestDump(reqDump)
+		require.NotContains(t, obfuscatedDump, apiKey, "API key should be obfuscated in request dump")
+	})
+	t.Run("Authorization Bearer Token Obfuscation", func(t *testing.T) {
+		token := "my-super-secret-token"
+		reqDump := `Host: api.trychroma.com:8000
+User-Agent: chroma-go-client/1.0
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer token
+Accept-Encoding: gzip
+`
+		obfuscatedDump := _obfuscateRequestDump(reqDump)
+		require.NotContains(t, obfuscatedDump, token, "Token should be obfuscated in request dump")
+		fmt.Println(obfuscatedDump)
+	})
+
+	t.Run("Authorization Basic", func(t *testing.T) {
+		auth := base64.StdEncoding.EncodeToString([]byte("user:password"))
+		reqDump := `Host: api.trychroma.com:8000
+User-Agent: chroma-go-client/1.0
+Accept: application/json
+Content-Type: application/json
+Authorization: Basic ` + auth + `
+Accept-Encoding: gzip
+`
+		obfuscatedDump := _obfuscateRequestDump(reqDump)
+		require.NotContains(t, obfuscatedDump, auth, "Token should be obfuscated in request dump")
+		fmt.Println(obfuscatedDump)
+	})
+
+}
