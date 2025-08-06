@@ -305,6 +305,38 @@ func (c *CollectionImpl) Metadata() CollectionMetadata {
 	return c.metadata
 }
 
+func (c *CollectionImpl) Fork(ctx context.Context, newName string) (Collection, error) {
+	if newName == "" {
+		return nil, errors.New("newName cannot be empty")
+	}
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "fork")
+
+	if err != nil {
+		return nil, errors.Wrap(err, "error composing request URL")
+	}
+	respBody, err := c.client.ExecuteRequest(ctx, http.MethodPost, reqURL, map[string]string{"new_name": newName})
+	if err != nil {
+		return nil, errors.Wrap(err, "error forking collection")
+	}
+	var cm CollectionModel
+	err = json.Unmarshal(respBody, &cm)
+	if err != nil {
+		return nil, errors.Wrap(err, "error decoding response")
+	}
+	forkedCollection := &CollectionImpl{
+		name:              cm.Name,
+		id:                cm.ID,
+		tenant:            NewTenant(cm.Tenant),
+		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
+		metadata:          cm.Metadata,
+		client:            c.client,
+		dimension:         cm.Dimension,
+		embeddingFunction: c.embeddingFunction,
+	}
+	c.client.collectionCache[forkedCollection.name] = forkedCollection
+	return forkedCollection, nil
+}
+
 func (c *CollectionImpl) Close() error {
 	if c.embeddingFunction != nil {
 		if closer, ok := c.embeddingFunction.(io.Closer); ok {

@@ -41,7 +41,7 @@ func applyDefaults(c *TogetherAIClient) {
 		c.MaxBatchSize = defaultMaxSize
 	}
 	if c.DefaultModel == "" {
-		c.DefaultModel = "togethercomputer/m2-bert-80M-8k-retrieval"
+		c.DefaultModel = "BAAI/bge-large-en-v1.5"
 	}
 }
 

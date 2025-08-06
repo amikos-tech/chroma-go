@@ -44,6 +44,9 @@ type Collection interface {
 	Get(ctx context.Context, opts ...CollectionGetOption) (GetResult, error)
 	// Query queries the collection
 	Query(ctx context.Context, opts ...CollectionQueryOption) (QueryResult, error)
+
+	// Fork creates a fork of the collection
+	Fork(ctx context.Context, newName string) (Collection, error)
 	// Close closes the collection and releases any resources
 	Close() error
 }

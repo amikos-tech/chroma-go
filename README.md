@@ -42,7 +42,7 @@ Additional support features:
 - ✅ [Authentication](https://go-client.chromadb.dev/auth/) (Basic, Token with Authorization header, Token with
   X-Chroma-Token header)
 - ✅ [Private PKI and self-signed certificate support](https://go-client.chromadb.dev/client/)
-- ⚒️ Chroma Cloud support (coming soon)
+- ✅ Chroma Cloud support
 - ⚒️ Persistent Embedding Function support (coming soon) - automatically load embedding function from Chroma collection
   configuration
 - ⚒️ Persistent Client support (coming soon) - Run/embed full-featured Chroma in your go application without the need

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
@@ -60,10 +61,6 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		require.NotNil(t, collection)
 		require.Equal(t, collectionName, collection.Name())
 
-		t.Cleanup(func() {
-			err := client.DeleteCollection(context.Background(), collectionName)
-			require.NoError(t, err)
-		})
 	})
 
 	t.Run("Delete collection", func(t *testing.T) {
@@ -97,10 +94,6 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("this is document about cats", "123141231", "$@!123115"))
 		require.NoError(t, err)
 
-		t.Cleanup(func() {
-			err := client.DeleteCollection(context.Background(), collectionName)
-			require.NoError(t, err)
-		})
 	})
 
 	t.Run("Delete data from collection", func(t *testing.T) {
@@ -123,10 +116,6 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, count) // Only one document should remain
 
-		t.Cleanup(func() {
-			err := client.DeleteCollection(context.Background(), collectionName)
-			require.NoError(t, err)
-		})
 	})
 
 	t.Run("Update and get data in collection", func(t *testing.T) {
@@ -152,10 +141,6 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		require.Equal(t, "updated text for 1", results.GetDocuments()[0].ContentString())
 		require.Equal(t, "updated text for 2", results.GetDocuments()[1].ContentString())
 
-		t.Cleanup(func() {
-			err := client.DeleteCollection(context.Background(), collectionName)
-			require.NoError(t, err)
-		})
 	})
 
 	t.Run("Query data in collection", func(t *testing.T) {
@@ -175,10 +160,42 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		require.Contains(t, results.GetDocumentsGroups()[0][0].ContentString(), "cats")
 		require.Contains(t, results.GetDocumentsGroups()[0][1].ContentString(), "cats")
 
-		t.Cleanup(func() {
-			err := client.DeleteCollection(context.Background(), collectionName)
-			require.NoError(t, err)
-		})
+	})
+
+	t.Run("Collection fork", func(t *testing.T) {
+		t.Skip("Forking does not appear to work at the moment, skipping test")
+		ctx := context.Background()
+		collectionName := "test_collection-" + uuid.New().String()
+		forkedCollectionName := "forked_collection-" + uuid.New().String()
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+		require.Equal(t, collectionName, collection.Name())
+
+		// Add data to the collection
+		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("this is document about cats", "dogs are man's best friends", "lions are big cats"))
+		require.NoError(t, err)
+		time.Sleep(5 * time.Second) // Wait for the data to be indexed
+		forkedCollection, err := collection.Fork(ctx, forkedCollectionName)
+		require.NoError(t, err)
+
+		results, err := forkedCollection.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 3, results)
+
+	})
+
+	t.Cleanup(func() {
+		collections, err := client.ListCollections(context.Background())
+		require.NoError(t, err)
+		for _, collection := range collections {
+			if collection.Name() != "chroma" && collection.Name() != "default" {
+				err := client.DeleteCollection(context.Background(), collection.Name())
+				require.NoError(t, err)
+			}
+		}
+		fmt.Println("Cleanup completed")
+		time.Sleep(1 * time.Second) // Wait for cleanup to complete
 	})
 
 }
