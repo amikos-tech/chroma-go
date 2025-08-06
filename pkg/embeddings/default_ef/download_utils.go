@@ -125,77 +125,74 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 	return nil
 }
 
-var once sync.Once
+var (
+	onnxInitErr error
+	onnxMu      sync.Mutex
+)
 
 func EnsureOnnxRuntimeSharedLibrary() error {
-	var err error
-	once.Do(func() {
-		cos, carch := getOSAndArch()
-		if carch == "amd64" {
-			carch = "x64"
+	onnxMu.Lock()
+	defer onnxMu.Unlock()
+	cos, carch := getOSAndArch()
+	if carch == "amd64" {
+		carch = "x64"
+	}
+	if cos == "darwin" {
+		cos = "osx"
+		if carch == "x64" {
+			carch = "x86_64"
 		}
-		if cos == "darwin" {
-			cos = "osx"
-			if carch == "x64" {
-				carch = "x86_64"
+	}
+
+	downloadAndExtractNeeded := false
+	if _, onnxInitErr = os.Stat(onnxLibPath); os.IsNotExist(onnxInitErr) {
+		downloadAndExtractNeeded = true
+		onnxInitErr = os.MkdirAll(onnxCacheDir, 0755)
+		if onnxInitErr != nil {
+			return errors.Wrap(onnxInitErr, "failed to create onnx cache")
+		}
+	}
+	if !downloadAndExtractNeeded {
+		return nil
+	}
+	targetArchive := filepath.Join(onnxCacheDir, "onnxruntime-"+cos+"-"+carch+"-"+LibOnnxRuntimeVersion+".tgz")
+	if _, onnxInitErr = os.Stat(onnxLibPath); os.IsNotExist(onnxInitErr) {
+		// Download the library
+		url := "https://github.com/microsoft/onnxruntime/releases/download/v" + LibOnnxRuntimeVersion + "/onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + ".tgz"
+
+		// fmt.Println("Downloading onnxruntime from GitHub...")
+		// TODO integrity check
+		if _, onnxInitErr = os.Stat(targetArchive); os.IsNotExist(onnxInitErr) {
+			onnxInitErr = downloadFile(targetArchive, url)
+			if onnxInitErr != nil {
+				return errors.Wrap(onnxInitErr, "failed to download onnxruntime.tgz")
 			}
 		}
+	}
+	targetFile := "onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + "/lib/libonnxruntime." + LibOnnxRuntimeVersion + "." + getExtensionForOs()
+	if cos == "linux" {
+		targetFile = "onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + "/lib/libonnxruntime." + getExtensionForOs() + "." + LibOnnxRuntimeVersion
+	}
+	// fmt.Println("Extracting onnxruntime shared library..." + onnxLibPath)
+	onnxInitErr = extractSpecificFile(targetArchive, targetFile, onnxCacheDir)
+	if onnxInitErr != nil {
+		return errors.Wrapf(onnxInitErr, "could not extract onnxruntime shared library")
+	}
 
-		downloadAndExtractNeeded := false
-		if _, err = os.Stat(onnxLibPath); os.IsNotExist(err) {
-			downloadAndExtractNeeded = true
-			err = os.MkdirAll(onnxCacheDir, 0755)
-			if err != nil {
-				err = errors.Wrap(err, "failed to create onnx cache")
-				return
-			}
+	if cos == "linux" {
+		wantedTargetFile := filepath.Join(onnxCacheDir, "libonnxruntime."+LibOnnxRuntimeVersion+"."+getExtensionForOs())
+		onnxInitErr = os.Rename(filepath.Join(onnxCacheDir, "libonnxruntime."+getExtensionForOs()+"."+LibOnnxRuntimeVersion), wantedTargetFile)
+		if onnxInitErr != nil {
+			return errors.Wrapf(onnxInitErr, "could not rename extracted file to %s", wantedTargetFile)
 		}
-		if !downloadAndExtractNeeded {
-			return
-		}
-		targetArchive := filepath.Join(onnxCacheDir, "onnxruntime-"+cos+"-"+carch+"-"+LibOnnxRuntimeVersion+".tgz")
-		if _, err = os.Stat(onnxLibPath); os.IsNotExist(err) {
-			// Download the library
-			url := "https://github.com/microsoft/onnxruntime/releases/download/v" + LibOnnxRuntimeVersion + "/onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + ".tgz"
+	}
 
-			// fmt.Println("Downloading onnxruntime from GitHub...")
-			// TODO integrity check
-			if _, err = os.Stat(targetArchive); os.IsNotExist(err) {
-				err = downloadFile(targetArchive, url)
-				if err != nil {
-					return
-				}
-			}
-		}
-		targetFile := "onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + "/lib/libonnxruntime." + LibOnnxRuntimeVersion + "." + getExtensionForOs()
-		if cos == "linux" {
-			targetFile = "onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + "/lib/libonnxruntime." + getExtensionForOs() + "." + LibOnnxRuntimeVersion
-		}
-		// fmt.Println("Extracting onnxruntime shared library..." + onnxLibPath)
-		err = extractSpecificFile(targetArchive, targetFile, onnxCacheDir)
-		if err != nil {
-			// fmt.Println("Error:", err)
-			err = errors.Wrapf(err, "could not extract onnxruntime shared library")
-			return
-		}
+	onnxInitErr = os.RemoveAll(targetArchive)
+	if onnxInitErr != nil {
+		return errors.Wrapf(onnxInitErr, "could not remove temporary archive: %s", targetArchive)
+	}
 
-		if cos == "linux" {
-			wantedTargetFile := filepath.Join(onnxCacheDir, "libonnxruntime."+LibOnnxRuntimeVersion+"."+getExtensionForOs())
-			err = os.Rename(filepath.Join(onnxCacheDir, "libonnxruntime."+getExtensionForOs()+"."+LibOnnxRuntimeVersion), wantedTargetFile)
-			if err != nil {
-				err = errors.Wrapf(err, "could not rename extracted file to %s", wantedTargetFile)
-				return
-			}
-		}
-
-		err = os.RemoveAll(targetArchive)
-		if err != nil {
-			err = errors.Wrapf(err, "could not remove temporary archive: %s", targetArchive)
-			return
-		}
-	})
-
-	return err
+	return onnxInitErr
 }
 
 func EnsureLibTokenizersSharedLibrary() error {

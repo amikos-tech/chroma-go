@@ -27,7 +27,7 @@ func Test_client(t *testing.T) {
 
 	t.Run("Test CreateEmbedding", func(t *testing.T) {
 		req := CreateEmbeddingRequest{
-			Model: "togethercomputer/m2-bert-80M-8k-retrieval",
+			Model: "BAAI/bge-base-en-v1.5",
 			Input: &EmbeddingInputs{Input: "Test document"},
 		}
 		resp, rerr := client.CreateEmbedding(context.Background(), &req)
@@ -56,12 +56,12 @@ func Test_together_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Equal(t, 768, resp[0].Len())
+		require.Equal(t, 1024, resp[0].Len())
 
 	})
 
 	t.Run("Test EmbedDocuments for model with env-based API Key", func(t *testing.T) {
-		client, err := NewTogetherEmbeddingFunction(WithEnvAPIKey(), WithDefaultModel("togethercomputer/m2-bert-80M-2k-retrieval"))
+		client, err := NewTogetherEmbeddingFunction(WithEnvAPIKey(), WithDefaultModel("BAAI/bge-base-en-v1.5"))
 		require.NoError(t, err)
 		resp, rerr := client.EmbedDocuments(context.Background(), []string{"Test document", "Another test document"})
 
@@ -95,11 +95,11 @@ func Test_together_embedding_function(t *testing.T) {
 		resp, err := client.EmbedQuery(context.Background(), "Test query")
 		require.Nil(t, err)
 		require.NotNil(t, resp)
-		require.Equal(t, 768, resp.Len())
+		require.Equal(t, 1024, resp.Len())
 	})
 
 	t.Run("Test EmbedDocuments with env-based API Key and WithDefaultHeaders", func(t *testing.T) {
-		client, err := NewTogetherEmbeddingFunction(WithEnvAPIKey(), WithDefaultModel("togethercomputer/m2-bert-80M-2k-retrieval"), WithDefaultHeaders(map[string]string{"X-Test-Header": "test"}))
+		client, err := NewTogetherEmbeddingFunction(WithEnvAPIKey(), WithDefaultModel("BAAI/bge-base-en-v1.5"), WithDefaultHeaders(map[string]string{"X-Test-Header": "test"}))
 		require.NoError(t, err)
 		resp, rerr := client.EmbedDocuments(context.Background(), []string{"Test document", "Another test document"})
 
@@ -117,7 +117,7 @@ func Test_together_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Equal(t, 768, resp[0].Len())
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test EmbedDocuments with var token and account id and http client", func(t *testing.T) {
@@ -128,6 +128,6 @@ func Test_together_embedding_function(t *testing.T) {
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
 		require.Equal(t, 2, len(resp))
-		require.Equal(t, 768, resp[0].Len())
+		require.Equal(t, 1024, resp[0].Len())
 	})
 }
