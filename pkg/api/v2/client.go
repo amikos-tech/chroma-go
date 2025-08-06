@@ -736,13 +736,19 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 	} {
 		httpReq.Header.Set(k, v)
 	}
+	if bc.authProvider != nil {
+		err := bc.authProvider.Authenticate(bc)
+		if err != nil {
+			return nil, errors.Wrap(err, "error getting authorization header")
+		}
+	}
 	for k, v := range bc.defaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
 	if bc.debug {
 		dump, err := httputil.DumpRequestOut(httpReq, true)
 		if err == nil {
-			log.Printf("%s\n", string(dump))
+			log.Printf("%s\n", _obfuscateRequestDump(string(dump)))
 		}
 	}
 	resp, err := bc.httpClient.Do(httpReq)
@@ -807,7 +813,7 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 	if bc.debug {
 		dump, err := httputil.DumpRequestOut(httpReq, true)
 		if err == nil {
-			log.Printf("%s\n", string(dump))
+			log.Printf("%s\n", _obfuscateRequestDump(string(dump)))
 		}
 	}
 	resp, err := bc.httpClient.Do(httpReq)

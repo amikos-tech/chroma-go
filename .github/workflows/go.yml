@@ -122,6 +122,9 @@ jobs:
         run: make test-v2
         env:
           CHROMA_VERSION: ${{ matrix.chroma-version }}
+          CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
+          CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
+          CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
