@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -160,7 +161,7 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 		// Download the library
 		url := "https://github.com/microsoft/onnxruntime/releases/download/v" + LibOnnxRuntimeVersion + "/onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + ".tgz"
 
-		// fmt.Println("Downloading onnxruntime from GitHub...")
+		fmt.Printf("Downloading onnxruntime from GitHub: %s\n", url)
 		// TODO integrity check
 		if _, onnxInitErr = os.Stat(targetArchive); os.IsNotExist(onnxInitErr) {
 			onnxInitErr = downloadFile(targetArchive, url)
