@@ -11,7 +11,7 @@ import (
 
 func TestDownload(t *testing.T) {
 	t.Run("Download", func(t *testing.T) {
-		onnxLibPath = filepath.Join(t.TempDir(), "libonnxruntime."+LibOnnxRuntimeVersion+"."+getExtensionForOs())
+		libCacheDir = filepath.Join(t.TempDir(), "lib_cache")
 		fmt.Println(onnxLibPath)
 		err := os.RemoveAll(onnxLibPath)
 		require.NoError(t, err)
@@ -19,14 +19,14 @@ func TestDownload(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("Download Tokenizers", func(t *testing.T) {
-		libTokenizersLibPath = filepath.Join(t.TempDir(), "libtokenizers."+LibTokenizersVersion+"."+getExtensionForOs())
+		libCacheDir = filepath.Join(t.TempDir(), "lib_cache")
 		err := os.RemoveAll(libTokenizersLibPath)
 		require.NoError(t, err)
 		err = EnsureLibTokenizersSharedLibrary()
 		require.NoError(t, err)
 	})
 	t.Run("Download Model", func(t *testing.T) {
-		onnxModelCachePath = filepath.Join(t.TempDir(), "onnx_model")
+		libCacheDir = filepath.Join(t.TempDir(), "lib_cache")
 		err := os.RemoveAll(onnxModelCachePath)
 		require.NoError(t, err)
 		err = EnsureDefaultEmbeddingFunctionModel()

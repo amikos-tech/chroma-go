@@ -2,7 +2,6 @@ package defaultef
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -11,6 +10,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -26,21 +27,87 @@ var onnxModelCachePath = filepath.Join(onnxModelsCachePath, "all-MiniLM-L6-v2/on
 var onnxModelPath = filepath.Join(onnxModelCachePath, "model.onnx")
 var onnxModelTokenizerConfigPath = filepath.Join(onnxModelCachePath, "tokenizer.json")
 
+func lockFile(path string) (*os.File, error) {
+	lockPath := filepath.Join(path, ".lock")
+	err := os.MkdirAll(filepath.Dir(lockPath), 0755)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create directory for lock file: %s", filepath.Dir(lockPath))
+	}
+	// Try to create lock file with exclusive access
+	for i := 0; i < 30; i++ { // Wait up to 30 seconds
+
+		lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+		if err == nil {
+			// Write PID to lock file for debugging
+			fmt.Fprintf(lockFile, "%d", os.Getpid())
+			_ = lockFile.Sync()
+			return lockFile, nil
+		}
+
+		if !os.IsExist(err) {
+			return nil, err
+		}
+
+		// Check if the process holding the lock is still alive
+		if isLockStale(lockPath) {
+			os.Remove(lockPath) // Remove stale lock
+			continue
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	return nil, errors.New("timeout waiting for file lock")
+}
+
+func unlockFile(lockFile *os.File) error {
+	if lockFile == nil {
+		return nil
+	}
+	lockPath := lockFile.Name()
+	lockFile.Close()
+	return os.Remove(lockPath)
+}
+
+func isLockStale(lockPath string) bool {
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		return true // If we can't read it, assume stale
+	}
+
+	var pid int
+	if _, err := fmt.Sscanf(string(data), "%d", &pid); err != nil {
+		return true
+	}
+
+	// Check if process exists (Unix-specific)
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return true
+	}
+
+	// Send signal 0 to check if process is alive
+	err = process.Signal(syscall.Signal(0))
+	return err != nil
+}
+
 func downloadFile(filepath string, url string) error {
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return errors.Wrap(err, "failed to make HTTP request")
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return errors.Wrap(err, "failed to read response body")
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("unexpected response %s for URL %s", resp.Status, url)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return errors.Errorf("unexpected response %s for URL %s: %v", resp.Status, url, string(respBody))
-	}
+	// Check Content-Length if available
+	contentLength := resp.ContentLength
+	// if contentLength > 0 {
+	//	fmt.Printf("Expected download size: %d bytes\n", contentLength)
+	//}
 
 	out, err := os.Create(filepath)
 	if err != nil {
@@ -48,9 +115,57 @@ func downloadFile(filepath string, url string) error {
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, bytes.NewReader(respBody))
+	// Copy directly from response body, don't buffer everything in memory
+	written, err := io.Copy(out, resp.Body)
 	if err != nil {
 		return errors.Wrapf(err, "failed to copy file contents: %s", filepath)
+	}
+
+	// fmt.Printf("Downloaded %d bytes\n", written)
+
+	// Verify size if we know the expected size
+	if contentLength > 0 && written != contentLength {
+		return errors.Errorf("download incomplete: expected %d bytes, got %d bytes", contentLength, written)
+	}
+
+	// Explicitly sync to disk
+	if err := out.Sync(); err != nil {
+		return errors.Wrapf(err, "failed to sync file to disk: %s", filepath)
+	}
+
+	// Verify file exists and has expected size
+	fileInfo, err := os.Stat(filepath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to stat downloaded file: %s", filepath)
+	}
+
+	if fileInfo.Size() != written {
+		return errors.Errorf("file size mismatch after download: expected %d, got %d", written, fileInfo.Size())
+	}
+
+	// fmt.Printf("Download completed and verified: %s (%d bytes)\n", filepath, fileInfo.Size())
+	return nil
+}
+
+func verifyTarGzFile(filepath string) error {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return errors.Wrapf(err, "could not open file for verification: %s", filepath)
+	}
+	defer file.Close()
+
+	// Try to read the gzip header
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return errors.Wrap(err, "invalid gzip file")
+	}
+	defer gzipReader.Close()
+
+	// Try to read the tar header
+	tarReader := tar.NewReader(gzipReader)
+	_, err = tarReader.Next()
+	if err != nil {
+		return errors.Wrap(err, "invalid tar file or corrupt archive")
 	}
 
 	return nil
@@ -98,10 +213,12 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 				return errors.Wrapf(err, "could not create output file: %s", filepath.Join(destPath, filepath.Base(targetFile)))
 			}
 			defer outFile.Close()
-
 			// Copy the file data from the tar archive to the destination file
 			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return errors.Wrap(err, "could not copy file data")
+				return errors.Wrapf(err, "could not copy file data to output file: %s", filepath.Join(destPath, filepath.Base(targetFile)))
+			}
+			if err := outFile.Sync(); err != nil {
+				return errors.Wrapf(err, "could not sync output file to disk: %s", filepath.Join(destPath, filepath.Base(targetFile)))
 			}
 			return nil // Successfully extracted the file
 		}
@@ -117,11 +234,17 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				return errors.Wrap(err, "could not copy file data")
 			}
+			if err := outFile.Sync(); err != nil {
+				return errors.Wrapf(err, "could not sync output file to disk: %s", filepath.Join(destPath, filepath.Base(targetFile)))
+			}
 		}
 	}
 
 	if targetFile != "" {
-		return errors.Errorf("file %s not found in the archive", targetFile)
+		expectedPath := filepath.Join(destPath, filepath.Base(targetFile))
+		if _, err := os.Stat(expectedPath); err != nil {
+			return errors.Wrapf(err, "extracted file not found at expected location: %s", expectedPath)
+		}
 	}
 	return nil
 }
@@ -134,6 +257,14 @@ var (
 func EnsureOnnxRuntimeSharedLibrary() error {
 	onnxMu.Lock()
 	defer onnxMu.Unlock()
+	lockFile, err := lockFile(onnxCacheDir)
+	if err != nil {
+		return errors.Wrap(err, "failed to acquire lock for onnx download")
+	}
+	defer func() {
+		_ = unlockFile(lockFile)
+	}()
+
 	cos, carch := getOSAndArch()
 	if carch == "amd64" {
 		carch = "x64"
@@ -160,13 +291,17 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 	if _, onnxInitErr = os.Stat(onnxLibPath); os.IsNotExist(onnxInitErr) {
 		// Download the library
 		url := "https://github.com/microsoft/onnxruntime/releases/download/v" + LibOnnxRuntimeVersion + "/onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + ".tgz"
-
-		fmt.Printf("Downloading onnxruntime from GitHub: %s\n", url)
 		// TODO integrity check
 		if _, onnxInitErr = os.Stat(targetArchive); os.IsNotExist(onnxInitErr) {
 			onnxInitErr = downloadFile(targetArchive, url)
 			if onnxInitErr != nil {
 				return errors.Wrap(onnxInitErr, "failed to download onnxruntime.tgz")
+			}
+			if _, err := os.Stat(targetArchive); err != nil {
+				return errors.Wrap(err, "downloaded archive not found after download")
+			}
+			if err := verifyTarGzFile(targetArchive); err != nil {
+				return errors.Wrap(err, "failed to verify downloaded onnxruntime archive")
 			}
 		}
 	}
@@ -174,18 +309,21 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 	if cos == "linux" {
 		targetFile = "onnxruntime-" + cos + "-" + carch + "-" + LibOnnxRuntimeVersion + "/lib/libonnxruntime." + getExtensionForOs() + "." + LibOnnxRuntimeVersion
 	}
-	// fmt.Println("Extracting onnxruntime shared library..." + onnxLibPath)
 	onnxInitErr = extractSpecificFile(targetArchive, targetFile, onnxCacheDir)
 	if onnxInitErr != nil {
 		return errors.Wrapf(onnxInitErr, "could not extract onnxruntime shared library")
 	}
 
 	if cos == "linux" {
-		wantedTargetFile := filepath.Join(onnxCacheDir, "libonnxruntime."+LibOnnxRuntimeVersion+"."+getExtensionForOs())
-		onnxInitErr = os.Rename(filepath.Join(onnxCacheDir, "libonnxruntime."+getExtensionForOs()+"."+LibOnnxRuntimeVersion), wantedTargetFile)
+		// wantedTargetFile := filepath.Join(onnxCacheDir, "libonnxruntime."+LibOnnxRuntimeVersion+"."+getExtensionForOs())
+		onnxInitErr = os.Rename(filepath.Join(onnxCacheDir, "libonnxruntime."+getExtensionForOs()+"."+LibOnnxRuntimeVersion), onnxLibPath)
 		if onnxInitErr != nil {
-			return errors.Wrapf(onnxInitErr, "could not rename extracted file to %s", wantedTargetFile)
+			return errors.Wrapf(onnxInitErr, "could not rename extracted file to %s", onnxLibPath)
 		}
+	}
+
+	if _, err := os.Stat(onnxLibPath); err != nil {
+		return errors.Wrapf(err, "extracted file not found at expected location: %s", onnxLibPath)
 	}
 
 	onnxInitErr = os.RemoveAll(targetArchive)
@@ -197,6 +335,14 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 }
 
 func EnsureLibTokenizersSharedLibrary() error {
+	lockFile, err := lockFile(libTokenizersCacheDir)
+	if err != nil {
+		return errors.Wrap(err, "failed to acquire lock for onnx download")
+	}
+	defer func() {
+		_ = unlockFile(lockFile)
+	}()
+
 	cos, carch := getOSAndArch()
 	downloadAndExtractNeeded := false
 	if _, err := os.Stat(libTokenizersLibPath); os.IsNotExist(err) {
@@ -228,7 +374,7 @@ func EnsureLibTokenizersSharedLibrary() error {
 		return errors.Wrapf(err, "could not extract libtokenizers shared library")
 	}
 
-	err := os.RemoveAll(targetArchive)
+	err = os.RemoveAll(targetArchive)
 	if err != nil {
 		return errors.Wrapf(err, "could not remove temporary archive: %s", targetArchive)
 	}
@@ -236,6 +382,15 @@ func EnsureLibTokenizersSharedLibrary() error {
 }
 
 func EnsureDefaultEmbeddingFunctionModel() error {
+
+	lockFile, err := lockFile(onnxModelsCachePath)
+	if err != nil {
+		return errors.Wrap(err, "failed to acquire lock for onnx download")
+	}
+	defer func() {
+		_ = unlockFile(lockFile)
+	}()
+
 	downloadAndExtractNeeded := false
 	if _, err := os.Stat(onnxModelCachePath); os.IsNotExist(err) {
 		downloadAndExtractNeeded = true
@@ -248,15 +403,12 @@ func EnsureDefaultEmbeddingFunctionModel() error {
 	}
 	targetArchive := filepath.Join(onnxModelsCachePath, "onnx.tar.gz")
 	if _, err := os.Stat(targetArchive); os.IsNotExist(err) {
-		// fmt.Println("Downloading onnx model from S3...")
 		// TODO integrity check
 		if err := downloadFile(targetArchive, onnxModelDownloadEndpoint); err != nil {
 			return errors.Wrap(err, "failed to download onnx model")
 		}
 	}
-	// fmt.Println("Extracting onnx model..." + onnxModelCachePath)
 	if err := extractSpecificFile(targetArchive, "", onnxModelCachePath); err != nil {
-		// fmt.Println("Error:", err)
 		return errors.Wrapf(err, "could not extract onnx model")
 	}
 
