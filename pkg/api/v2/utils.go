@@ -107,17 +107,10 @@ func clampF32(v float32) float32 {
 	if math.IsNaN(float64(v)) { // NaN check
 		return float32(math.NaN())
 	}
-	if math.IsInf(float64(v), +1) {
-		return math.MaxFloat32
-	}
-	if math.IsInf(float64(v), -1) {
-		return -math.MaxFloat32
-	}
-	const m = math.MaxFloat32
 	switch {
-	case v > m:
+	case v > math.MaxFloat32:
 		return float32(math.Inf(1))
-	case v < -m:
+	case v < -math.MaxFloat32:
 		return float32(math.Inf(-1))
 	default:
 		return v
