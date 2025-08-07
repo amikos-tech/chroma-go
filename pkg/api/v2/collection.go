@@ -359,12 +359,12 @@ func WithIDsQuery(ids ...DocumentID) CollectionQueryOption {
 // Add, Upsert, Update
 
 type CollectionAddOp struct {
-	Ids         []DocumentID           `json:"ids"`
-	Documents   []Document             `json:"documents,omitempty"`
-	Metadatas   []DocumentMetadata     `json:"metadatas,omitempty"`
-	Embeddings  []embeddings.Embedding `json:"embeddings"`
-	Records     []Record               `json:"-"`
-	IDGenerator IDGenerator            `json:"-"`
+	Ids         []DocumentID       `json:"ids"`
+	Documents   []Document         `json:"documents,omitempty"`
+	Metadatas   []DocumentMetadata `json:"metadatas,omitempty"`
+	Embeddings  []any              `json:"embeddings"`
+	Records     []Record           `json:"-"`
+	IDGenerator IDGenerator        `json:"-"`
 }
 
 func NewCollectionAddOp(opts ...CollectionAddOption) (*CollectionAddOp, error) {
@@ -555,7 +555,14 @@ func WithIDGenerator(idGenerator IDGenerator) CollectionAddOption {
 
 func WithEmbeddings(embeddings ...embeddings.Embedding) CollectionAddOption {
 	return func(update *CollectionAddOp) error {
-		update.Embeddings = embeddings
+		if len(embeddings) == 0 {
+			return errors.New("at least one embedding is required")
+		}
+		embds := make([]any, 0)
+		for _, e := range embeddings {
+			embds = append(embds, e)
+		}
+		update.Embeddings = embds
 		return nil
 	}
 }
@@ -563,11 +570,11 @@ func WithEmbeddings(embeddings ...embeddings.Embedding) CollectionAddOption {
 // Update
 
 type CollectionUpdateOp struct {
-	Ids        []DocumentID           `json:"ids"`
-	Documents  []Document             `json:"documents,omitempty"`
-	Metadatas  []DocumentMetadata     `json:"metadatas,omitempty"`
-	Embeddings []embeddings.Embedding `json:"embeddings"`
-	Records    []Record               `json:"-"`
+	Ids        []DocumentID       `json:"ids"`
+	Documents  []Document         `json:"documents,omitempty"`
+	Metadatas  []DocumentMetadata `json:"metadatas,omitempty"`
+	Embeddings []any              `json:"embeddings"`
+	Records    []Record           `json:"-"`
 }
 
 func NewCollectionUpdateOp(opts ...CollectionUpdateOption) (*CollectionUpdateOp, error) {
@@ -713,7 +720,14 @@ func WithIDsUpdate(ids ...DocumentID) CollectionUpdateOption {
 
 func WithEmbeddingsUpdate(embeddings ...embeddings.Embedding) CollectionUpdateOption {
 	return func(update *CollectionUpdateOp) error {
-		update.Embeddings = embeddings
+		if len(embeddings) == 0 {
+			return errors.New("at least one embedding is required")
+		}
+		embds := make([]any, 0)
+		for _, e := range embeddings {
+			embds = append(embds, e)
+		}
+		update.Embeddings = embds
 		return nil
 	}
 }

@@ -145,7 +145,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, len(res.GetIDs()))
 
-		res, err = collection.Get(ctx)
+		res, err = collection.Get(ctx, WithIncludeGet(IncludeEmbeddings))
 		require.NoError(t, err)
 		require.Equal(t, 3, len(res.GetIDs()))
 
