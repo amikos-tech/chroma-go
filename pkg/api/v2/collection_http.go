@@ -103,6 +103,17 @@ func (c *CollectionImpl) Add(ctx context.Context, opts ...CollectionAddOption) e
 	if err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
+	if sbe, ok := c.client.GetPreFlightConditionsRaw()["supports_base64_encoding"]; ok {
+		if supportsBase64, ok := sbe.(bool); ok && supportsBase64 {
+			// encode embeddings
+			packedEmbeddings := make([]any, 0)
+			for _, e := range addObject.Embeddings {
+				packedE := packEmbeddingSafely(e.(*embeddings.Float32Embedding).ContentAsFloat32())
+				packedEmbeddings = append(packedEmbeddings, packedE)
+			}
+			addObject.Embeddings = packedEmbeddings
+		}
+	}
 	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "add")
 	if err != nil {
 		return errors.Wrap(err, "error composing request URL")
@@ -135,6 +146,17 @@ func (c *CollectionImpl) Upsert(ctx context.Context, opts ...CollectionAddOption
 	if err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
+	if sbe, ok := c.client.GetPreFlightConditionsRaw()["supports_base64_encoding"]; ok {
+		if supportsBase64, ok := sbe.(bool); ok && supportsBase64 {
+			// encode embeddings
+			packedEmbeddings := make([]any, 0)
+			for _, e := range upsertObject.Embeddings {
+				packedE := packEmbeddingSafely(e.(*embeddings.Float32Embedding).ContentAsFloat32())
+				packedEmbeddings = append(packedEmbeddings, packedE)
+			}
+			upsertObject.Embeddings = packedEmbeddings
+		}
+	}
 	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "upsert")
 	if err != nil {
 		return err
@@ -165,6 +187,17 @@ func (c *CollectionImpl) Update(ctx context.Context, opts ...CollectionUpdateOpt
 	err = updateObject.EmbedData(ctx, c.embeddingFunction)
 	if err != nil {
 		return errors.Wrap(err, "failed to embed data")
+	}
+	if sbe, ok := c.client.GetPreFlightConditionsRaw()["supports_base64_encoding"]; ok {
+		if supportsBase64, ok := sbe.(bool); ok && supportsBase64 {
+			// encode embeddings
+			packedEmbeddings := make([]any, 0)
+			for _, e := range updateObject.Embeddings {
+				packedE := packEmbeddingSafely(e.(*embeddings.Float32Embedding).ContentAsFloat32())
+				packedEmbeddings = append(packedEmbeddings, packedE)
+			}
+			updateObject.Embeddings = packedEmbeddings
+		}
 	}
 	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "update")
 	if err != nil {

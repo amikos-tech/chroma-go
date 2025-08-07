@@ -17,9 +17,10 @@ import (
 
 type APIClientV2 struct {
 	BaseAPIClient
-	preflightLimits    map[string]interface{}
-	preflightCompleted bool
-	collectionCache    map[string]Collection
+	preflightConditionsRaw map[string]interface{}
+	preflightLimits        map[string]interface{}
+	preflightCompleted     bool
+	collectionCache        map[string]Collection
 }
 
 func NewHTTPClient(opts ...ClientOption) (Client, error) {
@@ -65,6 +66,7 @@ func (client *APIClientV2) PreFlight(ctx context.Context) error {
 	if json.NewDecoder(resp.Body).Decode(&preflightLimits) != nil {
 		return errors.New("error decoding preflight response")
 	}
+	client.preflightConditionsRaw = preflightLimits
 	if mbs, ok := preflightLimits["max_batch_size"]; ok {
 		if maxBatchSize, ok := mbs.(float64); ok {
 			client.preflightLimits[fmt.Sprintf("%s#%s", string(ResourceCollection), string(OperationCreate))] = int(maxBatchSize)
@@ -509,7 +511,7 @@ func (client *APIClientV2) CurrentDatabase() Database {
 }
 
 func (client *APIClientV2) GetPreFlightConditionsRaw() map[string]interface{} {
-	return map[string]interface{}{}
+	return client.preflightConditionsRaw
 }
 
 func (client *APIClientV2) Satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error {

@@ -6,8 +6,10 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"log"
+	"math"
 	"math/big"
 	"net"
 	"os"
@@ -81,4 +83,55 @@ func CreateSelfSignedCert(certPath, keyPath string) {
 		log.Fatalf("Error closing key.pem: %v", err)
 	}
 	log.Printf("Written %s", keyPath)
+}
+
+func packEmbeddingSafely(embedding []float32) string {
+	packed, err := packFloat32Slice(embedding)
+	if err != nil {
+		clamped := make([]float32, len(embedding))
+		for i, v := range embedding {
+			clamped[i] = clampF32(v)
+		}
+		packed = float32ToBytes(clamped)
+	}
+	return base64.StdEncoding.EncodeToString(packed)
+}
+
+func packFloat32Slice(input []float32) ([]byte, error) {
+	out := make([]float32, len(input))
+	copy(out, input)
+	return float32ToBytes(out), nil
+}
+
+func clampF32(v float32) float32 {
+	if math.IsNaN(float64(v)) { // NaN check
+		return float32(math.NaN())
+	}
+	if math.IsInf(float64(v), +1) {
+		return math.MaxFloat32
+	}
+	if math.IsInf(float64(v), -1) {
+		return -math.MaxFloat32
+	}
+	const m = math.MaxFloat32
+	switch {
+	case v > m:
+		return float32(math.Inf(1))
+	case v < -m:
+		return float32(math.Inf(-1))
+	default:
+		return v
+	}
+}
+
+func float32ToBytes(floats []float32) []byte {
+	buf := make([]byte, 4*len(floats))
+	for i, f := range floats {
+		bits := math.Float32bits(f)
+		buf[4*i+0] = byte(bits)
+		buf[4*i+1] = byte(bits >> 8)
+		buf[4*i+2] = byte(bits >> 16)
+		buf[4*i+3] = byte(bits >> 24)
+	}
+	return buf
 }
