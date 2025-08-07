@@ -133,7 +133,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("get documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection")
+		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
