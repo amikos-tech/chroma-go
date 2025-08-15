@@ -163,7 +163,6 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 	})
 
 	t.Run("Collection fork", func(t *testing.T) {
-		t.Skip("Forking does not appear to work at the moment, skipping test")
 		ctx := context.Background()
 		collectionName := "test_collection-" + uuid.New().String()
 		forkedCollectionName := "forked_collection-" + uuid.New().String()
