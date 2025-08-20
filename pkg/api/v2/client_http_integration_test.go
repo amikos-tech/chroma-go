@@ -5,12 +5,13 @@ package v2
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/Masterminds/semver"
 	"github.com/docker/docker/api/types/container"
@@ -25,7 +26,7 @@ import (
 
 func TestClientHTTPIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "1.0.15"
+	var chromaVersion = "1.0.20"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
