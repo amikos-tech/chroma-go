@@ -106,11 +106,17 @@ func (r *GetResultImpl) UnmarshalJSON(data []byte) error {
 				}
 				switch val := metadata.(type) {
 				case map[string]interface{}:
-					metav, err := NewDocumentMetadataFromMap(val)
+					// this is very inefficient, but we value correctness over performance. We need this because ints get converted to float64 in JSON
+					var mtv DocumentMetadataImpl
+					mmeta, err := json.Marshal(val)
 					if err != nil {
-						return errors.Errorf("invalid metadata: %v", err)
+						return errors.Wrap(err, "failed to marshal metadata")
 					}
-					r.Metadatas = append(r.Metadatas, metav)
+					err = json.Unmarshal(mmeta, &mtv)
+					if err != nil {
+						return errors.Wrap(err, "failed to unmarshal metadata")
+					}
+					r.Metadatas = append(r.Metadatas, &mtv)
 				default:
 					return errors.Errorf("invalid metadata type: %T for %v", val, metadata)
 				}

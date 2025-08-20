@@ -5,14 +5,15 @@ package v2
 import (
 	"context"
 	"fmt"
-	"github.com/Masterminds/semver"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Masterminds/semver"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	"github.com/stretchr/testify/require"
@@ -304,11 +305,30 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("update documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := c.CreateCollection(ctx,
+			"test_collection",
+			WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+		)
 		require.NoError(t, err)
-		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("test_document_1", "test_document_2", "test_document_3"))
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("test_document_1", "test_document_2", "test_document_3"),
+			WithMetadatas(
+				NewMetadata(NewStringAttribute("test_key_1", "original")),
+				NewMetadata(NewStringAttribute("test_key_2", "original")),
+				NewMetadata(NewStringAttribute("test_key_3", "original")),
+			),
+		)
 		require.NoError(t, err)
-		err = collection.Update(ctx, WithIDsUpdate("1", "2", "3"), WithTextsUpdate("test_document_1_updated", "test_document_2_updated", "test_document_3_updated"))
+		err = collection.Update(ctx,
+			WithIDsUpdate("1", "2", "3"),
+			WithTextsUpdate("test_document_1_updated", "test_document_2_updated", "test_document_3_updated"),
+			WithMetadatasUpdate(
+				NewMetadata(NewIntAttribute("test_key_1", 1)),
+				NewMetadata(RemoveAttribute("test_key_2"), NewStringAttribute("test_key_3", "updated")),
+				NewMetadata(NewFloatAttribute("test_key_3", 2.2)),
+			),
+		)
 		require.NoError(t, err)
 		count, err := collection.Count(ctx)
 		require.NoError(t, err)
@@ -319,6 +339,17 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.Equal(t, "test_document_1_updated", res.GetDocuments()[0].ContentString())
 		require.Equal(t, "test_document_2_updated", res.GetDocuments()[1].ContentString())
 		require.Equal(t, "test_document_3_updated", res.GetDocuments()[2].ContentString())
+		mv1, ok := res.GetMetadatas()[0].GetInt("test_key_1")
+		require.True(t, ok)
+		require.Equal(t, int64(1), mv1)
+		mv2, ok := res.GetMetadatas()[1].GetString("test_key_3")
+		require.True(t, ok)
+		require.Equal(t, "updated", mv2)
+		_, nok := res.GetMetadatas()[1].GetString("test_key_2")
+		require.False(t, nok, "test_key_2 should be removed")
+		mv3, ok := res.GetMetadatas()[2].GetFloat("test_key_3")
+		require.True(t, ok)
+		require.Equal(t, 2.2, mv3)
 	})
 
 	t.Run("update documents with errors", func(t *testing.T) {

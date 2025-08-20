@@ -96,7 +96,6 @@ func NewDocumentMetadataFromMap(metadata map[string]interface{}) (DocumentMetada
 	}
 
 	mv := &DocumentMetadataImpl{metadata: make(map[string]MetadataValue)}
-
 	for k, v := range metadata {
 		switch val := v.(type) {
 		case bool:
@@ -211,6 +210,8 @@ func (cm *DocumentMetadataImpl) MarshalJSON() ([]byte, error) {
 	processed := make(map[string]interface{})
 	for k, v := range cm.metadata {
 		switch val, _ := v.GetRaw(); val.(type) {
+		case nil:
+			processed[k] = nil
 		case bool:
 			processed[k], _ = v.GetBool()
 		case float32, float64:
