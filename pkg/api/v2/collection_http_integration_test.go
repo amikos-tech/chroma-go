@@ -22,7 +22,7 @@ import (
 
 func TestCollectionAddIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "1.0.15"
+	var chromaVersion = "1.0.20"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
