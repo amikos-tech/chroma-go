@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"bytes"
 	"encoding/json"
 
 	"github.com/pkg/errors"
@@ -62,8 +63,10 @@ func (r *GetResultImpl) Next() (GetResult, error) {
 }
 
 func (r *GetResultImpl) UnmarshalJSON(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
 	var temp map[string]interface{}
-	if err := json.Unmarshal(data, &temp); err != nil {
+	if err := decoder.Decode(&temp); err != nil {
 		return errors.Wrap(err, "failed to unmarshal GetResult")
 	}
 	if _, ok := temp["ids"]; ok {

@@ -326,7 +326,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 			WithMetadatasUpdate(
 				NewMetadata(NewIntAttribute("test_key_1", 1)),
 				NewMetadata(RemoveAttribute("test_key_2"), NewStringAttribute("test_key_3", "updated")),
-				NewMetadata(NewFloatAttribute("test_key_3", 2.2)),
+				NewMetadata(NewFloatAttribute("test_key_3", 2.0)),
 			),
 		)
 		require.NoError(t, err)
@@ -349,7 +349,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.False(t, nok, "test_key_2 should be removed")
 		mv3, ok := res.GetMetadatas()[2].GetFloat("test_key_3")
 		require.True(t, ok)
-		require.Equal(t, 2.2, mv3)
+		require.Equal(t, 2.0, mv3)
 	})
 
 	t.Run("update documents with errors", func(t *testing.T) {

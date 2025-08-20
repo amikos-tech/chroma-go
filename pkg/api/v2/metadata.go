@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -339,11 +340,13 @@ func (cm *CollectionMetadataImpl) MarshalJSON() ([]byte, error) {
 			processed[k], _ = v.GetString()
 		}
 	}
-	j, err := json.Marshal(processed)
+	b := bytes.NewBuffer(nil)
+	encoder := json.NewEncoder(b)
+	err := encoder.Encode(processed)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal metadata")
 	}
-	return j, nil
+	return b.Bytes(), nil
 }
 
 func (cm *CollectionMetadataImpl) UnmarshalJSON(b []byte) error {

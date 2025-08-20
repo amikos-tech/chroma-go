@@ -238,8 +238,8 @@ func TestMetadataSerialization(t *testing.T) {
 			input: `{"str":"test","int":42,"float":3.14,"bool":true}`,
 			expected: map[string]interface{}{
 				"str":   "test",
-				"int":   float64(42),   // Changed from int to float64
-				"float": float64(3.14), // Changed from float32 to float64
+				"int":   float64(42),
+				"float": float64(3.14),
 				"bool":  true,
 			},
 		},
