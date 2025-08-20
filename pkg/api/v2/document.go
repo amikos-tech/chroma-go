@@ -1,7 +1,10 @@
 package v2
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -96,9 +99,25 @@ func NewDocumentMetadataFromMap(metadata map[string]interface{}) (DocumentMetada
 	}
 
 	mv := &DocumentMetadataImpl{metadata: make(map[string]MetadataValue)}
-
 	for k, v := range metadata {
 		switch val := v.(type) {
+		case json.Number:
+			numStr := string(val)
+			if strings.Contains(numStr, ".") || strings.Contains(numStr, "e") || strings.Contains(numStr, "E") {
+				// Has decimal point or scientific notation - treat as float
+				if floatVal, err := val.Float64(); err == nil {
+					mv.SetFloat(k, floatVal)
+				} else {
+					return nil, errors.Errorf("invalid float value for key %s: %v", k, val)
+				}
+			} else {
+				// No decimal indicators - treat as integer
+				if intVal, err := val.Int64(); err == nil {
+					mv.SetInt(k, intVal)
+				} else {
+					return nil, errors.Errorf("invalid int value for key %s: %v", k, val)
+				}
+			}
 		case bool:
 			mv.SetBool(k, val)
 		case float32:
@@ -211,21 +230,26 @@ func (cm *DocumentMetadataImpl) MarshalJSON() ([]byte, error) {
 	processed := make(map[string]interface{})
 	for k, v := range cm.metadata {
 		switch val, _ := v.GetRaw(); val.(type) {
+		case nil:
+			processed[k] = nil
 		case bool:
 			processed[k], _ = v.GetBool()
 		case float32, float64:
-			processed[k], _ = v.GetFloat()
+			floatVal, _ := v.GetFloat()
+			processed[k] = json.Number(fmt.Sprintf("%.15f", floatVal))
 		case int, int32, int64:
 			processed[k], _ = v.GetInt()
 		case string:
 			processed[k], _ = v.GetString()
 		}
 	}
-	j, err := json.Marshal(processed)
+	b := bytes.NewBuffer(nil)
+	encoder := json.NewEncoder(b)
+	err := encoder.Encode(processed)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to marshal metadata")
 	}
-	return j, nil
+	return b.Bytes(), nil
 }
 
 func (cm *DocumentMetadataImpl) UnmarshalJSON(b []byte) error {

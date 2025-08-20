@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -30,6 +31,7 @@ type MetadataValue struct {
 	Float64     *float64 `json:"-"`
 	Int         *int64   `json:"-"`
 	StringValue *string  `json:"-"`
+	NilValue    bool     `json:"-"`
 }
 
 type MetaAttribute struct {
@@ -48,6 +50,10 @@ func NewIntAttribute(key string, value int64) *MetaAttribute {
 
 func NewFloatAttribute(key string, value float64) *MetaAttribute {
 	return &MetaAttribute{key: key, value: MetadataValue{Float64: &value}, valueType: reflect.TypeOf(value)}
+}
+
+func RemoveAttribute(key string) *MetaAttribute {
+	return &MetaAttribute{key: key, value: MetadataValue{NilValue: true}, valueType: nil}
 }
 
 func NewBoolAttribute(key string, value bool) *MetaAttribute {
@@ -132,11 +138,14 @@ func (mv *MetadataValue) Equal(other *MetadataValue) bool {
 
 // MarshalJSON ensures only the correct type is serialized.
 func (mv *MetadataValue) MarshalJSON() ([]byte, error) {
+	if mv.NilValue {
+		return json.Marshal(nil)
+	}
 	if mv.Bool != nil {
 		return json.Marshal(*mv.Bool)
 	}
 	if mv.Float64 != nil {
-		return []byte(strconv.FormatFloat(float64(*mv.Float64), 'e', -1, 64)), nil
+		return []byte(strconv.FormatFloat(*mv.Float64, 'e', -1, 64)), nil
 	}
 	if mv.Int != nil {
 		return json.Marshal(float64(*mv.Int)) // Ensure int64 is converted to float64
@@ -331,11 +340,13 @@ func (cm *CollectionMetadataImpl) MarshalJSON() ([]byte, error) {
 			processed[k], _ = v.GetString()
 		}
 	}
-	j, err := json.Marshal(processed)
+	b := bytes.NewBuffer(nil)
+	encoder := json.NewEncoder(b)
+	err := encoder.Encode(processed)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal metadata")
 	}
-	return j, nil
+	return b.Bytes(), nil
 }
 
 func (cm *CollectionMetadataImpl) UnmarshalJSON(b []byte) error {

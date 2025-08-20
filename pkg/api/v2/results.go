@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"bytes"
 	"encoding/json"
 
 	"github.com/pkg/errors"
@@ -62,8 +63,10 @@ func (r *GetResultImpl) Next() (GetResult, error) {
 }
 
 func (r *GetResultImpl) UnmarshalJSON(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
 	var temp map[string]interface{}
-	if err := json.Unmarshal(data, &temp); err != nil {
+	if err := decoder.Decode(&temp); err != nil {
 		return errors.Wrap(err, "failed to unmarshal GetResult")
 	}
 	if _, ok := temp["ids"]; ok {
@@ -298,11 +301,11 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 				}
 				switch val := embeddingList.(type) {
 				case []interface{}:
-					embeddings, err := embeddings.NewEmbeddingsFromInterface(val)
+					emb, err := embeddings.NewEmbeddingsFromInterface(val)
 					if err != nil {
 						return errors.Errorf("invalid embeddings: %v", err)
 					}
-					r.EmbeddingsLists = append(r.EmbeddingsLists, embeddings)
+					r.EmbeddingsLists = append(r.EmbeddingsLists, emb)
 				default:
 					return errors.Errorf("invalid embeddings: %v", temp["embeddings"])
 				}

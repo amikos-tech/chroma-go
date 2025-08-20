@@ -13,7 +13,7 @@ gotestsum-bin:
 test: gotestsum-bin
 	gotestsum \
 		--format short-verbose \
-		--rerun-fails=5 \
+		--rerun-fails=1 \
 		--packages="./..." \
 		--junitfile unit-v1.xml \
 		-- \
@@ -26,7 +26,7 @@ test: gotestsum-bin
 test-v2: gotestsum-bin
 	gotestsum \
         --format short-verbose \
-        --rerun-fails=5 \
+        --rerun-fails=1 \
         --packages="./..." \
         --junitfile unit-v2.xml \
         -- \
@@ -39,7 +39,7 @@ test-v2: gotestsum-bin
 test-rf: gotestsum-bin
 	gotestsum \
 		--format short-verbose \
-		--rerun-fails=5 \
+		--rerun-fails=1 \
 		--packages="./..." \
 		--junitfile unit-rf.xml \
 		-- \
@@ -52,7 +52,7 @@ test-rf: gotestsum-bin
 test-ef: gotestsum-bin
 	gotestsum \
 		--format short-verbose \
-		--rerun-fails=5 \
+		--rerun-fails=1 \
 		--packages="./..." \
 		--junitfile unit-ef.xml \
 		-- \

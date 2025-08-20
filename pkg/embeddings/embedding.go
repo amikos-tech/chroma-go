@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -83,7 +84,7 @@ func NewInt32Embedding(embedding []int32) Embedding {
 	}
 }
 
-func (e *Int32Embedding) FromFloat32(content ...float32) error {
+func (e *Int32Embedding) FromFloat32(_ ...float32) error {
 	return errors.New("cannot convert float32 to int32")
 }
 func (e *Int32Embedding) IsDefined() bool {
@@ -179,6 +180,23 @@ func NewEmbeddingsFromInterface(lst []interface{}) ([]Embedding, error) {
 			vals := make([]float32, 0)
 			for _, c := range expr {
 				switch val := c.(type) {
+				case json.Number:
+					numStr := string(val)
+					if strings.Contains(numStr, ".") || strings.Contains(numStr, "e") || strings.Contains(numStr, "E") {
+						// Has decimal point or scientific notation - treat as float
+						if floatVal, err := val.Float64(); err == nil {
+							vals = append(vals, float32(floatVal))
+						} else {
+							return nil, errors.Errorf("invalid embedding type: %T for %v", val, c)
+						}
+					} else {
+						// No decimal indicators - treat as integer
+						if intVal, err := val.Int64(); err == nil {
+							vals = append(vals, float32(intVal))
+						} else {
+							return nil, errors.Errorf("invalid embedding type: %T for %v", val, c)
+						}
+					}
 				case float32:
 					vals = append(vals, val)
 				case float64:
