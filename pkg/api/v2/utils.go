@@ -128,3 +128,7 @@ func float32ToBytes(floats []float32) []byte {
 	}
 	return buf
 }
+
+func isInteger(f float64) bool {
+	return f == math.Trunc(f) && !math.IsInf(f, 0) && !math.IsNaN(f)
+}

@@ -106,17 +106,11 @@ func (r *GetResultImpl) UnmarshalJSON(data []byte) error {
 				}
 				switch val := metadata.(type) {
 				case map[string]interface{}:
-					// this is very inefficient, but we value correctness over performance. We need this because ints get converted to float64 in JSON
-					var mtv DocumentMetadataImpl
-					mmeta, err := json.Marshal(val)
+					metav, err := NewDocumentMetadataFromMap(val)
 					if err != nil {
-						return errors.Wrap(err, "failed to marshal metadata")
+						return errors.Errorf("invalid metadata: %v", err)
 					}
-					err = json.Unmarshal(mmeta, &mtv)
-					if err != nil {
-						return errors.Wrap(err, "failed to unmarshal metadata")
-					}
-					r.Metadatas = append(r.Metadatas, &mtv)
+					r.Metadatas = append(r.Metadatas, metav)
 				default:
 					return errors.Errorf("invalid metadata type: %T for %v", val, metadata)
 				}
@@ -304,11 +298,11 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 				}
 				switch val := embeddingList.(type) {
 				case []interface{}:
-					embeddings, err := embeddings.NewEmbeddingsFromInterface(val)
+					emb, err := embeddings.NewEmbeddingsFromInterface(val)
 					if err != nil {
 						return errors.Errorf("invalid embeddings: %v", err)
 					}
-					r.EmbeddingsLists = append(r.EmbeddingsLists, embeddings)
+					r.EmbeddingsLists = append(r.EmbeddingsLists, emb)
 				default:
 					return errors.Errorf("invalid embeddings: %v", temp["embeddings"])
 				}

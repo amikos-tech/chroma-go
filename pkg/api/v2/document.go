@@ -103,7 +103,11 @@ func NewDocumentMetadataFromMap(metadata map[string]interface{}) (DocumentMetada
 		case float32:
 			mv.SetFloat(k, float64(val))
 		case float64:
-			mv.SetFloat(k, val)
+			if !isInteger(val) { // this is necessary as JSON unmarshals ints as float64
+				mv.SetFloat(k, val)
+			} else {
+				mv.SetInt(k, int64(val))
+			}
 		case int:
 			mv.SetInt(k, int64(val))
 		case int32:
