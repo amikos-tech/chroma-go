@@ -15,6 +15,11 @@ import (
 )
 
 func TestCloudClientSetup(t *testing.T) {
+	t.Cleanup(func() {
+		t.Setenv("CHROMA_TENANT", "")
+		t.Setenv("CHROMA_DATABASE", "")
+		t.Setenv("CHROMA_API_KEY", "")
+	})
 	t.Run("Without API Key", func(t *testing.T) {
 		client, err := NewCloudAPIClient(
 			WithDebug(),
@@ -84,11 +89,7 @@ func TestCloudClientSetup(t *testing.T) {
 		require.Equal(t, NewTenant("other_tenant"), client.Tenant())
 		require.Equal(t, NewDatabase("other_db", NewTenant("other_tenant")), client.Database())
 	})
-	t.Cleanup(func() {
-		t.Setenv("CHROMA_TENANT", "")
-		t.Setenv("CHROMA_DATABASE", "")
-		t.Setenv("CHROMA_API_KEY", "")
-	})
+
 }
 
 func TestCloudClientHTTPIntegration(t *testing.T) {

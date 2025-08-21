@@ -43,7 +43,7 @@ func NewCloudAPIClient(options ...ClientOption) (*CloudAPIClient, error) {
 	}
 
 	if c.tenant == NewDefaultTenant() || c.tenant == nil || c.database == NewDefaultDatabase() || c.database == nil {
-		return nil, errors.New("tenant and database must be set for cloud client. Use WithDatabaseAndTenantFromEnvI fNotSet option or set CHROMA_TENANT and CHROMA_DATABASE environment variables")
+		return nil, errors.New("tenant and database must be set for cloud client. Use WithDatabaseAndTenantFromEnv fNotSet option or set CHROMA_TENANT and CHROMA_DATABASE environment variables")
 	}
 
 	if c.authProvider == nil && os.Getenv("CHROMA_API_KEY") == "" {

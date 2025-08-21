@@ -614,12 +614,12 @@ func WithDefaultDatabaseAndTenant() ClientOption {
 func WithDatabaseAndTenantFromEnv() ClientOption {
 	return func(c *BaseAPIClient) error {
 		if os.Getenv("CHROMA_TENANT") != "" {
-			if c.tenant == nil || c.tenant == NewDefaultTenant() {
+			if c.tenant == nil || c.tenant.Name() == DefaultTenant {
 				c.tenant = NewTenant(os.Getenv("CHROMA_TENANT"))
 			}
 		}
 		if os.Getenv("CHROMA_DATABASE") != "" {
-			if c.database == nil || c.database == NewDefaultDatabase() {
+			if c.database == nil || c.database.Name() == DefaultDatabase {
 				c.database = NewDatabase(os.Getenv("CHROMA_DATABASE"), c.tenant)
 			}
 		}
