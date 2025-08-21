@@ -122,9 +122,6 @@ jobs:
         run: make test-v2
         env:
           CHROMA_VERSION: ${{ matrix.chroma-version }}
-          CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
-          CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
-          CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
@@ -133,6 +130,34 @@ jobs:
           path: |
             coverage-v2.out
             unit-v2.xml
+  cloud:
+    name: Test Chroma Cloud
+    runs-on: ubuntu-latest
+    needs: [ lint,paths-filter ]
+    if: needs.paths-filter.outputs.basev2 == 'true'
+    environment: Test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Build
+        run: make build
+      - name: Test
+        run: make test-cloud
+        env:
+          CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
+          CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
+          CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-test-results-cloud
+          path: |
+            coverage-cloud.out
+            unit-cloud.xml
   ef:
     name: Test Embedding Functions
     runs-on: ubuntu-latest

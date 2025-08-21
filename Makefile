@@ -35,6 +35,18 @@ test-v2: gotestsum-bin
         -coverprofile=coverage-v2.out \
         -timeout=30m
 
+.PHONY: test-cloud
+test-cloud: gotestsum-bin
+	gotestsum \
+        --format short-verbose \
+        --rerun-fails=1 \
+        --packages="./..." \
+        --junitfile unit-cloud.xml \
+        -- \
+        -v \
+        -tags=basicv2,cloud \
+        -coverprofile=coverage-cloud.out \
+        -timeout=30m
 .PHONY: test-rf
 test-rf: gotestsum-bin
 	gotestsum \

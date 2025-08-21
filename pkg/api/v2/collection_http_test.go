@@ -1,4 +1,4 @@
-//go:build basicv2
+//go:build basicv2 && !cloud
 
 package v2
 
@@ -16,27 +16,6 @@ import (
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
-
-// func bootStrapServer(t *testing.T) *httptest.Server {
-// 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		t.Logf("Request: %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
-// 		respBody := chhttp.ReadRespBody(r.Body)
-// 		t.Logf("Body: %s", respBody)
-// 	}))
-// 	return server
-// }
-
-// func genDocumentId() gopter.Gen {
-// 	return gen.RegexMatch("[a-zA-Z0-9_\\-\\.]{1,30}")
-// }
-
-// func genDocumentText() gopter.Gen {
-// 	return gen.RegexMatch("[a-zA-Z0-9_\\-\\.\\s]+")
-// }
-
-// func genDocumentMetadatas() gopter.Gen {
-// 	return gen.MapOf(gen.Identifier(), gen.OneGenOf(gen.Bool(), gen.Int(), genDocumentText(), gen.Float64()))
-// }
 
 type ChromaCollectionUpdateRequest struct {
 	IDs        []string         `json:"ids"`

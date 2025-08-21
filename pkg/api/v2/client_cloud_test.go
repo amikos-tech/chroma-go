@@ -1,4 +1,4 @@
-//go:build basicv2
+//go:build basicv2 && cloud
 
 package v2
 
@@ -15,6 +15,11 @@ import (
 )
 
 func TestCloudClientHTTPIntegration(t *testing.T) {
+	t.Cleanup(func() {
+		t.Setenv("CHROMA_TENANT", "")
+		t.Setenv("CHROMA_DATABASE", "")
+		t.Setenv("CHROMA_API_KEY", "")
+	})
 	if os.Getenv("CHROMA_API_KEY") == "" && os.Getenv("CHROMA_DATABASE") == "" && os.Getenv("CHROMA_TENANT") == "" {
 		err := godotenv.Load("../../../.env")
 		require.NoError(t, err)
@@ -195,6 +200,79 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		}
 		fmt.Println("Cleanup completed")
 		time.Sleep(1 * time.Second) // Wait for cleanup to complete
+	})
+
+	t.Run("Without API Key", func(t *testing.T) {
+		t.Setenv("CHROMA_API_KEY", "")
+		client, err := NewCloudAPIClient(
+			WithDebug(),
+			WithDatabaseAndTenant("test_database", "test_tenant"),
+		)
+		require.Error(t, err)
+		require.Nil(t, client)
+		require.Contains(t, err.Error(), "api key")
+	})
+
+	t.Run("Without Tenant and DB", func(t *testing.T) {
+		t.Setenv("CHROMA_TENANT", "")
+		t.Setenv("CHROMA_DATABASE", "")
+		client, err := NewCloudAPIClient(
+			WithDebug(),
+			WithCloudAPIKey("test"),
+		)
+		require.Error(t, err)
+		require.Nil(t, client)
+		require.Contains(t, err.Error(), "tenant and database must be set for cloud client")
+	})
+	t.Run("With env tenant and DB", func(t *testing.T) {
+		t.Setenv("CHROMA_TENANT", "test_tenant")
+		t.Setenv("CHROMA_DATABASE", "test_database")
+		client, err := NewCloudAPIClient(
+			WithDebug(),
+			WithCloudAPIKey("test"),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		require.Equal(t, NewTenant("test_tenant"), client.Tenant())
+		require.Equal(t, NewDatabase("test_database", NewTenant("test_tenant")), client.Database())
+	})
+
+	t.Run("With env API key, tenant and DB", func(t *testing.T) {
+		t.Setenv("CHROMA_TENANT", "test_tenant")
+		t.Setenv("CHROMA_DATABASE", "test_database")
+		t.Setenv("CHROMA_API_KEY", "test")
+		client, err := NewCloudAPIClient(
+			WithDebug(),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		require.NotNil(t, client.authProvider)
+		require.IsType(t, &TokenAuthCredentialsProvider{}, client.authProvider)
+		p, ok := client.authProvider.(*TokenAuthCredentialsProvider)
+		require.True(t, ok)
+		require.Equal(t, "test", p.Token)
+		require.Equal(t, NewTenant("test_tenant"), client.Tenant())
+		require.Equal(t, NewDatabase("test_database", NewTenant("test_tenant")), client.Database())
+	})
+
+	t.Run("With options overrides (precedence)", func(t *testing.T) {
+		t.Setenv("CHROMA_TENANT", "test_tenant")
+		t.Setenv("CHROMA_DATABASE", "test_database")
+		t.Setenv("CHROMA_API_KEY", "test")
+		client, err := NewCloudAPIClient(
+			WithDebug(),
+			WithCloudAPIKey("different_test_key"),
+			WithDatabaseAndTenant("other_db", "other_tenant"),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		require.NotNil(t, client.authProvider)
+		require.IsType(t, &TokenAuthCredentialsProvider{}, client.authProvider)
+		p, ok := client.authProvider.(*TokenAuthCredentialsProvider)
+		require.True(t, ok)
+		require.Equal(t, "different_test_key", p.Token)
+		require.Equal(t, NewTenant("other_tenant"), client.Tenant())
+		require.Equal(t, NewDatabase("other_db", NewTenant("other_tenant")), client.Database())
 	})
 
 }

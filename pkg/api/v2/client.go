@@ -300,6 +300,7 @@ func WithCollectionMetadataCreate(metadata CollectionMetadata) CreateCollectionO
 	}
 }
 
+// WithDatabaseCreate allows the creation of a collection in a specific database, different from the default one set at Client level.
 func WithDatabaseCreate(database Database) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		if database == nil {
@@ -597,6 +598,35 @@ func WithDatabaseAndTenant(database string, tenant string) ClientOption {
 	}
 }
 
+func WithDefaultDatabaseAndTenant() ClientOption {
+	return func(c *BaseAPIClient) error {
+		if c.tenant == nil {
+			c.tenant = NewDefaultTenant()
+		}
+		if c.database == nil {
+			c.database = NewDefaultDatabase()
+		}
+		return nil
+	}
+}
+
+// WithDatabaseAndTenantFromEnv sets the tenant and database from environment variables CHROMA_TENANT and CHROMA_DATABASE
+func WithDatabaseAndTenantFromEnv() ClientOption {
+	return func(c *BaseAPIClient) error {
+		if os.Getenv("CHROMA_TENANT") != "" {
+			if c.tenant == nil || c.tenant.Name() == DefaultTenant {
+				c.tenant = NewTenant(os.Getenv("CHROMA_TENANT"))
+			}
+		}
+		if os.Getenv("CHROMA_DATABASE") != "" {
+			if c.database == nil || c.database.Name() == DefaultDatabase {
+				c.database = NewDatabase(os.Getenv("CHROMA_DATABASE"), c.tenant)
+			}
+		}
+		return nil
+	}
+}
+
 func WithHTTPClient(httpClient *http.Client) ClientOption {
 	return func(c *BaseAPIClient) error {
 		if httpClient == nil {
@@ -706,8 +736,6 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 	client := &BaseAPIClient{
 		baseURL:           "http://localhost:8000/api/v2",
 		httpClient:        http.DefaultClient,
-		tenant:            NewDefaultTenant(),
-		database:          NewDefaultDatabase(),
 		httpTransport:     &http.Transport{TLSClientConfig: &tls.Config{}},
 		activeCollections: make([]Collection, 0),
 		defaultHeaders: map[string]string{

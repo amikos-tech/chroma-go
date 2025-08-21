@@ -1,11 +1,12 @@
-//go:build basicv2
+//go:build basicv2 && !cloud
 
 package v2
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestTextDocument(t *testing.T) {
