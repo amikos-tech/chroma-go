@@ -24,7 +24,15 @@ type APIClientV2 struct {
 }
 
 func NewHTTPClient(opts ...ClientOption) (Client, error) {
-	bc, err := newBaseAPIClient(opts...)
+	updatedOpts := make([]ClientOption, 0)
+	updatedOpts = append(updatedOpts, WithDatabaseAndTenantFromEnv()) // prepend env vars as first default
+	for _, option := range opts {
+		if option != nil {
+			updatedOpts = append(updatedOpts, option)
+		}
+	}
+	updatedOpts = append(updatedOpts, WithDefaultDatabaseAndTenant())
+	bc, err := newBaseAPIClient(updatedOpts...)
 	if err != nil {
 		return nil, err
 	}

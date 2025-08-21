@@ -6,6 +6,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const ChromaCloudEndpoint = "https://api.trychroma.com:8000/api/v2"
+
 type CloudClientOption func(client *CloudAPIClient) error
 type CloudAPIClient struct {
 	*APIClientV2
@@ -25,18 +27,23 @@ func NewCloudAPIClient(options ...ClientOption) (*CloudAPIClient, error) {
 		},
 	}
 	updatedOpts := make([]ClientOption, 0)
+	updatedOpts = append(updatedOpts, WithDatabaseAndTenantFromEnv())
 	for _, option := range options {
 		if option != nil {
 			updatedOpts = append(updatedOpts, option)
 		}
 	}
 	// we override the base URL for the cloud client
-	updatedOpts = append(updatedOpts, WithBaseURL("https://api.trychroma.com:8000/api/v2"))
+	updatedOpts = append(updatedOpts, WithBaseURL(ChromaCloudEndpoint))
 
 	for _, option := range updatedOpts {
 		if err := option(&c.BaseAPIClient); err != nil {
 			return nil, err
 		}
+	}
+
+	if c.tenant == NewDefaultTenant() || c.tenant == nil || c.database == NewDefaultDatabase() || c.database == nil {
+		return nil, errors.New("tenant and database must be set for cloud client. Use WithDatabaseAndTenantFromEnvI fNotSet option or set CHROMA_TENANT and CHROMA_DATABASE environment variables")
 	}
 
 	if c.authProvider == nil && os.Getenv("CHROMA_API_KEY") == "" {
@@ -47,6 +54,7 @@ func NewCloudAPIClient(options ...ClientOption) (*CloudAPIClient, error) {
 	return c, nil
 }
 
+// WithCloudAPIKey sets the API key for the cloud client. It will automatically set a new TokenAuthCredentialsProvider.
 func WithCloudAPIKey(apiKey string) ClientOption {
 	return func(c *BaseAPIClient) error {
 		if apiKey == "" {

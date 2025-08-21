@@ -1,4 +1,4 @@
-//go:build basicv2
+//go:build basicv2 && !cloud
 
 package v2
 
@@ -694,4 +694,24 @@ func TestClientClose(t *testing.T) {
 	err = client.Close()
 	require.NoError(t, err)
 
+}
+
+func TestClientSetup(t *testing.T) {
+	t.Run("With default tenant and database", func(t *testing.T) {
+		client, err := NewHTTPClient(WithBaseURL("http://localhost:8080"), WithDebug())
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		require.Equal(t, NewDefaultTenant(), client.CurrentTenant())
+		require.Equal(t, NewDefaultDatabase(), client.CurrentDatabase())
+	})
+
+	t.Run("With env tenant and database", func(t *testing.T) {
+		t.Setenv("CHROMA_TENANT", "test_tenant")
+		t.Setenv("CHROMA_DATABASE", "test_db")
+		client, err := NewHTTPClient(WithBaseURL("http://localhost:8080"), WithDebug())
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		require.Equal(t, NewTenant("test_tenant"), client.CurrentTenant())
+		require.Equal(t, NewDatabase("test_db", NewTenant("test_tenant")), client.CurrentDatabase())
+	})
 }

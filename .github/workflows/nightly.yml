@@ -49,3 +49,9 @@ jobs:
         CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
         CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
         CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
+    - name: Test Cloud
+      run: make test-cloud
+      env:
+        CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
+        CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
+        CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}

@@ -1,4 +1,4 @@
-//go:build basicv2
+//go:build basicv2 && !cloud
 
 package v2
 
