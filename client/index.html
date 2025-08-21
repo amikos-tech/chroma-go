@@ -289,6 +289,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Chroma Client
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -300,6 +313,54 @@
   
 
       </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#chroma-cloud-client-v020" class="md-nav__link">
+    <span class="md-ellipsis">
+      Chroma Cloud Client (v0.2.0+)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chroma-client-v020" class="md-nav__link">
+    <span class="md-ellipsis">
+      Chroma Client (v0.2.0+)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#client-version-v014-or-lower" class="md-nav__link">
+    <span class="md-ellipsis">
+      Client version v0.1.4 or lower
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -415,6 +476,41 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#chroma-cloud-client-v020" class="md-nav__link">
+    <span class="md-ellipsis">
+      Chroma Cloud Client (v0.2.0+)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chroma-client-v020" class="md-nav__link">
+    <span class="md-ellipsis">
+      Chroma Client (v0.2.0+)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#client-version-v014-or-lower" class="md-nav__link">
+    <span class="md-ellipsis">
+      Client version v0.1.4 or lower
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -433,6 +529,214 @@
 
 
 <h1 id="chroma-client">Chroma Client<a class="headerlink" href="#chroma-client" title="Permanent link">&para;</a></h1>
+<h2 id="chroma-cloud-client-v020">Chroma Cloud Client (v0.2.0+)<a class="headerlink" href="#chroma-cloud-client-v020" title="Permanent link">&para;</a></h2>
+<p>Options:</p>
+<table>
+<thead>
+<tr>
+<th>Options</th>
+<th>Usage</th>
+<th>Description</th>
+<th>Value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CloudAPIKey</td>
+<td><code>WithCloudAPIKey("api_key")</code></td>
+<td>Set Chroma Cloud API Key</td>
+<td><code>string</code></td>
+<td>Yes (default: uses <code>CHROMA_API_KEY</code> env var if available)</td>
+</tr>
+<tr>
+<td>Tenant</td>
+<td><code>WithTenant("tenant")</code></td>
+<td>The default tenant to use.</td>
+<td><code>string</code></td>
+<td>Yes (default: uses <code>CHROMA_TENANT</code> env var if available)</td>
+</tr>
+<tr>
+<td>Database</td>
+<td><code>WithDatabaseAndTenant("database","tenant")</code></td>
+<td>The default database and tenant (overrides any tenant set with Tenant). Option precedence is observed!</td>
+<td><code>string</code></td>
+<td>Yes (default: uses <code>CHROMA_DATABASE</code> env var if available)</td>
+</tr>
+<tr>
+<td>Debug</td>
+<td><code>WithDebug(true/false)</code></td>
+<td>Enable debug mode, printing http requests to stdout (sensitive information is sanitized)</td>
+<td><code>bool</code></td>
+<td>No (default: <code>false</code>)</td>
+</tr>
+<tr>
+<td>Default Headers</td>
+<td><code>WithDefaultHeaders(map[string]string)</code></td>
+<td>Set default HTTP headers for the client. These headers are sent with every request.</td>
+<td><code>map[string]string</code></td>
+<td>No (default: <code>nil</code>)</td>
+</tr>
+<tr>
+<td>Custom HttpClient</td>
+<td><code>WithHTTPClient(http.Client)</code></td>
+<td>Set a custom http client. If this is set then SSL Cert and Insecure options are ignore.</td>
+<td><code>*http.Client</code></td>
+<td>No (default: Default HTTPClient)</td>
+</tr>
+<tr>
+<td>Timeout</td>
+<td><code>WithTimeout(time.Duration)</code></td>
+<td>Set the timeout for the client.</td>
+<td><code>time.Duration</code></td>
+<td>No (default is the default HTTP client timeout duration)</td>
+</tr>
+</tbody>
+</table>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nx">chroma</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/api/v2&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="s">&quot;log&quot;</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nx">c</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewHTTPClient</span><span class="p">(</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithCloudAPIKey</span><span class="p">(</span><span class="s">&quot;my-api-key&quot;</span><span class="p">),</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDatabaseAndTenant</span><span class="p">(</span><span class="s">&quot;team-uuid&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;my-database&quot;</span><span class="p">),</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDebug</span><span class="p">(),</span><span class="w"> </span><span class="c1">// enable debug output (sensitive token information is sanitized)</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="p">)</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Error creating client: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">    </span><span class="nx">v</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">GetVersion</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">())</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Error getting version: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Chroma API Version: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">v</span><span class="p">)</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="chroma-client-v020">Chroma Client (v0.2.0+)<a class="headerlink" href="#chroma-client-v020" title="Permanent link">&para;</a></h2>
+<p>Options:</p>
+<table>
+<thead>
+<tr>
+<th>Options</th>
+<th>Usage</th>
+<th>Description</th>
+<th>Value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>API Endpoint</td>
+<td><code>WithBasePath("http://localhost:8000")</code></td>
+<td>The Chroma server base API.</td>
+<td>Non-empty valid URL string</td>
+<td>No (default: <code>http://localhost:8000</code>)</td>
+</tr>
+<tr>
+<td>Tenant</td>
+<td><code>WithTenant("tenant")</code></td>
+<td>The default tenant to use.</td>
+<td><code>string</code></td>
+<td>No (default: <code>default_tenant</code>)</td>
+</tr>
+<tr>
+<td>Database</td>
+<td><code>WithDatabaseAndTenant("database","tenant")</code></td>
+<td>The default database to use.</td>
+<td><code>string</code></td>
+<td>No (default: <code>default_database</code>)</td>
+</tr>
+<tr>
+<td>Debug</td>
+<td><code>WithDebug(true/false)</code></td>
+<td>Enable debug mode.</td>
+<td><code>bool</code></td>
+<td>No (default: <code>false</code>)</td>
+</tr>
+<tr>
+<td>Default Headers</td>
+<td><code>WithDefaultHeaders(map[string]string)</code></td>
+<td>Set default HTTP headers for the client. These headers are sent with every request.</td>
+<td><code>map[string]string</code></td>
+<td>No (default: <code>nil</code>)</td>
+</tr>
+<tr>
+<td>SSL Cert</td>
+<td><code>WithSSLCert("path/to/cert.pem")</code></td>
+<td>Set the path to the SSL certificate.</td>
+<td>valid path to SSL cert.</td>
+<td>No (default: Not Set)</td>
+</tr>
+<tr>
+<td>Insecure</td>
+<td><code>WithInsecure()</code></td>
+<td>Disable SSL certificate verification</td>
+<td></td>
+<td>No (default: Not Set)</td>
+</tr>
+<tr>
+<td>Custom HttpClient</td>
+<td><code>WithHTTPClient(http.Client)</code></td>
+<td>Set a custom http client. If this is set then SSL Cert and Insecure options are ignore.</td>
+<td><code>*http.Client</code></td>
+<td>No (default: Default HTTPClient)</td>
+</tr>
+<tr>
+<td>Auth</td>
+<td><code>WithAuth(v2.CredentialsProvider)</code></td>
+<td>Set the authentication method. The default is <code>WithAuth(types.NewNoAuthCredentialsProvider())</code></td>
+<td><code>CredentialsProvider</code></td>
+<td>No (default: <code>NoAuth</code>)</td>
+</tr>
+<tr>
+<td>Timeout</td>
+<td><code>WithTimeout(time.Duration)</code></td>
+<td>Set the timeout for the client.</td>
+<td><code>time.Duration</code></td>
+<td>No (default is the default HTTP client timeout duration)</td>
+</tr>
+<tr>
+<td>Transport</td>
+<td><code>WithTransport(*http.Transport)</code></td>
+<td>Set the transport for the client.</td>
+<td><code>http.RoundTripper</code></td>
+<td>No (default: Default HTTPClient)</td>
+</tr>
+</tbody>
+</table>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nx">chroma</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/api/v2&quot;</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="s">&quot;log&quot;</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">)</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nx">c</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewHTTPClient</span><span class="p">(</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithBaseURL</span><span class="p">(</span><span class="s">&quot;http://localhost:8000&quot;</span><span class="p">),</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDatabaseAndTenant</span><span class="p">(</span><span class="s">&quot;default_database&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;default_tenant&quot;</span><span class="p">),</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDefaultHeaders</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;X-Custom-Header&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;header-value&quot;</span><span class="p">}),</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDebug</span><span class="p">(),</span><span class="w"> </span><span class="c1">// enable debug output (sensitive token information is sanitized)</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="p">)</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Error creating client: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span><span class="nx">v</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">GetVersion</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">())</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Error getting version: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Chroma API Version: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">v</span><span class="p">)</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="client-version-v014-or-lower">Client version v0.1.4 or lower<a class="headerlink" href="#client-version-v014-or-lower" title="Permanent link">&para;</a></h2>
 <p>Options:</p>
 <table>
 <thead>
@@ -508,37 +812,37 @@
 <p>The tenant and database are only supported for Chroma API version <code>0.4.15+</code>.</p>
 </div>
 <p>Creating a new client:</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="s">&quot;log&quot;</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="s">&quot;os&quot;</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nx">chroma</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go&quot;</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nx">client</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewClient</span><span class="p">(</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithBasePath</span><span class="p">(</span><span class="s">&quot;http://localhost:8000&quot;</span><span class="p">),</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithTenant</span><span class="p">(</span><span class="s">&quot;my_tenant&quot;</span><span class="p">),</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDatabase</span><span class="p">(</span><span class="s">&quot;my_db&quot;</span><span class="p">),</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDebug</span><span class="p">(</span><span class="kc">true</span><span class="p">),</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDefaultHeaders</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;Authorization&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Bearer my token&quot;</span><span class="p">}),</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSSLCert</span><span class="p">(</span><span class="s">&quot;path/to/cert.pem&quot;</span><span class="p">),</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">    </span><span class="p">)</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Failed to create client: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">    </span><span class="c1">// do something with client</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">    </span><span class="c1">// Close the client to release any resources such as local embedding functions</span>
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Failed to close client: %v&quot;</span><span class="p">,</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="p">}</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="s">&quot;log&quot;</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="s">&quot;os&quot;</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nx">chroma</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go&quot;</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="nx">client</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewClient</span><span class="p">(</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithBasePath</span><span class="p">(</span><span class="s">&quot;http://localhost:8000&quot;</span><span class="p">),</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithTenant</span><span class="p">(</span><span class="s">&quot;my_tenant&quot;</span><span class="p">),</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDatabase</span><span class="p">(</span><span class="s">&quot;my_db&quot;</span><span class="p">),</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDebug</span><span class="p">(</span><span class="kc">true</span><span class="p">),</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDefaultHeaders</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;Authorization&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Bearer my token&quot;</span><span class="p">}),</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSSLCert</span><span class="p">(</span><span class="s">&quot;path/to/cert.pem&quot;</span><span class="p">),</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="p">)</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Failed to create client: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">    </span><span class="c1">// do something with client</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">    </span><span class="c1">// Close the client to release any resources such as local embedding functions</span>
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Failed to close client: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="p">}</span>
 </span></code></pre></div>
 
 
