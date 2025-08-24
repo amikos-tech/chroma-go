@@ -42,8 +42,8 @@ test-cloud: gotestsum-bin
         --rerun-fails=1 \
         --packages="./..." \
         --junitfile unit-cloud.xml \
-        -p=1 \
         -- \
+        -p=1 \
         -v \
         -tags=basicv2,cloud \
         -coverprofile=coverage-cloud.out \
