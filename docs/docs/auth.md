@@ -2,6 +2,8 @@
 
 Chroma supports multiple authentication methods. All methods work with both self-hosted and Chroma Cloud deployments.
 
+> **📁 Complete Examples**: Find runnable authentication examples in the [`examples/v2/auth`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/auth) directory.
+
 ## API v2 (Recommended)
 
 ### Basic Authentication
