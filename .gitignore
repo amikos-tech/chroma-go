@@ -27,3 +27,6 @@ _testmain.go
 *.iml
 /data
 /pkg/rerankings/hf/data
+*.out
+unit*.xml
+*.log
