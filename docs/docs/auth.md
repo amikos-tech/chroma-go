@@ -1,37 +1,12 @@
 # Authentication
 
-There are four ways to authenticate with Chroma:
+Chroma supports multiple authentication methods. All methods work with both self-hosted and Chroma Cloud deployments.
 
-- Manual Header authentication - this approach requires you to be familiar with the server-side auth and generate and insert the necessary headers manually.
-- Chroma Basic Auth mechanism
-- Chroma Token Auth mechanism with Bearer Authorization header
-- Chroma Token Auth mechanism with X-Chroma-Token header
+> **📁 Complete Examples**: Find runnable authentication examples in the [`examples/v2/auth`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/auth) directory.
 
-### Manual Header Authentication
+## API v2 (Recommended)
 
-```go
-package main
-
-import (
-	"context"
-	"log"
-	chroma "github.com/amikos-tech/chroma-go"
-)
-
-func main() {
-	var defaultHeaders = map[string]string{"Authorization": "Bearer my-custom-token"}
-	clientWithTenant, err := chroma.NewClient(chroma.WithBasePath("http://api.trychroma.com/v1/"), chroma.WithDefaultHeaders(defaultHeaders))
-	if err != nil {
-		log.Fatalf("Error creating client: %s \n", err)
-	}
-	_, err = clientWithTenant.Heartbeat(context.TODO())
-	if err != nil {
-		log.Fatalf("Error calling heartbeat: %s \n", err)
-	}
-}
-```
-
-### Chroma Basic Auth mechanism
+### Basic Authentication
 
 ```go
 package main
@@ -39,26 +14,135 @@ package main
 import (
     "context"
     "log"
-    chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/types"
+    v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
 )
 
 func main() {
-    client, err := chroma.NewClient(
-        chroma.WithBasePath("http://api.trychroma.com/v1/"),
-        chroma.WithAuth(types.NewBasicAuthCredentialsProvider("myUser", "myPassword")),
+    client, err := v2.NewHTTPClient(
+        v2.WithBaseURL("http://localhost:8000"),
+        v2.WithAuth(v2.NewBasicAuthCredentialsProvider("admin", "password")),
     )
     if err != nil {
-        log.Fatalf("Error creating client: %s \n", err)
+        log.Fatal(err)
     }
-    _, err = client.Heartbeat(context.TODO())
-    if err != nil {
-        log.Fatalf("Error calling heartbeat: %s \n", err)
+
+    if err := client.Heartbeat(context.TODO()); err != nil {
+        log.Fatal(err)
     }
 }
 ```
 
-### Chroma Token Auth mechanism with Bearer Authorization header
+### Token Authentication - Bearer
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+    client, err := v2.NewHTTPClient(
+        v2.WithBaseURL("http://localhost:8000"),
+        v2.WithAuth(v2.NewTokenAuthCredentialsProvider("my-token", v2.AuthorizationTokenHeader)),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    if err := client.Heartbeat(context.TODO()); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+### Token Authentication - X-Chroma-Token
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+    client, err := v2.NewHTTPClient(
+        v2.WithBaseURL("http://localhost:8000"),
+        v2.WithAuth(v2.NewTokenAuthCredentialsProvider("my-token", v2.XChromaTokenHeader)),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    if err := client.Heartbeat(context.TODO()); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+### Custom Headers
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+    headers := map[string]string{
+        "Authorization": "Bearer custom-token",
+        "X-Custom-Header": "custom-value",
+    }
+
+    client, err := v2.NewHTTPClient(
+        v2.WithBaseURL("http://localhost:8000"),
+        v2.WithDefaultHeaders(headers),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    if err := client.Heartbeat(context.TODO()); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+### Chroma Cloud Authentication
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+    client, err := v2.NewCloudClient(
+        v2.WithCloudAPIKey("your-api-key"),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    if err := client.Heartbeat(context.TODO()); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+## API v1 (Legacy)
+
+### Basic Authentication
 
 ```go
 package main
@@ -72,20 +156,20 @@ import (
 
 func main() {
     client, err := chroma.NewClient(
-        chroma.WithBasePath("http://api.trychroma.com/v1/"), 
-        chroma.WithAuth(types.NewTokenAuthCredentialsProvider("my-auth-token", types.AuthorizationTokenHeader)),
+        chroma.WithBasePath("http://localhost:8000"),
+        chroma.WithAuth(types.NewBasicAuthCredentialsProvider("admin", "password")),
     )
     if err != nil {
-        log.Fatalf("Error creating client: %s \n", err)
+        log.Fatal(err)
     }
-    _, err = client.Heartbeat(context.TODO())
-    if err != nil {
-        log.Fatalf("Error calling heartbeat: %s \n", err)
+
+    if _, err := client.Heartbeat(context.TODO()); err != nil {
+        log.Fatal(err)
     }
 }
 ```
 
-### Chroma Token Auth mechanism with X-Chroma-Token header
+### Token Authentication - Bearer
 
 ```go
 package main
@@ -99,16 +183,73 @@ import (
 
 func main() {
     client, err := chroma.NewClient(
-        chroma.WithBasePath("http://api.trychroma.com/v1/"), 
-        chroma.WithAuth(types.NewTokenAuthCredentialsProvider("my-auth-token", types.XChromaTokenHeader)),
+        chroma.WithBasePath("http://localhost:8000"),
+        chroma.WithAuth(types.NewTokenAuthCredentialsProvider("my-token", types.AuthorizationTokenHeader)),
     )
     if err != nil {
-        log.Fatalf("Error creating client: %s \n", err)
+        log.Fatal(err)
     }
-    _, err = client.Heartbeat(context.TODO())
-    if err != nil {
-        log.Fatalf("Error calling heartbeat: %s \n", err)
+
+    if _, err := client.Heartbeat(context.TODO()); err != nil {
+        log.Fatal(err)
     }
 }
 ```
 
+### Token Authentication - X-Chroma-Token
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    chroma "github.com/amikos-tech/chroma-go"
+    "github.com/amikos-tech/chroma-go/types"
+)
+
+func main() {
+    client, err := chroma.NewClient(
+        chroma.WithBasePath("http://localhost:8000"),
+        chroma.WithAuth(types.NewTokenAuthCredentialsProvider("my-token", types.XChromaTokenHeader)),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    if _, err := client.Heartbeat(context.TODO()); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+### Custom Headers
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    chroma "github.com/amikos-tech/chroma-go"
+)
+
+func main() {
+    headers := map[string]string{
+        "Authorization": "Bearer custom-token",
+        "X-Custom-Header": "custom-value",
+    }
+
+    client, err := chroma.NewClient(
+        chroma.WithBasePath("http://localhost:8000"),
+        chroma.WithDefaultHeaders(headers),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    if _, err := client.Heartbeat(context.TODO()); err != nil {
+        log.Fatal(err)
+    }
+}
+```
