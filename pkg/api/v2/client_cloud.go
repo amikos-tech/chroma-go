@@ -65,6 +65,11 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 		}
 	}
 
+	// Ensure logger is never nil
+	if c.logger == nil {
+		c.logger = logger.NewNoopLogger()
+	}
+
 	return c, nil
 }
 

@@ -24,6 +24,9 @@ type Logger interface {
 
 	// Enabled returns true if the given level is enabled
 	IsDebugEnabled() bool
+
+	// Sync flushes any buffered log entries. Should be called before program exit.
+	Sync() error
 }
 
 // Field represents a key-value pair for structured logging

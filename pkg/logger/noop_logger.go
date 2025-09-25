@@ -43,3 +43,8 @@ func (n *NoopLogger) With(fields ...Field) Logger {
 func (n *NoopLogger) IsDebugEnabled() bool {
 	return false
 }
+
+// Sync does nothing for NoopLogger
+func (n *NoopLogger) Sync() error {
+	return nil
+}

@@ -774,6 +774,11 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 		}
 	}
 
+	// Ensure logger is never nil
+	if client.logger == nil {
+		client.logger = logger.NewNoopLogger()
+	}
+
 	return client, nil
 }
 
@@ -808,7 +813,7 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 		if bc.logger.IsDebugEnabled() && resp != nil {
 			dump, err := httputil.DumpResponse(resp, true)
 			if err == nil {
-				bc.logger.Debug("HTTP Response (Error)", logger.String("response", string(dump)))
+				bc.logger.Debug("HTTP Response (Error)", logger.String("response", _sanitizeResponseDump(string(dump))))
 			} else {
 				bc.logger.Debug("Failed to get body response", logger.ErrorField("error", err))
 			}
@@ -819,7 +824,7 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpResponse(resp, true)
 		if err == nil {
-			bc.logger.Debug("HTTP Response", logger.String("response", string(dump)))
+			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))
 		}
 	}
 	return resp, nil
@@ -871,7 +876,7 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpResponse(resp, true)
 		if err == nil {
-			bc.logger.Debug("HTTP Response", logger.String("response", string(dump)))
+			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))
 		}
 	}
 	if err != nil || (resp.StatusCode >= 400 && resp.StatusCode < 599) {

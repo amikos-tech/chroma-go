@@ -575,8 +575,16 @@ func (client *APIClientV2) Close() error {
 			}
 		}
 	}
+	// Sync the logger to flush any buffered log entries
+	if client.logger != nil {
+		if err := client.logger.Sync(); err != nil {
+			// Log sync errors are typically non-critical (e.g., stdout sync)
+			// but we should track them
+			errs = append(errs, errors.Wrap(err, "error syncing logger"))
+		}
+	}
 	if len(errs) > 0 {
-		return errors.Errorf("error closing collections: %v", errs)
+		return errors.Errorf("error closing client: %v", errs)
 	}
 	return nil
 }

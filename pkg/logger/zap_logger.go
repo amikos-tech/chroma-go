@@ -98,6 +98,11 @@ func (z *ZapLogger) IsDebugEnabled() bool {
 	return z.logger.Core().Enabled(zapcore.DebugLevel)
 }
 
+// Sync flushes any buffered log entries
+func (z *ZapLogger) Sync() error {
+	return z.logger.Sync()
+}
+
 // convertFields converts our Field type to zap.Field
 func convertFields(fields []Field) []zap.Field {
 	zapFields := make([]zap.Field, len(fields))
@@ -135,11 +140,32 @@ func convertFields(fields []Field) []zap.Field {
 // extractContextFields extracts fields from context
 // This can be extended to extract trace IDs, request IDs, etc.
 func extractContextFields(ctx context.Context) []zap.Field {
+	if ctx == nil {
+		return []zap.Field{}
+	}
+
 	fields := []zap.Field{}
 
-	// Example: Extract trace ID if present
+	// Example: Safely extract trace ID if present
 	// if traceID := ctx.Value("trace-id"); traceID != nil {
-	//     fields = append(fields, zap.String("trace_id", traceID.(string)))
+	//     if tid, ok := traceID.(string); ok {
+	//         fields = append(fields, zap.String("trace_id", tid))
+	//     } else {
+	//         // Handle non-string trace ID safely
+	//         fields = append(fields, zap.Any("trace_id", traceID))
+	//     }
+	// }
+
+	// Example: Safely extract request ID
+	// if reqID := ctx.Value("request-id"); reqID != nil {
+	//     switch v := reqID.(type) {
+	//     case string:
+	//         fields = append(fields, zap.String("request_id", v))
+	//     case fmt.Stringer:
+	//         fields = append(fields, zap.String("request_id", v.String()))
+	//     default:
+	//         fields = append(fields, zap.Any("request_id", v))
+	//     }
 	// }
 
 	return fields
