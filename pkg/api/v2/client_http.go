@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -21,6 +23,7 @@ type APIClientV2 struct {
 	preflightLimits        map[string]interface{}
 	preflightCompleted     bool
 	collectionCache        map[string]Collection
+	collectionMu           sync.RWMutex
 }
 
 func NewHTTPClient(opts ...ClientOption) (Client, error) {
@@ -330,7 +333,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		embeddingFunction: req.embeddingFunction,
 		dimension:         cm.Dimension,
 	}
-	client.collectionCache[cm.Name] = c
+	client.addCollectionToCache(c)
 	return c, nil
 }
 
@@ -403,7 +406,7 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		dimension:         cm.Dimension,
 		embeddingFunction: req.embeddingFunction,
 	}
-	client.collectionCache[name] = c
+	client.addCollectionToCache(c)
 	return c, nil
 }
 
@@ -584,7 +587,13 @@ func (client *APIClientV2) Close() error {
 		}
 	}
 	if len(errs) > 0 {
-		return errors.Errorf("error closing client: %v", errs)
+		return stderrors.Join(errs...)
 	}
 	return nil
+}
+
+func (client *APIClientV2) addCollectionToCache(c Collection) {
+	client.collectionMu.Lock()
+	defer client.collectionMu.Unlock()
+	client.collectionCache[c.Name()] = c
 }

@@ -54,17 +54,6 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 		c.authProvider = NewTokenAuthCredentialsProvider(os.Getenv("CHROMA_API_KEY"), XChromaTokenHeader)
 	}
 
-	// If debug is enabled but no logger was provided, use a default development logger
-	if c.debug {
-		// Only set a development logger if the current logger is a noop logger
-		if _, isNoop := c.logger.(*logger.NoopLogger); isNoop {
-			zapLogger, err := logger.NewDevelopmentZapLogger()
-			if err == nil {
-				c.logger = zapLogger
-			}
-		}
-	}
-
 	// Ensure logger is never nil
 	if c.logger == nil {
 		c.logger = logger.NewNoopLogger()

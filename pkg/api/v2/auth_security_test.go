@@ -63,7 +63,7 @@ func TestTokenObfuscation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := _obfuscateToken(tc.token)
+			result := _sanitizeToken(tc.token)
 			assert.Equal(t, tc.expected, result)
 
 			// Ensure sensitive data is not exposed
@@ -134,7 +134,7 @@ Authorization: Bearer bearer-token-456
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := _obfuscateRequestDump(tc.input)
+			result := _sanitizeRequestDump(tc.input)
 
 			// Check expected obfuscated parts are present
 			for _, exp := range tc.expected {
@@ -226,7 +226,7 @@ func TestTokenProviderString(t *testing.T) {
 }
 
 func TestBasicAuthObfuscation(t *testing.T) {
-	result := _obfuscateBasicAuth("username", "password")
+	result := _sanitizeBasicAuth("username", "password")
 	assert.Equal(t, "username:****", result)
 	assert.NotContains(t, result, "password")
 }
@@ -243,12 +243,12 @@ func TestObfuscationEdgeCases(t *testing.T) {
 	t.Run("malformed request dump", func(t *testing.T) {
 		// Should handle gracefully without panicking
 		malformed := "This is not a proper HTTP request"
-		result := _obfuscateRequestDump(malformed)
+		result := _sanitizeRequestDump(malformed)
 		assert.Equal(t, malformed, result) // Should return unchanged if no patterns match
 	})
 
 	t.Run("empty request dump", func(t *testing.T) {
-		result := _obfuscateRequestDump("")
+		result := _sanitizeRequestDump("")
 		assert.Equal(t, "", result)
 	})
 }

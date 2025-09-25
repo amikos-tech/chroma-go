@@ -10,7 +10,8 @@ import (
 
 func main() {
 	// Create a new Chroma client
-	client, err := chroma.NewHTTPClient(chroma.WithDebug())
+	// Note: WithDebug() is deprecated - use WithLogger with debug level for logging
+	client, err := chroma.NewHTTPClient()
 	if err != nil {
 		log.Printf("Error creating client: %s \n", err)
 		return

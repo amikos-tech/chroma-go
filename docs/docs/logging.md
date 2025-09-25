@@ -93,15 +93,22 @@ client, err := v2.NewHTTPClient(
 )
 ```
 
-## Using WithDebug()
+## Using WithDebug() (DEPRECATED)
 
-When you use `WithDebug()` without providing a custom logger, the client automatically creates a development logger:
+**⚠️ DEPRECATED**: `WithDebug()` is deprecated and will be removed in a future version. Use `WithLogger()` with a debug-level logger instead.
 
 ```go
-// This will automatically create a development logger with debug level enabled
+// DEPRECATED - Do not use
+// client, err := v2.NewHTTPClient(
+//     v2.WithBaseURL("http://localhost:8000"),
+//     v2.WithDebug(),
+// )
+
+// RECOMMENDED - Use WithLogger instead
+logger, _ := chromalogger.NewDevelopmentZapLogger()
 client, err := v2.NewHTTPClient(
     v2.WithBaseURL("http://localhost:8000"),
-    v2.WithDebug(),
+    v2.WithLogger(logger), // Provides debug-level logging
 )
 ```
 
@@ -260,25 +267,19 @@ func main() {
 
 ## Migration from Debug Flag
 
-If you were previously using the debug flag with direct logging:
+**⚠️ IMPORTANT**: `WithDebug()` is deprecated. Migrate to `WithLogger()` for debug logging.
 
-**Before:**
+**Before (DEPRECATED):**
 ```go
 client, err := v2.NewHTTPClient(
     v2.WithBaseURL("http://localhost:8000"),
-    v2.WithDebug(), // This would print to stdout
+    v2.WithDebug(), // DEPRECATED - only prints a warning now
 )
 ```
 
-**After:**
+**After (RECOMMENDED):**
 ```go
-// Option 1: Keep using WithDebug() - it now uses a proper logger
-client, err := v2.NewHTTPClient(
-    v2.WithBaseURL("http://localhost:8000"),
-    v2.WithDebug(), // Now uses structured logging
-)
-
-// Option 2: Use a custom logger for more control
+// Use WithLogger with a debug-level logger
 logger, _ := chromalogger.NewDevelopmentZapLogger()
 client, err := v2.NewHTTPClient(
     v2.WithBaseURL("http://localhost:8000"),

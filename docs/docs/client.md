@@ -9,7 +9,8 @@ Options:
 | CloudAPIKey       | `WithCloudAPIKey("api_key")`                 | Set Chroma Cloud API Key                                                                               | `string`            | Yes (default: uses `CHROMA_API_KEY` env var if available)  |
 | Tenant            | `WithTenant("tenant")`                       | The default tenant to use.                                                                             | `string`            | Yes (default: uses `CHROMA_TENANT` env var if available)   |
 | Database          | `WithDatabaseAndTenant("database","tenant")` | The default database and tenant (overrides any tenant set with Tenant). Option precedence is observed! | `string`            | Yes (default: uses `CHROMA_DATABASE` env var if available) |
-| Debug             | `WithDebug(true/false)`                      | Enable debug mode, printing http requests to stdout (sensitive information is sanitized)               | `bool`              | No (default: `false`)                                      |
+| ~~Debug~~         | ~~`WithDebug()`~~ **DEPRECATED**             | ~~Enable debug mode~~ **Use `WithLogger` with debug level instead**                                    | `bool`              | No (deprecated - use WithLogger)                           |
+| Logger            | `WithLogger(logger)`                         | Set a custom logger for HTTP request/response logging. See [logging docs](./logging.md)                | `logger.Logger`     | No (default: NoopLogger)                                   |
 | Default Headers   | `WithDefaultHeaders(map[string]string)`      | Set default HTTP headers for the client. These headers are sent with every request.                    | `map[string]string` | No (default: `nil`)                                        |
 | Custom HttpClient | `WithHTTPClient(http.Client)`                | Set a custom http client. If this is set then SSL Cert and Insecure options are ignore.                | `*http.Client`      | No (default: Default HTTPClient)                           |
 | Timeout           | `WithTimeout(time.Duration)`                 | Set the timeout for the client.                                                                        | `time.Duration`     | No (default is the default HTTP client timeout duration)   |
@@ -28,7 +29,7 @@ func main() {
 	c, err := chroma.NewHTTPClient(
 		chroma.WithCloudAPIKey("my-api-key"),
 		chroma.WithDatabaseAndTenant("team-uuid", "my-database"),
-		chroma.WithDebug(), // enable debug output (sensitive token information is sanitized)
+		// chroma.WithDebug() is deprecated - use WithLogger instead for debug output
 	)
 	if err != nil {
 		log.Fatalf("Error creating client: %s \n", err)
@@ -52,7 +53,8 @@ Options:
 | API Endpoint      | `WithBasePath("http://localhost:8000")`      | The Chroma server base API.                                                                    | Non-empty valid URL string | No (default: `http://localhost:8000`)                    |
 | Tenant            | `WithTenant("tenant")`                       | The default tenant to use.                                                                     | `string`                   | No (default: `default_tenant`)                           |
 | Database          | `WithDatabaseAndTenant("database","tenant")` | The default database to use.                                                                   | `string`                   | No (default: `default_database`)                         |
-| Debug             | `WithDebug(true/false)`                      | Enable debug mode.                                                                             | `bool`                     | No (default: `false`)                                    |
+| ~~Debug~~         | ~~`WithDebug()`~~ **DEPRECATED**             | ~~Enable debug mode~~ **Use `WithLogger` with debug level instead**                            | `bool`                     | No (deprecated - use WithLogger)                         |
+| Logger            | `WithLogger(logger)`                          | Set a custom logger for HTTP request/response logging. See [logging docs](./logging.md)        | `logger.Logger`            | No (default: NoopLogger)                                 |
 | Default Headers   | `WithDefaultHeaders(map[string]string)`      | Set default HTTP headers for the client. These headers are sent with every request.            | `map[string]string`        | No (default: `nil`)                                      |
 | SSL Cert          | `WithSSLCert("path/to/cert.pem")`            | Set the path to the SSL certificate.                                                           | valid path to SSL cert.    | No (default: Not Set)                                    |
 | Insecure          | `WithInsecure()`                             | Disable SSL certificate verification                                                           |                            | No (default: Not Set)                                    |
@@ -76,7 +78,7 @@ func main() {
 		chroma.WithBaseURL("http://localhost:8000"),
 		chroma.WithDatabaseAndTenant("default_database", "default_tenant"),
 		chroma.WithDefaultHeaders(map[string]string{"X-Custom-Header": "header-value"}),
-		chroma.WithDebug(), // enable debug output (sensitive token information is sanitized)
+		// chroma.WithDebug() is deprecated - use WithLogger instead for debug output
 	)
 	if err != nil {
 		log.Fatalf("Error creating client: %s \n", err)
@@ -100,7 +102,8 @@ Options:
 | basePath          | `WithBasePath("http://localhost:8000")` | The Chroma server base API.                                                             | Non-empty valid URL string | No (default: `http://localhost:8000`) |
 | Tenant            | `WithTenant("tenant")`                  | The default tenant to use.                                                              | `string`                   | No (default: `default_tenant`)        |
 | Database          | `WithDatabase("database")`              | The default database to use.                                                            | `string`                   | No (default: `default_database`)      |
-| Debug             | `WithDebug(true/false)`                 | Enable debug mode.                                                                      | `bool`                     | No (default: `false`)                 |
+| ~~Debug~~         | ~~`WithDebug()`~~ **DEPRECATED**        | ~~Enable debug mode~~ **Use `WithLogger` with debug level instead**                     | `bool`                     | No (deprecated - use WithLogger)     |
+| Logger            | `WithLogger(logger)`                     | Set a custom logger for HTTP request/response logging. See [logging docs](./logging.md) | `logger.Logger`            | No (default: NoopLogger)             |
 | Default Headers   | `WithDefaultHeaders(map[string]string)` | Set default headers for the client.                                                     | `map[string]string`        | No (default: `nil`)                   |
 | SSL Cert          | `WithSSLCert("path/to/cert.pem")`       | Set the path to the SSL certificate.                                                    | valid path to SSL cert.    | No (default: Not Set)                 |
 | Insecure          | `WithInsecure()`                        | Disable SSL certificate verification                                                    |                            | No (default: Not Set)                 |
@@ -129,7 +132,7 @@ func main() {
 		chroma.WithBasePath("http://localhost:8000"),
 		chroma.WithTenant("my_tenant"),
 		chroma.WithDatabase("my_db"),
-		chroma.WithDebug(true),
+		// chroma.WithDebug(true) is deprecated - use WithLogger instead for debug output
 		chroma.WithDefaultHeaders(map[string]string{"Authorization": "Bearer my token"}),
 		chroma.WithSSLCert("path/to/cert.pem"),
 	)

@@ -26,9 +26,9 @@ func main() {
 	fmt.Println("\n=== Example 3: Custom Logger Configuration ===")
 	customLoggerExample()
 
-	// Example 4: Using WithDebug() for automatic logging
-	fmt.Println("\n=== Example 4: WithDebug() Automatic Logger ===")
-	withDebugExample()
+	// Example 4: Debug logging with WithLogger (WithDebug is deprecated)
+	fmt.Println("\n=== Example 4: Debug Logging with WithLogger ===")
+	debugLoggingExample()
 
 	// Example 5: Using NoopLogger for silent operation
 	fmt.Println("\n=== Example 5: NoopLogger (Silent) ===")
@@ -161,11 +161,22 @@ func customLoggerExample() {
 	logger.Info("Heartbeat successful")
 }
 
-func withDebugExample() {
-	// Using WithDebug() automatically creates a development logger
+func debugLoggingExample() {
+	// Note: WithDebug() is deprecated - use WithLogger with a debug-level logger instead
+	// The old way (DEPRECATED):
+	// client, err := chroma.NewHTTPClient(
+	//     chroma.WithBaseURL(getChromaURL()),
+	//     chroma.WithDebug(), // DEPRECATED
+	// )
+
+	// The recommended way:
+	logger, err := chromalogger.NewDevelopmentZapLogger()
+	if err != nil {
+		log.Fatal(err)
+	}
 	client, err := chroma.NewHTTPClient(
 		chroma.WithBaseURL(getChromaURL()),
-		chroma.WithDebug(), // This enables debug logging automatically
+		chroma.WithLogger(logger), // Use logger with debug level enabled
 	)
 	if err != nil {
 		log.Fatal(err)

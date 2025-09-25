@@ -550,7 +550,6 @@ type BaseAPIClient struct {
 	activeCollections []Collection
 	preFlightConfig   map[string]interface{}
 	authProvider      CredentialsProvider
-	debug             bool
 	logger            logger.Logger
 }
 
@@ -673,9 +672,10 @@ func WithTransport(transport *http.Transport) ClientOption {
 	}
 }
 
+// Deprecated: Use WithLogger with debug level enabled. See https://github.com/amikos-tech/chroma-go/blob/ad35b6d37f9be4431687945ae4a77470e0832cf4/examples/v2/logging/main.go
 func WithDebug() ClientOption {
 	return func(c *BaseAPIClient) error {
-		c.debug = true
+		_, _ = fmt.Fprintln(os.Stderr, "WARNING: WithDebug is deprecated. Use WithLogger with debug level enabled. See https://github.com/amikos-tech/chroma-go/blob/main/examples/v2/logging/main.go")
 		return nil
 	}
 }
@@ -763,17 +763,6 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 		}
 	}
 
-	// If debug is enabled but no logger was provided, use a default development logger
-	if client.debug {
-		// Only set a development logger if the current logger is a noop logger
-		if _, isNoop := client.logger.(*logger.NoopLogger); isNoop {
-			zapLogger, err := logger.NewDevelopmentZapLogger()
-			if err == nil {
-				client.logger = zapLogger
-			}
-		}
-	}
-
 	// Ensure logger is never nil
 	if client.logger == nil {
 		client.logger = logger.NewNoopLogger()
@@ -805,14 +794,14 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpRequestOut(httpReq, true)
 		if err == nil {
-			bc.logger.Debug("HTTP Request", logger.String("request", _obfuscateRequestDump(string(dump))))
+			bc.logger.Debug("HTTP Request", logger.String("request", _sanitizeRequestDump(string(dump))))
 		}
 	}
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
 	} else if resp.StatusCode >= 400 && resp.StatusCode < 599 {
-		if bc.logger.IsDebugEnabled() && resp != nil {
+		if bc.logger.IsDebugEnabled() {
 			dump, err := httputil.DumpResponse(resp, true)
 			if err == nil {
 				bc.logger.Debug("HTTP Response (Error)", logger.String("response", _sanitizeResponseDump(string(dump))))
@@ -871,7 +860,7 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpRequestOut(httpReq, true)
 		if err == nil {
-			bc.logger.Debug("HTTP Request", logger.String("request", _obfuscateRequestDump(string(dump))))
+			bc.logger.Debug("HTTP Request", logger.String("request", _sanitizeRequestDump(string(dump))))
 		}
 	}
 	resp, err := bc.httpClient.Do(httpReq)
@@ -893,7 +882,7 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 }
 
 func (bc *BaseAPIClient) HTTPClient() *http.Client {
-	return http.DefaultClient
+	return bc.httpClient
 }
 func (bc *BaseAPIClient) Tenant() Tenant {
 	return bc.tenant

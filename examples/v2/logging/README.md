@@ -25,7 +25,7 @@ go run main.go
 1. **Production Logger**: Uses zap's production configuration with JSON output
 2. **Development Logger**: Uses zap's development configuration with pretty printing
 3. **Custom Logger Configuration**: Shows how to configure a custom zap logger
-4. **WithDebug() Automatic Logger**: Demonstrates automatic logger creation with debug flag
+4. **~~WithDebug() Automatic Logger~~**: **DEPRECATED** - Use WithLogger with debug-level logger instead
 5. **NoopLogger**: Shows silent operation with no logging
 6. **Custom Fields**: Demonstrates adding persistent fields to all log messages
 
@@ -59,10 +59,20 @@ zapLogger, _ := config.Build()
 logger := chromalogger.NewZapLogger(zapLogger)
 ```
 
-### Debug Mode (Automatic)
+### Debug Mode (DEPRECATED)
+
+**⚠️ Note:** `WithDebug()` is deprecated. Use `WithLogger()` instead:
+
 ```go
+// DEPRECATED - Don't use this
+// client, _ := chroma.NewHTTPClient(
+//     chroma.WithDebug(),
+// )
+
+// RECOMMENDED - Use this instead
+logger, _ := chromalogger.NewDevelopmentZapLogger()
 client, _ := chroma.NewHTTPClient(
-    chroma.WithDebug(), // Automatically creates development logger
+    chroma.WithLogger(logger), // Use logger with debug level
 )
 ```
 
@@ -80,7 +90,7 @@ The examples will produce different types of log output:
 
 ## Use Cases
 
-- **Development**: Use development logger or `WithDebug()` for debugging
+- **Development**: Use development logger with `WithLogger()` for debugging (WithDebug is deprecated)
 - **Production**: Use production logger with appropriate log level
 - **Testing**: Use NoopLogger to disable logging during tests
 - **Monitoring**: Use structured fields for log aggregation and analysis

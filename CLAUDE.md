@@ -79,6 +79,43 @@ Integration tests use `testcontainers-go` for Docker-based testing against real 
 - Integration tests should use testcontainers
 - Run `make lint` before committing
 
+### Panic Prevention Guidelines
+**IMPORTANT**: As a library, this codebase should NEVER panic in production code. Panics provide terrible user experience and can crash applications.
+
+#### Rules for Production Code:
+1. **Never use `Must*` functions** (e.g., `regexp.MustCompile`, `ulid.MustNew`)
+   - Use the non-Must variant and handle errors properly
+   - If API constraints prevent error returns, use defer/recover with fallback
+
+2. **Add panic recovery where necessary**:
+   - ID generators should have defer/recover blocks with fallbacks
+   - Sanitization functions should recover and return partial results
+
+3. **Avoid risky operations**:
+   - Check slice/array bounds before access
+   - Verify map keys exist using comma-ok idiom
+   - Check for nil pointers before dereferencing
+   - Use type switches with default cases
+
+4. **Safe patterns to follow**:
+   ```go
+   // Instead of: regexp.MustCompile(pattern)
+   re, err := regexp.Compile(pattern)
+   if err != nil { /* handle error */ }
+
+   // Safe ID generation with panic recovery
+   func Generate() (result string) {
+       defer func() {
+           if r := recover(); r != nil {
+               result = fallbackID()
+           }
+       }()
+       // ID generation logic
+   }
+   ```
+
+5. **Test code exceptions**: `Must*` functions and `log.Fatal` are acceptable in test files
+
 ### Common Tasks
 - **Adding Embedding Provider**: Implement in `/pkg/embeddings/`, follow existing provider patterns
 - **Modifying Client**: V2 changes in `/pkg/api/v2/client.go`, ensure collection caching logic is maintained

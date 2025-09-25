@@ -245,10 +245,12 @@ func main() {
 		chromalogger.Int("count", len(collections)),
 	)
 
-	// Or simply use WithDebug() for automatic development logging
+	// For debug logging, use WithLogger with a debug-level logger
+	// Note: WithDebug() is deprecated - use WithLogger instead
+	devLogger, _ := chromalogger.NewDevelopmentZapLogger()
 	debugClient, _ := chroma.NewHTTPClient(
 		chroma.WithBaseURL("http://localhost:8000"),
-		chroma.WithDebug(), // Automatically creates a development logger
+		chroma.WithLogger(devLogger), // Use a logger with debug level enabled
 	)
 	defer debugClient.Close()
 }
