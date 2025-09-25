@@ -13,7 +13,7 @@ type CloudAPIClient struct {
 	*APIClientV2
 }
 
-func NewCloudAPIClient(options ...ClientOption) (*CloudAPIClient, error) {
+func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 	bc, err := newBaseAPIClient()
 	if err != nil {
 		return nil, err
@@ -52,6 +52,11 @@ func NewCloudAPIClient(options ...ClientOption) (*CloudAPIClient, error) {
 		c.authProvider = NewTokenAuthCredentialsProvider(os.Getenv("CHROMA_API_KEY"), XChromaTokenHeader)
 	}
 	return c, nil
+}
+
+// Deprecated: use NewCloudClient instead
+func NewCloudAPIClient(options ...ClientOption) (*CloudAPIClient, error) {
+	return NewCloudClient(options...)
 }
 
 // WithCloudAPIKey sets the API key for the cloud client. It will automatically set a new TokenAuthCredentialsProvider.

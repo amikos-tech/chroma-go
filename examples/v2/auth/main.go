@@ -304,7 +304,7 @@ func runCloudAuth() {
 	}
 
 	// Create Chroma Cloud client
-	client, err := v2.NewCloudAPIClient(
+	client, err := v2.NewCloudClient(
 		v2.WithCloudAPIKey(apiKey),
 		v2.WithDatabaseAndTenant(database, tenant),
 	)
