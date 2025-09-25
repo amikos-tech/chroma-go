@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -18,6 +17,7 @@ import (
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
+	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 type Client interface {
@@ -551,6 +551,7 @@ type BaseAPIClient struct {
 	preFlightConfig   map[string]interface{}
 	authProvider      CredentialsProvider
 	debug             bool
+	logger            logger.Logger
 }
 
 type ClientOption func(client *BaseAPIClient) error
@@ -679,6 +680,17 @@ func WithDebug() ClientOption {
 	}
 }
 
+// WithLogger sets a custom logger for the client. If not set, a NoopLogger is used by default.
+func WithLogger(l logger.Logger) ClientOption {
+	return func(c *BaseAPIClient) error {
+		if l == nil {
+			return errors.New("logger cannot be nil")
+		}
+		c.logger = l
+		return nil
+	}
+}
+
 // WithSSLCert adds a custom SSL certificate to the client. The certificate must be in PEM format. The Option can be added multiple times to add multiple certificates. The option is mutually exclusive with WithHttpClient.
 func WithSSLCert(certPath string) ClientOption {
 	return func(c *BaseAPIClient) error {
@@ -741,12 +753,24 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 		defaultHeaders: map[string]string{
 			"User-Agent": "chroma-go-client/1.0",
 		},
+		logger: logger.NewNoopLogger(), // Default to no-op logger
 	}
 	client.httpClient.Transport = client.httpTransport
 	for _, opt := range options {
 		err := opt(client)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	// If debug is enabled but no logger was provided, use a default development logger
+	if client.debug {
+		// Only set a development logger if the current logger is a noop logger
+		if _, isNoop := client.logger.(*logger.NoopLogger); isNoop {
+			zapLogger, err := logger.NewDevelopmentZapLogger()
+			if err == nil {
+				client.logger = zapLogger
+			}
 		}
 	}
 
@@ -773,30 +797,29 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 	for k, v := range bc.defaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
-	if bc.debug {
+	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpRequestOut(httpReq, true)
 		if err == nil {
-			log.Printf("%s\n", _obfuscateRequestDump(string(dump)))
+			bc.logger.Debug("HTTP Request", logger.String("request", _obfuscateRequestDump(string(dump))))
 		}
 	}
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil || (resp.StatusCode >= 400 && resp.StatusCode < 599) {
-		if bc.debug && resp != nil {
+		if bc.logger.IsDebugEnabled() && resp != nil {
 			dump, err := httputil.DumpResponse(resp, true)
 			if err == nil {
-				log.Printf("%s\n", string(dump))
-			}
-			if err != nil {
-				log.Printf("[DEBUG] Failed to get body response: %s\n", err.Error())
+				bc.logger.Debug("HTTP Response (Error)", logger.String("response", string(dump)))
+			} else {
+				bc.logger.Debug("Failed to get body response", logger.ErrorField("error", err))
 			}
 		}
 		chErr := chhttp.ChromaErrorFromHTTPResponse(resp, err)
 		return nil, errors.Wrap(chErr, "error sending request")
 	}
-	if bc.debug {
+	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpResponse(resp, true)
 		if err == nil {
-			log.Printf("%s\n", string(dump))
+			bc.logger.Debug("HTTP Response", logger.String("response", string(dump)))
 		}
 	}
 	return resp, nil
@@ -838,17 +861,17 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 	for k, v := range bc.defaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
-	if bc.debug {
+	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpRequestOut(httpReq, true)
 		if err == nil {
-			log.Printf("%s\n", _obfuscateRequestDump(string(dump)))
+			bc.logger.Debug("HTTP Request", logger.String("request", _obfuscateRequestDump(string(dump))))
 		}
 	}
 	resp, err := bc.httpClient.Do(httpReq)
-	if bc.debug {
+	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpResponse(resp, true)
 		if err == nil {
-			log.Printf("%s\n", string(dump))
+			bc.logger.Debug("HTTP Response", logger.String("response", string(dump)))
 		}
 	}
 	if err != nil || (resp.StatusCode >= 400 && resp.StatusCode < 599) {

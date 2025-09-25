@@ -4,6 +4,8 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 const ChromaCloudEndpoint = "https://api.trychroma.com:8000/api/v2"
@@ -51,6 +53,18 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 	} else if c.authProvider == nil {
 		c.authProvider = NewTokenAuthCredentialsProvider(os.Getenv("CHROMA_API_KEY"), XChromaTokenHeader)
 	}
+
+	// If debug is enabled but no logger was provided, use a default development logger
+	if c.debug {
+		// Only set a development logger if the current logger is a noop logger
+		if _, isNoop := c.logger.(*logger.NoopLogger); isNoop {
+			zapLogger, err := logger.NewDevelopmentZapLogger()
+			if err == nil {
+				c.logger = zapLogger
+			}
+		}
+	}
+
 	return c, nil
 }
 
