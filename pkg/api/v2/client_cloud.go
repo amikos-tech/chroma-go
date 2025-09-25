@@ -54,7 +54,7 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 		c.authProvider = NewTokenAuthCredentialsProvider(os.Getenv("CHROMA_API_KEY"), XChromaTokenHeader)
 	}
 
-	// Ensure logger is never nil
+	// Ensure logger is never nil - but don't override if already set by options like WithDebug()
 	if c.logger == nil {
 		c.logger = logger.NewNoopLogger()
 	}

@@ -23,24 +23,46 @@ var (
 func init() {
 	var err error
 
-	// Using regexp.Compile instead of MustCompile to avoid panics and allow graceful degradation
-	// nolint:gocritic // intentionally using Compile for safety
+	// Using regexp.Compile instead of MustCompile to avoid panics
+	// These patterns are critical for security - if they fail to compile,
+	// we create simple fallback patterns that provide basic functionality
+
 	// Compile header patterns with case-insensitive flag
+	// nolint:gocritic // Using Compile instead of MustCompile to avoid panics per project guidelines
 	reChromaToken, err = regexp.Compile(`(?im)^X-Chroma-Token:\s*(.+)$`)
 	if err != nil {
-		log.Printf("Warning: Failed to compile X-Chroma-Token regex: %v", err)
+		// Fallback to a simpler pattern that should always compile
+		// nolint:gocritic // Intentionally using Compile for safety
+		reChromaToken, _ = regexp.Compile(`X-Chroma-Token:\s*(.+)`)
+		if reChromaToken == nil {
+			// Last resort: create a pattern that matches nothing
+			// nolint:gocritic // Intentionally using Compile for safety
+			reChromaToken, _ = regexp.Compile(`^$`)
+		}
 	}
 
-	// nolint:gocritic // intentionally using Compile for safety
+	// nolint:gocritic // Using Compile instead of MustCompile to avoid panics per project guidelines
 	reBearerToken, err = regexp.Compile(`(?im)^Authorization:\s*Bearer\s+(.+)$`)
 	if err != nil {
-		log.Printf("Warning: Failed to compile Bearer token regex: %v", err)
+		// Fallback to a simpler pattern
+		// nolint:gocritic // Intentionally using Compile for safety
+		reBearerToken, _ = regexp.Compile(`Authorization:\s*Bearer\s+(.+)`)
+		if reBearerToken == nil {
+			// nolint:gocritic // Intentionally using Compile for safety
+			reBearerToken, _ = regexp.Compile(`^$`)
+		}
 	}
 
-	// nolint:gocritic // intentionally using Compile for safety
+	// nolint:gocritic // Using Compile instead of MustCompile to avoid panics per project guidelines
 	reBasicAuth, err = regexp.Compile(`(?im)^Authorization:\s*Basic\s+(.+)$`)
 	if err != nil {
-		log.Printf("Warning: Failed to compile Basic auth regex: %v", err)
+		// Fallback to a simpler pattern
+		// nolint:gocritic // Intentionally using Compile for safety
+		reBasicAuth, _ = regexp.Compile(`Authorization:\s*Basic\s+(.+)`)
+		if reBasicAuth == nil {
+			// nolint:gocritic // Intentionally using Compile for safety
+			reBasicAuth, _ = regexp.Compile(`^$`)
+		}
 	}
 
 	// Compile JSON patterns
@@ -55,9 +77,21 @@ func init() {
 	for _, pattern := range jsonPatterns {
 		re, err := regexp.Compile(pattern)
 		if err != nil {
-			log.Printf("Warning: Failed to compile JSON pattern %s: %v", pattern, err)
+			// Try a simpler fallback pattern that just matches the key
+			simplePattern := `"(\w+)":\s*"[^"]+"`
+			if fallback, err := regexp.Compile(simplePattern); err == nil {
+				reJSONPatterns = append(reJSONPatterns, fallback)
+			}
 		} else {
 			reJSONPatterns = append(reJSONPatterns, re)
+		}
+	}
+
+	// If we have no JSON patterns at all, add a basic one as last resort
+	if len(reJSONPatterns) == 0 {
+		// nolint:gocritic // Using Compile instead of MustCompile to avoid panics
+		if basicPattern, err := regexp.Compile(`"\w+":\s*"[^"]+"`); err == nil {
+			reJSONPatterns = append(reJSONPatterns, basicPattern)
 		}
 	}
 }
@@ -181,32 +215,34 @@ func _sanitizeRequestDump(reqDump string) string {
 }
 
 // _sanitizeToken safely obfuscates tokens of any length
-func _sanitizeToken(token string) string {
+func _sanitizeToken(token string) (result string) {
 	// Add panic protection for string operations
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Warning: Panic in _sanitizeToken: %v. Returning stars.", r)
 			// Return a safe fallback - all stars
-			if len(token) > 0 {
-				return
-			}
+			result = "****"
 		}
 	}()
 
 	tokenLen := len(token)
 	if tokenLen == 0 {
-		return ""
+		result = ""
+		return
 	}
 	if tokenLen <= 4 {
 		// For very short tokens, show only first character
-		return string(token[0]) + strings.Repeat("*", tokenLen-1)
+		result = string(token[0]) + strings.Repeat("*", tokenLen-1)
+		return
 	}
 	if tokenLen <= 8 {
 		// For short tokens, show first 2 and last 2 characters
-		return token[:2] + "..." + token[tokenLen-2:]
+		result = token[:2] + "..." + token[tokenLen-2:]
+		return
 	}
 	// For longer tokens, show first 4 and last 4 characters
-	return token[:4] + "..." + token[tokenLen-4:]
+	result = token[:4] + "..." + token[tokenLen-4:]
+	return
 }
 
 // _sanitizeResponseDump sanitizes response dumps to remove sensitive data

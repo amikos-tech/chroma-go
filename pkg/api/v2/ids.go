@@ -1,9 +1,10 @@
 package v2
 
 import (
+	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"math/rand"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,11 +37,18 @@ func (u *UUIDGenerator) Generate(opts ...IDGeneratorOption) string {
 	generateID := func() (id string) {
 		defer func() {
 			if r := recover(); r != nil {
-				// Fall back to a timestamp-based ID if UUID generation somehow fails
+				// Fall back to a cryptographically secure random ID if UUID generation fails
 				// This is extremely unlikely but ensures the library never panics
 				h := sha256.New()
 				h.Write([]byte(time.Now().String()))
-				h.Write([]byte(string(rune(rand.Int()))))
+				// Use crypto/rand for secure random bytes
+				randomBytes := make([]byte, 16)
+				if _, err := io.ReadFull(crand.Reader, randomBytes); err != nil {
+					// If even crypto/rand fails, use timestamp with process info as last resort
+					h.Write([]byte(time.Now().Format(time.RFC3339Nano)))
+				} else {
+					h.Write(randomBytes)
+				}
 				id = hex.EncodeToString(h.Sum(nil))
 			}
 		}()
@@ -91,7 +99,8 @@ func (u *ULIDGenerator) Generate(opts ...IDGeneratorOption) string {
 		}()
 
 		t := time.Now()
-		entropy := rand.New(rand.NewSource(t.UnixNano()))
+		// Use crypto/rand for secure entropy
+		entropy := ulid.Monotonic(crand.Reader, 0)
 
 		// Try using ulid.New() first for safer operation
 		docULID, err := ulid.New(ulid.Timestamp(t), entropy)

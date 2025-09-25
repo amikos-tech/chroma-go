@@ -581,9 +581,14 @@ func (client *APIClientV2) Close() error {
 	// Sync the logger to flush any buffered log entries
 	if client.logger != nil {
 		if err := client.logger.Sync(); err != nil {
-			// Log sync errors are typically non-critical (e.g., stdout sync)
-			// but we should track them
-			errs = append(errs, errors.Wrap(err, "error syncing logger"))
+			// Ignore sync errors for stderr/stdout which are common in tests
+			// These occur when the underlying file descriptor is invalid (e.g., in tests)
+			// See: https://github.com/uber-go/zap/issues/991
+			if !strings.Contains(err.Error(), "bad file descriptor") &&
+				!strings.Contains(err.Error(), "/dev/stderr") &&
+				!strings.Contains(err.Error(), "/dev/stdout") {
+				errs = append(errs, errors.Wrap(err, "error syncing logger"))
+			}
 		}
 	}
 	if len(errs) > 0 {
