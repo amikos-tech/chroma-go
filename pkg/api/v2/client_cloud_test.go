@@ -24,7 +24,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		err := godotenv.Load("../../../.env")
 		require.NoError(t, err)
 	}
-	client, err := NewCloudAPIClient(
+	client, err := NewCloudClient(
 		WithDebug(),
 		WithDatabaseAndTenant(os.Getenv("CHROMA_DATABASE"), os.Getenv("CHROMA_TENANT")),
 		WithCloudAPIKey(os.Getenv("CHROMA_API_KEY")),
@@ -204,7 +204,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 
 	t.Run("Without API Key", func(t *testing.T) {
 		t.Setenv("CHROMA_API_KEY", "")
-		client, err := NewCloudAPIClient(
+		client, err := NewCloudClient(
 			WithDebug(),
 			WithDatabaseAndTenant("test_database", "test_tenant"),
 		)
@@ -216,7 +216,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 	t.Run("Without Tenant and DB", func(t *testing.T) {
 		t.Setenv("CHROMA_TENANT", "")
 		t.Setenv("CHROMA_DATABASE", "")
-		client, err := NewCloudAPIClient(
+		client, err := NewCloudClient(
 			WithDebug(),
 			WithCloudAPIKey("test"),
 		)
@@ -227,7 +227,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 	t.Run("With env tenant and DB", func(t *testing.T) {
 		t.Setenv("CHROMA_TENANT", "test_tenant")
 		t.Setenv("CHROMA_DATABASE", "test_database")
-		client, err := NewCloudAPIClient(
+		client, err := NewCloudClient(
 			WithDebug(),
 			WithCloudAPIKey("test"),
 		)
@@ -241,7 +241,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		t.Setenv("CHROMA_TENANT", "test_tenant")
 		t.Setenv("CHROMA_DATABASE", "test_database")
 		t.Setenv("CHROMA_API_KEY", "test")
-		client, err := NewCloudAPIClient(
+		client, err := NewCloudClient(
 			WithDebug(),
 		)
 		require.NoError(t, err)
@@ -259,7 +259,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		t.Setenv("CHROMA_TENANT", "test_tenant")
 		t.Setenv("CHROMA_DATABASE", "test_database")
 		t.Setenv("CHROMA_API_KEY", "test")
-		client, err := NewCloudAPIClient(
+		client, err := NewCloudClient(
 			WithDebug(),
 			WithCloudAPIKey("different_test_key"),
 			WithDatabaseAndTenant("other_db", "other_tenant"),
