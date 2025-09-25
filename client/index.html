@@ -417,6 +417,28 @@
   
   
     <li class="md-nav__item">
+      <a href="../logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Logging
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../records/" class="md-nav__link">
         
   
@@ -564,11 +586,18 @@
 <td>Yes (default: uses <code>CHROMA_DATABASE</code> env var if available)</td>
 </tr>
 <tr>
-<td>Debug</td>
-<td><code>WithDebug(true/false)</code></td>
-<td>Enable debug mode, printing http requests to stdout (sensitive information is sanitized)</td>
+<td>~~Debug~~</td>
+<td>~~<code>WithDebug()</code>~~ <strong>DEPRECATED</strong></td>
+<td>~~Enable debug mode~~ <strong>Use <code>WithLogger</code> with debug level instead</strong></td>
 <td><code>bool</code></td>
-<td>No (default: <code>false</code>)</td>
+<td>No (deprecated - use WithLogger)</td>
+</tr>
+<tr>
+<td>Logger</td>
+<td><code>WithLogger(logger)</code></td>
+<td>Set a custom logger for HTTP request/response logging. See <a href="../logging/">logging docs</a></td>
+<td><code>logger.Logger</code></td>
+<td>No (default: NoopLogger)</td>
 </tr>
 <tr>
 <td>Default Headers</td>
@@ -606,7 +635,7 @@
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nx">c</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewHTTPClient</span><span class="p">(</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithCloudAPIKey</span><span class="p">(</span><span class="s">&quot;my-api-key&quot;</span><span class="p">),</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDatabaseAndTenant</span><span class="p">(</span><span class="s">&quot;team-uuid&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;my-database&quot;</span><span class="p">),</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDebug</span><span class="p">(),</span><span class="w"> </span><span class="c1">// enable debug output (sensitive token information is sanitized)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="c1">// chroma.WithDebug() is deprecated - use WithLogger instead for debug output</span>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="p">)</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Error creating client: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
@@ -653,11 +682,18 @@
 <td>No (default: <code>default_database</code>)</td>
 </tr>
 <tr>
-<td>Debug</td>
-<td><code>WithDebug(true/false)</code></td>
-<td>Enable debug mode.</td>
+<td>~~Debug~~</td>
+<td>~~<code>WithDebug()</code>~~ <strong>DEPRECATED</strong></td>
+<td>~~Enable debug mode~~ <strong>Use <code>WithLogger</code> with debug level instead</strong></td>
 <td><code>bool</code></td>
-<td>No (default: <code>false</code>)</td>
+<td>No (deprecated - use WithLogger)</td>
+</tr>
+<tr>
+<td>Logger</td>
+<td><code>WithLogger(logger)</code></td>
+<td>Set a custom logger for HTTP request/response logging. See <a href="../logging/">logging docs</a></td>
+<td><code>logger.Logger</code></td>
+<td>No (default: NoopLogger)</td>
 </tr>
 <tr>
 <td>Default Headers</td>
@@ -724,7 +760,7 @@
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithBaseURL</span><span class="p">(</span><span class="s">&quot;http://localhost:8000&quot;</span><span class="p">),</span>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDatabaseAndTenant</span><span class="p">(</span><span class="s">&quot;default_database&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;default_tenant&quot;</span><span class="p">),</span>
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDefaultHeaders</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;X-Custom-Header&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;header-value&quot;</span><span class="p">}),</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDebug</span><span class="p">(),</span><span class="w"> </span><span class="c1">// enable debug output (sensitive token information is sanitized)</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="c1">// chroma.WithDebug() is deprecated - use WithLogger instead for debug output</span>
 </span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="p">)</span>
 </span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">        </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Error creating client: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
@@ -771,11 +807,18 @@
 <td>No (default: <code>default_database</code>)</td>
 </tr>
 <tr>
-<td>Debug</td>
-<td><code>WithDebug(true/false)</code></td>
-<td>Enable debug mode.</td>
+<td>~~Debug~~</td>
+<td>~~<code>WithDebug()</code>~~ <strong>DEPRECATED</strong></td>
+<td>~~Enable debug mode~~ <strong>Use <code>WithLogger</code> with debug level instead</strong></td>
 <td><code>bool</code></td>
-<td>No (default: <code>false</code>)</td>
+<td>No (deprecated - use WithLogger)</td>
+</tr>
+<tr>
+<td>Logger</td>
+<td><code>WithLogger(logger)</code></td>
+<td>Set a custom logger for HTTP request/response logging. See <a href="../logging/">logging docs</a></td>
+<td><code>logger.Logger</code></td>
+<td>No (default: NoopLogger)</td>
 </tr>
 <tr>
 <td>Default Headers</td>
@@ -828,7 +871,7 @@
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithBasePath</span><span class="p">(</span><span class="s">&quot;http://localhost:8000&quot;</span><span class="p">),</span>
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithTenant</span><span class="p">(</span><span class="s">&quot;my_tenant&quot;</span><span class="p">),</span>
 </span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDatabase</span><span class="p">(</span><span class="s">&quot;my_db&quot;</span><span class="p">),</span>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDebug</span><span class="p">(</span><span class="kc">true</span><span class="p">),</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">        </span><span class="c1">// chroma.WithDebug(true) is deprecated - use WithLogger instead for debug output</span>
 </span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithDefaultHeaders</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;Authorization&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Bearer my token&quot;</span><span class="p">}),</span>
 </span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSSLCert</span><span class="p">(</span><span class="s">&quot;path/to/cert.pem&quot;</span><span class="p">),</span>
 </span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="p">)</span>
