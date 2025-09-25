@@ -18,6 +18,11 @@ var (
 
 	// JSON field patterns for response sanitization
 	reJSONPatterns []*regexp.Regexp
+
+	// Pre-compiled fallback pattern that matches nothing - guaranteed to never panic
+	// This is used as a last resort if all regex compilation attempts fail
+	// Using an impossible pattern: start of line followed by end of line with required content
+	reFallback = regexp.MustCompile(`^\b$`) // word boundary between start and end - never matches
 )
 
 func init() {
@@ -33,11 +38,10 @@ func init() {
 	if err != nil {
 		// Fallback to a simpler pattern that should always compile
 		// nolint:gocritic // Intentionally using Compile for safety
-		reChromaToken, _ = regexp.Compile(`X-Chroma-Token:\s*(.+)`)
-		if reChromaToken == nil {
-			// Last resort: create a pattern that matches nothing
-			// nolint:gocritic // Intentionally using Compile for safety
-			reChromaToken, _ = regexp.Compile(`^$`)
+		if reChromaToken, err = regexp.Compile(`X-Chroma-Token:\s*(.+)`); err != nil {
+			// Last resort: use pre-compiled fallback that never matches
+			reChromaToken = reFallback
+			log.Printf("Warning: Failed to compile X-Chroma-Token regex, using fallback")
 		}
 	}
 
@@ -46,10 +50,10 @@ func init() {
 	if err != nil {
 		// Fallback to a simpler pattern
 		// nolint:gocritic // Intentionally using Compile for safety
-		reBearerToken, _ = regexp.Compile(`Authorization:\s*Bearer\s+(.+)`)
-		if reBearerToken == nil {
-			// nolint:gocritic // Intentionally using Compile for safety
-			reBearerToken, _ = regexp.Compile(`^$`)
+		if reBearerToken, err = regexp.Compile(`Authorization:\s*Bearer\s+(.+)`); err != nil {
+			// Use pre-compiled fallback
+			reBearerToken = reFallback
+			log.Printf("Warning: Failed to compile Bearer token regex, using fallback")
 		}
 	}
 
@@ -58,10 +62,10 @@ func init() {
 	if err != nil {
 		// Fallback to a simpler pattern
 		// nolint:gocritic // Intentionally using Compile for safety
-		reBasicAuth, _ = regexp.Compile(`Authorization:\s*Basic\s+(.+)`)
-		if reBasicAuth == nil {
-			// nolint:gocritic // Intentionally using Compile for safety
-			reBasicAuth, _ = regexp.Compile(`^$`)
+		if reBasicAuth, err = regexp.Compile(`Authorization:\s*Basic\s+(.+)`); err != nil {
+			// Use pre-compiled fallback
+			reBasicAuth = reFallback
+			log.Printf("Warning: Failed to compile Basic auth regex, using fallback")
 		}
 	}
 
@@ -165,15 +169,16 @@ func _sanitizeBasicAuth(username, password string) string {
 	return username + ":****"
 }
 
-func _sanitizeRequestDump(reqDump string) string {
-	// Add panic protection
+func _sanitizeRequestDump(reqDump string) (result string) {
+	// Add panic protection - return original input if panic occurs
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Warning: Panic in _sanitizeRequestDump: %v. Returning partially sanitized output.", r)
+			log.Printf("Warning: Panic in _sanitizeRequestDump: %v. Returning original input.", r)
+			result = reqDump // Return original unsanitized on panic
 		}
 	}()
 
-	result := reqDump
+	result = reqDump
 
 	// X-Chroma-Token obfuscation - handle tokens of any length
 	if reChromaToken != nil {
@@ -232,30 +237,46 @@ func _sanitizeToken(token string) (result string) {
 	}
 	if tokenLen <= 4 {
 		// For very short tokens, show only first character
-		result = string(token[0]) + strings.Repeat("*", tokenLen-1)
+		// Add bounds check even though we know tokenLen > 0
+		if tokenLen >= 1 {
+			result = string(token[0]) + strings.Repeat("*", tokenLen-1)
+		} else {
+			result = strings.Repeat("*", tokenLen)
+		}
 		return
 	}
 	if tokenLen <= 8 {
 		// For short tokens, show first 2 and last 2 characters
-		result = token[:2] + "..." + token[tokenLen-2:]
+		// Bounds are guaranteed by the condition (tokenLen > 4)
+		if tokenLen >= 4 {
+			result = token[:2] + "..." + token[tokenLen-2:]
+		} else {
+			result = strings.Repeat("*", tokenLen)
+		}
 		return
 	}
 	// For longer tokens, show first 4 and last 4 characters
-	result = token[:4] + "..." + token[tokenLen-4:]
+	// Bounds are guaranteed by the condition (tokenLen > 8)
+	if tokenLen >= 8 {
+		result = token[:4] + "..." + token[tokenLen-4:]
+	} else {
+		result = strings.Repeat("*", tokenLen)
+	}
 	return
 }
 
 // _sanitizeResponseDump sanitizes response dumps to remove sensitive data
-func _sanitizeResponseDump(respDump string) string {
-	// Add panic protection
+func _sanitizeResponseDump(respDump string) (result string) {
+	// Add panic protection - return original input if panic occurs
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Warning: Panic in _sanitizeResponseDump: %v. Returning partially sanitized output.", r)
+			log.Printf("Warning: Panic in _sanitizeResponseDump: %v. Returning original input.", r)
+			result = respDump // Return original unsanitized on panic
 		}
 	}()
 
 	// First obfuscate any tokens that might be in headers
-	result := _sanitizeRequestDump(respDump)
+	result = _sanitizeRequestDump(respDump)
 
 	// Sanitize potential sensitive data in JSON responses using pre-compiled patterns
 	for _, re := range reJSONPatterns {
