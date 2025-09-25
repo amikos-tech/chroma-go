@@ -94,6 +94,8 @@ func runBasicAuth() {
 		log.Fatal("Failed to create collection:", err)
 	}
 
+	defer collection.Delete(context.Background())
+
 	fmt.Printf("✓ Created collection: %s\n", collection.Name())
 }
 
@@ -145,6 +147,11 @@ func runBearerToken() {
 	for _, col := range collections {
 		fmt.Printf("  - %s\n", col.Name())
 	}
+	defer func() {
+		for _, col := range collections {
+			_ = col.Close()
+		}
+	}()
 }
 
 func runXChromaToken() {
@@ -264,6 +271,7 @@ func runCustomHeaders() {
 	if err != nil {
 		log.Fatal("Failed to get/create collection:", err)
 	}
+	defer collection.Close()
 
 	fmt.Printf("✓ Using collection: %s (ID: %s)\n", collection.Name(), collection.ID())
 }
@@ -320,6 +328,12 @@ func runCloudAuth() {
 		log.Fatal("Failed to list collections:", err)
 	}
 
+	defer func() {
+		for _, col := range collections {
+			_ = col.Close()
+		}
+	}()
+
 	fmt.Printf("\n✓ Found %d collections:\n", len(collections))
 	for _, col := range collections {
 		fmt.Printf("  - %s (ID: %s)\n", col.Name(), col.ID())
@@ -334,6 +348,7 @@ func runCloudAuth() {
 	if err != nil {
 		log.Fatal("Failed to create collection:", err)
 	}
+	defer collection.Close()
 
 	fmt.Printf("\n✓ Using collection: %s\n", collection.Name())
 }
