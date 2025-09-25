@@ -2,9 +2,11 @@ package v2
 
 import (
 	"encoding/base64"
+	"fmt"
 	"log"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/pkg/errors"
 )
@@ -69,20 +71,20 @@ func init() {
 		}
 	}
 
-	// Compile JSON patterns
+	// Compile JSON patterns - simplified to avoid ReDoS with bounded quantifiers
 	jsonPatterns := []string{
-		`"(api_key|apiKey|api_token|apiToken|secret|password|token|auth|credential)":\s*"[^"]+"`,
-		`"(access_token|accessToken|refresh_token|refreshToken|id_token|idToken)":\s*"[^"]+"`,
-		`"(private_key|privateKey|secret_key|secretKey)":\s*"[^"]+"`,
-		`"(authorization|Authorization)":\s*"[^"]+"`,
+		`"(api_key|apiKey|api_token|apiToken|secret|password|token|auth|credential)":\s{0,10}"[^"]{1,1000}"`,
+		`"(access_token|accessToken|refresh_token|refreshToken|id_token|idToken)":\s{0,10}"[^"]{1,1000}"`,
+		`"(private_key|privateKey|secret_key|secretKey)":\s{0,10}"[^"]{1,1000}"`,
+		`"(authorization|Authorization)":\s{0,10}"[^"]{1,1000}"`,
 	}
 
 	reJSONPatterns = make([]*regexp.Regexp, 0, len(jsonPatterns))
 	for _, pattern := range jsonPatterns {
 		re, err := regexp.Compile(pattern)
 		if err != nil {
-			// Try a simpler fallback pattern that just matches the key
-			simplePattern := `"(\w+)":\s*"[^"]+"`
+			// Try a simpler fallback pattern with bounded quantifiers
+			simplePattern := `"(\w{1,100})":\s{0,10}"[^"]{1,1000}"`
 			if fallback, err := regexp.Compile(simplePattern); err == nil {
 				reJSONPatterns = append(reJSONPatterns, fallback)
 			}
@@ -94,7 +96,7 @@ func init() {
 	// If we have no JSON patterns at all, add a basic one as last resort
 	if len(reJSONPatterns) == 0 {
 		// nolint:gocritic // Using Compile instead of MustCompile to avoid panics
-		if basicPattern, err := regexp.Compile(`"\w+":\s*"[^"]+"`); err == nil {
+		if basicPattern, err := regexp.Compile(`"\w{1,100}":\s{0,10}"[^"]{1,1000}"`); err == nil {
 			reJSONPatterns = append(reJSONPatterns, basicPattern)
 		}
 	}
@@ -163,18 +165,61 @@ func (t *TokenAuthCredentialsProvider) String() string {
 	return "TokenAuthCredentialsProvider {" + string(t.Header) + ": " + _sanitizeToken(t.Token) + "}"
 }
 
-func _sanitizeBasicAuth(username, password string) string {
+func _sanitizeBasicAuth(username, _ string) string {
 	// This is a placeholder for any obfuscation logic you might want to implement.
 	// For now, it just returns the username and password as is.
 	return username + ":****"
 }
 
+// sanitizeForLogging escapes control characters to prevent log injection attacks
+func sanitizeForLogging(input string) string {
+	if input == "" {
+		return ""
+	}
+
+	// Replace control characters with their escaped representations
+	var result strings.Builder
+	result.Grow(len(input))
+
+	for _, r := range input {
+		switch r {
+		case '\n':
+			result.WriteString("\\n")
+		case '\r':
+			result.WriteString("\\r")
+		case '\t':
+			result.WriteString("\\t")
+		case '\b':
+			result.WriteString("\\b")
+		case '\f':
+			result.WriteString("\\f")
+		case '\v':
+			result.WriteString("\\v")
+		default:
+			if unicode.IsControl(r) {
+				// Escape other control characters as unicode
+				result.WriteString(fmt.Sprintf("\\u%04x", r))
+			} else {
+				result.WriteRune(r)
+			}
+		}
+	}
+
+	return result.String()
+}
+
 func _sanitizeRequestDump(reqDump string) (result string) {
-	// Add panic protection - return original input if panic occurs
+	// Size limit check to prevent ReDoS attacks (10MB max)
+	const maxSize = 10 * 1024 * 1024
+	if len(reqDump) > maxSize {
+		return "***REQUEST_TOO_LARGE_FOR_SANITIZATION***"
+	}
+
+	// Add panic protection - return safe placeholder if panic occurs
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Warning: Panic in _sanitizeRequestDump: %v. Returning original input.", r)
-			result = reqDump // Return original unsanitized on panic
+			log.Printf("Warning: Panic in _sanitizeRequestDump: %v. Returning safe placeholder.", sanitizeForLogging(fmt.Sprintf("%v", r)))
+			result = "***REQUEST_SANITIZATION_FAILED***" // Return safe placeholder on panic
 		}
 	}()
 
@@ -224,7 +269,7 @@ func _sanitizeToken(token string) (result string) {
 	// Add panic protection for string operations
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Warning: Panic in _sanitizeToken: %v. Returning stars.", r)
+			log.Printf("Warning: Panic in _sanitizeToken: %v. Returning stars.", sanitizeForLogging(fmt.Sprintf("%v", r)))
 			// Return a safe fallback - all stars
 			result = "****"
 		}
@@ -267,11 +312,17 @@ func _sanitizeToken(token string) (result string) {
 
 // _sanitizeResponseDump sanitizes response dumps to remove sensitive data
 func _sanitizeResponseDump(respDump string) (result string) {
-	// Add panic protection - return original input if panic occurs
+	// Size limit check to prevent ReDoS attacks (10MB max)
+	const maxSize = 10 * 1024 * 1024
+	if len(respDump) > maxSize {
+		return "***RESPONSE_TOO_LARGE_FOR_SANITIZATION***"
+	}
+
+	// Add panic protection - return safe placeholder if panic occurs
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Warning: Panic in _sanitizeResponseDump: %v. Returning original input.", r)
-			result = respDump // Return original unsanitized on panic
+			log.Printf("Warning: Panic in _sanitizeResponseDump: %v. Returning safe placeholder.", sanitizeForLogging(fmt.Sprintf("%v", r)))
+			result = "***RESPONSE_SANITIZATION_FAILED***" // Return safe placeholder on panic
 		}
 	}()
 

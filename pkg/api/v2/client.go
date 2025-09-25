@@ -674,9 +674,10 @@ func WithTransport(transport *http.Transport) ClientOption {
 
 // Deprecated: Use WithLogger with debug level enabled. See https://github.com/amikos-tech/chroma-go/blob/ad35b6d37f9be4431687945ae4a77470e0832cf4/examples/v2/logging/main.go
 // This function now automatically creates a development logger for backward compatibility.
+// Will be removed in v0.3.0.
 func WithDebug() ClientOption {
 	return func(c *BaseAPIClient) error {
-		_, _ = fmt.Fprintln(os.Stderr, "WARNING: WithDebug is deprecated. Use WithLogger with debug level enabled. See https://github.com/amikos-tech/chroma-go/blob/main/examples/v2/logging/main.go")
+		_, _ = fmt.Fprintln(os.Stderr, "WARNING: WithDebug is deprecated and will be removed in v0.3.0. Use WithLogger with debug level enabled. See https://github.com/amikos-tech/chroma-go/blob/main/examples/v2/logging/main.go")
 
 		// For backward compatibility, automatically enable debug logging
 		if devLogger, err := logger.NewDevelopmentZapLogger(); err == nil {
