@@ -128,10 +128,7 @@ import (
 
 func main() {
     client, err := v2.NewCloudClient(
-        v2.WithCloudHost("api.trychroma.com"),
         v2.WithCloudAPIKey("your-api-key"),
-        v2.WithCloudTenant("your-tenant"),
-        v2.WithCloudDatabase("your-database"),
     )
     if err != nil {
         log.Fatal(err)

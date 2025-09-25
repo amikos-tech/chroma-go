@@ -30,7 +30,6 @@ func main() {
 	collection, err := client.CreateCollection(
 		context.Background(),
 		"test_collection",
-		v2.WithDescription("Collection created with basic auth"),
 	)
 	if err != nil {
 		log.Fatal("Failed to create collection:", err)

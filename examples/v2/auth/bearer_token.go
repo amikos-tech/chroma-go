@@ -31,16 +31,14 @@ func main() {
 		log.Fatal("Failed to connect:", err)
 	}
 
-	fmt.Println("Successfully connected with Bearer token authentication")
-
 	// List collections
 	collections, err := client.ListCollections(context.Background())
 	if err != nil {
 		log.Fatal("Failed to list collections:", err)
 	}
-
 	fmt.Printf("Found %d collections\n", len(collections))
 	for _, col := range collections {
 		fmt.Printf("- %s\n", col.Name())
 	}
+	fmt.Println("Successfully connected with Bearer token authentication")
 }
