@@ -9,8 +9,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	chromalogger "github.com/amikos-tech/chroma-go/pkg/logger"
 	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+	chromalogger "github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 func main() {
@@ -45,7 +45,6 @@ func productionExample() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer zapLogger.Sync()
 
 	// Wrap in Chroma logger
 	logger := chromalogger.NewZapLogger(zapLogger)
@@ -56,8 +55,12 @@ func productionExample() {
 		chroma.WithLogger(logger),
 	)
 	if err != nil {
+		_ = zapLogger.Sync()
 		log.Fatal(err)
 	}
+	defer func() {
+		_ = zapLogger.Sync()
+	}()
 	defer client.Close()
 
 	// Use the client
@@ -97,7 +100,7 @@ func developmentExample() {
 		ctx,
 		"example-collection",
 		chroma.WithCollectionMetadataCreate(
-			chroma.NewMetadata("description", "Example collection for logging demo"),
+			chroma.NewMetadata(chroma.NewStringAttribute("description", "example collection description")),
 		),
 	)
 	if err != nil {
@@ -130,7 +133,6 @@ func customLoggerExample() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer zapLogger.Sync()
 
 	// Wrap in Chroma logger
 	logger := chromalogger.NewZapLogger(zapLogger)
@@ -141,8 +143,12 @@ func customLoggerExample() {
 		chroma.WithLogger(logger),
 	)
 	if err != nil {
+		_ = zapLogger.Sync()
 		log.Fatal(err)
 	}
+	defer func() {
+		_ = zapLogger.Sync()
+	}()
 	defer client.Close()
 
 	ctx := context.Background()
@@ -206,7 +212,6 @@ func noopLoggerExample() {
 func customFieldsExample() {
 	// Create a logger
 	zapLogger, _ := zap.NewDevelopment()
-	defer zapLogger.Sync()
 	logger := chromalogger.NewZapLogger(zapLogger)
 
 	// Add persistent fields to the logger
@@ -222,8 +227,12 @@ func customFieldsExample() {
 		chroma.WithLogger(requestLogger),
 	)
 	if err != nil {
+		_ = zapLogger.Sync()
 		log.Fatal(err)
 	}
+	defer func() {
+		_ = zapLogger.Sync()
+	}()
 	defer client.Close()
 
 	ctx := context.Background()

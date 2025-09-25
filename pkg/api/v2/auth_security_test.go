@@ -1,3 +1,4 @@
+//go:build basicv2
 // +build basicv2
 
 package v2
@@ -232,11 +233,9 @@ func TestBasicAuthObfuscation(t *testing.T) {
 
 func TestObfuscationEdgeCases(t *testing.T) {
 	t.Run("nil context in extractContextFields", func(t *testing.T) {
-		// This should not panic
+		zapLogger, err := logger.NewDevelopmentZapLogger()
+		require.NoError(t, err)
 		require.NotPanics(t, func() {
-			// Testing through the zap logger which calls extractContextFields
-			zapLogger, err := logger.NewDevelopmentZapLogger()
-			require.NoError(t, err)
 			zapLogger.DebugWithContext(nil, "test message")
 		})
 	})

@@ -809,7 +809,9 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 		}
 	}
 	resp, err := bc.httpClient.Do(httpReq)
-	if err != nil || (resp.StatusCode >= 400 && resp.StatusCode < 599) {
+	if err != nil {
+		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
+	} else if resp.StatusCode >= 400 && resp.StatusCode < 599 {
 		if bc.logger.IsDebugEnabled() && resp != nil {
 			dump, err := httputil.DumpResponse(resp, true)
 			if err == nil {
@@ -879,7 +881,9 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))
 		}
 	}
-	if err != nil || (resp.StatusCode >= 400 && resp.StatusCode < 599) {
+	if err != nil {
+		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
+	} else if resp.StatusCode >= 400 && resp.StatusCode < 599 {
 		chErr := chhttp.ChromaErrorFromHTTPResponse(resp, err)
 		return nil, errors.Wrap(chErr, "error sending request")
 	}
