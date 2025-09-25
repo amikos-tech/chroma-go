@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -21,6 +23,7 @@ type APIClientV2 struct {
 	preflightLimits        map[string]interface{}
 	preflightCompleted     bool
 	collectionCache        map[string]Collection
+	collectionMu           sync.RWMutex
 }
 
 func NewHTTPClient(opts ...ClientOption) (Client, error) {
@@ -330,7 +333,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		embeddingFunction: req.embeddingFunction,
 		dimension:         cm.Dimension,
 	}
-	client.collectionCache[cm.Name] = c
+	client.addCollectionToCache(c)
 	return c, nil
 }
 
@@ -403,7 +406,7 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		dimension:         cm.Dimension,
 		embeddingFunction: req.embeddingFunction,
 	}
-	client.collectionCache[name] = c
+	client.addCollectionToCache(c)
 	return c, nil
 }
 
@@ -575,8 +578,27 @@ func (client *APIClientV2) Close() error {
 			}
 		}
 	}
+	// Sync the logger to flush any buffered log entries
+	if client.logger != nil {
+		if err := client.logger.Sync(); err != nil {
+			// Ignore sync errors for stderr/stdout which are common in tests
+			// These occur when the underlying file descriptor is invalid (e.g., in tests)
+			// See: https://github.com/uber-go/zap/issues/991
+			if !strings.Contains(err.Error(), "bad file descriptor") &&
+				!strings.Contains(err.Error(), "/dev/stderr") &&
+				!strings.Contains(err.Error(), "/dev/stdout") {
+				errs = append(errs, errors.Wrap(err, "error syncing logger"))
+			}
+		}
+	}
 	if len(errs) > 0 {
-		return errors.Errorf("error closing collections: %v", errs)
+		return stderrors.Join(errs...)
 	}
 	return nil
+}
+
+func (client *APIClientV2) addCollectionToCache(c Collection) {
+	client.collectionMu.Lock()
+	defer client.collectionMu.Unlock()
+	client.collectionCache[c.Name()] = c
 }

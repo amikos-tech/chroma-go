@@ -21,7 +21,7 @@ Content-Type: application/json
 X-Chroma-Token: ` + apiKey + `
 Accept-Encoding: gzip
 `
-		obfuscatedDump := _obfuscateRequestDump(reqDump)
+		obfuscatedDump := _sanitizeRequestDump(reqDump)
 		require.NotContains(t, obfuscatedDump, apiKey, "API key should be obfuscated in request dump")
 		fmt.Println(obfuscatedDump)
 	})
@@ -34,7 +34,7 @@ Content-Type: application/json
 Authorization: Bearer ` + token + `
 Accept-Encoding: gzip
 `
-		obfuscatedDump := _obfuscateRequestDump(reqDump)
+		obfuscatedDump := _sanitizeRequestDump(reqDump)
 		require.NotContains(t, obfuscatedDump, token, "Token should be obfuscated in request dump")
 		fmt.Println(obfuscatedDump)
 	})
@@ -48,7 +48,7 @@ Content-Type: application/json
 Authorization: Basic ` + auth + `
 Accept-Encoding: gzip
 `
-		obfuscatedDump := _obfuscateRequestDump(reqDump)
+		obfuscatedDump := _sanitizeRequestDump(reqDump)
 		require.NotContains(t, obfuscatedDump, auth, "Token should be obfuscated in request dump")
 		fmt.Println(obfuscatedDump)
 	})

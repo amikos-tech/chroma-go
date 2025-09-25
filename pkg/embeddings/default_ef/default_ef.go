@@ -3,6 +3,7 @@ package defaultef
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"math"
 	"os"
@@ -369,7 +370,7 @@ func (e *DefaultEmbeddingFunction) Close() error {
 				}
 			}
 			if len(errs) > 0 {
-				closeErr = errors.Errorf("errors: %v", errs)
+				closeErr = stderrors.Join(errs...)
 			}
 			atomic.StoreInt32(&e.closed, 1)
 		})

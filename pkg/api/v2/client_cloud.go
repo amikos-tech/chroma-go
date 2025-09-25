@@ -4,6 +4,8 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 const ChromaCloudEndpoint = "https://api.trychroma.com:8000/api/v2"
@@ -51,6 +53,12 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 	} else if c.authProvider == nil {
 		c.authProvider = NewTokenAuthCredentialsProvider(os.Getenv("CHROMA_API_KEY"), XChromaTokenHeader)
 	}
+
+	// Ensure logger is never nil - but don't override if already set by options like WithDebug()
+	if c.logger == nil {
+		c.logger = logger.NewNoopLogger()
+	}
+
 	return c, nil
 }
 

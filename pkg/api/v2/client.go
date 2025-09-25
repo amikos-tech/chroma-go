@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -18,6 +17,7 @@ import (
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
+	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 type Client interface {
@@ -550,7 +550,7 @@ type BaseAPIClient struct {
 	activeCollections []Collection
 	preFlightConfig   map[string]interface{}
 	authProvider      CredentialsProvider
-	debug             bool
+	logger            logger.Logger
 }
 
 type ClientOption func(client *BaseAPIClient) error
@@ -672,9 +672,32 @@ func WithTransport(transport *http.Transport) ClientOption {
 	}
 }
 
+// Deprecated: Use WithLogger with debug level enabled. See https://github.com/amikos-tech/chroma-go/blob/ad35b6d37f9be4431687945ae4a77470e0832cf4/examples/v2/logging/main.go
+// This function now automatically creates a development logger for backward compatibility.
+// Will be removed in v0.3.0.
 func WithDebug() ClientOption {
 	return func(c *BaseAPIClient) error {
-		c.debug = true
+		_, _ = fmt.Fprintln(os.Stderr, "WARNING: WithDebug is deprecated and will be removed in v0.3.0. Use WithLogger with debug level enabled. See https://github.com/amikos-tech/chroma-go/blob/main/examples/v2/logging/main.go")
+
+		// For backward compatibility, automatically enable debug logging
+		if devLogger, err := logger.NewDevelopmentZapLogger(); err == nil {
+			c.logger = devLogger
+			c.logger.Info("Debug logging enabled via deprecated WithDebug(). Please migrate to WithLogger().")
+		} else {
+			// If we can't create a logger, at least log the error
+			_, _ = fmt.Fprintf(os.Stderr, "Failed to create debug logger: %v\n", err)
+		}
+		return nil
+	}
+}
+
+// WithLogger sets a custom logger for the client. If not set, a NoopLogger is used by default.
+func WithLogger(l logger.Logger) ClientOption {
+	return func(c *BaseAPIClient) error {
+		if l == nil {
+			return errors.New("logger cannot be nil")
+		}
+		c.logger = l
 		return nil
 	}
 }
@@ -741,6 +764,7 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 		defaultHeaders: map[string]string{
 			"User-Agent": "chroma-go-client/1.0",
 		},
+		logger: logger.NewNoopLogger(), // Default to no-op logger
 	}
 	client.httpClient.Transport = client.httpTransport
 	for _, opt := range options {
@@ -748,6 +772,11 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Ensure logger is never nil
+	if client.logger == nil {
+		client.logger = logger.NewNoopLogger()
 	}
 
 	return client, nil
@@ -773,30 +802,31 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 	for k, v := range bc.defaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
-	if bc.debug {
+	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpRequestOut(httpReq, true)
 		if err == nil {
-			log.Printf("%s\n", _obfuscateRequestDump(string(dump)))
+			bc.logger.Debug("HTTP Request", logger.String("request", _sanitizeRequestDump(string(dump))))
 		}
 	}
 	resp, err := bc.httpClient.Do(httpReq)
-	if err != nil || (resp.StatusCode >= 400 && resp.StatusCode < 599) {
-		if bc.debug && resp != nil {
+	if err != nil {
+		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
+	} else if resp.StatusCode >= 400 && resp.StatusCode < 599 {
+		if bc.logger.IsDebugEnabled() {
 			dump, err := httputil.DumpResponse(resp, true)
 			if err == nil {
-				log.Printf("%s\n", string(dump))
-			}
-			if err != nil {
-				log.Printf("[DEBUG] Failed to get body response: %s\n", err.Error())
+				bc.logger.Debug("HTTP Response (Error)", logger.String("response", _sanitizeResponseDump(string(dump))))
+			} else {
+				bc.logger.Debug("Failed to get body response", logger.ErrorField("error", err))
 			}
 		}
 		chErr := chhttp.ChromaErrorFromHTTPResponse(resp, err)
 		return nil, errors.Wrap(chErr, "error sending request")
 	}
-	if bc.debug {
+	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpResponse(resp, true)
 		if err == nil {
-			log.Printf("%s\n", string(dump))
+			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))
 		}
 	}
 	return resp, nil
@@ -838,20 +868,22 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 	for k, v := range bc.defaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
-	if bc.debug {
+	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpRequestOut(httpReq, true)
 		if err == nil {
-			log.Printf("%s\n", _obfuscateRequestDump(string(dump)))
+			bc.logger.Debug("HTTP Request", logger.String("request", _sanitizeRequestDump(string(dump))))
 		}
 	}
 	resp, err := bc.httpClient.Do(httpReq)
-	if bc.debug {
+	if bc.logger.IsDebugEnabled() {
 		dump, err := httputil.DumpResponse(resp, true)
 		if err == nil {
-			log.Printf("%s\n", string(dump))
+			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))
 		}
 	}
-	if err != nil || (resp.StatusCode >= 400 && resp.StatusCode < 599) {
+	if err != nil {
+		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
+	} else if resp.StatusCode >= 400 && resp.StatusCode < 599 {
 		chErr := chhttp.ChromaErrorFromHTTPResponse(resp, err)
 		return nil, errors.Wrap(chErr, "error sending request")
 	}
@@ -861,7 +893,7 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 }
 
 func (bc *BaseAPIClient) HTTPClient() *http.Client {
-	return http.DefaultClient
+	return bc.httpClient
 }
 func (bc *BaseAPIClient) Tenant() Tenant {
 	return bc.tenant

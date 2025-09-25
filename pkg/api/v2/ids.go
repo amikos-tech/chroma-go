@@ -1,9 +1,10 @@
 package v2
 
 import (
+	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"math/rand"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,8 +30,35 @@ type IDGenerator interface {
 type UUIDGenerator struct{}
 
 func (u *UUIDGenerator) Generate(opts ...IDGeneratorOption) string {
-	uuidV4 := uuid.New()
-	return uuidV4.String()
+	// uuid.New() uses uuid.Must(uuid.NewRandom()) internally which could panic
+	// if the random number generator fails. Add defensive programming.
+
+	// Wrap in a function to handle panics
+	generateID := func() (id string) {
+		defer func() {
+			if r := recover(); r != nil {
+				// Fall back to a cryptographically secure random ID if UUID generation fails
+				// This is extremely unlikely but ensures the library never panics
+				h := sha256.New()
+				h.Write([]byte(time.Now().String()))
+				// Use crypto/rand for secure random bytes
+				randomBytes := make([]byte, 16)
+				if _, err := io.ReadFull(crand.Reader, randomBytes); err != nil {
+					// If even crypto/rand fails, use timestamp with process info as last resort
+					h.Write([]byte(time.Now().Format(time.RFC3339Nano)))
+				} else {
+					h.Write(randomBytes)
+				}
+				id = hex.EncodeToString(h.Sum(nil))
+			}
+		}()
+
+		uuidV4 := uuid.New()
+		id = uuidV4.String()
+		return id
+	}
+
+	return generateID()
 }
 
 func NewUUIDGenerator() *UUIDGenerator {
@@ -60,10 +88,32 @@ func NewSHA256Generator() *SHA256Generator {
 type ULIDGenerator struct{}
 
 func (u *ULIDGenerator) Generate(opts ...IDGeneratorOption) string {
-	t := time.Now()
-	entropy := rand.New(rand.NewSource(t.UnixNano()))
-	docULID := ulid.MustNew(ulid.Timestamp(t), entropy)
-	return docULID.String()
+	// Wrap in a function to handle panics properly
+	generateID := func() (id string) {
+		defer func() {
+			if r := recover(); r != nil {
+				// If ULID generation fails, fall back to UUID
+				// This ensures the function never panics
+				id = uuid.New().String()
+			}
+		}()
+
+		t := time.Now()
+		// Use crypto/rand for secure entropy
+		entropy := ulid.Monotonic(crand.Reader, 0)
+
+		// Try using ulid.New() first for safer operation
+		docULID, err := ulid.New(ulid.Timestamp(t), entropy)
+		if err != nil {
+			// Fall back to UUID if ULID generation fails
+			id = uuid.New().String()
+			return id
+		}
+		id = docULID.String()
+		return id
+	}
+
+	return generateID()
 }
 
 func NewULIDGenerator() *ULIDGenerator {

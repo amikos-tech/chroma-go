@@ -43,6 +43,7 @@ Additional support features:
   X-Chroma-Token header)
 - ✅ [Private PKI and self-signed certificate support](https://go-client.chromadb.dev/client/)
 - ✅ Chroma Cloud support
+- 🔥✅ [Structured Logging](https://go-client.chromadb.dev/logging/) (V2 API only) - Injectable logger with Zap bridge for structured logging
 - ⚒️ Persistent Embedding Function support (coming soon) - automatically load embedding function from Chroma collection
   configuration
 - ⚒️ Persistent Client support (coming soon) - Run/embed full-featured Chroma in your go application without the need
@@ -200,6 +201,62 @@ func main() {
 	}
 }
 ```
+
+### Structured Logging (V2 API)
+
+The V2 API client supports injectable loggers for structured logging. Here's a quick example using Zap:
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	"go.uber.org/zap"
+	chromalogger "github.com/amikos-tech/chroma-go/pkg/logger"
+	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+	// Create a zap logger
+	zapLogger, _ := zap.NewDevelopment()
+	defer zapLogger.Sync()
+
+	// Wrap it in the Chroma logger
+	logger := chromalogger.NewZapLogger(zapLogger)
+
+	// Create client with the logger
+	client, err := chroma.NewHTTPClient(
+		chroma.WithBaseURL("http://localhost:8000"),
+		chroma.WithLogger(logger),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Close()
+
+	// All client operations will now be logged with structured logging
+	ctx := context.Background()
+	collections, _ := client.ListCollections(ctx)
+
+	// You can also log directly
+	logger.Info("Retrieved collections",
+		chromalogger.Int("count", len(collections)),
+	)
+
+	// For debug logging, use WithLogger with a debug-level logger
+	// Note: WithDebug() is deprecated - use WithLogger instead
+	devLogger, _ := chromalogger.NewDevelopmentZapLogger()
+	debugClient, _ := chroma.NewHTTPClient(
+		chroma.WithBaseURL("http://localhost:8000"),
+		chroma.WithLogger(devLogger), // Use a logger with debug level enabled
+	)
+	defer debugClient.Close()
+}
+```
+
+See the [logging documentation](https://go-client.chromadb.dev/logging/) for more details.
 
 ## Development
 
