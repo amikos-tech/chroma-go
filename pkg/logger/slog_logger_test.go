@@ -383,6 +383,22 @@ func TestSlogLoggerErrorFieldWithoutKey(t *testing.T) {
 	logger.Error("error with empty ErrorField", ErrorField("", errors.New("another error")))
 	output = buf.String()
 	assert.Contains(t, output, `"_error":"another error"`)
+
+	// Test that nil errors don't panic - they just get handled by the default case
+	buf.Reset()
+	var nilErr error = nil
+	logger.Error("nil error test", Field{Key: "nil_error", Value: nilErr})
+	output = buf.String()
+	// Nil errors will be handled by default case, so just ensure no panic occurred
+	assert.Contains(t, output, `"msg":"nil error test"`)
+
+	// Test panic protection by testing with a concrete error type that could panic
+	// Create an actual error that could be nil, but not a nil interface
+	err := errors.New("test error")
+	// This should work normally
+	assert.NotPanics(t, func() {
+		logger.Error("concrete error test", Field{Key: "concrete_error", Value: err})
+	})
 }
 
 // BenchmarkSlogLogger benchmarks the SlogLogger performance

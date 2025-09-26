@@ -154,16 +154,27 @@ func convertFieldsToAttrs(fields []Field) []any {
 		case float64:
 			attrs = append(attrs, slog.Float64(f.Key, v))
 		case error:
-			// Special handling for error fields:
-			// - If the field key is provided, use it as-is
-			// - If the field key is empty, use "_error" as a safe default
-			//   The underscore prefix indicates it's an auto-generated key
-			// - This ensures error information is never lost
-			key := f.Key
-			if key == "" {
-				key = "_error" // Safe default that won't conflict with user "error" fields
+			// Handle nil errors safely to prevent panics
+			if v == nil {
+				// Use the provided key or "_error" for consistency
+				key := f.Key
+				if key == "" {
+					key = "_error"
+				}
+				// slog doesn't have a Nil method, so we use Any with nil value
+				attrs = append(attrs, slog.Any(key, nil))
+			} else {
+				// Special handling for non-nil error fields:
+				// - If the field key is provided, use it as-is
+				// - If the field key is empty, use "_error" as a safe default
+				//   The underscore prefix indicates it's an auto-generated key
+				// - This ensures error information is never lost
+				key := f.Key
+				if key == "" {
+					key = "_error" // Safe default that won't conflict with user "error" fields
+				}
+				attrs = append(attrs, slog.String(key, v.Error()))
 			}
-			attrs = append(attrs, slog.String(key, v.Error()))
 		default:
 			// For any other type, use slog.Any which safely handles all types
 			attrs = append(attrs, slog.Any(f.Key, v))

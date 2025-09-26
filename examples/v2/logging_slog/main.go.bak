@@ -74,8 +74,7 @@ func textLoggerExample() {
 	// Create a text logger for human-readable output
 	logger, err := chromalogger.NewTextSlogLogger()
 	if err != nil {
-		log.Printf("Failed to create logger: %v\n", err)
-		return
+		log.Fatal(err)
 	}
 
 	// Create client with text logger
@@ -84,8 +83,7 @@ func textLoggerExample() {
 		chroma.WithLogger(logger),
 	)
 	if err != nil {
-		logger.Error("Failed to create client", chromalogger.ErrorField("error", err))
-		return
+		log.Fatal(err)
 	}
 	defer client.Close()
 
@@ -143,8 +141,7 @@ func customSlogExample() {
 		chroma.WithLogger(logger),
 	)
 	if err != nil {
-		logger.Error("Failed to create client", chromalogger.ErrorField("error", err))
-		return
+		log.Fatal(err)
 	}
 	defer client.Close()
 
@@ -191,8 +188,7 @@ func customHandlerOptionsExample() {
 		chroma.WithLogger(logger),
 	)
 	if err != nil {
-		logger.Error("Failed to create client", chromalogger.ErrorField("error", err))
-		return
+		log.Fatal(err)
 	}
 	defer client.Close()
 
@@ -227,8 +223,7 @@ func persistentFieldsExample() {
 		chroma.WithLogger(logger),
 	)
 	if err != nil {
-		logger.Error("Failed to create client", chromalogger.ErrorField("error", err))
-		return
+		log.Fatal(err)
 	}
 	defer client.Close()
 
@@ -264,8 +259,7 @@ func contextExample() {
 		chroma.WithLogger(logger),
 	)
 	if err != nil {
-		logger.Error("Failed to create client", chromalogger.ErrorField("error", err))
-		return
+		log.Fatal(err)
 	}
 	defer client.Close()
 

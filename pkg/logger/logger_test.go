@@ -143,6 +143,21 @@ func TestZapLogger(t *testing.T) {
 		output = buf.String()
 		assert.Contains(t, output, "custom_error")
 		assert.Contains(t, output, assert.AnError.Error())
+
+		buf.Reset()
+		// Test that nil errors don't panic - they get handled by the default case
+		var nilErr error = nil
+		assert.NotPanics(t, func() {
+			logger.Error("nil error test", Field{Key: "nil_error", Value: nilErr})
+		})
+
+		// Test with concrete error to ensure normal case works
+		buf.Reset()
+		err := assert.AnError
+		logger.Error("concrete error test", Field{Key: "concrete_error", Value: err})
+		output = buf.String()
+		assert.Contains(t, output, "concrete_error")
+		assert.Contains(t, output, assert.AnError.Error())
 	})
 }
 
