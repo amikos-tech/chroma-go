@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/oklog/ulid"
-	"github.com/pkg/errors"
 )
 
 type DistanceFunction string
@@ -249,7 +248,6 @@ func NewEmbeddingsFromInt32(embeddings [][]int32) []*Embedding {
 	return embeddingsArray
 }
 
-
 type EmbeddingFunction interface {
 	// EmbedDocuments returns a vector for each text.
 	EmbedDocuments(ctx context.Context, texts []string) ([]*Embedding, error)
@@ -257,7 +255,6 @@ type EmbeddingFunction interface {
 	EmbedQuery(ctx context.Context, text string) (*Embedding, error)
 	EmbedRecords(ctx context.Context, records []*Record, force bool) error
 }
-
 
 func EmbedRecordsDefaultImpl(e EmbeddingFunction, ctx context.Context, records []*Record, force bool) error {
 	m := make(map[string]int)
@@ -400,7 +397,6 @@ func WithWhereMap(where map[string]interface{}) CollectionQueryOption {
 	}
 }
 
-
 func WithWhereDocumentMap(where map[string]interface{}) CollectionQueryOption {
 	return func(c *CollectionQueryBuilder) error {
 		// TODO validate where
@@ -494,4 +490,3 @@ func WithIds(ids []string) CollectionQueryOption {
 		return nil
 	}
 }
-
