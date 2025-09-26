@@ -1,5 +1,11 @@
 # Chroma Go
 
+> [!WARNING]
+> **V1 API Deprecation Notice**: The V1 API will be removed in the upcoming v0.3.0 release.
+> Users currently using the V1 API (root package import) should migrate to the V2 API (`github.com/amikos-tech/chroma-go/pkg/api/v2`).
+> The V2 API offers feature parity with V1 plus additional capabilities.
+> For continued V1 support, please use v0.2.x releases.
+
 A simple Chroma Vector Database client written in Go
 
 Works with Chroma Version: v0.4.3 - v1.0.x
