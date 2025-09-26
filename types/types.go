@@ -3,7 +3,6 @@ package types
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"math"
@@ -15,11 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/oklog/ulid"
 	"github.com/pkg/errors"
-
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	openapi "github.com/amikos-tech/chroma-go/swagger"
-	"github.com/amikos-tech/chroma-go/where"
-	wheredoc "github.com/amikos-tech/chroma-go/where_document"
 )
 
 type DistanceFunction string
@@ -255,30 +249,6 @@ func NewEmbeddingsFromInt32(embeddings [][]int32) []*Embedding {
 	return embeddingsArray
 }
 
-func NewEmbeddingFromAPI(apiEmbedding openapi.EmbeddingsInner) *Embedding {
-	return &Embedding{
-		ArrayOfFloat32: apiEmbedding.ArrayOfFloat32,
-		ArrayOfInt32:   apiEmbedding.ArrayOfInt32,
-	}
-}
-
-func (e *Embedding) ToAPI() openapi.EmbeddingsInner {
-	return openapi.EmbeddingsInner{
-		ArrayOfFloat32: e.ArrayOfFloat32,
-		ArrayOfInt32:   e.ArrayOfInt32,
-	}
-}
-
-func ToAPIEmbeddings(embeddings []*Embedding) []openapi.EmbeddingsInner {
-	var apiEmbeddings = make([]openapi.EmbeddingsInner, 0)
-	if len(embeddings) == 0 {
-		return apiEmbeddings
-	}
-	for _, embedding := range embeddings {
-		apiEmbeddings = append(apiEmbeddings, embedding.ToAPI())
-	}
-	return apiEmbeddings
-}
 
 type EmbeddingFunction interface {
 	// EmbedDocuments returns a vector for each text.
@@ -288,38 +258,6 @@ type EmbeddingFunction interface {
 	EmbedRecords(ctx context.Context, records []*Record, force bool) error
 }
 
-type V2EmbeddingFunctionAdapter struct {
-	v2Embedding embeddings.EmbeddingFunction
-}
-
-func NewV2EmbeddingFunctionAdapter(e embeddings.EmbeddingFunction) *V2EmbeddingFunctionAdapter {
-	return &V2EmbeddingFunctionAdapter{v2Embedding: e}
-}
-
-func (e *V2EmbeddingFunctionAdapter) EmbedDocuments(ctx context.Context, texts []string) ([]*Embedding, error) {
-	embeddings, err := e.v2Embedding.EmbedDocuments(ctx, texts)
-	if err != nil {
-		return nil, err
-	}
-	embeddingsV1 := make([]*Embedding, 0)
-	for _, embedding := range embeddings {
-		embeddingsV1 = append(embeddingsV1, NewEmbeddingFromFloat32(embedding.ContentAsFloat32()))
-	}
-	return embeddingsV1, nil
-}
-
-func (e *V2EmbeddingFunctionAdapter) EmbedQuery(ctx context.Context, text string) (*Embedding, error) {
-	embedding, err := e.v2Embedding.EmbedQuery(ctx, text)
-	if err != nil {
-		return nil, err
-	}
-	embd := NewEmbeddingFromFloat32(embedding.ContentAsFloat32())
-	return embd, nil
-}
-
-func (e *V2EmbeddingFunctionAdapter) EmbedRecords(ctx context.Context, records []*Record, force bool) error {
-	return errors.New("v2EmbeddingFunctionAdapter.EmbedRecords not implemented")
-}
 
 func EmbedRecordsDefaultImpl(e EmbeddingFunction, ctx context.Context, records []*Record, force bool) error {
 	m := make(map[string]int)
@@ -462,31 +400,11 @@ func WithWhereMap(where map[string]interface{}) CollectionQueryOption {
 	}
 }
 
-func WithWhere(operation where.WhereOperation) CollectionQueryOption {
-	return func(c *CollectionQueryBuilder) error {
-		expr, err := where.Where(operation)
-		if err != nil {
-			return err
-		}
-		c.Where = expr
-		return nil
-	}
-}
 
 func WithWhereDocumentMap(where map[string]interface{}) CollectionQueryOption {
 	return func(c *CollectionQueryBuilder) error {
 		// TODO validate where
 		c.WhereDocument = where
-		return nil
-	}
-}
-func WithWhereDocument(operation wheredoc.WhereDocumentOperation) CollectionQueryOption {
-	return func(c *CollectionQueryBuilder) error {
-		expr, err := wheredoc.WhereDocument(operation)
-		if err != nil {
-			return err
-		}
-		c.WhereDocument = expr
 		return nil
 	}
 }
@@ -577,57 +495,3 @@ func WithIds(ids []string) CollectionQueryOption {
 	}
 }
 
-type CredentialsProvider interface {
-	Authenticate(apiClient *openapi.Configuration) error
-}
-
-type BasicAuthCredentialsProvider struct {
-	Username string
-	Password string
-}
-
-func NewBasicAuthCredentialsProvider(username, password string) *BasicAuthCredentialsProvider {
-	return &BasicAuthCredentialsProvider{
-		Username: username,
-		Password: password,
-	}
-}
-
-func (b *BasicAuthCredentialsProvider) Authenticate(config *openapi.Configuration) error {
-	auth := b.Username + ":" + b.Password
-	encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
-	config.DefaultHeader["Authorization"] = "Basic " + encodedAuth
-	return nil
-}
-
-type TokenTransportHeader string
-
-const (
-	AuthorizationTokenHeader TokenTransportHeader = "Authorization"
-	XChromaTokenHeader       TokenTransportHeader = "X-Chroma-Token"
-)
-
-type TokenAuthCredentialsProvider struct {
-	Token  string
-	Header TokenTransportHeader
-}
-
-func NewTokenAuthCredentialsProvider(token string, header TokenTransportHeader) *TokenAuthCredentialsProvider {
-	return &TokenAuthCredentialsProvider{
-		Token:  token,
-		Header: header,
-	}
-}
-
-func (t *TokenAuthCredentialsProvider) Authenticate(config *openapi.Configuration) error {
-	switch t.Header {
-	case AuthorizationTokenHeader:
-		config.DefaultHeader[string(t.Header)] = "Bearer " + t.Token
-		return nil
-	case XChromaTokenHeader:
-		config.DefaultHeader[string(t.Header)] = t.Token
-		return nil
-	default:
-		return fmt.Errorf("unsupported token header: %v", t.Header)
-	}
-}
