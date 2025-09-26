@@ -26,7 +26,7 @@ import (
 
 func TestClientHTTPIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "1.0.20"
+	var chromaVersion = "1.1.0"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
@@ -92,7 +92,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 	t.Run("get version", func(t *testing.T) {
 		v, err := c.GetVersion(ctx)
 		require.NoError(t, err)
-		if strings.HasPrefix(chromaVersion, "1.0") || chromaVersion == "latest" {
+		if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || chromaVersion == "latest" {
 			require.Contains(t, v, "1.")
 		} else {
 			require.Equal(t, chromaVersion, v)
@@ -459,7 +459,7 @@ func TestClientHTTPIntegrationWithBasicAuth(t *testing.T) {
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
-	if strings.HasPrefix(chromaVersion, "1.0") || chromaVersion == "latest" {
+	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || chromaVersion == "latest" {
 		t.Skip("Not supported by Chroma 1.0.x")
 	}
 	if os.Getenv("CHROMA_IMAGE") != "" {
@@ -542,7 +542,7 @@ func TestClientHTTPIntegrationWithBearerAuthorizationHeaderAuth(t *testing.T) {
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
-	if strings.HasPrefix(chromaVersion, "1.0") || chromaVersion == "latest" {
+	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || chromaVersion == "latest" {
 		t.Skip("Not supported by Chroma 1.0.x")
 	}
 	if os.Getenv("CHROMA_IMAGE") != "" {
@@ -607,7 +607,7 @@ func TestClientHTTPIntegrationWithBearerXChromaTokenHeaderAuth(t *testing.T) {
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
-	if strings.HasPrefix(chromaVersion, "1.0") || chromaVersion == "latest" {
+	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || chromaVersion == "latest" {
 		t.Skip("Not supported by Chroma 1.0.x")
 	}
 	if os.Getenv("CHROMA_IMAGE") != "" {
@@ -688,7 +688,7 @@ func TestClientHTTPIntegrationWithSSL(t *testing.T) {
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
-	if strings.HasPrefix(chromaVersion, "1.0") || chromaVersion == "latest" {
+	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || chromaVersion == "latest" {
 		t.Skip("Not supported by Chroma 1.0.x")
 	}
 

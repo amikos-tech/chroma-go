@@ -123,5 +123,5 @@ Integration tests use `testcontainers-go` for Docker-based testing against real 
 - **Working with Metadata**: Use `/pkg/api/v2/metadata/` utilities for type conversions
 
 ### Version Compatibility
-The client is tested against Chroma versions 0.4.8 to 1.0.20. Ensure changes maintain compatibility across this range.
+The client is tested against Chroma versions 0.4.8 to 1.1.0. Ensure changes maintain compatibility across this range.
 - Always lint before commiting or pushing code
