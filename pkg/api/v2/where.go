@@ -9,6 +9,7 @@ import (
 type WhereFilterOperator string
 
 const (
+	// Original long-form operators (kept for backward compatibility)
 	EqualOperator              WhereFilterOperator = "$eq"
 	NotEqualOperator           WhereFilterOperator = "$ne"
 	GreaterThanOperator        WhereFilterOperator = "$gt"
@@ -19,6 +20,18 @@ const (
 	NotInOperator              WhereFilterOperator = "$nin"
 	AndOperator                WhereFilterOperator = "$and"
 	OrOperator                 WhereFilterOperator = "$or"
+
+	// Simplified short-form operators (recommended for new code)
+	EQ  WhereFilterOperator = "$eq"
+	NE  WhereFilterOperator = "$ne"
+	GT  WhereFilterOperator = "$gt"
+	GTE WhereFilterOperator = "$gte"
+	LT  WhereFilterOperator = "$lt"
+	LTE WhereFilterOperator = "$lte"
+	IN  WhereFilterOperator = "$in"
+	NIN WhereFilterOperator = "$nin"
+	AND WhereFilterOperator = "$and"
+	OR  WhereFilterOperator = "$or"
 )
 
 type WhereClause interface {

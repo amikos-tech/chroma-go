@@ -110,6 +110,8 @@ func ListWithOffset(offset int) ListCollectionsOption {
 	}
 }
 
+// Deprecated: Use WithDatabase instead for consistency across operations.
+// WithDatabaseList sets the database when listing collections.
 func WithDatabaseList(database Database) ListCollectionsOption {
 	return func(op *ListCollectionOp) error {
 		if database == nil {
@@ -181,6 +183,8 @@ func WithCollectionNameGet(name string) GetCollectionOption {
 	}
 }
 
+// Deprecated: Use WithEmbeddingFunction instead for cleaner naming.
+// WithEmbeddingFunctionGet sets the embedding function when getting a collection.
 func WithEmbeddingFunctionGet(embeddingFunction embeddings.EmbeddingFunction) GetCollectionOption {
 	return func(op *GetCollectionOp) error {
 		if embeddingFunction == nil {
@@ -191,6 +195,8 @@ func WithEmbeddingFunctionGet(embeddingFunction embeddings.EmbeddingFunction) Ge
 	}
 }
 
+// Deprecated: Use WithDatabase instead for consistency across operations.
+// WithDatabaseGet sets the database when getting a collection.
 func WithDatabaseGet(database Database) GetCollectionOption {
 	return func(op *GetCollectionOp) error {
 		if database == nil {
@@ -293,6 +299,8 @@ func (op *CreateCollectionOp) Operation() OperationType {
 	return OperationCreate
 }
 
+// Deprecated: Use WithMetadata instead for cleaner naming.
+// WithCollectionMetadataCreate sets metadata when creating a collection.
 func WithCollectionMetadataCreate(metadata CollectionMetadata) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		op.Metadata = metadata
@@ -301,6 +309,8 @@ func WithCollectionMetadataCreate(metadata CollectionMetadata) CreateCollectionO
 }
 
 // WithDatabaseCreate allows the creation of a collection in a specific database, different from the default one set at Client level.
+// Deprecated: Use WithDatabase instead for consistency across operations.
+// WithDatabaseCreate allows the creation of a collection in a specific database.
 func WithDatabaseCreate(database Database) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		if database == nil {
@@ -415,6 +425,8 @@ func WithHNSWResizeFactorCreate(resizeFactor float64) CreateCollectionOption {
 	}
 }
 
+// Deprecated: Use WithEmbeddingFunction instead for cleaner naming.
+// WithEmbeddingFunctionCreate sets the embedding function when creating a collection.
 func WithEmbeddingFunctionCreate(embeddingFunction embeddings.EmbeddingFunction) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		if embeddingFunction == nil {
@@ -425,6 +437,8 @@ func WithEmbeddingFunctionCreate(embeddingFunction embeddings.EmbeddingFunction)
 	}
 }
 
+// Deprecated: Use WithCreateIfNotExists instead for clearer naming.
+// WithIfNotExistsCreate enables get-or-create behavior.
 func WithIfNotExistsCreate() CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		op.CreateIfNotExists = true
@@ -445,6 +459,8 @@ type DeleteCollectionOp struct {
 }
 type DeleteCollectionOption func(*DeleteCollectionOp) error
 
+// Deprecated: Use WithDatabase instead for consistency across operations.
+// WithDatabaseDelete sets the database when deleting a collection.
 func WithDatabaseDelete(database Database) DeleteCollectionOption {
 	return func(op *DeleteCollectionOp) error {
 		if database == nil {
@@ -495,6 +511,8 @@ type CountCollectionsOp struct {
 
 type CountCollectionsOption func(*CountCollectionsOp) error
 
+// Deprecated: Use WithDatabase instead for consistency across operations.
+// WithDatabaseCount sets the database when counting collections.
 func WithDatabaseCount(database Database) CountCollectionsOption {
 	return func(op *CountCollectionsOp) error {
 		if database == nil {
