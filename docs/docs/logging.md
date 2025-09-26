@@ -196,6 +196,62 @@ client, err := v2.NewCloudClient(
 )
 ```
 
+## Security Considerations
+
+!!! warning "Sensitive Information in Debug Logs"
+    When debug logging is enabled, the client logs full HTTP request and response dumps which may contain sensitive information. Use debug logging with caution, especially in production environments.
+
+### What Information May Be Exposed
+
+When debug logging is enabled, the following sensitive information may appear in logs:
+
+1. **Tenant IDs and Database Names**: In Cloud client requests, URLs contain tenant UUIDs and database names that are logged in plaintext:
+   ```
+   POST /api/v2/tenants/<tenant_uuid>/databases/<database_name>/collections HTTP/1.1
+   ```
+
+2. **Request/Response Bodies**: Full request and response payloads are logged, which may contain:
+   - Collection names and metadata
+   - Document content and embeddings
+   - Query parameters and filters
+
+3. **Authentication Tokens**: While authentication tokens (Bearer tokens, API keys, Basic auth) are automatically obfuscated in logs, the obfuscation shows partial token content which may still be considered sensitive.
+
+### Recommendations
+
+1. **Production Environments**:
+   - Use `NoopLogger` in production to completely disable logging
+   - If logging is required, avoid debug level and use info/warn/error levels only
+
+2. **Development and Testing**:
+   - Be aware that debug logs may contain sensitive data
+   - Avoid committing log files to version control
+   - Clear log files after debugging sessions
+
+3. **Shared Environments**:
+   - Consider who has access to log files when enabling debug logging
+   - Implement log rotation and secure log storage practices
+   - Redact sensitive information from logs before sharing for support
+
+### Example: Safe Production Configuration
+
+```go
+// Production: Use NoopLogger to disable all logging
+logger := chromalogger.NewNoopLogger()
+
+// Or use a production logger with INFO level or higher
+zapConfig := zap.NewProductionConfig()
+zapConfig.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel) // No debug logs
+zapLogger, _ := zapConfig.Build()
+logger := chromalogger.NewZapLogger(zapLogger)
+
+client, err := v2.NewCloudClient(
+    v2.WithLogger(logger),
+    v2.WithCloudAPIKey("your-api-key"),
+    v2.WithDatabaseAndTenant("database", "tenant"),
+)
+```
+
 ## Performance Considerations
 
 1. **Use NoopLogger in Production**: If you don't need logging, use NoopLogger to avoid any performance overhead
