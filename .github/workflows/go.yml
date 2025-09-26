@@ -35,6 +35,7 @@ jobs:
             basev2:
               - 'pkg/api/v2/**'
               - 'pkg/commons/**'
+              - 'pkg/logger/**'
               - 'internal/**'
               - 'go.mod'
               - 'go.sum'

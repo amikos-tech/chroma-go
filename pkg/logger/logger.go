@@ -50,8 +50,14 @@ func Bool(key string, value bool) Field {
 	return Field{Key: key, Value: value}
 }
 
-// Error creates an error field
+// ErrorField creates an error field.
+// If key is empty, the field will use "_error" as the default key when logged.
 func ErrorField(key string, err error) Field {
+	if key == "" {
+		// For consistency with slog_logger, empty keys will become "_error"
+		// This is handled in the logger implementation, but we document it here
+		return Field{Key: "", Value: err}
+	}
 	return Field{Key: key, Value: err}
 }
 

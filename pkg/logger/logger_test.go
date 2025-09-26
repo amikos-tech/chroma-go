@@ -121,6 +121,44 @@ func TestZapLogger(t *testing.T) {
 		infoLogger := NewZapLogger(infoZapLogger)
 		assert.False(t, infoLogger.IsDebugEnabled())
 	})
+
+	t.Run("Error field with empty key", func(t *testing.T) {
+		buf.Reset()
+		// Test error field with empty key (should use "_error" as default)
+		logger.Error("error with empty key", Field{Key: "", Value: assert.AnError})
+		output := buf.String()
+		assert.Contains(t, output, "_error")
+		assert.Contains(t, output, assert.AnError.Error())
+
+		buf.Reset()
+		// Test ErrorField with empty key
+		logger.Error("error with ErrorField empty key", ErrorField("", assert.AnError))
+		output = buf.String()
+		assert.Contains(t, output, "_error")
+		assert.Contains(t, output, assert.AnError.Error())
+
+		buf.Reset()
+		// Test normal error field with key
+		logger.Error("error with key", ErrorField("custom_error", assert.AnError))
+		output = buf.String()
+		assert.Contains(t, output, "custom_error")
+		assert.Contains(t, output, assert.AnError.Error())
+
+		buf.Reset()
+		// Test that nil errors don't panic - they get handled by the default case
+		var nilErr error = nil
+		assert.NotPanics(t, func() {
+			logger.Error("nil error test", Field{Key: "nil_error", Value: nilErr})
+		})
+
+		// Test with concrete error to ensure normal case works
+		buf.Reset()
+		err := assert.AnError
+		logger.Error("concrete error test", Field{Key: "concrete_error", Value: err})
+		output = buf.String()
+		assert.Contains(t, output, "concrete_error")
+		assert.Contains(t, output, assert.AnError.Error())
+	})
 }
 
 func TestFieldHelpers(t *testing.T) {
