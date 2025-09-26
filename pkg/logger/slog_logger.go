@@ -156,12 +156,14 @@ func convertFieldsToAttrs(fields []Field) []any {
 		case error:
 			// Special handling for error fields:
 			// - If the field key is provided, use it as-is
-			// - If the field key is empty, do not default to "error" to avoid conflicts
-			// - Users should explicitly set the key when logging errors
-			if f.Key != "" {
-				attrs = append(attrs, slog.String(f.Key, v.Error()))
+			// - If the field key is empty, use "_error" as a safe default
+			//   The underscore prefix indicates it's an auto-generated key
+			// - This ensures error information is never lost
+			key := f.Key
+			if key == "" {
+				key = "_error" // Safe default that won't conflict with user "error" fields
 			}
-			// Skip the field if key is empty to avoid field name conflicts
+			attrs = append(attrs, slog.String(key, v.Error()))
 		default:
 			// For any other type, use slog.Any which safely handles all types
 			attrs = append(attrs, slog.Any(f.Key, v))
@@ -171,10 +173,47 @@ func convertFieldsToAttrs(fields []Field) []any {
 }
 
 // extractContextAttrs extracts attributes from context.
-// Currently returns an empty slice but can be extended to extract trace IDs, request IDs, etc.
 // This function is designed to be panic-safe - it will never panic regardless of context values.
+//
+// Common patterns for extending this function:
+//
+//  1. Extract trace ID (OpenTelemetry style):
+//     if span := trace.SpanFromContext(ctx); span.SpanContext().IsValid() {
+//     attrs = append(attrs, slog.String("trace_id", span.SpanContext().TraceID().String()))
+//     attrs = append(attrs, slog.String("span_id", span.SpanContext().SpanID().String()))
+//     }
+//
+//  2. Extract custom request ID:
+//     if reqID := ctx.Value(requestIDKey); reqID != nil {
+//     switch v := reqID.(type) {
+//     case string:
+//     attrs = append(attrs, slog.String("request_id", v))
+//     case fmt.Stringer:
+//     attrs = append(attrs, slog.String("request_id", v.String()))
+//     }
+//     }
+//
+//  3. Extract user information:
+//     if user := ctx.Value(userKey); user != nil {
+//     if u, ok := user.(User); ok && u.ID != "" {
+//     attrs = append(attrs, slog.String("user_id", u.ID))
+//     }
+//     }
+//
+//  4. Extract correlation ID for distributed tracing:
+//     if corrID := ctx.Value(correlationIDKey); corrID != nil {
+//     if cid, ok := corrID.(string); ok {
+//     attrs = append(attrs, slog.String("correlation_id", cid))
+//     }
+//     }
+//
+// Note: Always use type assertions or type switches to safely extract values.
+// Consider defining typed context keys to avoid string collisions.
 func extractContextAttrs(ctx context.Context) []any {
-	// Return empty slice for nil context or when no context values need extraction
-	// This is a placeholder for future context value extraction
+	if ctx == nil {
+		return []any{}
+	}
+
+	// Currently returns empty slice but can be extended using patterns above
 	return []any{}
 }

@@ -129,7 +129,14 @@ func convertFields(fields []Field) []zap.Field {
 		case float64:
 			zapFields[i] = zap.Float64(f.Key, v)
 		case error:
-			zapFields[i] = zap.Error(v)
+			// For consistency with slog_logger:
+			// - If key is provided, use it
+			// - If key is empty, use "_error" as default
+			key := f.Key
+			if key == "" {
+				key = "_error"
+			}
+			zapFields[i] = zap.NamedError(key, v)
 		default:
 			zapFields[i] = zap.Any(f.Key, v)
 		}
