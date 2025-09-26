@@ -442,6 +442,6 @@ func TestSlogLoggerWithMultipleCalls(t *testing.T) {
 		var logEntry map[string]interface{}
 		err := json.Unmarshal([]byte(line), &logEntry)
 		require.NoError(t, err)
-		assert.Contains(t, logEntry["msg"], []string{"first", "second", "third"}[i])
+		assert.Equal(t, fmt.Sprintf("%s message", []string{"first", "second", "third"}[i]), logEntry["msg"])
 	}
 }
