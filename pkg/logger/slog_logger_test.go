@@ -363,11 +363,19 @@ func TestSlogLoggerErrorFieldWithoutKey(t *testing.T) {
 	handler := slog.NewJSONHandler(buf, nil)
 	logger := NewSlogLoggerWithHandler(handler)
 
-	// Test error field with empty key (should use "error" as default)
+	// Test error field with empty key (should be skipped to avoid conflicts)
 	logger.Error("error log", Field{Key: "", Value: errors.New("test error")})
 
 	output := buf.String()
-	assert.Contains(t, output, `"error":"test error"`)
+	// The error field with empty key should be skipped
+	assert.NotContains(t, output, `"error":"test error"`)
+	assert.Contains(t, output, `"msg":"error log"`)
+
+	// Test that error field with explicit key works
+	buf.Reset()
+	logger.Error("error log with key", ErrorField("error_field", errors.New("test error")))
+	output = buf.String()
+	assert.Contains(t, output, `"error_field":"test error"`)
 }
 
 // BenchmarkSlogLogger benchmarks the SlogLogger performance

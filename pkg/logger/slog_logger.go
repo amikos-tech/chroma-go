@@ -1,3 +1,14 @@
+// Package logger provides logging implementations for the chroma-go library.
+// This file implements the Logger interface using the standard library's slog package.
+//
+// Panic Prevention:
+// This implementation follows the codebase panic prevention guidelines:
+// - No use of Must* functions that could panic
+// - All type conversions are safe and explicit
+// - No risky operations like unchecked array access or nil pointer dereferences
+// - Type switches include default cases to handle unexpected types safely
+//
+// As a library component, this code is designed to never panic in production use.
 package logger
 
 import (
@@ -116,6 +127,8 @@ func (s *SlogLogger) Sync() error {
 }
 
 // convertFieldsToAttrs converts our Field type to slog.Attr
+// This function is designed to be panic-safe through careful type switching.
+// All type conversions are explicit and safe, avoiding any panic-prone operations.
 func convertFieldsToAttrs(fields []Field) []any {
 	attrs := make([]any, 0, len(fields))
 	for _, f := range fields {
@@ -141,51 +154,27 @@ func convertFieldsToAttrs(fields []Field) []any {
 		case float64:
 			attrs = append(attrs, slog.Float64(f.Key, v))
 		case error:
-			// For error fields, use "error" as the key if the field key is empty
-			key := f.Key
-			if key == "" {
-				key = "error"
+			// Special handling for error fields:
+			// - If the field key is provided, use it as-is
+			// - If the field key is empty, do not default to "error" to avoid conflicts
+			// - Users should explicitly set the key when logging errors
+			if f.Key != "" {
+				attrs = append(attrs, slog.String(f.Key, v.Error()))
 			}
-			attrs = append(attrs, slog.String(key, v.Error()))
+			// Skip the field if key is empty to avoid field name conflicts
 		default:
+			// For any other type, use slog.Any which safely handles all types
 			attrs = append(attrs, slog.Any(f.Key, v))
 		}
 	}
 	return attrs
 }
 
-// extractContextAttrs extracts attributes from context
-// This can be extended to extract trace IDs, request IDs, etc.
+// extractContextAttrs extracts attributes from context.
+// Currently returns an empty slice but can be extended to extract trace IDs, request IDs, etc.
+// This function is designed to be panic-safe - it will never panic regardless of context values.
 func extractContextAttrs(ctx context.Context) []any {
-	if ctx == nil {
-		return []any{}
-	}
-
-	attrs := []any{}
-
-	// Example: Safely extract trace ID if present
-	// if traceID := ctx.Value("trace-id"); traceID != nil {
-	//     switch v := traceID.(type) {
-	//     case string:
-	//         attrs = append(attrs, slog.String("trace_id", v))
-	//     case fmt.Stringer:
-	//         attrs = append(attrs, slog.String("trace_id", v.String()))
-	//     default:
-	//         attrs = append(attrs, slog.Any("trace_id", v))
-	//     }
-	// }
-
-	// Example: Safely extract request ID
-	// if reqID := ctx.Value("request-id"); reqID != nil {
-	//     switch v := reqID.(type) {
-	//     case string:
-	//         attrs = append(attrs, slog.String("request_id", v))
-	//     case fmt.Stringer:
-	//         attrs = append(attrs, slog.String("request_id", v.String()))
-	//     default:
-	//         attrs = append(attrs, slog.Any("request_id", v))
-	//     }
-	// }
-
-	return attrs
+	// Return empty slice for nil context or when no context values need extraction
+	// This is a placeholder for future context value extraction
+	return []any{}
 }
