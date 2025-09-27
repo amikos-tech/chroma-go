@@ -163,6 +163,8 @@ func (c *CollectionGetOp) Operation() OperationType {
 	return OperationGet
 }
 
+// Deprecated: Use WithIDs instead for consistency across operations.
+// WithIDsGet sets IDs for Get operations.
 func WithIDsGet(ids ...DocumentID) CollectionGetOption {
 	return func(query *CollectionGetOp) error {
 		for _, id := range ids {
@@ -172,6 +174,8 @@ func WithIDsGet(ids ...DocumentID) CollectionGetOption {
 	}
 }
 
+// Deprecated: Use WithWhere instead for consistency across operations.
+// WithWhereGet sets where filter for Get operations.
 func WithWhereGet(where WhereFilter) CollectionGetOption {
 	return func(query *CollectionGetOp) error {
 		query.Where = where
@@ -179,6 +183,8 @@ func WithWhereGet(where WhereFilter) CollectionGetOption {
 	}
 }
 
+// Deprecated: Use WithWhereDocument instead for consistency across operations.
+// WithWhereDocumentGet sets document filter for Get operations.
 func WithWhereDocumentGet(whereDocument WhereDocumentFilter) CollectionGetOption {
 	return func(query *CollectionGetOp) error {
 		query.WhereDocument = whereDocument
@@ -186,6 +192,8 @@ func WithWhereDocumentGet(whereDocument WhereDocumentFilter) CollectionGetOption
 	}
 }
 
+// Deprecated: Use WithInclude instead for consistency across operations.
+// WithIncludeGet sets what to include in Get results.
 func WithIncludeGet(include ...Include) CollectionGetOption {
 	return func(query *CollectionGetOp) error {
 		query.Include = include
@@ -290,6 +298,8 @@ func (c *CollectionQueryOp) Operation() OperationType {
 
 type CollectionQueryOption func(query *CollectionQueryOp) error
 
+// Deprecated: Use WithWhere instead for consistency across operations.
+// WithWhereQuery sets where filter for Query operations.
 func WithWhereQuery(where WhereFilter) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
 		query.Where = where
@@ -297,6 +307,8 @@ func WithWhereQuery(where WhereFilter) CollectionQueryOption {
 	}
 }
 
+// Deprecated: Use WithWhereDocument instead for consistency across operations.
+// WithWhereDocumentQuery sets document filter for Query operations.
 func WithWhereDocumentQuery(whereDocument WhereDocumentFilter) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
 		query.WhereDocument = whereDocument
@@ -304,6 +316,8 @@ func WithWhereDocumentQuery(whereDocument WhereDocumentFilter) CollectionQueryOp
 	}
 }
 
+// Deprecated: Use WithLimit instead for clearer naming.
+// WithNResults sets the number of results to return.
 func WithNResults(nResults int) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
 		if nResults <= 0 {
@@ -334,6 +348,7 @@ func WithQueryEmbeddings(queryEmbeddings ...embeddings.Embedding) CollectionQuer
 	}
 }
 
+// Deprecated: Use WithInclude instead for consistency across operations.
 // WithIncludeQuery is used to include metadatas, documents, embeddings, uris in the query response.
 func WithIncludeQuery(include ...Include) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
@@ -342,6 +357,7 @@ func WithIncludeQuery(include ...Include) CollectionQueryOption {
 	}
 }
 
+// Deprecated: Use WithIDs instead for consistency across operations.
 // WithIDsQuery is used to filter the query by IDs. This is only available for Chroma version 1.0.3 and above.
 func WithIDsQuery(ids ...DocumentID) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
@@ -515,6 +531,8 @@ func (c *CollectionAddOp) Operation() OperationType {
 
 type CollectionAddOption func(update *CollectionAddOp) error
 
+// Deprecated: Use WithDocuments instead for naming consistency.
+// WithTexts adds text documents to the collection.
 func WithTexts(documents ...string) CollectionAddOption {
 	return func(update *CollectionAddOp) error {
 		if len(documents) == 0 {
@@ -687,6 +705,8 @@ func (c *CollectionUpdateOp) Operation() OperationType {
 
 type CollectionUpdateOption func(update *CollectionUpdateOp) error
 
+// Deprecated: Use WithDocuments instead for naming consistency.
+// WithTextsUpdate updates text documents in the collection.
 func WithTextsUpdate(documents ...string) CollectionUpdateOption {
 	return func(update *CollectionUpdateOp) error {
 		if len(documents) == 0 {
@@ -789,6 +809,8 @@ func (c *CollectionDeleteOp) Operation() OperationType {
 
 type CollectionDeleteOption func(update *CollectionDeleteOp) error
 
+// Deprecated: Use WithWhere instead for consistency across operations.
+// WithWhereDelete sets where filter for Delete operations.
 func WithWhereDelete(where WhereFilter) CollectionDeleteOption {
 	return func(delete *CollectionDeleteOp) error {
 		delete.Where = where
@@ -796,6 +818,8 @@ func WithWhereDelete(where WhereFilter) CollectionDeleteOption {
 	}
 }
 
+// Deprecated: Use WithWhereDocument instead for consistency across operations.
+// WithWhereDocumentDelete sets document filter for Delete operations.
 func WithWhereDocumentDelete(whereDocument WhereDocumentFilter) CollectionDeleteOption {
 	return func(delete *CollectionDeleteOp) error {
 		delete.WhereDocument = whereDocument
@@ -803,6 +827,8 @@ func WithWhereDocumentDelete(whereDocument WhereDocumentFilter) CollectionDelete
 	}
 }
 
+// Deprecated: Use WithIDs instead for consistency across operations.
+// WithIDsDelete sets IDs for Delete operations.
 func WithIDsDelete(ids ...DocumentID) CollectionDeleteOption {
 	return func(delete *CollectionDeleteOp) error {
 		for _, id := range ids {
