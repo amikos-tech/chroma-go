@@ -299,8 +299,8 @@ func (op *CreateCollectionOp) Operation() OperationType {
 	return OperationCreate
 }
 
-// Deprecated: Use WithMetadata instead for cleaner naming.
 // WithCollectionMetadataCreate sets metadata when creating a collection.
+// Consider using WithMetadata for shorter naming in new code.
 func WithCollectionMetadataCreate(metadata CollectionMetadata) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		op.Metadata = metadata
