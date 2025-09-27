@@ -86,16 +86,26 @@ func (b *DocumentMetadataBuilder) Build() DocumentMetadata {
 
 // QuickMetadata creates metadata from key-value pairs using a more intuitive API.
 // Usage: QuickMetadata("key1", "value1", "key2", 42, "key3", true)
-func QuickMetadata(keysAndValues ...interface{}) CollectionMetadata {
+// Returns an empty metadata object if invalid arguments are provided.
+func QuickMetadata(keysAndValues ...interface{}) (metadata CollectionMetadata) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Return empty metadata on panic
+			metadata = NewMetadata()
+		}
+	}()
+
 	if len(keysAndValues)%2 != 0 {
-		panic("Metadata requires an even number of arguments (key-value pairs)")
+		// Return empty metadata for invalid argument count
+		return NewMetadata()
 	}
 
-	metadata := NewMetadata()
+	metadata = NewMetadata()
 	for i := 0; i < len(keysAndValues); i += 2 {
 		key, ok := keysAndValues[i].(string)
 		if !ok {
-			panic("Metadata keys must be strings")
+			// Skip invalid keys silently
+			continue
 		}
 
 		switch v := keysAndValues[i+1].(type) {
@@ -120,16 +130,26 @@ func QuickMetadata(keysAndValues ...interface{}) CollectionMetadata {
 
 // QuickDocumentMetadata creates document metadata from key-value pairs.
 // Usage: QuickDocumentMetadata("key1", "value1", "key2", 42, "key3", true)
-func QuickDocumentMetadata(keysAndValues ...interface{}) DocumentMetadata {
+// Returns an empty metadata object if invalid arguments are provided.
+func QuickDocumentMetadata(keysAndValues ...interface{}) (metadata DocumentMetadata) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Return empty metadata on panic
+			metadata = NewDocumentMetadata()
+		}
+	}()
+
 	if len(keysAndValues)%2 != 0 {
-		panic("DocumentMetadata requires an even number of arguments (key-value pairs)")
+		// Return empty metadata for invalid argument count
+		return NewDocumentMetadata()
 	}
 
-	metadata := NewDocumentMetadata()
+	metadata = NewDocumentMetadata()
 	for i := 0; i < len(keysAndValues); i += 2 {
 		key, ok := keysAndValues[i].(string)
 		if !ok {
-			panic("DocumentMetadata keys must be strings")
+			// Skip invalid keys silently
+			continue
 		}
 
 		switch v := keysAndValues[i+1].(type) {

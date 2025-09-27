@@ -5,6 +5,14 @@ package v2
 
 // Where creates a where clause with simplified operator names.
 // Example: Where(EQ, "field", "value") or Where(GT, "count", 5)
+// Returns nil for unsupported operator/type combinations.
+// Supported operations:
+//   - String: EQ, NE
+//   - Int/Int64: EQ, NE, GT, GTE, LT, LTE
+//   - Float32/Float64: EQ, NE, GT, GTE, LT, LTE
+//   - []string: IN, NIN
+//   - []int: IN, NIN
+//   - []float32/[]float64: IN, NIN
 func Where(operator WhereFilterOperator, field string, value interface{}) WhereFilter {
 	switch v := value.(type) {
 	case string:
@@ -49,6 +57,11 @@ func Where(operator WhereFilterOperator, field string, value interface{}) WhereF
 			return nil
 		}
 	case int64:
+		// Check for overflow before converting to int
+		if v > int64(^uint(0)>>1) || v < int64(^int(^uint(0)>>1)) {
+			// Value would overflow, return nil to indicate unsupported
+			return nil
+		}
 		return Where(operator, field, int(v))
 	case float32:
 		switch operator {
