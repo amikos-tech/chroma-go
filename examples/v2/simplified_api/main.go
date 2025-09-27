@@ -1,9 +1,12 @@
+// This example demonstrates both old and new API patterns, intentionally using
+// some deprecated methods to show the migration path.
+//
+//nolint:staticcheck // Using deprecated methods for comparison purposes
 package main
 
 import (
 	"context"
 	"fmt"
-	"log"
 
 	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
 )
@@ -14,7 +17,8 @@ func main() {
 	// Create client
 	client, err := chroma.NewHTTPClient()
 	if err != nil {
-		log.Fatalf("Error creating client: %s\n", err)
+		fmt.Printf("Error creating client: %s\n", err)
+		return
 	}
 	defer client.Close()
 
@@ -77,7 +81,7 @@ func main() {
 
 	// New way (simplified metadata creation)
 	err = col.Add(context.Background(),
-		chroma.WithTexts("Hello world", "Goodbye world"), // WithDocuments coming in future //nolint:staticcheck
+		chroma.WithTexts("Hello world", "Goodbye world"), // WithDocuments coming in future
 		chroma.WithIDs("1", "2"),
 		chroma.WithMetadatas(
 			chroma.QuickDocumentMetadata("type", "greeting", "priority", 1),
@@ -109,11 +113,12 @@ func main() {
 	results, err := col.Query(context.Background(),
 		chroma.WithQueryText("hello"), // Simplified for single text
 		chroma.WithLimit(5),           // Clearer than WithNResults
-		chroma.WithWhereQuery(where),  // Using existing API for now //nolint:staticcheck
-		chroma.WithIncludeQuery(chroma.IncludeDocuments, chroma.IncludeMetadatas), //nolint:staticcheck
+		chroma.WithWhereQuery(where),  // Using existing API for now
+		chroma.WithIncludeQuery(chroma.IncludeDocuments, chroma.IncludeMetadatas),
 	)
 	if err != nil {
-		log.Fatalf("Error querying: %s\n", err)
+		fmt.Printf("Error querying: %s\n", err)
+		return
 	}
 
 	// Example 5: Simplified result access
@@ -140,10 +145,10 @@ func main() {
 	// Using simplified Where with existing API
 	where2 := chroma.Eq("type", "greeting") // Simplified creation
 	getResult, _ := col.Get(context.Background(),
-		chroma.WithWhereGet(where2), //nolint:staticcheck
-		chroma.WithIDsGet("1"),      //nolint:staticcheck
+		chroma.WithWhereGet(where2),
+		chroma.WithIDsGet("1"),
 	)
-	_ = col.Delete(context.Background(), chroma.WithWhereDelete(where2)) //nolint:staticcheck
+	_ = col.Delete(context.Background(), chroma.WithWhereDelete(where2))
 
 	fmt.Printf("Options demonstrate simplified metadata builders\n")
 	fmt.Printf("Get result count: %d\n", getResult.Count())
@@ -163,7 +168,7 @@ func main() {
 	// Clean up
 	err = client.DeleteCollection(context.Background(), "new-collection")
 	if err != nil {
-		log.Fatalf("Error deleting collection: %s\n", err)
+		fmt.Printf("Error deleting collection: %s\n", err)
 	}
 
 	fmt.Println("\n=== Summary ===")
