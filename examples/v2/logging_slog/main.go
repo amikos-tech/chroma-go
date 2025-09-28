@@ -98,7 +98,7 @@ func textLoggerExample() {
 		ctx,
 		"slog-example-collection",
 		chroma.WithMetadata(
-			chroma.QuickMetadata("description", "slog example collection"),
+			chroma.Builder().String("description", "slog example collection").Build(),
 		),
 	)
 	if err != nil {
@@ -285,7 +285,7 @@ func contextExample() {
 		ctx,
 		"context-example",
 		chroma.WithMetadata(
-			chroma.QuickMetadata("created_with", "context"),
+			chroma.Builder().String("created_with", "context").Build(),
 		),
 	)
 	if err != nil {

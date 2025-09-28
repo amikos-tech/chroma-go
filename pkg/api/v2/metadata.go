@@ -40,14 +40,17 @@ type MetaAttribute struct {
 	valueType reflect.Type
 }
 
+// Deprecated: Use Builder().String(key, value) instead for better API consistency
 func NewStringAttribute(key string, value string) *MetaAttribute {
 	return &MetaAttribute{key: key, value: MetadataValue{StringValue: &value}, valueType: reflect.TypeOf(value)}
 }
 
+// Deprecated: Use Builder().Int(key, value) instead for better API consistency
 func NewIntAttribute(key string, value int64) *MetaAttribute {
 	return &MetaAttribute{key: key, value: MetadataValue{Int: &value}, valueType: reflect.TypeOf(value)}
 }
 
+// Deprecated: Use Builder().Float(key, value) instead for better API consistency
 func NewFloatAttribute(key string, value float64) *MetaAttribute {
 	return &MetaAttribute{key: key, value: MetadataValue{Float64: &value}, valueType: reflect.TypeOf(value)}
 }
@@ -56,6 +59,7 @@ func RemoveAttribute(key string) *MetaAttribute {
 	return &MetaAttribute{key: key, value: MetadataValue{NilValue: true}, valueType: nil}
 }
 
+// Deprecated: Use Builder().Bool(key, value) instead for better API consistency
 func NewBoolAttribute(key string, value bool) *MetaAttribute {
 	return &MetaAttribute{key: key, value: MetadataValue{Bool: &value}, valueType: reflect.TypeOf(value)}
 }
@@ -197,6 +201,7 @@ type CollectionMetadataImpl struct {
 	metadata map[string]MetadataValue
 }
 
+// Deprecated: Use Builder() pattern instead for better API consistency and type safety
 func NewMetadata(attributes ...*MetaAttribute) CollectionMetadata {
 	metadata := make(map[string]MetadataValue)
 	for _, attribute := range attributes {

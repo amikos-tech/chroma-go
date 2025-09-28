@@ -1,7 +1,7 @@
-// This example demonstrates both old and new API patterns, intentionally using
-// some deprecated methods to show the migration path.
+// This example demonstrates the simplified V2 API with single patterns for each operation,
+// following Go's "one obvious way" principle.
 //
-//nolint:staticcheck // Using deprecated methods for comparison purposes
+//nolint:staticcheck // Showing deprecated methods for migration guidance
 package main
 
 import (
@@ -22,33 +22,24 @@ func main() {
 	}
 	defer client.Close()
 
-	// Example 1: Simplified metadata creation using builder pattern
+	// Example 1: Metadata creation using builder pattern (single approach)
 	fmt.Println("=== Example 1: Metadata Builder Pattern ===")
 
-	// Old way (verbose)
-	oldMetadata := chroma.NewMetadata(
-		chroma.NewStringAttribute("description", "My collection"),
-		chroma.NewIntAttribute("version", 1),
-		chroma.NewFloatAttribute("threshold", 0.8),
-	)
+	// Deprecated way (verbose)
+	// oldMetadata := chroma.NewMetadata(
+	//     chroma.NewStringAttribute("description", "My collection"),
+	//     chroma.NewIntAttribute("version", 1),
+	//     chroma.NewFloatAttribute("threshold", 0.8),
+	// )
 
-	// New way (builder pattern)
-	newMetadata := chroma.Builder().
+	// Single recommended way (builder pattern)
+	metadata := chroma.Builder().
 		String("description", "My collection").
 		Int("version", 1).
 		Float("threshold", 0.8).
 		Build()
 
-	// Even simpler way (variadic)
-	simpleMetadata := chroma.QuickMetadata(
-		"description", "My collection",
-		"version", 1,
-		"threshold", 0.8,
-	)
-
-	fmt.Printf("Old metadata: %v\n", oldMetadata)
-	fmt.Printf("New metadata: %v\n", newMetadata)
-	fmt.Printf("Simple metadata: %v\n", simpleMetadata)
+	fmt.Printf("Built metadata: %v\n", metadata)
 
 	// Example 2: Simplified collection creation
 	fmt.Println("\n=== Example 2: Simplified Collection Creation ===")
@@ -59,9 +50,9 @@ func main() {
 	//     chroma.WithEmbeddingFunctionCreate(ef),
 	// )
 
-	// New way (simplified option names)
+	// Create collection with metadata
 	col, err := client.CreateCollection(context.Background(), "new-collection",
-		chroma.WithMetadata(simpleMetadata),
+		chroma.WithMetadata(metadata),
 		chroma.WithCreateIfNotExists(),
 	)
 	if err != nil {
@@ -79,13 +70,13 @@ func main() {
 	//     chroma.WithMetadatas(meta1, meta2),
 	// )
 
-	// New way (simplified metadata creation)
+	// Add documents with metadata using builder pattern
 	err = col.Add(context.Background(),
-		chroma.WithTexts("Hello world", "Goodbye world"), // WithDocuments coming in future
+		chroma.WithTexts("Hello world", "Goodbye world"),
 		chroma.WithIDs("1", "2"),
 		chroma.WithMetadatas(
-			chroma.QuickDocumentMetadata("type", "greeting", "priority", 1),
-			chroma.QuickDocumentMetadata("type", "farewell", "priority", 2),
+			chroma.DocumentBuilder().String("type", "greeting").Int("priority", 1).Build(),
+			chroma.DocumentBuilder().String("type", "farewell").Int("priority", 2).Build(),
 		),
 	)
 	if err != nil {
@@ -96,10 +87,10 @@ func main() {
 	// Example 4: Simplified query with cleaner operators
 	fmt.Println("\n=== Example 4: Simplified Query ===")
 
-	// Old way (verbose function names)
+	// Deprecated way (type-specific function)
 	// where := chroma.GtInt("priority", 0)
 
-	// New way (simplified Where function)
+	// Single way (type-agnostic function)
 	where := chroma.Gt("priority", 0) // Auto-detects type
 
 	// Old way (WithNResults is confusing)
@@ -121,20 +112,15 @@ func main() {
 		return
 	}
 
-	// Example 5: Simplified result access
-	fmt.Println("\n=== Example 5: Simplified Result Access ===")
+	// Example 5: Result access
+	fmt.Println("\n=== Example 5: Result Access ===")
 
-	// Old way (verbose method names)
-	// docs := results.GetDocumentsGroups()[0]
-	// ids := results.GetIDsGroups()[0]
+	// Standard way to access results
+	docs := results.GetDocumentsGroups()[0]
+	ids := results.GetIDGroups()[0]
+	metas := results.GetMetadatasGroups()[0]
 
-	// New way (cleaner method names)
-	simplified := chroma.AsQueryResults(results)
-	docs := simplified.Documents()  // Instead of GetDocumentsGroups()[0]
-	ids := simplified.IDs()         // Instead of GetIDsGroups()[0]
-	metas := simplified.Metadatas() // Instead of GetMetadatasGroups()[0]
-
-	fmt.Printf("Found %d documents\n", simplified.Count())
+	fmt.Printf("Found %d documents\n", len(ids))
 	for i, doc := range docs {
 		fmt.Printf("  [%s] %s (metadata: %v)\n", ids[i], doc, metas[i])
 	}
@@ -142,8 +128,8 @@ func main() {
 	// Example 6: Reusable options across operations
 	fmt.Println("\n=== Example 6: Reusable Options ===")
 
-	// Using simplified Where with existing API
-	where2 := chroma.Eq("type", "greeting") // Simplified creation
+	// Using type-agnostic Where function
+	where2 := chroma.Eq("type", "greeting") // Type-agnostic
 	getResult, _ := col.Get(context.Background(),
 		chroma.WithWhereGet(where2),
 		chroma.WithIDsGet("1"),
@@ -173,11 +159,10 @@ func main() {
 
 	fmt.Println("\n=== Summary ===")
 	fmt.Println("The simplified API provides:")
-	fmt.Println("1. Cleaner option names without operation suffixes")
-	fmt.Println("2. Builder pattern for metadata creation")
+	fmt.Println("1. Single Builder pattern for metadata creation")
+	fmt.Println("2. Type-agnostic Where functions (Eq, Gt, Lt, etc.)")
 	fmt.Println("3. Shorter operator constants (GT vs GreaterThanOperator)")
-	fmt.Println("4. Consistent naming (WithDocuments instead of WithTexts)")
-	fmt.Println("5. Clearer method names (WithLimit instead of WithNResults)")
-	fmt.Println("6. Simplified result access (Documents() vs GetDocumentsGroups()[0])")
-	fmt.Println("7. Reusable options across operations")
+	fmt.Println("4. Clearer method names (WithLimit instead of WithNResults)")
+	fmt.Println("5. One obvious way to accomplish each task")
+	fmt.Println("6. Follows Go ecosystem best practices (AWS SDK v2, stdlib)")
 }

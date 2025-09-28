@@ -1,19 +1,20 @@
 # V2 API Simplification Improvements
 
-This document describes the simplified API additions to the V2 Chroma Go client that reduce cognitive load and improve developer experience.
+This document describes the simplified V2 Chroma Go client API that follows Go's "one obvious way" principle for better developer experience.
 
 ## Overview
 
-The simplified API provides cleaner naming conventions and more intuitive patterns while maintaining full backward compatibility with the existing API. All original methods remain available and functional.
+The simplified API provides a single, clear pattern for each operation, reducing cognitive load and decision fatigue. Following Go ecosystem best practices (as seen in AWS SDK v2, standard library), we provide one idiomatic way to accomplish each task.
 
 ## Key Improvements
 
-### 1. Metadata Builders
+### 1. Metadata Builder Pattern
 
 **Problem:** Creating metadata required verbose constructor functions with redundant naming.
 
-**Before:**
+**Before (Deprecated):**
 ```go
+// This pattern is deprecated - use Builder() instead
 metadata := chroma.NewMetadata(
     chroma.NewStringAttribute("key", "value"),
     chroma.NewIntAttribute("count", 42),
@@ -21,7 +22,7 @@ metadata := chroma.NewMetadata(
 )
 ```
 
-**After (Builder Pattern):**
+**After (Single Pattern):**
 ```go
 metadata := chroma.Builder().
     String("key", "value").
@@ -30,27 +31,19 @@ metadata := chroma.Builder().
     Build()
 ```
 
-**After (Quick Creation):**
-```go
-metadata := chroma.QuickMetadata(
-    "key", "value",
-    "count", 42,
-    "score", 0.95,
-)
-```
-
-### 2. Simplified Where Clauses
+### 2. Type-Agnostic Where Clauses
 
 **Problem:** Creating where clauses required remembering specific function names for each type.
 
-**Before:**
+**Before (Deprecated):**
 ```go
+// These type-specific functions are deprecated
 where := chroma.GtInt("priority", 5)
 where2 := chroma.EqString("status", "active")
 where3 := chroma.InFloat("score", []float32{0.8, 0.9})
 ```
 
-**After:**
+**After (Single Pattern):**
 ```go
 where := chroma.Gt("priority", 5)        // Auto-detects int
 where2 := chroma.Eq("status", "active")  // Auto-detects string
@@ -89,12 +82,11 @@ chroma.NIN  // Same as NotInOperator
 - `WithQueryTexts` → `WithQueryText` (singular for single query)
 - `WithQueryEmbeddings` → `WithQueryEmbedding` (singular for single embedding)
 
-### 5. Simplified Result Access
+### 5. Result Access
 
-**Problem:** Accessing results required verbose method names with "Get" prefixes.
-
-**Before:**
+**Standard Pattern:**
 ```go
+// Access results using the standard Get methods
 ids := result.GetIDs()
 docs := result.GetDocuments()
 metas := result.GetMetadatas()
@@ -104,20 +96,7 @@ docs := queryResult.GetDocumentsGroups()[0]
 ids := queryResult.GetIDsGroups()[0]
 ```
 
-**After:**
-```go
-// Convert to simplified interface
-simple := chroma.AsResult(result)
-ids := simple.IDs()
-docs := simple.Documents()
-metas := simple.Metadatas()
-
-// For query results
-simple := chroma.AsQueryResults(queryResult)
-docs := simple.Documents()      // First group
-ids := simple.IDs()             // First group
-groups := simple.DocumentGroups() // All groups
-```
+**Note:** The simplified converters (AsResult/AsQueryResults) have been removed to maintain API consistency and follow Go's "one obvious way" principle.
 
 ## Deprecation Notices
 
@@ -136,14 +115,14 @@ The following methods have been marked as deprecated with recommendations to use
 ## Migration Guide
 
 ### Phase 1: Immediate Benefits (No Breaking Changes)
-1. Start using builder pattern for metadata creation
-2. Use simplified Where functions (Eq, Gt, Lt, etc.)
+1. Use Builder() pattern for metadata creation
+2. Use type-agnostic Where functions (Eq, Gt, Lt, etc.)
 3. Use shorter operator constants (GT, LTE, etc.)
 4. Use WithLimit instead of WithNResults
 
 ### Phase 2: Gradual Adoption
 1. Replace verbose option names with simplified versions where applicable
-2. Use AsResult/AsQueryResults for cleaner result access
+2. Migrate from deprecated functions to their simplified equivalents
 3. Update tests to use new patterns
 
 ### Phase 3: Future Improvements (v0.3.0)
@@ -157,4 +136,4 @@ See `/examples/v2/simplified_api/main.go` for comprehensive examples of all simp
 
 ## Compatibility
 
-All existing code continues to work without modification. The simplified API is purely additive and provides alternative ways to accomplish the same tasks with less cognitive overhead.
+All existing code continues to work without modification. Deprecated functions remain available but should be migrated to the new single-pattern approach for consistency. The simplified API follows Go's philosophy of having one clear, idiomatic way to accomplish each task.

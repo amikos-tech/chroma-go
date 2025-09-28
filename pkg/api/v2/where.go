@@ -461,6 +461,7 @@ type WhereFilter interface {
 	UnmarshalJSON(b []byte) error
 }
 
+// Deprecated: Use Eq(field, value) instead for simpler API
 func EqString(field, value string) WhereClause {
 	return &WhereClauseString{
 		WhereClauseBase: WhereClauseBase{
@@ -471,6 +472,7 @@ func EqString(field, value string) WhereClause {
 	}
 }
 
+// Deprecated: Use Eq(field, value) instead for simpler API
 func EqInt(field string, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
@@ -480,6 +482,8 @@ func EqInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use Eq(field, value) instead for simpler API
 func EqFloat(field string, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
@@ -489,6 +493,8 @@ func EqFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use Eq(field, value) instead for simpler API
 func EqBool(field string, value bool) WhereClause {
 	return &WhereClauseBool{
 		WhereClauseBase: WhereClauseBase{
@@ -535,6 +541,8 @@ func NotEqBool(field string, value bool) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use Gt(field, value) instead for simpler API
 func GtInt(field string, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
@@ -544,6 +552,8 @@ func GtInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use Gt(field, value) instead for simpler API
 func GtFloat(field string, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
@@ -553,6 +563,8 @@ func GtFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use Lt(field, value) instead for simpler API
 func LtInt(field string, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
@@ -562,6 +574,8 @@ func LtInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use Lt(field, value) instead for simpler API
 func LtFloat(field string, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
@@ -571,6 +585,8 @@ func LtFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use Gte(field, value) instead for simpler API
 func GteInt(field string, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
@@ -580,6 +596,8 @@ func GteInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use Gte(field, value) instead for simpler API
 func GteFloat(field string, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
@@ -589,6 +607,8 @@ func GteFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use Lte(field, value) instead for simpler API
 func LteInt(field string, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
@@ -598,6 +618,8 @@ func LteInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use Lte(field, value) instead for simpler API
 func LteFloat(field string, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
@@ -607,6 +629,8 @@ func LteFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
+
+// Deprecated: Use In(field, values) instead for simpler API
 func InString(field string, values ...string) WhereClause {
 	return &WhereClauseStrings{
 		WhereClauseBase: WhereClauseBase{
@@ -616,6 +640,8 @@ func InString(field string, values ...string) WhereClause {
 		operand: values,
 	}
 }
+
+// Deprecated: Use In(field, values) instead for simpler API
 func InInt(field string, values ...int) WhereClause {
 	return &WhereClauseInts{
 		WhereClauseBase: WhereClauseBase{
@@ -625,6 +651,8 @@ func InInt(field string, values ...int) WhereClause {
 		operand: values,
 	}
 }
+
+// Deprecated: Use In(field, values) instead for simpler API
 func InFloat(field string, values ...float32) WhereClause {
 	return &WhereClauseFloats{
 		WhereClauseBase: WhereClauseBase{
@@ -634,6 +662,8 @@ func InFloat(field string, values ...float32) WhereClause {
 		operand: values,
 	}
 }
+
+// Deprecated: Use In(field, values) instead for simpler API
 func InBool(field string, values ...bool) WhereClause {
 	return &WhereClauseBools{
 		WhereClauseBase: WhereClauseBase{
@@ -643,6 +673,8 @@ func InBool(field string, values ...bool) WhereClause {
 		operand: values,
 	}
 }
+
+// Deprecated: Use Nin(field, values) instead for simpler API
 func NinString(field string, values ...string) WhereClause {
 	return &WhereClauseStrings{
 		WhereClauseBase: WhereClauseBase{
@@ -652,6 +684,8 @@ func NinString(field string, values ...string) WhereClause {
 		operand: values,
 	}
 }
+
+// Deprecated: Use Nin(field, values) instead for simpler API
 func NinInt(field string, values ...int) WhereClause {
 	return &WhereClauseInts{
 		WhereClauseBase: WhereClauseBase{
@@ -661,6 +695,8 @@ func NinInt(field string, values ...int) WhereClause {
 		operand: values,
 	}
 }
+
+// Deprecated: Use Nin(field, values) instead for simpler API
 func NinFloat(field string, values ...float32) WhereClause {
 	return &WhereClauseFloats{
 		WhereClauseBase: WhereClauseBase{
@@ -670,6 +706,8 @@ func NinFloat(field string, values ...float32) WhereClause {
 		operand: values,
 	}
 }
+
+// Deprecated: Use Nin(field, values) instead for simpler API
 func NinBool(field string, values ...bool) WhereClause {
 	return &WhereClauseBools{
 		WhereClauseBase: WhereClauseBase{
