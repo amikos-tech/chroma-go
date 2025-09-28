@@ -93,18 +93,18 @@ func main() {
 	// Single way (type-agnostic function)
 	where := chroma.Gt("priority", 0) // Auto-detects type
 
-	// Old way (WithNResults is confusing)
+	// Deprecated way (WithNResults was confusing)
 	// results, err := col.Query(context.Background(),
 	//     chroma.WithQueryTexts("hello"),
 	//     chroma.WithNResults(5),
 	//     chroma.WithWhereQuery(where),
 	// )
 
-	// New way (WithLimit is clearer)
+	// Recommended way (WithLimit is clearer than WithNResults)
 	results, err := col.Query(context.Background(),
 		chroma.WithQueryText("hello"), // Simplified for single text
 		chroma.WithLimit(5),           // Clearer than WithNResults
-		chroma.WithWhereQuery(where),  // Using existing API for now
+		chroma.WithWhereQuery(where),
 		chroma.WithIncludeQuery(chroma.IncludeDocuments, chroma.IncludeMetadatas),
 	)
 	if err != nil {
