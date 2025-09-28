@@ -23,6 +23,9 @@ package v2
 //   - []int: IN, NIN
 //   - []float32: IN, NIN
 func Where(operator WhereFilterOperator, field string, value interface{}) WhereFilter {
+	if field == "" || value == nil {
+		return nil
+	}
 	switch v := value.(type) {
 	case string:
 		switch operator {
@@ -102,6 +105,9 @@ func Where(operator WhereFilterOperator, field string, value interface{}) WhereF
 		// Warning: Converting float64 to float32 may result in precision loss
 		return Where(operator, field, float32(v))
 	case []string:
+		if len(v) == 0 {
+			return nil
+		}
 		switch operator {
 		case IN:
 			return InString(field, v...)
@@ -111,6 +117,9 @@ func Where(operator WhereFilterOperator, field string, value interface{}) WhereF
 			return nil
 		}
 	case []int:
+		if len(v) == 0 {
+			return nil
+		}
 		switch operator {
 		case IN:
 			return InInt(field, v...)
@@ -120,6 +129,9 @@ func Where(operator WhereFilterOperator, field string, value interface{}) WhereF
 			return nil
 		}
 	case []float32:
+		if len(v) == 0 {
+			return nil
+		}
 		switch operator {
 		case IN:
 			return InFloat(field, v...)
@@ -136,57 +148,81 @@ func Where(operator WhereFilterOperator, field string, value interface{}) WhereF
 // Convenience functions with short names
 
 // Eq creates an equality filter for any supported type.
-// Returns nil if the value type is not supported.
+// Returns nil if the value type is not supported or field is empty.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Eq(field string, value interface{}) WhereFilter {
+	if field == "" || value == nil {
+		return nil
+	}
 	return Where(EQ, field, value)
 }
 
 // Ne creates a not-equal filter for any supported type.
-// Returns nil if the value type is not supported.
+// Returns nil if the value type is not supported or field is empty.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Ne(field string, value interface{}) WhereFilter {
+	if field == "" || value == nil {
+		return nil
+	}
 	return Where(NE, field, value)
 }
 
 // Gt creates a greater-than filter for numeric types.
-// Returns nil if the value type is not numeric or not supported.
+// Returns nil if the value type is not numeric, not supported, or field is empty.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Gt(field string, value interface{}) WhereFilter {
+	if field == "" || value == nil {
+		return nil
+	}
 	return Where(GT, field, value)
 }
 
 // Gte creates a greater-than-or-equal filter for numeric types.
-// Returns nil if the value type is not numeric or not supported.
+// Returns nil if the value type is not numeric, not supported, or field is empty.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Gte(field string, value interface{}) WhereFilter {
+	if field == "" || value == nil {
+		return nil
+	}
 	return Where(GTE, field, value)
 }
 
 // Lt creates a less-than filter for numeric types.
-// Returns nil if the value type is not numeric or not supported.
+// Returns nil if the value type is not numeric, not supported, or field is empty.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Lt(field string, value interface{}) WhereFilter {
+	if field == "" || value == nil {
+		return nil
+	}
 	return Where(LT, field, value)
 }
 
 // Lte creates a less-than-or-equal filter for numeric types.
-// Returns nil if the value type is not numeric or not supported.
+// Returns nil if the value type is not numeric, not supported, or field is empty.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Lte(field string, value interface{}) WhereFilter {
+	if field == "" || value == nil {
+		return nil
+	}
 	return Where(LTE, field, value)
 }
 
 // In creates an IN filter for slice types.
-// Returns nil if the value is not a supported slice type.
+// Returns nil if the value is not a supported slice type or field is empty.
 // Supported: []string, []int, []float32
 func In(field string, values interface{}) WhereFilter {
+	if field == "" || values == nil {
+		return nil
+	}
 	return Where(IN, field, values)
 }
 
 // NotIn creates a NOT IN filter for slice types.
-// Returns nil if the value is not a supported slice type.
+// Returns nil if the value is not a supported slice type or field is empty.
 // Supported: []string, []int, []float32
 func NotIn(field string, values interface{}) WhereFilter {
+	if field == "" || values == nil {
+		return nil
+	}
 	return Where(NIN, field, values)
 }

@@ -179,8 +179,8 @@ func main() {
 		chroma.WithIDs("1", "2"),
 		chroma.WithTexts("hello world", "goodbye world"),
 		chroma.WithMetadatas(
-			chroma.QuickDocumentMetadata("int", 1),
-			chroma.QuickDocumentMetadata("str", "hello"),
+			chroma.DocumentBuilder().Int("int", 1).Build(),
+			chroma.DocumentBuilder().String("str", "hello").Build(),
 		))
 	if err != nil {
 		log.Fatalf("Error adding collection: %s \n", err)
