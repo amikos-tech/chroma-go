@@ -8,7 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
-	"log"
+	"fmt"
 	"math"
 	"math/big"
 	"net"
@@ -16,11 +16,13 @@ import (
 	"time"
 )
 
-func CreateSelfSignedCert(certPath, keyPath string) {
+// CreateSelfSignedCert generates a self-signed certificate and key for testing.
+// Returns an error if certificate generation fails.
+func CreateSelfSignedCert(certPath, keyPath string) error {
 	// Generate a private key
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		log.Fatalf("Failed to generate private key: %v", err)
+		return fmt.Errorf("failed to generate private key: %w", err)
 	}
 
 	// Prepare certificate
@@ -30,7 +32,7 @@ func CreateSelfSignedCert(certPath, keyPath string) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		log.Fatalf("Failed to generate serial number: %v", err)
+		return fmt.Errorf("failed to generate serial number: %w", err)
 	}
 
 	template := x509.Certificate{
@@ -51,38 +53,42 @@ func CreateSelfSignedCert(certPath, keyPath string) {
 	// Create the certificate
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
 	if err != nil {
-		log.Fatalf("Failed to create certificate: %v", err)
+		return fmt.Errorf("failed to create certificate: %w", err)
 	}
 
 	// Write the certificate to file
 	certOut, err := os.Create(certPath)
 	if err != nil {
-		log.Fatalf("Failed to open cert.pem for writing: %v", err)
+		return fmt.Errorf("failed to open cert.pem for writing: %w", err)
 	}
+	defer certOut.Close()
+
 	if err := pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		log.Fatalf("Failed to write data to cert.pem: %v", err)
+		return fmt.Errorf("failed to write data to cert.pem: %w", err)
 	}
 	if err := certOut.Close(); err != nil {
-		log.Fatalf("Error closing cert.pem: %v", err)
+		return fmt.Errorf("error closing cert.pem: %w", err)
 	}
-	log.Printf("Written %s", certPath)
 
 	// Write the private key to file
 	keyOut, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		log.Fatalf("Failed to open key.pem for writing: %v", err)
+		return fmt.Errorf("failed to open key.pem for writing: %w", err)
 	}
+	defer keyOut.Close()
+
 	privBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
-		log.Fatalf("Unable to marshal private key: %v", err)
+		return fmt.Errorf("unable to marshal private key: %w", err)
 	}
 	if err := pem.Encode(keyOut, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes}); err != nil {
-		log.Fatalf("Failed to write data to key.pem: %v", err)
+		return fmt.Errorf("failed to write data to key.pem: %w", err)
 	}
 	if err := keyOut.Close(); err != nil {
-		log.Fatalf("Error closing key.pem: %v", err)
+		return fmt.Errorf("error closing key.pem: %w", err)
 	}
-	log.Printf("Written %s", keyPath)
+
+	return nil
 }
 
 func packEmbeddingSafely(embedding []float32) string {
