@@ -163,7 +163,7 @@ func (c *CollectionGetOp) Operation() OperationType {
 	return OperationGet
 }
 
-// Deprecated: Use WithIDs instead for consistency across operations.
+// Deprecated: Use WithIDs instead for consistency across operations. Will be removed in v0.4.0.
 // WithIDsGet sets IDs for Get operations.
 func WithIDsGet(ids ...DocumentID) CollectionGetOption {
 	return func(query *CollectionGetOp) error {
@@ -174,7 +174,7 @@ func WithIDsGet(ids ...DocumentID) CollectionGetOption {
 	}
 }
 
-// Deprecated: Use WithWhere instead for consistency across operations.
+// Deprecated: Use WithWhere instead for consistency across operations. Will be removed in v0.4.0.
 // WithWhereGet sets where filter for Get operations.
 func WithWhereGet(where WhereFilter) CollectionGetOption {
 	return func(query *CollectionGetOp) error {
@@ -183,7 +183,7 @@ func WithWhereGet(where WhereFilter) CollectionGetOption {
 	}
 }
 
-// Deprecated: Use WithWhereDocument instead for consistency across operations.
+// Deprecated: Use WithWhereDocument instead for consistency across operations. Will be removed in v0.4.0.
 // WithWhereDocumentGet sets document filter for Get operations.
 func WithWhereDocumentGet(whereDocument WhereDocumentFilter) CollectionGetOption {
 	return func(query *CollectionGetOp) error {
@@ -192,7 +192,7 @@ func WithWhereDocumentGet(whereDocument WhereDocumentFilter) CollectionGetOption
 	}
 }
 
-// Deprecated: Use WithInclude instead for consistency across operations.
+// Deprecated: Use WithInclude instead for consistency across operations. Will be removed in v0.4.0.
 // WithIncludeGet sets what to include in Get results.
 func WithIncludeGet(include ...Include) CollectionGetOption {
 	return func(query *CollectionGetOp) error {
@@ -298,7 +298,7 @@ func (c *CollectionQueryOp) Operation() OperationType {
 
 type CollectionQueryOption func(query *CollectionQueryOp) error
 
-// Deprecated: Use WithWhere instead for consistency across operations.
+// Deprecated: Use WithWhere instead for consistency across operations. Will be removed in v0.4.0.
 // WithWhereQuery sets where filter for Query operations.
 func WithWhereQuery(where WhereFilter) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
@@ -307,7 +307,7 @@ func WithWhereQuery(where WhereFilter) CollectionQueryOption {
 	}
 }
 
-// Deprecated: Use WithWhereDocument instead for consistency across operations.
+// Deprecated: Use WithWhereDocument instead for consistency across operations. Will be removed in v0.4.0.
 // WithWhereDocumentQuery sets document filter for Query operations.
 func WithWhereDocumentQuery(whereDocument WhereDocumentFilter) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
@@ -316,7 +316,7 @@ func WithWhereDocumentQuery(whereDocument WhereDocumentFilter) CollectionQueryOp
 	}
 }
 
-// Deprecated: Use WithLimit instead for clearer naming.
+// Deprecated: Use WithLimit instead for clearer naming. Will be removed in v0.4.0.
 // WithNResults sets the number of results to return.
 func WithNResults(nResults int) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
@@ -348,7 +348,7 @@ func WithQueryEmbeddings(queryEmbeddings ...embeddings.Embedding) CollectionQuer
 	}
 }
 
-// Deprecated: Use WithInclude instead for consistency across operations.
+// Deprecated: Use WithInclude instead for consistency across operations. Will be removed in v0.4.0.
 // WithIncludeQuery is used to include metadatas, documents, embeddings, uris in the query response.
 func WithIncludeQuery(include ...Include) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
@@ -357,7 +357,7 @@ func WithIncludeQuery(include ...Include) CollectionQueryOption {
 	}
 }
 
-// Deprecated: Use WithIDs instead for consistency across operations.
+// Deprecated: Use WithIDs instead for consistency across operations. Will be removed in v0.4.0.
 // WithIDsQuery is used to filter the query by IDs. This is only available for Chroma version 1.0.3 and above.
 func WithIDsQuery(ids ...DocumentID) CollectionQueryOption {
 	return func(query *CollectionQueryOp) error {
@@ -531,7 +531,7 @@ func (c *CollectionAddOp) Operation() OperationType {
 
 type CollectionAddOption func(update *CollectionAddOp) error
 
-// Deprecated: Use WithDocuments instead for naming consistency.
+// Deprecated: Use WithDocuments instead for naming consistency. Will be removed in v0.4.0.
 // WithTexts adds text documents to the collection.
 func WithTexts(documents ...string) CollectionAddOption {
 	return func(update *CollectionAddOp) error {
@@ -705,7 +705,7 @@ func (c *CollectionUpdateOp) Operation() OperationType {
 
 type CollectionUpdateOption func(update *CollectionUpdateOp) error
 
-// Deprecated: Use WithDocuments instead for naming consistency.
+// Deprecated: Use WithDocuments instead for naming consistency. Will be removed in v0.4.0.
 // WithTextsUpdate updates text documents in the collection.
 func WithTextsUpdate(documents ...string) CollectionUpdateOption {
 	return func(update *CollectionUpdateOp) error {
@@ -809,7 +809,7 @@ func (c *CollectionDeleteOp) Operation() OperationType {
 
 type CollectionDeleteOption func(update *CollectionDeleteOp) error
 
-// Deprecated: Use WithWhere instead for consistency across operations.
+// Deprecated: Use WithWhere instead for consistency across operations. Will be removed in v0.4.0.
 // WithWhereDelete sets where filter for Delete operations.
 func WithWhereDelete(where WhereFilter) CollectionDeleteOption {
 	return func(delete *CollectionDeleteOp) error {
@@ -818,7 +818,7 @@ func WithWhereDelete(where WhereFilter) CollectionDeleteOption {
 	}
 }
 
-// Deprecated: Use WithWhereDocument instead for consistency across operations.
+// Deprecated: Use WithWhereDocument instead for consistency across operations. Will be removed in v0.4.0.
 // WithWhereDocumentDelete sets document filter for Delete operations.
 func WithWhereDocumentDelete(whereDocument WhereDocumentFilter) CollectionDeleteOption {
 	return func(delete *CollectionDeleteOp) error {
@@ -827,7 +827,7 @@ func WithWhereDocumentDelete(whereDocument WhereDocumentFilter) CollectionDelete
 	}
 }
 
-// Deprecated: Use WithIDs instead for consistency across operations.
+// Deprecated: Use WithIDs instead for consistency across operations. Will be removed in v0.4.0.
 // WithIDsDelete sets IDs for Delete operations.
 func WithIDsDelete(ids ...DocumentID) CollectionDeleteOption {
 	return func(delete *CollectionDeleteOp) error {
