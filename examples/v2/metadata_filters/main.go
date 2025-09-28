@@ -27,11 +27,11 @@ func main() {
 
 	// Create a new collection with options. We don't provide an embedding function here, so the default embedding function will be used
 	col, err := client.GetOrCreateCollection(context.Background(), "col1",
-		chroma.WithCollectionMetadataCreate(
-			chroma.NewMetadata(
-				chroma.NewStringAttribute("str", "hello2"),
-				chroma.NewIntAttribute("int", 1),
-				chroma.NewFloatAttribute("float", 1.1),
+		chroma.WithMetadata(
+			chroma.QuickMetadata(
+				"str", "hello2",
+				"int", 1,
+				"float", 1.1,
 			),
 		),
 	)
@@ -46,8 +46,8 @@ func main() {
 		chroma.WithIDs("1", "2"),
 		chroma.WithTexts("hello world", "goodbye world"),
 		chroma.WithMetadatas(
-			chroma.NewDocumentMetadata(chroma.NewIntAttribute("int", 1)),
-			chroma.NewDocumentMetadata(chroma.NewStringAttribute("str1", "hello2")),
+			chroma.QuickDocumentMetadata("int", 1),
+			chroma.QuickDocumentMetadata("str1", "hello2"),
 		))
 	if err != nil {
 		log.Printf("Error adding collection: %s \n", err)
@@ -60,8 +60,8 @@ func main() {
 		return
 	}
 	fmt.Printf("Count collection: %d\n", count)
-	IntFilter := chroma.EqInt("int", 1)
-	StringFilter := chroma.EqString("str1", "hello2")
+	IntFilter := chroma.Eq("int", 1)
+	StringFilter := chroma.Eq("str1", "hello2")
 	qr, err := col.Query(context.Background(),
 		chroma.WithQueryTexts("say hello"),
 		chroma.WithIncludeQuery(chroma.IncludeDocuments, chroma.IncludeMetadatas),

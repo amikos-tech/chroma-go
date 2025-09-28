@@ -99,8 +99,8 @@ func developmentExample() {
 	collection, err := client.GetOrCreateCollection(
 		ctx,
 		"example-collection",
-		chroma.WithCollectionMetadataCreate(
-			chroma.NewMetadata(chroma.NewStringAttribute("description", "example collection description")),
+		chroma.WithMetadata(
+			chroma.QuickMetadata("description", "example collection description"),
 		),
 	)
 	if err != nil {

@@ -34,11 +34,11 @@ func main() {
 
 	// Create a new collection with options. We don't provide an embedding function here, so the default embedding function will be used
 	col, err := client.GetOrCreateCollection(context.Background(), "openai-embedding-function-test",
-		chroma.WithCollectionMetadataCreate(
-			chroma.NewMetadata(
-				chroma.NewStringAttribute("str", "hello2"),
-				chroma.NewIntAttribute("int", 1),
-				chroma.NewFloatAttribute("float", 1.1),
+		chroma.WithMetadata(
+			chroma.QuickMetadata(
+				"str", "hello2",
+				"int", 1,
+				"float", 1.1,
 			),
 		),
 		chroma.WithEmbeddingFunctionCreate(ef),
@@ -53,8 +53,8 @@ func main() {
 		chroma.WithIDs("1", "2"),
 		chroma.WithTexts("hello world", "goodbye world"),
 		chroma.WithMetadatas(
-			chroma.NewDocumentMetadata(chroma.NewIntAttribute("int", 1)),
-			chroma.NewDocumentMetadata(chroma.NewStringAttribute("str1", "hello2")),
+			chroma.QuickDocumentMetadata("int", 1),
+			chroma.QuickDocumentMetadata("str1", "hello2"),
 		))
 	if err != nil {
 		log.Fatalf("Error adding collection: %s \n", err)
