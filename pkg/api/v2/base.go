@@ -28,6 +28,7 @@ const (
 	IncludeMetadatas  Include = "metadatas"
 	IncludeDocuments  Include = "documents"
 	IncludeEmbeddings Include = "embeddings"
+	IncludeDistances  Include = "distances"
 	IncludeURIs       Include = "uris"
 )
 
