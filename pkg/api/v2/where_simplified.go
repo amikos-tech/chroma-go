@@ -5,14 +5,23 @@ package v2
 
 // Where creates a where clause with simplified operator names.
 // Example: Where(EQ, "field", "value") or Where(GT, "count", 5)
-// Returns nil for unsupported operator/type combinations.
+//
+// Returns nil for unsupported operator/type combinations or invalid inputs.
+// This includes:
+//   - Unsupported operators for the given type
+//   - Int64 values that would overflow when converted to int
+//   - Unsupported value types
+//
+// Note: float64 values are converted to float32, which may result in precision loss.
+// For applications requiring high precision, consider using float32 values directly.
+//
 // Supported operations:
 //   - String: EQ, NE
-//   - Int/Int64: EQ, NE, GT, GTE, LT, LTE
-//   - Float32/Float64: EQ, NE, GT, GTE, LT, LTE
+//   - Int/Int64: EQ, NE, GT, GTE, LT, LTE (int64 must fit in int range)
+//   - Float32/Float64: EQ, NE, GT, GTE, LT, LTE (float64 converted to float32)
 //   - []string: IN, NIN
 //   - []int: IN, NIN
-//   - []float32/[]float64: IN, NIN
+//   - []float32: IN, NIN
 func Where(operator WhereFilterOperator, field string, value interface{}) WhereFilter {
 	switch v := value.(type) {
 	case string:
@@ -58,7 +67,9 @@ func Where(operator WhereFilterOperator, field string, value interface{}) WhereF
 		}
 	case int64:
 		// Check for overflow before converting to int
-		if v > int64(^uint(0)>>1) || v < int64(^int(^uint(0)>>1)) {
+		const maxInt = int64(^uint(0) >> 1)
+		const minInt = -maxInt - 1
+		if v > maxInt || v < minInt {
 			// Value would overflow, return nil to indicate unsupported
 			return nil
 		}
@@ -88,6 +99,7 @@ func Where(operator WhereFilterOperator, field string, value interface{}) WhereF
 			return nil
 		}
 	case float64:
+		// Warning: Converting float64 to float32 may result in precision loss
 		return Where(operator, field, float32(v))
 	case []string:
 		switch operator {
@@ -123,42 +135,58 @@ func Where(operator WhereFilterOperator, field string, value interface{}) WhereF
 
 // Convenience functions with short names
 
-// Eq creates an equality filter (replaces EqString, EqInt, EqFloat)
+// Eq creates an equality filter for any supported type.
+// Returns nil if the value type is not supported.
+// Note: float64 values are converted to float32 (potential precision loss).
 func Eq(field string, value interface{}) WhereFilter {
 	return Where(EQ, field, value)
 }
 
-// Ne creates a not-equal filter (replaces NeString, NeInt, NeFloat)
+// Ne creates a not-equal filter for any supported type.
+// Returns nil if the value type is not supported.
+// Note: float64 values are converted to float32 (potential precision loss).
 func Ne(field string, value interface{}) WhereFilter {
 	return Where(NE, field, value)
 }
 
-// Gt creates a greater-than filter (replaces GtInt, GtFloat)
+// Gt creates a greater-than filter for numeric types.
+// Returns nil if the value type is not numeric or not supported.
+// Note: float64 values are converted to float32 (potential precision loss).
 func Gt(field string, value interface{}) WhereFilter {
 	return Where(GT, field, value)
 }
 
-// Gte creates a greater-than-or-equal filter (replaces GteInt, GteFloat)
+// Gte creates a greater-than-or-equal filter for numeric types.
+// Returns nil if the value type is not numeric or not supported.
+// Note: float64 values are converted to float32 (potential precision loss).
 func Gte(field string, value interface{}) WhereFilter {
 	return Where(GTE, field, value)
 }
 
-// Lt creates a less-than filter (replaces LtInt, LtFloat)
+// Lt creates a less-than filter for numeric types.
+// Returns nil if the value type is not numeric or not supported.
+// Note: float64 values are converted to float32 (potential precision loss).
 func Lt(field string, value interface{}) WhereFilter {
 	return Where(LT, field, value)
 }
 
-// Lte creates a less-than-or-equal filter (replaces LteInt, LteFloat)
+// Lte creates a less-than-or-equal filter for numeric types.
+// Returns nil if the value type is not numeric or not supported.
+// Note: float64 values are converted to float32 (potential precision loss).
 func Lte(field string, value interface{}) WhereFilter {
 	return Where(LTE, field, value)
 }
 
-// In creates an IN filter (replaces InString, InInt, InFloat)
+// In creates an IN filter for slice types.
+// Returns nil if the value is not a supported slice type.
+// Supported: []string, []int, []float32
 func In(field string, values interface{}) WhereFilter {
 	return Where(IN, field, values)
 }
 
-// NotIn creates a NOT IN filter (replaces NotInString, NotInInt, NotInFloat)
+// NotIn creates a NOT IN filter for slice types.
+// Returns nil if the value is not a supported slice type.
+// Supported: []string, []int, []float32
 func NotIn(field string, values interface{}) WhereFilter {
 	return Where(NIN, field, values)
 }

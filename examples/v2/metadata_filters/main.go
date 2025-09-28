@@ -28,11 +28,11 @@ func main() {
 	// Create a new collection with options. We don't provide an embedding function here, so the default embedding function will be used
 	col, err := client.GetOrCreateCollection(context.Background(), "col1",
 		chroma.WithMetadata(
-			chroma.QuickMetadata(
-				"str", "hello2",
-				"int", 1,
-				"float", 1.1,
-			),
+			chroma.Builder().
+				String("str", "hello2").
+				Int("int", 1).
+				Float("float", 1.1).
+				Build(),
 		),
 	)
 	if err != nil {
@@ -46,8 +46,8 @@ func main() {
 		chroma.WithIDs("1", "2"),
 		chroma.WithTexts("hello world", "goodbye world"),
 		chroma.WithMetadatas(
-			chroma.QuickDocumentMetadata("int", 1),
-			chroma.QuickDocumentMetadata("str1", "hello2"),
+			chroma.DocumentBuilder().Int("int", 1).Build(),
+			chroma.DocumentBuilder().String("str1", "hello2").Build(),
 		))
 	if err != nil {
 		log.Printf("Error adding collection: %s \n", err)
