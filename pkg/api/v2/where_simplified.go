@@ -9,16 +9,18 @@ package v2
 // Returns nil for unsupported operator/type combinations or invalid inputs.
 // This includes:
 //   - Unsupported operators for the given type
-//   - Int64 values that would overflow when converted to int
+//   - Empty field names or nil values
+//   - Empty slices for IN/NIN operators
 //   - Unsupported value types
 //
-// Note: float64 values are converted to float32, which may result in precision loss.
-// For applications requiring high precision, consider using float32 values directly.
+// Type conversions:
+//   - int64: Values exceeding int range are converted to float64 to preserve magnitude
+//   - float64: Always converted to float32 (may lose precision)
 //
 // Supported operations:
 //   - String: EQ, NE
-//   - Int/Int64: EQ, NE, GT, GTE, LT, LTE (int64 must fit in int range)
-//   - Float32/Float64: EQ, NE, GT, GTE, LT, LTE (float64 converted to float32)
+//   - Int/Int64: EQ, NE, GT, GTE, LT, LTE
+//   - Float32/Float64: EQ, NE, GT, GTE, LT, LTE
 //   - []string: IN, NIN
 //   - []int: IN, NIN
 //   - []float32: IN, NIN
@@ -73,8 +75,9 @@ func Where(operator WhereFilterOperator, field string, value interface{}) WhereF
 		const maxInt = int64(^uint(0) >> 1)
 		const minInt = -maxInt - 1
 		if v > maxInt || v < minInt {
-			// Value would overflow, return nil to indicate unsupported
-			return nil
+			// Value would overflow int, convert to float64 to preserve magnitude
+			// This allows filtering on large int64 values at the cost of potential precision
+			return Where(operator, field, float64(v))
 		}
 		return Where(operator, field, int(v))
 	case float32:
@@ -149,6 +152,7 @@ func Where(operator WhereFilterOperator, field string, value interface{}) WhereF
 
 // Eq creates an equality filter for any supported type.
 // Returns nil if the value type is not supported or field is empty.
+// Note: int64 values exceeding int range are converted to float64.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Eq(field string, value interface{}) WhereFilter {
 	if field == "" || value == nil {
@@ -159,6 +163,7 @@ func Eq(field string, value interface{}) WhereFilter {
 
 // Ne creates a not-equal filter for any supported type.
 // Returns nil if the value type is not supported or field is empty.
+// Note: int64 values exceeding int range are converted to float64.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Ne(field string, value interface{}) WhereFilter {
 	if field == "" || value == nil {
@@ -169,6 +174,7 @@ func Ne(field string, value interface{}) WhereFilter {
 
 // Gt creates a greater-than filter for numeric types.
 // Returns nil if the value type is not numeric, not supported, or field is empty.
+// Note: int64 values exceeding int range are converted to float64.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Gt(field string, value interface{}) WhereFilter {
 	if field == "" || value == nil {
@@ -179,6 +185,7 @@ func Gt(field string, value interface{}) WhereFilter {
 
 // Gte creates a greater-than-or-equal filter for numeric types.
 // Returns nil if the value type is not numeric, not supported, or field is empty.
+// Note: int64 values exceeding int range are converted to float64.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Gte(field string, value interface{}) WhereFilter {
 	if field == "" || value == nil {
@@ -189,6 +196,7 @@ func Gte(field string, value interface{}) WhereFilter {
 
 // Lt creates a less-than filter for numeric types.
 // Returns nil if the value type is not numeric, not supported, or field is empty.
+// Note: int64 values exceeding int range are converted to float64.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Lt(field string, value interface{}) WhereFilter {
 	if field == "" || value == nil {
@@ -199,6 +207,7 @@ func Lt(field string, value interface{}) WhereFilter {
 
 // Lte creates a less-than-or-equal filter for numeric types.
 // Returns nil if the value type is not numeric, not supported, or field is empty.
+// Note: int64 values exceeding int range are converted to float64.
 // Note: float64 values are converted to float32 (potential precision loss).
 func Lte(field string, value interface{}) WhereFilter {
 	if field == "" || value == nil {
