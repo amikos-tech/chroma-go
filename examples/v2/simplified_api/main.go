@@ -1,5 +1,5 @@
-// This example demonstrates the simplified V2 API with single patterns for each operation,
-// following Go's "one obvious way" principle.
+// This example demonstrates the V2 API with type-specific functions and builder patterns
+// for metadata creation.
 //
 //nolint:staticcheck // Showing deprecated methods for migration guidance
 package main
@@ -87,11 +87,8 @@ func main() {
 	// Example 4: Simplified query with cleaner operators
 	fmt.Println("\n=== Example 4: Simplified Query ===")
 
-	// Deprecated way (type-specific function)
-	// where := chroma.GtInt("priority", 0)
-
-	// Single way (type-agnostic function)
-	where := chroma.Gt("priority", 0) // Auto-detects type
+	// Type-specific function for where clause
+	where := chroma.GtInt("priority", 0)
 
 	// Deprecated way (WithNResults was confusing)
 	// results, err := col.Query(context.Background(),
@@ -128,8 +125,8 @@ func main() {
 	// Example 6: Reusable options across operations
 	fmt.Println("\n=== Example 6: Reusable Options ===")
 
-	// Using type-agnostic Where function
-	where2 := chroma.Eq("type", "greeting") // Type-agnostic
+	// Using type-specific Where function
+	where2 := chroma.EqString("type", "greeting")
 	getResult, _ := col.Get(context.Background(),
 		chroma.WithWhereGet(where2),
 		chroma.WithIDsGet("1"),
@@ -158,11 +155,11 @@ func main() {
 	}
 
 	fmt.Println("\n=== Summary ===")
-	fmt.Println("The simplified API provides:")
-	fmt.Println("1. Single Builder pattern for metadata creation")
-	fmt.Println("2. Type-agnostic Where functions (Eq, Gt, Lt, etc.)")
+	fmt.Println("The V2 API provides:")
+	fmt.Println("1. Builder pattern for metadata creation")
+	fmt.Println("2. Type-specific Where functions (EqString, GtInt, etc.)")
 	fmt.Println("3. Shorter operator constants (GT vs GreaterThanOperator)")
 	fmt.Println("4. Clearer method names (WithLimit instead of WithNResults)")
-	fmt.Println("5. One obvious way to accomplish each task")
-	fmt.Println("6. Follows Go ecosystem best practices (AWS SDK v2, stdlib)")
+	fmt.Println("5. Strong type safety with compile-time checks")
+	fmt.Println("6. Clear, explicit APIs without runtime type switching")
 }
