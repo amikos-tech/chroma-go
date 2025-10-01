@@ -621,10 +621,6 @@ func LteFloat(field string, value float32) WhereClause {
 // InString creates an IN clause for string values.
 // Returns an empty IN clause if no values are provided (prevents nil panics).
 func InString(field string, values ...string) WhereClause {
-	if len(values) == 0 {
-		// Return empty IN clause instead of no-op for semantic correctness
-		values = []string{}
-	}
 	return &WhereClauseStrings{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -637,10 +633,6 @@ func InString(field string, values ...string) WhereClause {
 // InInt creates an IN clause for integer values.
 // Returns an empty IN clause if no values are provided (prevents nil panics).
 func InInt(field string, values ...int) WhereClause {
-	if len(values) == 0 {
-		// Return empty IN clause instead of no-op for semantic correctness
-		values = []int{}
-	}
 	return &WhereClauseInts{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -653,10 +645,6 @@ func InInt(field string, values ...int) WhereClause {
 // InFloat creates an IN clause for float values.
 // Returns an empty IN clause if no values are provided (prevents nil panics).
 func InFloat(field string, values ...float32) WhereClause {
-	if len(values) == 0 {
-		// Return empty IN clause instead of no-op for semantic correctness
-		values = []float32{}
-	}
 	return &WhereClauseFloats{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -669,10 +657,6 @@ func InFloat(field string, values ...float32) WhereClause {
 // InBool creates an IN clause for boolean values.
 // Returns an empty IN clause if no values are provided (prevents nil panics).
 func InBool(field string, values ...bool) WhereClause {
-	if len(values) == 0 {
-		// Return empty IN clause instead of no-op for semantic correctness
-		values = []bool{}
-	}
 	return &WhereClauseBools{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -685,10 +669,6 @@ func InBool(field string, values ...bool) WhereClause {
 // NinString creates a NOT IN clause for string values.
 // Returns an empty NOT IN clause if no values are provided (prevents nil panics).
 func NinString(field string, values ...string) WhereClause {
-	if len(values) == 0 {
-		// Return empty NIN clause instead of no-op for semantic correctness
-		values = []string{}
-	}
 	return &WhereClauseStrings{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,
@@ -701,10 +681,6 @@ func NinString(field string, values ...string) WhereClause {
 // NinInt creates a NOT IN clause for integer values.
 // Returns an empty NOT IN clause if no values are provided (prevents nil panics).
 func NinInt(field string, values ...int) WhereClause {
-	if len(values) == 0 {
-		// Return empty NIN clause instead of no-op for semantic correctness
-		values = []int{}
-	}
 	return &WhereClauseInts{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,
@@ -717,10 +693,6 @@ func NinInt(field string, values ...int) WhereClause {
 // NinFloat creates a NOT IN clause for float values.
 // Returns an empty NOT IN clause if no values are provided (prevents nil panics).
 func NinFloat(field string, values ...float32) WhereClause {
-	if len(values) == 0 {
-		// Return empty NIN clause instead of no-op for semantic correctness
-		values = []float32{}
-	}
 	return &WhereClauseFloats{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,
@@ -733,10 +705,6 @@ func NinFloat(field string, values ...float32) WhereClause {
 // NinBool creates a NOT IN clause for boolean values.
 // Returns an empty NOT IN clause if no values are provided (prevents nil panics).
 func NinBool(field string, values ...bool) WhereClause {
-	if len(values) == 0 {
-		// Return empty NIN clause instead of no-op for semantic correctness
-		values = []bool{}
-	}
 	return &WhereClauseBools{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,

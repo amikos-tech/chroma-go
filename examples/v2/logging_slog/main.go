@@ -97,12 +97,15 @@ func textLoggerExample() {
 	collection, err := client.GetOrCreateCollection(
 		ctx,
 		"slog-example-collection",
-		chroma.WithMetadata(
-			func() chroma.CollectionMetadata {
-				meta, _ := chroma.Builder().String("description", "slog example collection").Build()
-				return meta
-			}(),
-		),
+		func() chroma.CreateCollectionOption {
+			meta, err := chroma.Builder().String("description", "slog example collection").Build()
+			if err != nil {
+				logger.Error("Failed to build collection metadata", chromalogger.ErrorField("error", err))
+				emptyMeta := chroma.NewEmptyMetadata()
+				return chroma.WithMetadata(emptyMeta)
+			}
+			return chroma.WithMetadata(meta)
+		}(),
 	)
 	if err != nil {
 		logger.Error("Failed to create collection", chromalogger.ErrorField("error", err))
@@ -287,12 +290,15 @@ func contextExample() {
 	collection, err := client.GetOrCreateCollection(
 		ctx,
 		"context-example",
-		chroma.WithMetadata(
-			func() chroma.CollectionMetadata {
-				meta, _ := chroma.Builder().String("created_with", "context").Build()
-				return meta
-			}(),
-		),
+		func() chroma.CreateCollectionOption {
+			meta, err := chroma.Builder().String("created_with", "context").Build()
+			if err != nil {
+				logger.ErrorWithContext(ctx, "Failed to build collection metadata", chromalogger.ErrorField("error", err))
+				emptyMeta := chroma.NewEmptyMetadata()
+				return chroma.WithMetadata(emptyMeta)
+			}
+			return chroma.WithMetadata(meta)
+		}(),
 	)
 	if err != nil {
 		logger.ErrorWithContext(ctx, "Failed to create collection",

@@ -78,16 +78,25 @@ func main() {
 	err = col.Add(context.Background(),
 		chroma.WithTexts("Hello world", "Goodbye world"),
 		chroma.WithIDs("1", "2"),
-		chroma.WithMetadatas(
-			func() chroma.DocumentMetadata {
-				meta, _ := chroma.DocumentBuilder().String("type", "greeting").Int("priority", 1).Build()
-				return meta
-			}(),
-			func() chroma.DocumentMetadata {
-				meta, _ := chroma.DocumentBuilder().String("type", "farewell").Int("priority", 2).Build()
-				return meta
-			}(),
-		),
+		func() chroma.CollectionAddOption {
+			var metas []chroma.DocumentMetadata
+
+			meta1, err1 := chroma.DocumentBuilder().String("type", "greeting").Int("priority", 1).Build()
+			if err1 != nil {
+				fmt.Printf("Error building metadata 1: %v\n", err1)
+			} else {
+				metas = append(metas, meta1)
+			}
+
+			meta2, err2 := chroma.DocumentBuilder().String("type", "farewell").Int("priority", 2).Build()
+			if err2 != nil {
+				fmt.Printf("Error building metadata 2: %v\n", err2)
+			} else {
+				metas = append(metas, meta2)
+			}
+
+			return chroma.WithMetadatas(metas...)
+		}(),
 	)
 	if err != nil {
 		fmt.Printf("Error adding documents: %s\n", err)

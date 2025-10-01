@@ -59,7 +59,19 @@ func (b *MetadataBuilder) Bool(key string, value bool) *MetadataBuilder {
 	return b
 }
 
-// Build returns the constructed metadata or an error if validation failed
+// Build returns the constructed metadata or an error if validation failed.
+//
+// IMPORTANT: The error return MUST be checked. Ignoring validation errors
+// can lead to silent data loss and runtime failures. Empty keys will cause
+// this method to return an error containing details of all validation failures.
+//
+// Example of proper usage:
+//
+//	meta, err := chroma.Builder().String("key", "value").Build()
+//	if err != nil {
+//		return fmt.Errorf("failed to build metadata: %w", err)
+//	}
+//	// Use meta safely
 func (b *MetadataBuilder) Build() (CollectionMetadata, error) {
 	if len(b.errors) > 0 {
 		return nil, fmt.Errorf("metadata validation failed with %d error(s): %v", len(b.errors), b.errors)
@@ -124,7 +136,19 @@ func (b *DocumentMetadataBuilder) Bool(key string, value bool) *DocumentMetadata
 	return b
 }
 
-// Build returns the constructed document metadata or an error if validation failed
+// Build returns the constructed document metadata or an error if validation failed.
+//
+// IMPORTANT: The error return MUST be checked. Ignoring validation errors
+// can lead to silent data loss and runtime failures. Empty keys will cause
+// this method to return an error containing details of all validation failures.
+//
+// Example of proper usage:
+//
+//	meta, err := chroma.DocumentBuilder().String("key", "value").Build()
+//	if err != nil {
+//		return fmt.Errorf("failed to build document metadata: %w", err)
+//	}
+//	// Use meta safely
 func (b *DocumentMetadataBuilder) Build() (DocumentMetadata, error) {
 	if len(b.errors) > 0 {
 		return nil, fmt.Errorf("document metadata validation failed with %d error(s): %v", len(b.errors), b.errors)
