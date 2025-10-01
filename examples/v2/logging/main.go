@@ -100,7 +100,10 @@ func developmentExample() {
 		ctx,
 		"example-collection",
 		chroma.WithMetadata(
-			chroma.Builder().String("description", "example collection description").Build(),
+			func() chroma.CollectionMetadata {
+				meta, _ := chroma.Builder().String("description", "example collection description").Build()
+				return meta
+			}(),
 		),
 	)
 	if err != nil {

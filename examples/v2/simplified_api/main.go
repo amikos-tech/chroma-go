@@ -33,11 +33,15 @@ func main() {
 	// )
 
 	// Single recommended way (builder pattern)
-	metadata := chroma.Builder().
+	metadata, err := chroma.Builder().
 		String("description", "My collection").
 		Int("version", 1).
 		Float("threshold", 0.8).
 		Build()
+	if err != nil {
+		fmt.Printf("Error building metadata: %v\n", err)
+		return
+	}
 
 	fmt.Printf("Built metadata: %v\n", metadata)
 
@@ -75,8 +79,14 @@ func main() {
 		chroma.WithTexts("Hello world", "Goodbye world"),
 		chroma.WithIDs("1", "2"),
 		chroma.WithMetadatas(
-			chroma.DocumentBuilder().String("type", "greeting").Int("priority", 1).Build(),
-			chroma.DocumentBuilder().String("type", "farewell").Int("priority", 2).Build(),
+			func() chroma.DocumentMetadata {
+				meta, _ := chroma.DocumentBuilder().String("type", "greeting").Int("priority", 1).Build()
+				return meta
+			}(),
+			func() chroma.DocumentMetadata {
+				meta, _ := chroma.DocumentBuilder().String("type", "farewell").Int("priority", 2).Build()
+				return meta
+			}(),
 		),
 	)
 	if err != nil {
@@ -139,12 +149,16 @@ func main() {
 	// Example 7: Document metadata builder
 	fmt.Println("\n=== Example 7: Document Metadata Builder ===")
 
-	docMeta := chroma.DocumentBuilder().
+	docMeta, err := chroma.DocumentBuilder().
 		String("author", "John Doe").
 		Int("year", 2024).
 		Bool("published", true).
 		Float("score", 0.95).
 		Build()
+	if err != nil {
+		fmt.Printf("Error building document metadata: %v\n", err)
+		return
+	}
 
 	fmt.Printf("Built document metadata: %v\n", docMeta)
 
