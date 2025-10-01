@@ -428,7 +428,7 @@ func (w *WhereClauseWhereClauses) Operand() interface{} {
 
 func (w *WhereClauseWhereClauses) Validate() error {
 	if w.operator != OrOperator && w.operator != AndOperator {
-		return errors.New("invalid operator, expected in or nin")
+		return errors.New("invalid operator, expected and or")
 	}
 	return nil
 }
@@ -619,6 +619,9 @@ func LteFloat(field string, value float32) WhereClause {
 }
 
 func InString(field string, values ...string) WhereClause {
+	if len(values) == 0 {
+		return nil
+	}
 	return &WhereClauseStrings{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -629,6 +632,9 @@ func InString(field string, values ...string) WhereClause {
 }
 
 func InInt(field string, values ...int) WhereClause {
+	if len(values) == 0 {
+		return nil
+	}
 	return &WhereClauseInts{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -639,6 +645,9 @@ func InInt(field string, values ...int) WhereClause {
 }
 
 func InFloat(field string, values ...float32) WhereClause {
+	if len(values) == 0 {
+		return nil
+	}
 	return &WhereClauseFloats{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -649,6 +658,9 @@ func InFloat(field string, values ...float32) WhereClause {
 }
 
 func InBool(field string, values ...bool) WhereClause {
+	if len(values) == 0 {
+		return nil
+	}
 	return &WhereClauseBools{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -659,6 +671,9 @@ func InBool(field string, values ...bool) WhereClause {
 }
 
 func NinString(field string, values ...string) WhereClause {
+	if len(values) == 0 {
+		return nil
+	}
 	return &WhereClauseStrings{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,
@@ -669,6 +684,9 @@ func NinString(field string, values ...string) WhereClause {
 }
 
 func NinInt(field string, values ...int) WhereClause {
+	if len(values) == 0 {
+		return nil
+	}
 	return &WhereClauseInts{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,
@@ -679,6 +697,9 @@ func NinInt(field string, values ...int) WhereClause {
 }
 
 func NinFloat(field string, values ...float32) WhereClause {
+	if len(values) == 0 {
+		return nil
+	}
 	return &WhereClauseFloats{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,
@@ -689,6 +710,9 @@ func NinFloat(field string, values ...float32) WhereClause {
 }
 
 func NinBool(field string, values ...bool) WhereClause {
+	if len(values) == 0 {
+		return nil
+	}
 	return &WhereClauseBools{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,

@@ -14,24 +14,36 @@ func Builder() *MetadataBuilder {
 
 // String adds a string value to the metadata
 func (b *MetadataBuilder) String(key, value string) *MetadataBuilder {
+	if key == "" {
+		return b // Skip empty keys
+	}
 	b.metadata.SetString(key, value)
 	return b
 }
 
 // Int adds an integer value to the metadata
 func (b *MetadataBuilder) Int(key string, value int64) *MetadataBuilder {
+	if key == "" {
+		return b // Skip empty keys
+	}
 	b.metadata.SetInt(key, value)
 	return b
 }
 
 // Float adds a float value to the metadata
 func (b *MetadataBuilder) Float(key string, value float64) *MetadataBuilder {
+	if key == "" {
+		return b // Skip empty keys
+	}
 	b.metadata.SetFloat(key, value)
 	return b
 }
 
 // Bool adds a boolean value to the metadata
 func (b *MetadataBuilder) Bool(key string, value bool) *MetadataBuilder {
+	if key == "" {
+		return b // Skip empty keys
+	}
 	b.metadata.SetBool(key, value)
 	return b
 }
@@ -55,24 +67,36 @@ func DocumentBuilder() *DocumentMetadataBuilder {
 
 // String adds a string value to the document metadata
 func (b *DocumentMetadataBuilder) String(key, value string) *DocumentMetadataBuilder {
+	if key == "" {
+		return b // Skip empty keys
+	}
 	b.metadata.SetString(key, value)
 	return b
 }
 
 // Int adds an integer value to the document metadata
 func (b *DocumentMetadataBuilder) Int(key string, value int64) *DocumentMetadataBuilder {
+	if key == "" {
+		return b // Skip empty keys
+	}
 	b.metadata.SetInt(key, value)
 	return b
 }
 
 // Float adds a float value to the document metadata
 func (b *DocumentMetadataBuilder) Float(key string, value float64) *DocumentMetadataBuilder {
+	if key == "" {
+		return b // Skip empty keys
+	}
 	b.metadata.SetFloat(key, value)
 	return b
 }
 
 // Bool adds a boolean value to the document metadata
 func (b *DocumentMetadataBuilder) Bool(key string, value bool) *DocumentMetadataBuilder {
+	if key == "" {
+		return b // Skip empty keys
+	}
 	b.metadata.SetBool(key, value)
 	return b
 }
