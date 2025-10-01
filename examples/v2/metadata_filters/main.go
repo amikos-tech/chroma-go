@@ -60,8 +60,8 @@ func main() {
 		return
 	}
 	fmt.Printf("Count collection: %d\n", count)
-	IntFilter := chroma.Eq("int", 1)
-	StringFilter := chroma.Eq("str1", "hello2")
+	IntFilter := chroma.EqInt("int", 1)
+	StringFilter := chroma.EqString("str1", "hello2")
 	qr, err := col.Query(context.Background(),
 		chroma.WithQueryTexts("say hello"),
 		chroma.WithIncludeQuery(chroma.IncludeDocuments, chroma.IncludeMetadatas),
