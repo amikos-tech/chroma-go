@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	// Demonstrate the simplified V2 API with cleaner naming conventions
+	// Demonstrate the V2 API improvements: builder pattern, cleaner naming, type-safe functions
 
 	// Create client
 	client, err := chroma.NewHTTPClient()
@@ -84,10 +84,10 @@ func main() {
 		return
 	}
 
-	// Example 4: Simplified query with cleaner operators
-	fmt.Println("\n=== Example 4: Simplified Query ===")
+	// Example 4: Type-safe query with type-specific where functions
+	fmt.Println("\n=== Example 4: Type-Safe Query ===")
 
-	// Type-specific function for where clause
+	// Type-specific function ensures compile-time type safety
 	where := chroma.GtInt("priority", 0)
 
 	// Deprecated way (WithNResults was confusing)

@@ -31,24 +31,24 @@ metadata := chroma.Builder().
     Build()
 ```
 
-### 2. Type-Agnostic Where Clauses
+### 2. Type-Safe Where Clauses
 
-**Problem:** Creating where clauses required remembering specific function names for each type.
-
-**Before (Deprecated):**
+**Type-Specific Functions (Required for Type Safety):**
 ```go
-// These type-specific functions are deprecated
+// Use type-specific functions for compile-time safety
 where := chroma.GtInt("priority", 5)
 where2 := chroma.EqString("status", "active")
-where3 := chroma.InFloat("score", []float32{0.8, 0.9})
+where3 := chroma.InFloat("score", 0.8, 0.9, 1.0)
+where4 := chroma.EqBool("enabled", true)
+
+// Logical operators work with any clause type
+combined := chroma.And(
+    chroma.GtInt("priority", 5),
+    chroma.EqString("status", "active"),
+)
 ```
 
-**After (Single Pattern):**
-```go
-where := chroma.Gt("priority", 5)        // Auto-detects int
-where2 := chroma.Eq("status", "active")  // Auto-detects string
-where3 := chroma.In("score", []float32{0.8, 0.9})
-```
+**Note:** Type-specific functions ensure compile-time type safety and prevent runtime errors from type mismatches.
 
 ### 3. Shorter Operator Constants
 
@@ -116,7 +116,7 @@ The following methods have been marked as deprecated with recommendations to use
 
 ### Phase 1: Immediate Benefits (No Breaking Changes)
 1. Use Builder() pattern for metadata creation
-2. Use type-agnostic Where functions (Eq, Gt, Lt, etc.)
+2. Use type-specific Where functions (EqString, GtInt, LtFloat, etc.)
 3. Use shorter operator constants (GT, LTE, etc.)
 4. Use WithLimit instead of WithNResults
 

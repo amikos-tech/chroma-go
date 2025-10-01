@@ -19,6 +19,14 @@ import (
 // CreateSelfSignedCert generates a self-signed certificate and key for testing.
 // Returns an error if certificate generation fails.
 func CreateSelfSignedCert(certPath, keyPath string) error {
+	// Validate input paths
+	if certPath == "" {
+		return fmt.Errorf("certPath cannot be empty")
+	}
+	if keyPath == "" {
+		return fmt.Errorf("keyPath cannot be empty")
+	}
+
 	// Generate a private key
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
