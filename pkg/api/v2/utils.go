@@ -61,13 +61,10 @@ func CreateSelfSignedCert(certPath, keyPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open cert.pem for writing: %w", err)
 	}
+	defer certOut.Close()
 
 	if err := pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		certOut.Close()
 		return fmt.Errorf("failed to write data to cert.pem: %w", err)
-	}
-	if err := certOut.Close(); err != nil {
-		return fmt.Errorf("error closing cert.pem: %w", err)
 	}
 
 	// Write the private key to file
@@ -75,18 +72,14 @@ func CreateSelfSignedCert(certPath, keyPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open key.pem for writing: %w", err)
 	}
+	defer keyOut.Close()
 
 	privBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
-		keyOut.Close()
 		return fmt.Errorf("unable to marshal private key: %w", err)
 	}
 	if err := pem.Encode(keyOut, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes}); err != nil {
-		keyOut.Close()
 		return fmt.Errorf("failed to write data to key.pem: %w", err)
-	}
-	if err := keyOut.Close(); err != nil {
-		return fmt.Errorf("error closing key.pem: %w", err)
 	}
 
 	return nil
