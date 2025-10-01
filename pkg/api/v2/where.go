@@ -428,7 +428,7 @@ func (w *WhereClauseWhereClauses) Operand() interface{} {
 
 func (w *WhereClauseWhereClauses) Validate() error {
 	if w.operator != OrOperator && w.operator != AndOperator {
-		return errors.New("invalid operator, expected and or")
+		return errors.New("invalid operator, expected 'and' or 'or'")
 	}
 	return nil
 }
