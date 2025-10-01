@@ -618,9 +618,11 @@ func LteFloat(field string, value float32) WhereClause {
 	}
 }
 
+// InString creates an IN clause for string values.
+// Returns a no-op clause if no values are provided (prevents nil panics).
 func InString(field string, values ...string) WhereClause {
 	if len(values) == 0 {
-		return nil
+		return &WhereClauseNoOp{}
 	}
 	return &WhereClauseStrings{
 		WhereClauseBase: WhereClauseBase{
@@ -631,9 +633,11 @@ func InString(field string, values ...string) WhereClause {
 	}
 }
 
+// InInt creates an IN clause for integer values.
+// Returns a no-op clause if no values are provided (prevents nil panics).
 func InInt(field string, values ...int) WhereClause {
 	if len(values) == 0 {
-		return nil
+		return &WhereClauseNoOp{}
 	}
 	return &WhereClauseInts{
 		WhereClauseBase: WhereClauseBase{
@@ -644,9 +648,11 @@ func InInt(field string, values ...int) WhereClause {
 	}
 }
 
+// InFloat creates an IN clause for float values.
+// Returns a no-op clause if no values are provided (prevents nil panics).
 func InFloat(field string, values ...float32) WhereClause {
 	if len(values) == 0 {
-		return nil
+		return &WhereClauseNoOp{}
 	}
 	return &WhereClauseFloats{
 		WhereClauseBase: WhereClauseBase{
@@ -657,9 +663,11 @@ func InFloat(field string, values ...float32) WhereClause {
 	}
 }
 
+// InBool creates an IN clause for boolean values.
+// Returns a no-op clause if no values are provided (prevents nil panics).
 func InBool(field string, values ...bool) WhereClause {
 	if len(values) == 0 {
-		return nil
+		return &WhereClauseNoOp{}
 	}
 	return &WhereClauseBools{
 		WhereClauseBase: WhereClauseBase{
@@ -670,9 +678,11 @@ func InBool(field string, values ...bool) WhereClause {
 	}
 }
 
+// NinString creates a NOT IN clause for string values.
+// Returns a no-op clause if no values are provided (prevents nil panics).
 func NinString(field string, values ...string) WhereClause {
 	if len(values) == 0 {
-		return nil
+		return &WhereClauseNoOp{}
 	}
 	return &WhereClauseStrings{
 		WhereClauseBase: WhereClauseBase{
@@ -683,9 +693,11 @@ func NinString(field string, values ...string) WhereClause {
 	}
 }
 
+// NinInt creates a NOT IN clause for integer values.
+// Returns a no-op clause if no values are provided (prevents nil panics).
 func NinInt(field string, values ...int) WhereClause {
 	if len(values) == 0 {
-		return nil
+		return &WhereClauseNoOp{}
 	}
 	return &WhereClauseInts{
 		WhereClauseBase: WhereClauseBase{
@@ -696,9 +708,11 @@ func NinInt(field string, values ...int) WhereClause {
 	}
 }
 
+// NinFloat creates a NOT IN clause for float values.
+// Returns a no-op clause if no values are provided (prevents nil panics).
 func NinFloat(field string, values ...float32) WhereClause {
 	if len(values) == 0 {
-		return nil
+		return &WhereClauseNoOp{}
 	}
 	return &WhereClauseFloats{
 		WhereClauseBase: WhereClauseBase{
@@ -709,9 +723,11 @@ func NinFloat(field string, values ...float32) WhereClause {
 	}
 }
 
+// NinBool creates a NOT IN clause for boolean values.
+// Returns a no-op clause if no values are provided (prevents nil panics).
 func NinBool(field string, values ...bool) WhereClause {
 	if len(values) == 0 {
-		return nil
+		return &WhereClauseNoOp{}
 	}
 	return &WhereClauseBools{
 		WhereClauseBase: WhereClauseBase{
@@ -736,4 +752,27 @@ func And(clauses ...WhereClause) WhereClause {
 		},
 		operand: clauses,
 	}
+}
+
+// WhereClauseNoOp represents a no-op where clause that always validates but never matches
+type WhereClauseNoOp struct {
+	WhereClauseBase
+}
+
+func (w *WhereClauseNoOp) Operand() interface{} {
+	return nil
+}
+
+func (w *WhereClauseNoOp) Validate() error {
+	return nil
+}
+
+func (w *WhereClauseNoOp) MarshalJSON() ([]byte, error) {
+	// Return an impossible condition that will never match
+	return []byte(`{"__never_match__": {"$eq": null}}`), nil
+}
+
+func (w *WhereClauseNoOp) UnmarshalJSON(b []byte) error {
+	// No-op implementation
+	return nil
 }

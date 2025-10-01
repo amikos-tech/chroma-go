@@ -12,7 +12,8 @@ func Builder() *MetadataBuilder {
 	}
 }
 
-// String adds a string value to the metadata
+// String adds a string value to the metadata.
+// Empty keys are silently ignored to maintain fluent interface.
 func (b *MetadataBuilder) String(key, value string) *MetadataBuilder {
 	if key == "" {
 		return b // Skip empty keys
@@ -21,7 +22,8 @@ func (b *MetadataBuilder) String(key, value string) *MetadataBuilder {
 	return b
 }
 
-// Int adds an integer value to the metadata
+// Int adds an integer value to the metadata.
+// Empty keys are silently ignored to maintain fluent interface.
 func (b *MetadataBuilder) Int(key string, value int64) *MetadataBuilder {
 	if key == "" {
 		return b // Skip empty keys
@@ -30,7 +32,8 @@ func (b *MetadataBuilder) Int(key string, value int64) *MetadataBuilder {
 	return b
 }
 
-// Float adds a float value to the metadata
+// Float adds a float value to the metadata.
+// Empty keys are silently ignored to maintain fluent interface.
 func (b *MetadataBuilder) Float(key string, value float64) *MetadataBuilder {
 	if key == "" {
 		return b // Skip empty keys
@@ -39,7 +42,8 @@ func (b *MetadataBuilder) Float(key string, value float64) *MetadataBuilder {
 	return b
 }
 
-// Bool adds a boolean value to the metadata
+// Bool adds a boolean value to the metadata.
+// Empty keys are silently ignored to maintain fluent interface.
 func (b *MetadataBuilder) Bool(key string, value bool) *MetadataBuilder {
 	if key == "" {
 		return b // Skip empty keys
@@ -65,7 +69,8 @@ func DocumentBuilder() *DocumentMetadataBuilder {
 	}
 }
 
-// String adds a string value to the document metadata
+// String adds a string value to the document metadata.
+// Empty keys are silently ignored to maintain fluent interface.
 func (b *DocumentMetadataBuilder) String(key, value string) *DocumentMetadataBuilder {
 	if key == "" {
 		return b // Skip empty keys
@@ -74,7 +79,8 @@ func (b *DocumentMetadataBuilder) String(key, value string) *DocumentMetadataBui
 	return b
 }
 
-// Int adds an integer value to the document metadata
+// Int adds an integer value to the document metadata.
+// Empty keys are silently ignored to maintain fluent interface.
 func (b *DocumentMetadataBuilder) Int(key string, value int64) *DocumentMetadataBuilder {
 	if key == "" {
 		return b // Skip empty keys
@@ -83,7 +89,8 @@ func (b *DocumentMetadataBuilder) Int(key string, value int64) *DocumentMetadata
 	return b
 }
 
-// Float adds a float value to the document metadata
+// Float adds a float value to the document metadata.
+// Empty keys are silently ignored to maintain fluent interface.
 func (b *DocumentMetadataBuilder) Float(key string, value float64) *DocumentMetadataBuilder {
 	if key == "" {
 		return b // Skip empty keys
@@ -92,7 +99,8 @@ func (b *DocumentMetadataBuilder) Float(key string, value float64) *DocumentMeta
 	return b
 }
 
-// Bool adds a boolean value to the document metadata
+// Bool adds a boolean value to the document metadata.
+// Empty keys are silently ignored to maintain fluent interface.
 func (b *DocumentMetadataBuilder) Bool(key string, value bool) *DocumentMetadataBuilder {
 	if key == "" {
 		return b // Skip empty keys
