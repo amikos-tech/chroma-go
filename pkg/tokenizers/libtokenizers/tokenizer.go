@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	puretokenizers "github.com/amikos-tech/pure-tokenizers"
+	"github.com/pkg/errors"
 )
 
 // Tokenizer wraps pure-tokenizers with backward-compatible API
@@ -125,6 +126,11 @@ func FromBytes(data []byte, opts ...TokenizerOption) (*Tokenizer, error) {
 
 // FromBytesWithTruncation creates a tokenizer with truncation settings
 func FromBytesWithTruncation(data []byte, maxLen uint32, dir TruncationDirection) (*Tokenizer, error) {
+	// Validate maxLen to prevent overflow on 32-bit systems
+	if maxLen == 0 {
+		return nil, errors.New("maxLen must be greater than 0")
+	}
+
 	var truncDir puretokenizers.TruncationDirection
 	if dir == TruncationDirectionLeft {
 		truncDir = puretokenizers.TruncationDirectionLeft
@@ -171,6 +177,10 @@ func (t *Tokenizer) Close() error {
 
 // Encode tokenizes text with simple options
 func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []string, error) {
+	if t.tokenizer == nil {
+		return nil, nil, errors.New("tokenizer is not initialized")
+	}
+
 	// Use OR logic: if either tokenizer default OR parameter is true, add special tokens
 	shouldAddSpecial := addSpecialTokens || t.defaultAddSpecialTokens
 
@@ -190,6 +200,10 @@ func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []strin
 
 // EncodeWithOptions tokenizes text with full control over encoding options
 func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ...EncodeOption) (Encoding, error) {
+	if t.tokenizer == nil {
+		return Encoding{}, errors.New("tokenizer is not initialized")
+	}
+
 	// Use OR logic: if either tokenizer default OR parameter is true, add special tokens
 	shouldAddSpecial := addSpecialTokens || t.defaultAddSpecialTokens
 
@@ -253,10 +267,16 @@ func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ..
 
 // Decode converts token IDs back to text
 func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) (string, error) {
+	if t.tokenizer == nil {
+		return "", errors.New("tokenizer is not initialized")
+	}
 	return t.tokenizer.Decode(tokenIDs, skipSpecialTokens)
 }
 
 // VocabSize returns the vocabulary size
 func (t *Tokenizer) VocabSize() (uint32, error) {
+	if t.tokenizer == nil {
+		return 0, errors.New("tokenizer is not initialized")
+	}
 	return t.tokenizer.VocabSize()
 }
