@@ -35,21 +35,13 @@ var (
 func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
 	initLock.Lock()
 	defer initLock.Unlock()
-	err := EnsureLibTokenizersSharedLibrary()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to ensure lib tokenizers")
-	}
-	err = EnsureOnnxRuntimeSharedLibrary()
+	err := EnsureOnnxRuntimeSharedLibrary()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to ensure onnx runtime shared library")
 	}
 	err = EnsureDefaultEmbeddingFunctionModel()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to ensure default embedding function model")
-	}
-	err = tokenizers.LoadLibrary(libTokenizersLibPath)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to load libtokenizers shared library")
 	}
 	updatedConfigBytes, err := updateConfig(onnxModelTokenizerConfigPath)
 	if err != nil {
