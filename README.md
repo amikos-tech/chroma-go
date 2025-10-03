@@ -20,28 +20,28 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/)
 
 ## Feature Parity with ChromaDB API
 
-| Operation                            | V1 support | V2 support |
-|--------------------------------------|------------|------------|
-| Create Tenant                        | ✅          | ✅          |
-| Get Tenant                           | ✅          | ✅          |
-| Create Database                      | ✅          | ✅          |
-| Get Database                         | ✅          | ✅          |
-| Delete Database                      | ❌          | ✅          |
-| Reset                                | ✅          | ✅          |
-| Heartbeat                            | ✅          | ✅          |
-| List Collections                     | ✅          | ✅          |
-| Count Collections                    | ✅          | ✅          |
-| Get Version                          | ✅          | ✅          |
-| Create Collection                    | ✅          | ✅          |
-| Delete Collection                    | ✅          | ✅          |
-| Collection Add                       | ✅          | ✅          |
-| Collection Get                       | ✅          | ✅          |
-| Collection Count                     | ✅          | ✅          |
-| Collection Query                     | ✅          | ✅          |
-| Collection Update                    | ✅          | ✅          |
-| Collection Upsert                    | ✅          | ✅          |
-| Collection Delete (delete documents) | ✅          | ✅          |
-| Modify  Collection                   | ✅          | ⚒️ partial |
+| Operation                            | Support    |
+|--------------------------------------|------------|
+| Create Tenant                        | ✅          |
+| Get Tenant                           | ✅          |
+| Create Database                      | ✅          |
+| Get Database                         | ✅          |
+| Delete Database                      | ✅          |
+| Reset                                | ✅          |
+| Heartbeat                            | ✅          |
+| List Collections                     | ✅          |
+| Count Collections                    | ✅          |
+| Get Version                          | ✅          |
+| Create Collection                    | ✅          |
+| Delete Collection                    | ✅          |
+| Collection Add                       | ✅          |
+| Collection Get                       | ✅          |
+| Collection Count                     | ✅          |
+| Collection Query                     | ✅          |
+| Collection Update                    | ✅          |
+| Collection Upsert                    | ✅          |
+| Collection Delete (delete documents) | ✅          |
+| Modify  Collection                   | ⚒️ partial |
 
 Additional support features:
 
@@ -49,7 +49,7 @@ Additional support features:
   X-Chroma-Token header)
 - ✅ [Private PKI and self-signed certificate support](https://go-client.chromadb.dev/client/)
 - ✅ Chroma Cloud support
-- 🔥✅ [Structured Logging](https://go-client.chromadb.dev/logging/) (V2 API only) - Injectable logger with Zap bridge for structured logging
+- 🔥✅ [Structured Logging](https://go-client.chromadb.dev/logging/) - Injectable logger with Zap bridge for structured logging
 - ⚒️ Persistent Embedding Function support (coming soon) - automatically load embedding function from Chroma collection
   configuration
 - ⚒️ Persistent Client support (coming soon) - Run/embed full-featured Chroma in your go application without the need
@@ -75,14 +75,6 @@ Additional support features:
 - ✅ [Nomic AI Embedding](https://go-client.chromadb.dev/embeddings/#nomic-ai) Support
 - ✅ [Jina AI Embedding](https://go-client.chromadb.dev/embeddings/#jina-ai) Support
 
-## Reranking Functions
-
-From release `0.2.0` the Chroma Go client also supports Reranking functions. The following are supported:
-
-- ✅ [Cohere](https://go-client.chromadb.dev/rerankers/#cohere-reranker)
-- ✅ [Jina AI](https://go-client.chromadb.dev/rerankers/#jina-ai-reranker)
-- ✅ [HuggingFace Embedding Inference Server Reranker](https://go-client.chromadb.dev/rerankers/#hfei-Reranker)
-- More coming soon...
 
 ## Installation
 
@@ -97,11 +89,11 @@ From release `0.2.0` the Chroma Go client also supports Reranking functions. The
 go get github.com/amikos-tech/chroma-go
 ```
 
-Import `v1`:
+Import:
 
 ```go
 import (
-chroma "github.com/amikos-tech/chroma-go"
+	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
 )
 ```
 
@@ -126,7 +118,7 @@ helm install chroma chroma/chromadb --set chromadb.allowReset=true,chromadb.apiV
 > [!NOTE]
 > To delete the minikube cluster: `minikube delete --profile chromago`
 
-### Getting Started (Chroma API v2)
+### Getting Started
 
 - We create a new collection
 - Add documents using the default embedding function
@@ -208,7 +200,7 @@ func main() {
 }
 ```
 
-### Structured Logging (V2 API)
+### Structured Logging
 
 The V2 API client supports injectable loggers for structured logging. Here's a quick example using Zap:
 
@@ -274,22 +266,8 @@ make build
 
 ### Test
 
-**V1 API:**
-
 ```bash
 make test
-```
-
-**V2 API:**
-
-```bash
-make test-v2
-```
-
-### Generate ChromaDB API Client (only for v1)
-
-```bash
-make generate 
 ```
 
 ### Lint

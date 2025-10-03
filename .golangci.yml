@@ -39,7 +39,6 @@ linters:
       - third_party$
       - builtin$
       - examples$
-      - ./swagger
 issues:
   max-same-issues: 0
 formatters:
