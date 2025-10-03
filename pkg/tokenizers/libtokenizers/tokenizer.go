@@ -192,7 +192,7 @@ func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []strin
 
 	result, err := t.tokenizer.Encode(str, opts...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "failed to encode text")
 	}
 
 	return result.IDs, result.Tokens, nil
@@ -236,7 +236,7 @@ func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ..
 
 	result, err := t.tokenizer.Encode(str, pureOpts...)
 	if err != nil {
-		return Encoding{}, err
+		return Encoding{}, errors.Wrap(err, "failed to encode text")
 	}
 
 	// Convert pure-tokenizers result to our Encoding type
