@@ -126,9 +126,14 @@ func FromBytes(data []byte, opts ...TokenizerOption) (*Tokenizer, error) {
 
 // FromBytesWithTruncation creates a tokenizer with truncation settings
 func FromBytesWithTruncation(data []byte, maxLen uint32, dir TruncationDirection) (*Tokenizer, error) {
-	// Validate maxLen to prevent overflow on 32-bit systems
+	// Validate maxLen bounds
 	if maxLen == 0 {
 		return nil, errors.New("maxLen must be greater than 0")
+	}
+	// Reasonable upper bound for tokenization (1M tokens should be more than enough)
+	// This prevents issues with underlying library and nonsensical values
+	if maxLen > 1_000_000 {
+		return nil, errors.New("maxLen exceeds maximum allowed value of 1,000,000")
 	}
 
 	var truncDir puretokenizers.TruncationDirection
