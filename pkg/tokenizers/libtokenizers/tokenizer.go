@@ -1,12 +1,15 @@
 package tokenizers
 
 import (
+	"fmt"
+
 	puretokenizers "github.com/amikos-tech/pure-tokenizers"
 )
 
 // Tokenizer wraps pure-tokenizers with backward-compatible API
 type Tokenizer struct {
-	tokenizer *puretokenizers.Tokenizer
+	tokenizer               *puretokenizers.Tokenizer
+	defaultAddSpecialTokens bool
 }
 
 // Offset represents a character offset range [start, end]
@@ -108,15 +111,16 @@ func FromBytes(data []byte, opts ...TokenizerOption) (*Tokenizer, error) {
 	}
 
 	var pureOpts []puretokenizers.TokenizerOption
-	// Note: encodeSpecialTokens from old API is not used
-	// This is handled per-encode call with WithAddSpecialTokens
 
 	tk, err := puretokenizers.FromBytes(data, pureOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Tokenizer{tokenizer: tk}, nil
+	return &Tokenizer{
+		tokenizer:               tk,
+		defaultAddSpecialTokens: allOpts.encodeSpecialTokens,
+	}, nil
 }
 
 // FromBytesWithTruncation creates a tokenizer with truncation settings
@@ -139,7 +143,10 @@ func FromBytesWithTruncation(data []byte, maxLen uint32, dir TruncationDirection
 		return nil, err
 	}
 
-	return &Tokenizer{tokenizer: tk}, nil
+	return &Tokenizer{
+		tokenizer:               tk,
+		defaultAddSpecialTokens: false,
+	}, nil
 }
 
 // FromFile creates a tokenizer from a file path
@@ -148,7 +155,10 @@ func FromFile(path string) (*Tokenizer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tokenizer{tokenizer: tk}, nil
+	return &Tokenizer{
+		tokenizer:               tk,
+		defaultAddSpecialTokens: false,
+	}, nil
 }
 
 // Close closes the tokenizer and frees resources
@@ -161,8 +171,11 @@ func (t *Tokenizer) Close() error {
 
 // Encode tokenizes text with simple options
 func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []string, error) {
+	// Use OR logic: if either tokenizer default OR parameter is true, add special tokens
+	shouldAddSpecial := addSpecialTokens || t.defaultAddSpecialTokens
+
 	var opts []puretokenizers.EncodeOption
-	if addSpecialTokens {
+	if shouldAddSpecial {
 		opts = append(opts, puretokenizers.WithAddSpecialTokens())
 	}
 	opts = append(opts, puretokenizers.WithReturnTokens())
@@ -177,8 +190,11 @@ func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []strin
 
 // EncodeWithOptions tokenizes text with full control over encoding options
 func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ...EncodeOption) (Encoding, error) {
+	// Use OR logic: if either tokenizer default OR parameter is true, add special tokens
+	shouldAddSpecial := addSpecialTokens || t.defaultAddSpecialTokens
+
 	encOptions := &encodeOpts{
-		AddSpecialTokens: addSpecialTokens,
+		AddSpecialTokens: shouldAddSpecial,
 	}
 	for _, opt := range opts {
 		opt(encOptions)
@@ -220,6 +236,9 @@ func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ..
 
 	// Convert flattened offsets to array of [2]uint
 	if len(result.Offsets) > 0 {
+		if len(result.Offsets)%2 != 0 {
+			return Encoding{}, fmt.Errorf("malformed offset data: expected even length, got %d", len(result.Offsets))
+		}
 		encoding.Offsets = make([]Offset, len(result.Offsets)/2)
 		for i := 0; i < len(result.Offsets)/2; i++ {
 			encoding.Offsets[i] = Offset{
