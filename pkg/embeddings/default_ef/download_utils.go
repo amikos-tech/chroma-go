@@ -20,8 +20,6 @@ var libCacheDir = filepath.Join(os.Getenv("HOME"), ChromaCacheDir)
 var onnxCacheDir = filepath.Join(libCacheDir, "shared", "onnxruntime")
 var onnxLibPath = filepath.Join(onnxCacheDir, "libonnxruntime."+LibOnnxRuntimeVersion+"."+getExtensionForOs())
 
-var libTokenizersCacheDir = filepath.Join(libCacheDir, "shared", "libtokenizers")
-var libTokenizersLibPath = filepath.Join(libTokenizersCacheDir, "libtokenizers."+getExtensionForOs())
 var onnxModelsCachePath = filepath.Join(libCacheDir, "onnx_models")
 var onnxModelCachePath = filepath.Join(onnxModelsCachePath, "all-MiniLM-L6-v2/onnx")
 var onnxModelPath = filepath.Join(onnxModelCachePath, "model.onnx")
@@ -332,53 +330,6 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 	}
 
 	return onnxInitErr
-}
-
-func EnsureLibTokenizersSharedLibrary() error {
-	lockFile, err := lockFile(libTokenizersCacheDir)
-	if err != nil {
-		return errors.Wrap(err, "failed to acquire lock for onnx download")
-	}
-	defer func() {
-		_ = unlockFile(lockFile)
-	}()
-
-	cos, carch := getOSAndArch()
-	downloadAndExtractNeeded := false
-	if _, err := os.Stat(libTokenizersLibPath); os.IsNotExist(err) {
-		downloadAndExtractNeeded = true
-		if err := os.MkdirAll(libTokenizersCacheDir, 0755); err != nil {
-			return errors.Wrap(err, "failed to create libtokenizers cache")
-		}
-	}
-	if !downloadAndExtractNeeded {
-		return nil
-	}
-	targetArchive := filepath.Join(libTokenizersCacheDir, "libtokenizers."+cos+"-"+carch+".tar.gz")
-	if _, err := os.Stat(libTokenizersLibPath); os.IsNotExist(err) {
-		// Download the library
-		url := "https://github.com/amikos-tech/tokenizers/releases/download/v" + LibTokenizersVersion + "/libtokenizers." + cos + "-" + carch + ".tar.gz"
-
-		// fmt.Println("Downloading libtokenizers from GitHub...")
-		// TODO integrity check
-		if _, err := os.Stat(targetArchive); os.IsNotExist(err) {
-			if err := downloadFile(targetArchive, url); err != nil {
-				return errors.Wrap(err, "failed to download libtokenizers.tar.gz")
-			}
-		}
-	}
-	targetFile := "libtokenizers." + getExtensionForOs()
-	// fmt.Println("Extracting libtokenizers shared library..." + onnxLibPath)
-	if err := extractSpecificFile(targetArchive, targetFile, libTokenizersCacheDir); err != nil {
-		// fmt.Println("Error:", err)
-		return errors.Wrapf(err, "could not extract libtokenizers shared library")
-	}
-
-	err = os.RemoveAll(targetArchive)
-	if err != nil {
-		return errors.Wrapf(err, "could not remove temporary archive: %s", targetArchive)
-	}
-	return nil
 }
 
 func EnsureDefaultEmbeddingFunctionModel() error {

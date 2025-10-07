@@ -88,6 +88,7 @@ jobs:
       run: make test
       env:
         CHROMA_VERSION: ${{ matrix.chroma-version }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Upload Test Results
       uses: actions/upload-artifact@v4
       if: always()
@@ -194,6 +195,7 @@ jobs:
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           NOMIC_API_KEY: ${{ secrets.NOMIC_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()

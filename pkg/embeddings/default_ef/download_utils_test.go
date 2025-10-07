@@ -18,13 +18,6 @@ func TestDownload(t *testing.T) {
 		err = EnsureOnnxRuntimeSharedLibrary()
 		require.NoError(t, err)
 	})
-	t.Run("Download Tokenizers", func(t *testing.T) {
-		libCacheDir = filepath.Join(t.TempDir(), "lib_cache")
-		err := os.RemoveAll(libTokenizersLibPath)
-		require.NoError(t, err)
-		err = EnsureLibTokenizersSharedLibrary()
-		require.NoError(t, err)
-	})
 	t.Run("Download Model", func(t *testing.T) {
 		libCacheDir = filepath.Join(t.TempDir(), "lib_cache")
 		err := os.RemoveAll(onnxModelCachePath)
