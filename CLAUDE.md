@@ -125,3 +125,4 @@ Integration tests use `testcontainers-go` for Docker-based testing against real 
 ### Version Compatibility
 The client is tested against Chroma versions 0.4.8 to 1.1.0. Ensure changes maintain compatibility across this range.
 - Always lint before commiting or pushing code
+- use make lint-fix over make lint as the former will also fix linting problems at the same time

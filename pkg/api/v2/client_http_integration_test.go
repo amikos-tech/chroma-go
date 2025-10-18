@@ -721,7 +721,9 @@ func TestClientHTTPIntegrationWithSSL(t *testing.T) {
 		}
 	}
 
-	CreateSelfSignedCert(certPath, keyPath)
+	if err := CreateSelfSignedCert(certPath, keyPath); err != nil {
+		t.Fatalf("Failed to create self-signed cert: %v", err)
+	}
 	chromaContainer, err := tcchroma.Run(ctx,
 		fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
 		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
