@@ -63,6 +63,22 @@ func main() {
 }
 ```
 
+### ONNX Runtime Configuration
+
+The ONNX Runtime library can be customized using environment variables:
+
+- `CHROMAGO_ONNX_RUNTIME_PATH` - Absolute path to a custom ONNX Runtime library file (e.g., `/usr/local/lib/libonnxruntime.1.23.2.dylib`). When set, skips auto-download.
+- `CHROMAGO_ONNX_RUNTIME_VERSION` - Version of ONNX Runtime to download (default: `1.22.0`). Only used when `CHROMAGO_ONNX_RUNTIME_PATH` is not set.
+
+Example:
+```bash
+# Use a specific version
+export CHROMAGO_ONNX_RUNTIME_VERSION=1.23.0
+
+# Or point to a manually downloaded library
+export CHROMAGO_ONNX_RUNTIME_PATH=/usr/local/lib/libonnxruntime.1.23.2.dylib
+```
+
 ## OpenAI
 
 Supported Embedding Function Options:

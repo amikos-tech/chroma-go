@@ -4,6 +4,7 @@ go 1.24
 
 require (
 	github.com/Masterminds/semver v1.5.0
+	github.com/amikos-tech/pure-tokenizers v0.1.1
 	github.com/docker/docker v28.0.1+incompatible
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/go-viper/mapstructure/v2 v2.4.0
@@ -17,7 +18,8 @@ require (
 	github.com/testcontainers/testcontainers-go v0.36.0
 	github.com/testcontainers/testcontainers-go/modules/chroma v0.36.0
 	github.com/testcontainers/testcontainers-go/modules/ollama v0.36.0
-	github.com/yalue/onnxruntime_go v1.19.0
+	github.com/yalue/onnxruntime_go v1.22.0
+	go.uber.org/zap v1.27.0
 	google.golang.org/api v0.186.0
 )
 
@@ -32,7 +34,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/amikos-tech/pure-tokenizers v0.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v1.0.0-rc.1 // indirect
@@ -86,7 +87,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect

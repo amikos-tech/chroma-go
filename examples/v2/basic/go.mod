@@ -11,5 +11,5 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/yalue/onnxruntime_go v1.19.0 // indirect
+	github.com/yalue/onnxruntime_go v1.22.0 // indirect
 )

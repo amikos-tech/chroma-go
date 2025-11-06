@@ -33,6 +33,8 @@ var (
 )
 
 func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
+	cfg := getConfig()
+
 	initLock.Lock()
 	defer initLock.Unlock()
 	err := EnsureOnnxRuntimeSharedLibrary()
@@ -43,7 +45,7 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to ensure default embedding function model")
 	}
-	updatedConfigBytes, err := updateConfig(onnxModelTokenizerConfigPath)
+	updatedConfigBytes, err := updateConfig(cfg.OnnxModelTokenizerConfigPath)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to update tokenizer config")
 	}
@@ -53,7 +55,7 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 	}
 	ef := &DefaultEmbeddingFunction{tokenizer: tk}
 	if !ort.IsInitialized() {
-		ort.SetSharedLibraryPath(onnxLibPath)
+		ort.SetSharedLibraryPath(cfg.OnnxLibPath)
 		err = ort.InitializeEnvironment()
 		if err != nil {
 			errc := ef.Close()
@@ -154,6 +156,8 @@ func (e *DefaultEmbeddingFunction) tokenize(documents []string) (*EmbeddingInput
 }
 
 func (e *DefaultEmbeddingFunction) encode(embeddingInput *EmbeddingInput) ([]embeddings.Embedding, error) {
+	cfg := getConfig()
+
 	outputShape := ort.NewShape(append(*embeddingInput.shape, 384)...)
 	shapeInt32 := make([]int, len(outputShape))
 
@@ -170,7 +174,7 @@ func (e *DefaultEmbeddingFunction) encode(embeddingInput *EmbeddingInput) ([]emb
 			fmt.Printf("potential memory leak. Failed to destory outputTensor %v", err)
 		}
 	}(outputTensor)
-	session, err := ort.NewAdvancedSession(onnxModelPath,
+	session, err := ort.NewAdvancedSession(cfg.OnnxModelPath,
 		[]string{"input_ids", "attention_mask", "token_type_ids"}, []string{"last_hidden_state"},
 		[]ort.Value{embeddingInput.inputTensor, embeddingInput.attentionTensor, embeddingInput.typeIDSTensor}, []ort.Value{outputTensor}, nil)
 	if err != nil {

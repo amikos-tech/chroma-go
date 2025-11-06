@@ -34,6 +34,8 @@ The codebase heavily relies on environment variables for configuration:
 - `CHROMA_CLOUD_HOST` - Cloud host
 - `CHROMA_CLOUD_TENANT` - Cloud tenant ID
 - `CHROMA_CLOUD_DATABASE` - Cloud database ID
+- `CHROMAGO_ONNX_RUNTIME_PATH` - Absolute path to ONNX Runtime library file (overrides auto-download)
+- `CHROMAGO_ONNX_RUNTIME_VERSION` - ONNX Runtime version for auto-download (default: 1.22.0)
 
 ## Architecture
 
