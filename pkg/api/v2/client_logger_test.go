@@ -1,4 +1,4 @@
-// +build basicv2
+//go:build basicv2
 
 package v2
 
