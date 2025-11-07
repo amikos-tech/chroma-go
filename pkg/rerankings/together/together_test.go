@@ -123,7 +123,7 @@ func TestRerank(t *testing.T) {
 		{
 			name: "Test Rerank With Different Model",
 			rankingFunction: func() *TogetherRerankingFunction {
-				rf, err := NewTogetherRerankingFunction(WithEnvAPIKey(), WithModel("mixedbread-ai/mxbai-rerank-large-v1"))
+				rf, err := NewTogetherRerankingFunction(WithEnvAPIKey(), WithModel("mixedbread-ai/Mxbai-Rerank-Large-V2"))
 				require.NoError(t, err, "Failed to create TogetherRerankingFunction")
 				return rf
 			},
