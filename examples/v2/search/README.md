@@ -2,6 +2,10 @@
 
 This directory contains examples demonstrating the Search API's advanced querying capabilities.
 
+> **⚠️ IMPORTANT**: The Search API requires **Chroma Cloud** or **Chroma Server v1.3.0+** with search API support.
+> These examples will **NOT work** with older local Chroma servers. If you're running a local single-node Chroma instance,
+> use the Query API examples instead.
+
 > **Official Documentation**: For the upstream Chroma Search API documentation, see:
 > - [Search API Overview](https://docs.trychroma.com/cloud/search-api/overview)
 > - [Search API Guide](https://docs.trychroma.com/guides/search)
@@ -9,7 +13,7 @@ This directory contains examples demonstrating the Search API's advanced queryin
 ## Prerequisites
 
 1. Go 1.21 or higher
-2. Running Chroma server (default: `http://localhost:8000`)
+2. **Chroma Cloud account** OR **Chroma Server v1.3.0+** with search API enabled
 
 Start a local Chroma server:
 ```bash
@@ -197,6 +201,15 @@ For complete API documentation, see:
 
 ## Troubleshooting
 
+**"search API endpoint not found" error:**
+```
+This means your Chroma server doesn't support the Search API.
+Solutions:
+1. Use Chroma Cloud instead
+2. Upgrade to Chroma Server v1.3.0+ with search support
+3. Use the Query API for local single-node deployments
+```
+
 **Connection refused:**
 ```
 Make sure Chroma server is running on http://localhost:8000
@@ -211,6 +224,7 @@ go mod tidy
 - Check that documents were added successfully
 - Try broader queries or higher K values
 - Verify filters aren't too restrictive
+- Ensure you're using a compatible Chroma server
 
 ## Next Steps
 

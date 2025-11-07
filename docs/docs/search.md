@@ -5,6 +5,15 @@ The Search API provides advanced querying capabilities with flexible ranking exp
 !!! info "API Version"
     The Search API is available in the V2 API (`github.com/amikos-tech/chroma-go/pkg/api/v2`).
 
+!!! warning "Chroma Cloud / Server Requirement"
+    **The Search API requires Chroma Cloud or a Chroma server with search API support (v1.3.0+).**
+
+    - ✅ **Chroma Cloud**: Fully supported
+    - ✅ **Chroma Server v1.3.0+**: Supported with search API enabled
+    - ❌ **Local single-node Chroma (< v1.3.0)**: Not supported - use the [Query API](client.md) instead
+
+    If you try to use Search API with an unsupported server, you'll get a clear error message directing you to use Query API.
+
 !!! info "Official Documentation"
     This is a Go implementation of Chroma's Search API. For the official Chroma documentation, see:
 
@@ -503,10 +512,26 @@ if err != nil {
 
 Current limitations (may be addressed in future versions):
 
-1. **Single Search per Request**: API supports multiple searches in request format, but current implementation sends one at a time
-2. **No Direct Scalar Multiplication**: Use repeated operations or RRF for weighting
-3. **Embedding Required**: Query texts must be embedded using collection's embedding function
-4. **Server Version**: Requires Chroma server 1.1.0+ with search endpoint support
+1. **Chroma Cloud / Server v1.3.0+ Required**: Search API is not available on older Chroma servers or local single-node deployments without search support
+2. **Single Search per Request**: API supports multiple searches in request format, but current implementation sends one at a time
+3. **No Direct Scalar Multiplication**: Use repeated operations or RRF for weighting
+4. **Embedding Required**: Query texts must be embedded using collection's embedding function
+
+### Checking Server Support
+
+If you're unsure whether your Chroma server supports the Search API:
+
+```go
+// Try to use Search API
+results, err := collection.Search(ctx, opts...)
+if err != nil {
+    if strings.Contains(err.Error(), "search API endpoint not found") {
+        // Fall back to Query API
+        log.Println("Search API not supported, using Query API instead")
+        results, err := collection.Query(ctx, queryOpts...)
+    }
+}
+```
 
 ## Examples
 

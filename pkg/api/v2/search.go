@@ -9,6 +9,21 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
+// Search API Implementation
+//
+// IMPORTANT: The Search API requires Chroma Cloud or a Chroma server with search API support (v1.3.0+).
+// This feature is NOT available on older local single-node Chroma deployments.
+//
+// If you try to use the Search API with an unsupported server, you will receive an error message
+// directing you to use the Query API instead.
+//
+// Supported environments:
+//   - Chroma Cloud (fully supported)
+//   - Chroma Server v1.3.0+ with search API enabled
+//   - NOT supported on local single-node Chroma < v1.3.0
+//
+// For more information, see: https://docs.trychroma.com/cloud/search-api/overview
+
 // SelectKey represents a field key that can be selected in search results.
 // These include both metadata fields and special system fields.
 type SelectKey string

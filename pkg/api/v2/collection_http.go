@@ -355,6 +355,10 @@ func (c *CollectionImpl) Search(ctx context.Context, opts ...CollectionSearchOpt
 	}
 	respBody, err := c.client.ExecuteRequest(ctx, http.MethodPost, reqURL, searchesPayload)
 	if err != nil {
+		// Check if this is a 404 error, which likely means the endpoint is not supported
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+			return nil, errors.New("search API endpoint not found - this feature requires Chroma Cloud or a Chroma server with search API support (v1.3.0+). For local single-node deployments, use the Query API instead. See: https://docs.trychroma.com/cloud/search-api/overview")
+		}
 		return nil, errors.Wrap(err, "error sending search request")
 	}
 	searchResult := &SearchResultImpl{}
