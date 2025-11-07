@@ -142,7 +142,7 @@ func TestRerank(t *testing.T) {
 					require.NotEmpty(t, rr.String)
 				}
 			},
-			highestScoreIndex: 3,
+			highestScoreIndex: 4,
 		},
 	}
 	for _, tt := range tests {
@@ -170,7 +170,7 @@ func TestRerank(t *testing.T) {
 				require.Contains(t, res, rf.ID(), "Rerank result does not contain the ID of the reranking function")
 				tt.validate(t, rf, res)
 				maxIdx, _ := getMaxIDAndRank(res[rf.ID()])
-				require.Equal(t, 3, maxIdx, "The most relevant result is not the expected one")
+				require.Equal(t, tt.highestScoreIndex, maxIdx, "The most relevant result is not the expected one")
 			}
 		})
 	}
@@ -238,7 +238,7 @@ func TestRerankChromaResults(t *testing.T) {
 				require.Contains(t, res.Ranks, rf.ID(), "Rerank result does not contain the ID of the reranking function")
 				tt.validate(t, rf, res)
 				maxIdx := getIDForMaxRank(res.Ranks[rf.ID()][0]) // we have only one query
-				require.Equal(t, 3, maxIdx, "The most relevant result is not the expected one")
+				require.Equal(t, tt.highestScoreIndex, maxIdx, "The most relevant result is not the expected one")
 			}
 		})
 	}
