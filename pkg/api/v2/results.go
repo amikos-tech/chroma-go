@@ -152,7 +152,7 @@ func (r *GetResultImpl) UnmarshalJSON(data []byte) error {
 func (r *GetResultImpl) String() string {
 	b, err := json.Marshal(r)
 	if err != nil {
-		return ""
+		return "<error marshaling: " + err.Error() + ">"
 	}
 	return string(b)
 }
@@ -270,15 +270,15 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 							metadata = append(metadata, nil)
 							continue
 						}
-						switch val := metadataItem.(type) {
+						switch metaVal := metadataItem.(type) {
 						case map[string]interface{}:
-							metav, err := NewDocumentMetadataFromMap(val)
+							metav, err := NewDocumentMetadataFromMap(metaVal)
 							if err != nil {
 								return errors.Errorf("invalid metadata: %v", err)
 							}
 							metadata = append(metadata, metav)
 						default:
-							return errors.Errorf("invalid metadata type: %T for %v", val, metadataItem)
+							return errors.Errorf("invalid metadata type: %T for %v", metaVal, metadataItem)
 						}
 					}
 					r.MetadatasLists = append(r.MetadatasLists, metadata)
@@ -357,7 +357,7 @@ func (r *QueryResultImpl) UnmarshalJSON(data []byte) error {
 func (r *QueryResultImpl) String() string {
 	b, err := json.Marshal(r)
 	if err != nil {
-		return ""
+		return "<error marshaling: " + err.Error() + ">"
 	}
 	return string(b)
 }
@@ -490,15 +490,15 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 							metadata = append(metadata, nil)
 							continue
 						}
-						switch val := metadataItem.(type) {
+						switch metaVal := metadataItem.(type) {
 						case map[string]interface{}:
-							metav, err := NewDocumentMetadataFromMap(val)
+							metav, err := NewDocumentMetadataFromMap(metaVal)
 							if err != nil {
 								return errors.Errorf("invalid metadata: %v", err)
 							}
 							metadata = append(metadata, metav)
 						default:
-							return errors.Errorf("invalid metadata type: %T for %v", val, metadataItem)
+							return errors.Errorf("invalid metadata type: %T for %v", metaVal, metadataItem)
 						}
 					}
 					r.MetadatasLists = append(r.MetadatasLists, metadata)
@@ -545,11 +545,11 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 				case []interface{}:
 					scores := make(embeddings.Distances, 0)
 					for _, scoreItem := range val {
-						switch val := scoreItem.(type) {
+						switch scoreVal := scoreItem.(type) {
 						case float64:
-							scores = append(scores, embeddings.Distance(val))
+							scores = append(scores, embeddings.Distance(scoreVal))
 						default:
-							return errors.Errorf("invalid score type: %T for %v", val, scoreItem)
+							return errors.Errorf("invalid score type: %T for %v", scoreVal, scoreItem)
 						}
 					}
 					r.ScoresLists = append(r.ScoresLists, scores)
@@ -582,7 +582,7 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 func (r *SearchResultImpl) String() string {
 	b, err := json.Marshal(r)
 	if err != nil {
-		return ""
+		return "<error marshaling: " + err.Error() + ">"
 	}
 	return string(b)
 }
