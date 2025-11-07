@@ -5,6 +5,12 @@ The Search API provides advanced querying capabilities with flexible ranking exp
 !!! info "API Version"
     The Search API is available in the V2 API (`github.com/amikos-tech/chroma-go/pkg/api/v2`).
 
+!!! info "Official Documentation"
+    This is a Go implementation of Chroma's Search API. For the official Chroma documentation, see:
+
+    - [Search API Overview](https://docs.trychroma.com/cloud/search-api/overview)
+    - [Search API Guide](https://docs.trychroma.com/guides/search)
+
 !!! tip "When to Use Search vs Query"
     - **Use Search** for: Multi-query fusion, weighted combinations, score transformations, hybrid search
     - **Use Query** for: Simple KNN similarity search, backward compatibility
@@ -541,6 +547,8 @@ See the [examples/v2/search](https://github.com/amikos-tech/chroma-go/tree/main/
 
 ## See Also
 
+- [Chroma Search API Overview](https://docs.trychroma.com/cloud/search-api/overview) - Official Chroma documentation
+- [Chroma Search Guide](https://docs.trychroma.com/guides/search) - Official search guide
 - [Query API (Traditional)](client.md) - Simple KNN querying
 - [Filtering](filtering.md) - Metadata filtering syntax
 - [Embeddings](embeddings.md) - Embedding functions

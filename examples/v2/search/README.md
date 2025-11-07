@@ -2,6 +2,10 @@
 
 This directory contains examples demonstrating the Search API's advanced querying capabilities.
 
+> **Official Documentation**: For the upstream Chroma Search API documentation, see:
+> - [Search API Overview](https://docs.trychroma.com/cloud/search-api/overview)
+> - [Search API Guide](https://docs.trychroma.com/guides/search)
+
 ## Prerequisites
 
 1. Go 1.21 or higher
