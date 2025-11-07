@@ -5,11 +5,6 @@ on:
     branches: [ "main" , "**" ]
   workflow_dispatch:
     inputs:
-      run_lint:
-        description: 'Run linting checks'
-        required: false
-        type: boolean
-        default: false
       run_apiv1:
         description: 'Run API V1 tests'
         required: false
@@ -83,7 +78,6 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || inputs.run_lint
     environment: Test
     steps:
       - uses: actions/checkout@v4
