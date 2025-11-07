@@ -33,36 +33,76 @@ func main() {
 
 	// Add sample e-commerce product documents
 	fmt.Println("Adding product documents...")
-	md1, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	md1, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"category": "audio", "type": "headphones", "wireless": true, "price": 199.99, "rating": 4.7, "in_stock": true,
 	})
-	md2, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md2, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"category": "accessories", "type": "mouse", "wireless": true, "price": 49.99, "rating": 4.5, "in_stock": true,
 	})
-	md3, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md3, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"category": "accessories", "type": "keyboard", "wireless": false, "price": 129.99, "rating": 4.8, "in_stock": true,
 	})
-	md4, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md4, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"category": "audio", "type": "earbuds", "wireless": true, "price": 89.99, "rating": 4.4, "in_stock": true,
 	})
-	md5, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md5, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"category": "accessories", "type": "cable", "wireless": false, "price": 12.99, "rating": 4.3, "in_stock": true,
 	})
-	md6, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md6, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"category": "audio", "type": "speaker", "wireless": true, "price": 79.99, "rating": 4.6, "in_stock": false,
 	})
-	md7, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md7, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"category": "audio", "type": "headset", "wireless": true, "price": 149.99, "rating": 4.8, "in_stock": true,
 	})
-	md8, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md8, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"category": "accessories", "type": "charger", "wireless": true, "price": 39.99, "rating": 4.2, "in_stock": true,
 	})
-	md9, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md9, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"category": "audio", "type": "headphones", "wireless": false, "price": 299.99, "rating": 4.9, "in_stock": true,
 	})
-	md10, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md10, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"category": "accessories", "type": "combo", "wireless": true, "price": 69.99, "rating": 4.4, "in_stock": true,
 	})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
 	err = collection.Add(ctx,
 		v2.WithTexts(
 			"Premium wireless Bluetooth headphones with active noise cancellation and 30-hour battery life",

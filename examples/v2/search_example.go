@@ -28,9 +28,21 @@ func main() {
 	defer client.Close()
 
 	// Add some sample documents
-	md1, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "animals", "score": 10})
-	md2, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "score": 20})
-	md3, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "score": 15})
+	md1, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "animals", "score": 10})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md2, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "score": 20})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md3, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "score": 15})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
 	err = collection.Add(ctx,
 		v2.WithTexts(
 			"The quick brown fox jumps over the lazy dog",

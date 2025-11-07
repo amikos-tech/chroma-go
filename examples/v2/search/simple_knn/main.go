@@ -33,14 +33,46 @@ func main() {
 
 	// Add sample documents
 	fmt.Println("Adding sample documents...")
-	md1, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "general", "topic": "animals"})
-	md2, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
-	md3, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "programming"})
-	md4, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
-	md5, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
-	md6, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
-	md7, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
-	md8, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "data"})
+	md1, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "general", "topic": "animals"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md2, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md3, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "programming"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md4, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md5, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md6, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md7, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md8, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "data"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
 	err = collection.Add(ctx,
 		v2.WithTexts(
 			"The quick brown fox jumps over the lazy dog",

@@ -33,36 +33,76 @@ func main() {
 
 	// Add sample documents with rich metadata
 	fmt.Println("Adding sample documents with metadata...")
-	md1, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	md1, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"language": "python", "level": "beginner", "category": "tutorial", "rating": 4.5, "year": 2023,
 	})
-	md2, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md2, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"language": "python", "level": "advanced", "category": "tutorial", "rating": 4.8, "year": 2024,
 	})
-	md3, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md3, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"language": "javascript", "level": "beginner", "category": "tutorial", "rating": 4.2, "year": 2023,
 	})
-	md4, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md4, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"language": "javascript", "level": "intermediate", "category": "framework", "rating": 4.6, "year": 2024,
 	})
-	md5, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md5, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"language": "python", "level": "intermediate", "category": "ml", "rating": 4.7, "year": 2024,
 	})
-	md6, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md6, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"language": "python", "level": "advanced", "category": "ml", "rating": 4.9, "year": 2024,
 	})
-	md7, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md7, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"language": "go", "level": "beginner", "category": "tutorial", "rating": 4.4, "year": 2023,
 	})
-	md8, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md8, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"language": "go", "level": "advanced", "category": "architecture", "rating": 4.7, "year": 2024,
 	})
-	md9, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md9, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"language": "python", "level": "intermediate", "category": "web", "rating": 4.3, "year": 2023,
 	})
-	md10, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md10, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{
 		"language": "javascript", "level": "intermediate", "category": "web", "rating": 4.5, "year": 2024,
 	})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
 	err = collection.Add(ctx,
 		v2.WithTexts(
 			"Introduction to Python programming for beginners",

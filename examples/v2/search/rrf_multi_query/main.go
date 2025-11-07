@@ -33,18 +33,66 @@ func main() {
 
 	// Add sample documents about AI and technology
 	fmt.Println("Adding sample documents...")
-	md1, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "healthcare", "tech": "ai"})
-	md2, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "ecommerce", "tech": "ml"})
-	md3, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "automotive", "tech": "dl"})
-	md4, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "customer_service", "tech": "nlp"})
-	md5, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "security", "tech": "cv"})
-	md6, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "cloud", "tech": "rl"})
-	md7, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "dl"})
-	md8, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "business", "tech": "ai"})
-	md9, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "dl"})
-	md10, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "finance", "tech": "ml"})
-	md11, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "research", "tech": "dl"})
-	md12, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "ml"})
+	md1, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "healthcare", "tech": "ai"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md2, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "ecommerce", "tech": "ml"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md3, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "automotive", "tech": "dl"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md4, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "customer_service", "tech": "nlp"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md5, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "security", "tech": "cv"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md6, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "cloud", "tech": "rl"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md7, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "dl"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md8, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "business", "tech": "ai"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md9, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "dl"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md10, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "finance", "tech": "ml"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md11, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "research", "tech": "dl"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
+	md12, err := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "ml"})
+	if err != nil {
+		log.Printf("Error creating metadata: %v\n", err)
+		return
+	}
 	err = collection.Add(ctx,
 		v2.WithTexts(
 			"Artificial intelligence is transforming healthcare through diagnostic tools",
