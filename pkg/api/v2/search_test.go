@@ -30,7 +30,7 @@ func TestKnnRank_Validate(t *testing.T) {
 		{
 			name: "valid with query embeddings",
 			rank: &KnnRank{
-				QueryEmbeddings: []embeddings.Embedding{embeddings.NewFloat32Embedding([]float32{1.0, 2.0})},
+				QueryEmbeddings: []embeddings.Embedding{embeddings.NewEmbeddingFromFloat32([]float32{1.0, 2.0})},
 				K:               5,
 			},
 			wantErr: false,
@@ -527,7 +527,7 @@ func TestSearchOptions(t *testing.T) {
 
 	t.Run("WithSearchRankKnn", func(t *testing.T) {
 		search := &CollectionSearchOp{}
-		emb := embeddings.NewFloat32Embedding([]float32{1.0, 2.0})
+		emb := embeddings.NewEmbeddingFromFloat32([]float32{1.0, 2.0})
 		opt := WithSearchRankKnn([]embeddings.Embedding{emb}, 5)
 		err := opt(search)
 		assert.NoError(t, err)
@@ -608,7 +608,7 @@ func TestSearchResult_UnmarshalJSON(t *testing.T) {
 	assert.Equal(t, "doc1", result.DocumentsLists[0][0].ContentString())
 
 	assert.Len(t, result.MetadatasLists, 2)
-	val, _ := result.MetadatasLists[0][0].Get("key")
+	val, _ := result.MetadatasLists[0][0].GetString("key")
 	assert.Equal(t, "value1", val)
 
 	assert.Len(t, result.ScoresLists, 2)

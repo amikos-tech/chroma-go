@@ -82,7 +82,7 @@ func main() {
 	// Example 4: KNN search with embeddings directly
 	fmt.Println("\n=== Example 4: KNN Search with Embeddings ===")
 	// Create a sample embedding (in practice, use an embedding function)
-	queryEmbedding := embeddings.NewFloat32Embedding(make([]float32, 768)) // Adjust dimension as needed
+	queryEmbedding := embeddings.NewEmbeddingFromFloat32(make([]float32, 768)) // Adjust dimension as needed
 	results, err = collection.Search(ctx,
 		v2.WithSearchRankKnn([]embeddings.Embedding{queryEmbedding}, 3),
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
