@@ -30,3 +30,4 @@ _testmain.go
 *.out
 unit*.xml
 *.log
+ISSUE_CONTEXT.md
