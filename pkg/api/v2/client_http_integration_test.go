@@ -459,8 +459,8 @@ func TestClientHTTPIntegrationWithBasicAuth(t *testing.T) {
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
-	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || chromaVersion == "latest" {
-		t.Skip("Not supported by Chroma 1.0.x")
+	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || strings.HasPrefix(chromaVersion, "1.3") || chromaVersion == "latest" {
+		t.Skip("Not supported by Chroma 1.x")
 	}
 	if os.Getenv("CHROMA_IMAGE") != "" {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
@@ -542,8 +542,8 @@ func TestClientHTTPIntegrationWithBearerAuthorizationHeaderAuth(t *testing.T) {
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
-	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || chromaVersion == "latest" {
-		t.Skip("Not supported by Chroma 1.0.x")
+	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || strings.HasPrefix(chromaVersion, "1.3") || chromaVersion == "latest" {
+		t.Skip("Not supported by Chroma 1.x")
 	}
 	if os.Getenv("CHROMA_IMAGE") != "" {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
@@ -607,8 +607,8 @@ func TestClientHTTPIntegrationWithBearerXChromaTokenHeaderAuth(t *testing.T) {
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
-	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || chromaVersion == "latest" {
-		t.Skip("Not supported by Chroma 1.0.x")
+	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || strings.HasPrefix(chromaVersion, "1.3") || chromaVersion == "latest" {
+		t.Skip("Not supported by Chroma 1.x")
 	}
 	if os.Getenv("CHROMA_IMAGE") != "" {
 		chromaImage = os.Getenv("CHROMA_IMAGE")
@@ -688,8 +688,8 @@ func TestClientHTTPIntegrationWithSSL(t *testing.T) {
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
 	}
-	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || chromaVersion == "latest" {
-		t.Skip("Not supported by Chroma 1.0.x")
+	if strings.HasPrefix(chromaVersion, "1.0") || strings.HasPrefix(chromaVersion, "1.1") || strings.HasPrefix(chromaVersion, "1.3") || chromaVersion == "latest" {
+		t.Skip("Not supported by Chroma 1.x")
 	}
 
 	if os.Getenv("CHROMA_IMAGE") != "" {
