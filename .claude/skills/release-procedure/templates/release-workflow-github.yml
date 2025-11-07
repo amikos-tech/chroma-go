@@ -1,0 +1,155 @@
+# Template for GitHub Actions Release Workflow
+# This file serves as a reference template for the release-procedure skill
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Language-specific setup - customize as needed
+      - name: Set up environment
+        uses: actions/setup-go@v4  # Change to setup-node, setup-python, etc.
+        with:
+          go-version-file: 'go.mod'  # Or 'node-version-file', 'python-version', etc.
+
+      # Run quality checks - customize commands
+      - name: Run tests
+        run: |
+          make build  # Or: go build, npm run build, cargo build
+          make lint   # Or: npm run lint, cargo clippy
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "VERSION_NUMBER=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes
+        id: release_notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.generateReleaseNotes({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: '${{ steps.version.outputs.VERSION }}'
+            });
+
+            let body = data.body;
+            const header = `## Release ${{ steps.version.outputs.VERSION }}\n\n**Released**: ${new Date().toISOString().split('T')[0]}\n\n`;
+
+            // Categorize changes
+            const categories = {
+              '🚀 Features': /\* .*feat[(\[]|^feat:/gm,
+              '🐛 Bug Fixes': /\* .*fix[(\[]|^fix:/gm,
+              '📚 Documentation': /\* .*docs[(\[]|^docs:/gm,
+              '🔧 Maintenance': /\* .*chore[(\[]|^chore:/gm,
+              '♻️ Refactoring': /\* .*refactor[(\[]|^refactor:/gm,
+              '⚡ Performance': /\* .*perf[(\[]|^perf:/gm,
+              '✅ Tests': /\* .*test[(\[]|^test:/gm,
+            };
+
+            let categorized = header;
+            const lines = body.split('\n');
+            const processedLines = new Set();
+
+            // Breaking changes first
+            const breakingChanges = lines.filter(line =>
+              line.includes('BREAKING CHANGE') || line.includes('!')
+            );
+            if (breakingChanges.length > 0) {
+              categorized += '## ⚠️ Breaking Changes\n\n';
+              breakingChanges.forEach(line => {
+                categorized += line + '\n';
+                processedLines.add(line);
+              });
+              categorized += '\n';
+            }
+
+            // Categorized changes
+            for (const [category, pattern] of Object.entries(categories)) {
+              const matches = lines.filter(line =>
+                pattern.test(line) && !processedLines.has(line)
+              );
+              if (matches.length > 0) {
+                categorized += `### ${category}\n\n`;
+                matches.forEach(line => {
+                  categorized += line + '\n';
+                  processedLines.add(line);
+                });
+                categorized += '\n';
+              }
+            }
+
+            // Other changes
+            const uncategorized = lines.filter(line =>
+              (line.startsWith('* ') || line.startsWith('- ')) &&
+              !processedLines.has(line) &&
+              !line.includes('## What\'s Changed') &&
+              !line.includes('**Full Changelog**')
+            );
+            if (uncategorized.length > 0) {
+              categorized += '### 📦 Other Changes\n\n';
+              uncategorized.forEach(line => categorized += line + '\n');
+              categorized += '\n';
+            }
+
+            // Contributors
+            const contributorsSection = body.split('## New Contributors')[1];
+            if (contributorsSection) {
+              categorized += '## New Contributors\n' + contributorsSection;
+            }
+
+            // Full changelog link
+            const fullChangelogMatch = body.match(/\*\*Full Changelog\*\*: (.*)/);
+            if (fullChangelogMatch) {
+              categorized += `\n**Full Changelog**: ${fullChangelogMatch[1]}`;
+            }
+
+            return categorized;
+          result-encoding: string
+
+      - name: Create Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: '${{ steps.version.outputs.VERSION }}',
+              name: 'Release ${{ steps.version.outputs.VERSION }}',
+              body: `${{ steps.release_notes.outputs.result }}`,
+              draft: false,
+              prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }},
+              generate_release_notes: false
+            });
+
+            core.info(`Release created: ${release.data.html_url}`);
+
+      # Language-specific registry update - customize as needed
+      - name: Trigger package registry update
+        run: |
+          # For Go projects:
+          curl -X POST "https://proxy.golang.org/github.com/${{ github.repository }}/@v/${{ steps.version.outputs.VERSION }}.info" || true
+
+          # For npm: npm publish (requires NPM_TOKEN secret)
+          # For PyPI: twine upload (requires PYPI_TOKEN secret)
+          # For crates.io: cargo publish (requires CARGO_TOKEN secret)
+
+          echo "✅ Requested package registry update"
