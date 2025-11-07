@@ -361,3 +361,228 @@ func (r *QueryResultImpl) String() string {
 	}
 	return string(b)
 }
+
+// SearchResult represents the result of a search operation
+// It contains lists of results for each search query
+type SearchResult interface {
+	// GetIDGroups returns groups of document IDs for each search query
+	GetIDGroups() []DocumentIDs
+	// GetDocumentsGroups returns groups of documents for each search query
+	GetDocumentsGroups() []Documents
+	// GetMetadatasGroups returns groups of metadatas for each search query
+	GetMetadatasGroups() []DocumentMetadatas
+	// GetEmbeddingsGroups returns groups of embeddings for each search query
+	GetEmbeddingsGroups() []embeddings.Embeddings
+	// GetScoresGroups returns groups of scores for each search query
+	GetScoresGroups() []embeddings.Distances
+	// ToRecordsGroups converts the results to groups of records
+	ToRecordsGroups() []Records
+	// CountGroups returns the number of search result groups
+	CountGroups() int
+}
+
+// SearchResultImpl implements SearchResult
+type SearchResultImpl struct {
+	IDLists         []DocumentIDs           `json:"ids,omitempty"`
+	DocumentsLists  []Documents             `json:"documents,omitempty"`
+	MetadatasLists  []DocumentMetadatas     `json:"metadatas,omitempty"`
+	EmbeddingsLists []embeddings.Embeddings `json:"embeddings,omitempty"`
+	ScoresLists     []embeddings.Distances  `json:"scores,omitempty"`
+	Include         []string                `json:"include,omitempty"`
+}
+
+func (r *SearchResultImpl) GetIDGroups() []DocumentIDs {
+	return r.IDLists
+}
+
+func (r *SearchResultImpl) GetDocumentsGroups() []Documents {
+	return r.DocumentsLists
+}
+
+func (r *SearchResultImpl) GetMetadatasGroups() []DocumentMetadatas {
+	return r.MetadatasLists
+}
+
+func (r *SearchResultImpl) GetEmbeddingsGroups() []embeddings.Embeddings {
+	return r.EmbeddingsLists
+}
+
+func (r *SearchResultImpl) GetScoresGroups() []embeddings.Distances {
+	return r.ScoresLists
+}
+
+func (r *SearchResultImpl) ToRecordsGroups() []Records {
+	return nil
+}
+
+func (r *SearchResultImpl) CountGroups() int {
+	return len(r.IDLists)
+}
+
+func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
+	var temp map[string]interface{}
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return errors.Wrap(err, "failed to unmarshal SearchResult")
+	}
+
+	// Parse IDs
+	if _, ok := temp["ids"]; ok {
+		r.IDLists = make([]DocumentIDs, 0)
+		if lst, ok := temp["ids"].([]interface{}); ok {
+			for _, id := range lst {
+				switch val := id.(type) {
+				case []interface{}:
+					ids := make(DocumentIDs, 0)
+					for _, id := range val {
+						switch idVal := id.(type) {
+						case string:
+							ids = append(ids, DocumentID(idVal))
+						default:
+							return errors.Errorf("invalid id type: %T for %v", idVal, id)
+						}
+					}
+					r.IDLists = append(r.IDLists, ids)
+				default:
+					return errors.Errorf("invalid ids: %v", temp["ids"])
+				}
+			}
+		} else if lst != nil {
+			return errors.Errorf("invalid ids: %v", temp["ids"])
+		}
+	}
+
+	// Parse Documents
+	if _, ok := temp["documents"]; ok {
+		r.DocumentsLists = make([]Documents, 0)
+		if lst, ok := temp["documents"].([]interface{}); ok {
+			for _, docList := range lst {
+				switch val := docList.(type) {
+				case []interface{}:
+					docs, err := NewTextDocumentsFromInterface(val)
+					if err != nil {
+						return errors.Errorf("invalid documents: %v", err)
+					}
+					innerDocList := make([]Document, 0)
+					for _, doc := range docs {
+						document := doc
+						innerDocList = append(innerDocList, &document)
+					}
+					r.DocumentsLists = append(r.DocumentsLists, innerDocList)
+				default:
+					return errors.Errorf("invalid documents: %v", temp["documents"])
+				}
+			}
+		} else if lst != nil {
+			return errors.Errorf("invalid documents: %v", temp["documents"])
+		}
+	}
+
+	// Parse Metadatas
+	if _, ok := temp["metadatas"]; ok {
+		r.MetadatasLists = make([]DocumentMetadatas, 0)
+		if lst, ok := temp["metadatas"].([]interface{}); ok {
+			for _, metadataList := range lst {
+				switch val := metadataList.(type) {
+				case []interface{}:
+					metadata := make(DocumentMetadatas, 0)
+					for _, metadataItem := range val {
+						if metadataItem == nil {
+							metadata = append(metadata, nil)
+							continue
+						}
+						switch val := metadataItem.(type) {
+						case map[string]interface{}:
+							metav, err := NewDocumentMetadataFromMap(val)
+							if err != nil {
+								return errors.Errorf("invalid metadata: %v", err)
+							}
+							metadata = append(metadata, metav)
+						default:
+							return errors.Errorf("invalid metadata type: %T for %v", val, metadataItem)
+						}
+					}
+					r.MetadatasLists = append(r.MetadatasLists, metadata)
+				default:
+					return errors.Errorf("invalid metadatas: %v", temp["metadatas"])
+				}
+			}
+		} else if lst != nil {
+			return errors.Errorf("invalid metadatas: %v", temp["metadatas"])
+		}
+	}
+
+	// Parse Embeddings
+	if _, ok := temp["embeddings"]; ok {
+		r.EmbeddingsLists = make([]embeddings.Embeddings, 0)
+		if lst, ok := temp["embeddings"].([]interface{}); ok {
+			for _, embeddingList := range lst {
+				if embeddingList == nil {
+					r.EmbeddingsLists = append(r.EmbeddingsLists, nil)
+					continue
+				}
+				switch val := embeddingList.(type) {
+				case []interface{}:
+					emb, err := embeddings.NewEmbeddingsFromInterface(val)
+					if err != nil {
+						return errors.Errorf("invalid embeddings: %v", err)
+					}
+					r.EmbeddingsLists = append(r.EmbeddingsLists, emb)
+				default:
+					return errors.Errorf("invalid embeddings: %v", temp["embeddings"])
+				}
+			}
+		} else if lst != nil {
+			return errors.Errorf("invalid embeddings: %v", temp["embeddings"])
+		}
+	}
+
+	// Parse Scores (similar to distances)
+	if _, ok := temp["scores"]; ok {
+		r.ScoresLists = make([]embeddings.Distances, 0)
+		if lst, ok := temp["scores"].([]interface{}); ok {
+			for _, scoreList := range lst {
+				switch val := scoreList.(type) {
+				case []interface{}:
+					scores := make(embeddings.Distances, 0)
+					for _, scoreItem := range val {
+						switch val := scoreItem.(type) {
+						case float64:
+							scores = append(scores, embeddings.Distance(val))
+						default:
+							return errors.Errorf("invalid score type: %T for %v", val, scoreItem)
+						}
+					}
+					r.ScoresLists = append(r.ScoresLists, scores)
+				default:
+					return errors.Errorf("invalid scores: %v", temp["scores"])
+				}
+			}
+		} else if lst != nil {
+			return errors.Errorf("invalid scores: %v", temp["scores"])
+		}
+	}
+
+	// Parse Include
+	if _, ok := temp["include"]; ok {
+		r.Include = make([]string, 0)
+		if lst, ok := temp["include"].([]interface{}); ok {
+			for _, i := range lst {
+				if v, ok := i.(string); ok {
+					r.Include = append(r.Include, v)
+				} else {
+					return errors.Errorf("invalid include type: %T for %v", i, lst)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *SearchResultImpl) String() string {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}

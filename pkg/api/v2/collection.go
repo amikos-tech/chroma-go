@@ -44,6 +44,8 @@ type Collection interface {
 	Get(ctx context.Context, opts ...CollectionGetOption) (GetResult, error)
 	// Query queries the collection
 	Query(ctx context.Context, opts ...CollectionQueryOption) (QueryResult, error)
+	// Search performs a search operation on the collection with rank expressions
+	Search(ctx context.Context, opts ...CollectionSearchOption) (SearchResult, error)
 
 	// Fork creates a fork of the collection
 	Fork(ctx context.Context, newName string) (Collection, error)

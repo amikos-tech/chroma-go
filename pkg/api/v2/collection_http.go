@@ -330,6 +330,41 @@ func (c *CollectionImpl) Query(ctx context.Context, opts ...CollectionQueryOptio
 	return queryResult, nil
 }
 
+func (c *CollectionImpl) Search(ctx context.Context, opts ...CollectionSearchOption) (SearchResult, error) {
+	searchObject, err := NewCollectionSearchOp(opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating new collection search operation")
+	}
+	err = searchObject.PrepareAndValidate()
+	if err != nil {
+		return nil, errors.Wrap(err, "error validating search object")
+	}
+	err = searchObject.EmbedData(ctx, c.embeddingFunction)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to embed data")
+	}
+
+	// Wrap search in searches array as per Python API
+	searchesPayload := map[string]interface{}{
+		"searches": []interface{}{searchObject},
+	}
+
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "search")
+	if err != nil {
+		return nil, errors.Wrap(err, "error building search url")
+	}
+	respBody, err := c.client.ExecuteRequest(ctx, http.MethodPost, reqURL, searchesPayload)
+	if err != nil {
+		return nil, errors.Wrap(err, "error sending search request")
+	}
+	searchResult := &SearchResultImpl{}
+	err = json.Unmarshal(respBody, searchResult)
+	if err != nil {
+		return nil, errors.Wrap(err, "error unmarshalling search result")
+	}
+	return searchResult, nil
+}
+
 func (c *CollectionImpl) ModifyConfiguration(ctx context.Context, newConfig CollectionConfiguration) error {
 	return errors.New("not yet supported")
 }
