@@ -329,6 +329,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		tenant:            NewTenant(cm.Tenant),
 		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
 		metadata:          cm.Metadata,
+		configuration:     NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
 		client:            client,
 		embeddingFunction: req.embeddingFunction,
 		dimension:         cm.Dimension,
@@ -402,6 +403,7 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		tenant:            NewTenant(cm.Tenant),
 		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
 		metadata:          cm.Metadata,
+		configuration:     NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
 		client:            client,
 		dimension:         cm.Dimension,
 		embeddingFunction: req.embeddingFunction,
@@ -475,13 +477,14 @@ func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListColl
 	if len(cols) > 0 {
 		for _, cm := range cols {
 			c := &CollectionImpl{
-				name:      cm.Name,
-				id:        cm.ID,
-				tenant:    NewTenant(cm.Tenant),
-				database:  NewDatabase(cm.Database, NewTenant(cm.Tenant)),
-				metadata:  cm.Metadata,
-				dimension: cm.Dimension,
-				client:    client,
+				name:          cm.Name,
+				id:            cm.ID,
+				tenant:        NewTenant(cm.Tenant),
+				database:      NewDatabase(cm.Database, NewTenant(cm.Tenant)),
+				metadata:      cm.Metadata,
+				configuration: NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
+				dimension:     cm.Dimension,
+				client:        client,
 			}
 			apiCollections = append(apiCollections, c)
 		}
