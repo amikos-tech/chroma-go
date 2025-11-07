@@ -50,8 +50,9 @@ func (r *GetResultImpl) GetEmbeddings() embeddings.Embeddings {
 	return r.Embeddings
 }
 
+// ToRecords is not yet implemented and returns an empty Records slice
 func (r *GetResultImpl) ToRecords() Records {
-	return nil
+	return Records{}
 }
 
 func (r *GetResultImpl) Count() int {
@@ -196,8 +197,9 @@ func (r *QueryResultImpl) GetDistancesGroups() []embeddings.Distances {
 	return r.DistancesLists
 }
 
+// ToRecordsGroups is not yet implemented and returns an empty slice
 func (r *QueryResultImpl) ToRecordsGroups() []Records {
-	return nil
+	return []Records{}
 }
 
 func (r *QueryResultImpl) CountGroups() int {
@@ -411,8 +413,9 @@ func (r *SearchResultImpl) GetScoresGroups() []embeddings.Distances {
 	return r.ScoresLists
 }
 
+// ToRecordsGroups is not yet implemented and returns an empty slice
 func (r *SearchResultImpl) ToRecordsGroups() []Records {
-	return nil
+	return []Records{}
 }
 
 func (r *SearchResultImpl) CountGroups() int {
