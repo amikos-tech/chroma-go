@@ -169,14 +169,9 @@ func TestRerank(t *testing.T) {
 				require.NotNil(t, res, "Rerank result is nil")
 				require.Contains(t, res, rf.ID(), "Rerank result does not contain the ID of the reranking function")
 				tt.validate(t, rf, res)
+				maxIdx, _ := getMaxIDAndRank(res[rf.ID()])
+				require.Equal(t, 3, maxIdx, "The most relevant result is not the expected one")
 			}
-			require.NoError(t, err, "Failed to rerank")
-			require.NotNil(t, res, "Rerank result is nil")
-			require.Contains(t, res, rf.ID(), "Rerank result does not contain the ID of the reranking function")
-			tt.validate(t, rf, res)
-			maxIdx, _ := getMaxIDAndRank(res[rf.ID()])
-
-			require.Equal(t, 3, maxIdx, "The most relevant result is not the expected one")
 		})
 	}
 }
@@ -242,13 +237,9 @@ func TestRerankChromaResults(t *testing.T) {
 				require.NotNil(t, res, "Rerank result is nil")
 				require.Contains(t, res.Ranks, rf.ID(), "Rerank result does not contain the ID of the reranking function")
 				tt.validate(t, rf, res)
+				maxIdx := getIDForMaxRank(res.Ranks[rf.ID()][0]) // we have only one query
+				require.Equal(t, 3, maxIdx, "The most relevant result is not the expected one")
 			}
-			require.NoError(t, err, "Failed to rerank")
-			require.NotNil(t, res, "Rerank result is nil")
-			require.Contains(t, res.Ranks, rf.ID(), "Rerank result does not contain the ID of the reranking function")
-			tt.validate(t, rf, res)
-			maxIdx := getIDForMaxRank(res.Ranks[rf.ID()][0]) // we have only one query
-			require.Equal(t, 3, maxIdx, "The most relevant result is not the expected one")
 		})
 	}
 }
