@@ -5,12 +5,13 @@ package huggingface
 import (
 	"context"
 	"fmt"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,7 +36,7 @@ func TestRerankHFEI(t *testing.T) {
 	req := testcontainers.ContainerRequest{
 		Image:         "ghcr.io/huggingface/text-embeddings-inference:cpu-latest",
 		ExposedPorts:  []string{"80/tcp"},
-		WaitingFor:    wait.ForLog("Ready"),
+		WaitingFor:    wait.ForHTTP("/health").WithPort("80/tcp").WithStartupTimeout(5 * time.Minute),
 		ImagePlatform: "linux/amd64",
 		Cmd:           []string{"--model-id", "BAAI/bge-reranker-base"},
 		HostConfigModifier: func(hostConfig *container.HostConfig) {
@@ -153,7 +154,7 @@ func TestRerankChromaResults(t *testing.T) {
 	req := testcontainers.ContainerRequest{
 		Image:         "ghcr.io/huggingface/text-embeddings-inference:cpu-latest",
 		ExposedPorts:  []string{"80/tcp"},
-		WaitingFor:    wait.ForLog("Ready"),
+		WaitingFor:    wait.ForHTTP("/health").WithPort("80/tcp").WithStartupTimeout(5 * time.Minute),
 		ImagePlatform: "linux/amd64",
 		Cmd:           []string{"--model-id", "BAAI/bge-reranker-base"},
 		HostConfigModifier: func(hostConfig *container.HostConfig) {
