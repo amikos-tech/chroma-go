@@ -456,6 +456,11 @@ func MulRanks(left, right RankExpression) RankExpression {
 }
 
 // DivRanks creates a rank expression that divides two rank expressions
+//
+// WARNING: Division by zero is not validated client-side. If the right operand
+// evaluates to zero during server-side execution, the result will be Inf/NaN
+// (following NumPy semantics), which may lead to unexpected ranking behavior.
+// Consider adding small epsilon values or score normalization to avoid zero divisors.
 func DivRanks(left, right RankExpression) RankExpression {
 	return &ArithmeticRank{
 		Operator: "div",
