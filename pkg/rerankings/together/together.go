@@ -181,7 +181,7 @@ func (r *TogetherRerankingFunction) RerankResults(ctx context.Context, queryResu
 		if err != nil {
 			return nil, err
 		}
-		rerankedResults.Ranks[r.ID()][i] = make([]float32, len(rerankResp.Results))
+		rerankedResults.Ranks[r.ID()][i] = make([]float32, len(queryResults.Documents[i]))
 		for _, rr := range rerankResp.Results {
 			rerankedResults.Ranks[r.ID()][i][rr.Index] = rr.RelevanceScore
 		}
