@@ -40,7 +40,6 @@ jobs:
   paths-filter:
     name: Get changed paths
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     outputs:
       embeddings: ${{ steps.changes.outputs.embeddings }}
       rerankings: ${{ steps.changes.outputs.rerankings }}
@@ -50,6 +49,7 @@ jobs:
     steps:
       - name: Get changed paths
         id: changes
+        if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@v3
         with:
           filters: |
@@ -98,7 +98,7 @@ jobs:
   apiv1:
     name: Test Chroma API V1
     runs-on: ubuntu-latest
-    if: always() && !cancelled() && !failure() && ((github.event_name == 'pull_request' && needs.paths-filter.outputs.basev1 == 'true') || inputs.run_apiv1)
+    if: inputs.run_apiv1 || needs.paths-filter.outputs.basev1 == 'true'
     needs: [lint,paths-filter]
     strategy:
       matrix:
@@ -135,7 +135,7 @@ jobs:
     name: Test Chroma API V2
     runs-on: ubuntu-latest
     needs: [lint,paths-filter]
-    if: always() && !cancelled() && !failure() && ((github.event_name == 'pull_request' && needs.paths-filter.outputs.basev2 == 'true') || inputs.run_apiv2)
+    if: inputs.run_apiv2 || needs.paths-filter.outputs.basev2 == 'true'
     strategy:
       matrix:
         chroma-version: ["0.6.3","1.1.0"]
@@ -170,7 +170,7 @@ jobs:
     name: Test Chroma Cloud
     runs-on: ubuntu-latest
     needs: [ lint,paths-filter ]
-    if: always() && !cancelled() && !failure() && ((github.event_name == 'pull_request' && needs.paths-filter.outputs.basev2 == 'true') || inputs.run_cloud)
+    if: inputs.run_cloud || needs.paths-filter.outputs.basev2 == 'true'
     environment: Test
     steps:
       - uses: actions/checkout@v4
@@ -198,7 +198,7 @@ jobs:
     name: Test Embedding Functions
     runs-on: ubuntu-latest
     needs: [lint,paths-filter]
-    if: always() && !cancelled() && !failure() && ((github.event_name == 'pull_request' && needs.paths-filter.outputs.embeddings == 'true') || inputs.run_ef)
+    if: inputs.run_ef || needs.paths-filter.outputs.embeddings == 'true'
     environment: Test
     steps:
       - uses: actions/checkout@v4
@@ -242,7 +242,7 @@ jobs:
     name: Test Ranking Functions
     runs-on: ubuntu-latest
     needs: [lint,paths-filter]
-    if: always() && !cancelled() && !failure() && ((github.event_name == 'pull_request' && needs.paths-filter.outputs.rerankings == 'true') || inputs.run_rf)
+    if: inputs.run_rf || needs.paths-filter.outputs.rerankings == 'true'
     environment: Test
     steps:
       - uses: actions/checkout@v4
