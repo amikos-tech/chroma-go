@@ -18,6 +18,7 @@ Concepts:
 - [Embeddings](embeddings.md) - List of available embedding functions and how to use them
 - [Records](records.md) - How to work with records
 - [Filtering](filtering.md) - How to filter results
+- [Search API](search.md) - Advanced search with rank expressions (V2 API)
 
 Import the library:
 
