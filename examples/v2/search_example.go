@@ -14,19 +14,23 @@ func main() {
 	ctx := context.Background()
 
 	// Create a client (adjust the URL as needed)
-	client, err := v2.NewClient(v2.WithBasePath("http://localhost:8000"))
+	client, err := v2.NewHTTPClient()
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
 
 	// Get or create a collection
 	collection, err := client.GetOrCreateCollection(ctx, "search_example_collection")
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to get/create collection: %v", err)
 	}
+	defer client.Close()
 
 	// Add some sample documents
+	md1, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "animals", "score": 10})
+	md2, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "score": 20})
+	md3, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "score": 15})
 	err = collection.Add(ctx,
 		v2.WithTexts(
 			"The quick brown fox jumps over the lazy dog",
@@ -34,14 +38,11 @@ func main() {
 			"Python is a popular programming language for data science",
 		),
 		v2.WithIDs("doc1", "doc2", "doc3"),
-		v2.WithMetadatas(
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "animals", "score": 10}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "score": 20}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "score": 15}),
-		),
+		v2.WithMetadatas(md1, md2, md3),
 	)
 	if err != nil {
-		log.Fatalf("Failed to add documents: %v", err)
+		log.Printf("Failed to add documents: %v", err)
+		return
 	}
 
 	// Example 1: Simple KNN search with query text
@@ -51,7 +52,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 	printSearchResults(results, "KNN Search")
 
@@ -63,7 +65,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search with filter failed: %v", err)
+		log.Printf("Search with filter failed: %v", err)
+		return
 	}
 	printSearchResults(results, "Filtered Search")
 
@@ -75,7 +78,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search with pagination failed: %v", err)
+		log.Printf("Search with pagination failed: %v", err)
+		return
 	}
 	printSearchResults(results, "Paginated Search")
 
@@ -88,7 +92,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search with embeddings failed: %v", err)
+		log.Printf("Search with embeddings failed: %v", err)
+		return
 	}
 	printSearchResults(results, "Embedding Search")
 
@@ -107,7 +112,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("RRF search failed: %v", err)
+		log.Printf("RRF search failed: %v", err)
+		return
 	}
 	printSearchResults(results, "RRF Search")
 
@@ -128,7 +134,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Arithmetic rank search failed: %v", err)
+		log.Printf("Arithmetic rank search failed: %v", err)
+		return
 	}
 	printSearchResults(results, "Arithmetic Rank Search")
 

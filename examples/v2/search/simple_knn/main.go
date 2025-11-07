@@ -12,22 +12,35 @@ func main() {
 	ctx := context.Background()
 
 	// Create client
-	client, err := v2.NewClient(v2.WithBasePath("http://localhost:8000"))
+	client, err := v2.NewHTTPClient()
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
 
 	// Get or create collection
 	collectionName := "simple_knn_example"
 	collection, err := client.GetOrCreateCollection(ctx, collectionName,
-		v2.WithMetadata("description", "Simple KNN search example"))
+		v2.WithCollectionMetadataCreate(
+			v2.NewMetadata(
+				v2.NewStringAttribute("description", "Simple KNN search example"),
+			),
+		))
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to get/create collection: %v", err)
 	}
+	defer client.Close()
 
 	// Add sample documents
 	fmt.Println("Adding sample documents...")
+	md1, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "general", "topic": "animals"})
+	md2, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
+	md3, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "programming"})
+	md4, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
+	md5, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
+	md6, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
+	md7, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"})
+	md8, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "data"})
 	err = collection.Add(ctx,
 		v2.WithTexts(
 			"The quick brown fox jumps over the lazy dog",
@@ -40,19 +53,11 @@ func main() {
 			"Data mining extracts patterns from large datasets",
 		),
 		v2.WithIDs("doc1", "doc2", "doc3", "doc4", "doc5", "doc6", "doc7", "doc8"),
-		v2.WithMetadatas(
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "general", "topic": "animals"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "programming"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "ai"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"category": "tech", "topic": "data"}),
-		),
+		v2.WithMetadatas(md1, md2, md3, md4, md5, md6, md7, md8),
 	)
 	if err != nil {
-		log.Fatalf("Failed to add documents: %v", err)
+		log.Printf("Failed to add documents: %v", err)
+		return
 	}
 
 	fmt.Println("\n========================================")
@@ -65,7 +70,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResults(results, "KNN Search for 'artificial intelligence and machine learning'")
@@ -80,7 +86,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResults(results, "KNN Search for 'programming languages and coding'")
@@ -95,7 +102,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResults(results, "KNN Search for 'neural networks and learning' (top 5)")

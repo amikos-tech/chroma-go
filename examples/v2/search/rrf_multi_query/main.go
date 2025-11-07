@@ -12,22 +12,39 @@ func main() {
 	ctx := context.Background()
 
 	// Create client
-	client, err := v2.NewClient(v2.WithBasePath("http://localhost:8000"))
+	client, err := v2.NewHTTPClient()
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
 
 	// Get or create collection
 	collectionName := "rrf_example"
 	collection, err := client.GetOrCreateCollection(ctx, collectionName,
-		v2.WithMetadata("description", "RRF multi-query search example"))
+		v2.WithCollectionMetadataCreate(
+			v2.NewMetadata(
+				v2.NewStringAttribute("description", "RRF multi-query search example"),
+			),
+		))
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to get/create collection: %v", err)
 	}
+	defer client.Close()
 
 	// Add sample documents about AI and technology
 	fmt.Println("Adding sample documents...")
+	md1, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "healthcare", "tech": "ai"})
+	md2, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "ecommerce", "tech": "ml"})
+	md3, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "automotive", "tech": "dl"})
+	md4, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "customer_service", "tech": "nlp"})
+	md5, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "security", "tech": "cv"})
+	md6, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "cloud", "tech": "rl"})
+	md7, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "dl"})
+	md8, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "business", "tech": "ai"})
+	md9, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "dl"})
+	md10, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "finance", "tech": "ml"})
+	md11, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "research", "tech": "dl"})
+	md12, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "ml"})
 	err = collection.Add(ctx,
 		v2.WithTexts(
 			"Artificial intelligence is transforming healthcare through diagnostic tools",
@@ -44,23 +61,11 @@ func main() {
 			"Automated machine learning simplifies model development",
 		),
 		v2.WithIDs("doc1", "doc2", "doc3", "doc4", "doc5", "doc6", "doc7", "doc8", "doc9", "doc10", "doc11", "doc12"),
-		v2.WithMetadatas(
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "healthcare", "tech": "ai"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "ecommerce", "tech": "ml"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "automotive", "tech": "dl"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "customer_service", "tech": "nlp"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "security", "tech": "cv"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "cloud", "tech": "rl"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "dl"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "business", "tech": "ai"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "dl"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "finance", "tech": "ml"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "research", "tech": "dl"}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{"domain": "general", "tech": "ml"}),
-		),
+		v2.WithMetadatas(md1, md2, md3, md4, md5, md6, md7, md8, md9, md10, md11, md12),
 	)
 	if err != nil {
-		log.Fatalf("Failed to add documents: %v", err)
+		log.Printf("Failed to add documents: %v", err)
+		return
 	}
 
 	fmt.Println("\n========================================")
@@ -73,7 +78,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResults(results, "Single Query: 'neural networks'")
@@ -104,7 +110,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("RRF search failed: %v", err)
+		log.Printf("RRF search failed: %v", err)
+		return
 	}
 
 	printResults(results, "RRF: 'neural networks' OR 'machine learning algorithms'")
@@ -140,7 +147,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("RRF search failed: %v", err)
+		log.Printf("RRF search failed: %v", err)
+		return
 	}
 
 	printResults(results, "RRF: 'AI' OR 'deep learning' OR 'machine learning'")
@@ -170,7 +178,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("RRF search failed: %v", err)
+		log.Printf("RRF search failed: %v", err)
+		return
 	}
 
 	printResults(results, "RRF: 'healthcare' OR 'finance' (diverse queries)")

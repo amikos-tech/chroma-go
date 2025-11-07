@@ -12,22 +12,57 @@ func main() {
 	ctx := context.Background()
 
 	// Create client
-	client, err := v2.NewClient(v2.WithBasePath("http://localhost:8000"))
+	client, err := v2.NewHTTPClient()
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
 
 	// Get or create collection
 	collectionName := "hybrid_search_example"
 	collection, err := client.GetOrCreateCollection(ctx, collectionName,
-		v2.WithMetadata("description", "Hybrid search strategies example"))
+		v2.WithCollectionMetadataCreate(
+			v2.NewMetadata(
+				v2.NewStringAttribute("description", "Hybrid search strategies example"),
+			),
+		))
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to get/create collection: %v", err)
 	}
+	defer client.Close()
 
 	// Add sample e-commerce product documents
 	fmt.Println("Adding product documents...")
+	md1, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"category": "audio", "type": "headphones", "wireless": true, "price": 199.99, "rating": 4.7, "in_stock": true,
+	})
+	md2, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"category": "accessories", "type": "mouse", "wireless": true, "price": 49.99, "rating": 4.5, "in_stock": true,
+	})
+	md3, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"category": "accessories", "type": "keyboard", "wireless": false, "price": 129.99, "rating": 4.8, "in_stock": true,
+	})
+	md4, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"category": "audio", "type": "earbuds", "wireless": true, "price": 89.99, "rating": 4.4, "in_stock": true,
+	})
+	md5, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"category": "accessories", "type": "cable", "wireless": false, "price": 12.99, "rating": 4.3, "in_stock": true,
+	})
+	md6, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"category": "audio", "type": "speaker", "wireless": true, "price": 79.99, "rating": 4.6, "in_stock": false,
+	})
+	md7, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"category": "audio", "type": "headset", "wireless": true, "price": 149.99, "rating": 4.8, "in_stock": true,
+	})
+	md8, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"category": "accessories", "type": "charger", "wireless": true, "price": 39.99, "rating": 4.2, "in_stock": true,
+	})
+	md9, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"category": "audio", "type": "headphones", "wireless": false, "price": 299.99, "rating": 4.9, "in_stock": true,
+	})
+	md10, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"category": "accessories", "type": "combo", "wireless": true, "price": 69.99, "rating": 4.4, "in_stock": true,
+	})
 	err = collection.Add(ctx,
 		v2.WithTexts(
 			"Premium wireless Bluetooth headphones with active noise cancellation and 30-hour battery life",
@@ -42,41 +77,11 @@ func main() {
 			"Compact wireless keyboard and mouse combo for travel and remote work",
 		),
 		v2.WithIDs("prod1", "prod2", "prod3", "prod4", "prod5", "prod6", "prod7", "prod8", "prod9", "prod10"),
-		v2.WithMetadatas(
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"category": "audio", "type": "headphones", "wireless": true, "price": 199.99, "rating": 4.7, "in_stock": true,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"category": "accessories", "type": "mouse", "wireless": true, "price": 49.99, "rating": 4.5, "in_stock": true,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"category": "accessories", "type": "keyboard", "wireless": false, "price": 129.99, "rating": 4.8, "in_stock": true,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"category": "audio", "type": "earbuds", "wireless": true, "price": 89.99, "rating": 4.4, "in_stock": true,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"category": "accessories", "type": "cable", "wireless": false, "price": 12.99, "rating": 4.3, "in_stock": true,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"category": "audio", "type": "speaker", "wireless": true, "price": 79.99, "rating": 4.6, "in_stock": false,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"category": "audio", "type": "headset", "wireless": true, "price": 149.99, "rating": 4.8, "in_stock": true,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"category": "accessories", "type": "charger", "wireless": true, "price": 39.99, "rating": 4.2, "in_stock": true,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"category": "audio", "type": "headphones", "wireless": false, "price": 299.99, "rating": 4.9, "in_stock": true,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"category": "accessories", "type": "combo", "wireless": true, "price": 69.99, "rating": 4.4, "in_stock": true,
-			}),
-		),
+		v2.WithMetadatas(md1, md2, md3, md4, md5, md6, md7, md8, md9, md10),
 	)
 	if err != nil {
-		log.Fatalf("Failed to add documents: %v", err)
+		log.Printf("Failed to add documents: %v", err)
+		return
 	}
 
 	fmt.Println("\n========================================")
@@ -89,7 +94,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printProductResults(results, collection, "Semantic search: 'audio equipment for music'")
@@ -109,7 +115,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printProductResults(results, collection, "Hybrid: semantic + business rules (in_stock, rating>=4.5, price<=200)")
@@ -140,7 +147,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printProductResults(results, collection, "RRF: specific ('wireless headphones') + broad ('audio devices')")
@@ -164,7 +172,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printProductResults(results, collection, "Exponential boost on 'premium audio quality' + rating filter")
@@ -200,7 +209,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printProductResults(results, collection, "Intent-based: wireless + work-related + budget constraint")
@@ -242,7 +252,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printProductResults(results, collection, "Complex: product name + category + quality signals + filters")

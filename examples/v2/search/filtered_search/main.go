@@ -12,22 +12,57 @@ func main() {
 	ctx := context.Background()
 
 	// Create client
-	client, err := v2.NewClient(v2.WithBasePath("http://localhost:8000"))
+	client, err := v2.NewHTTPClient()
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
 
 	// Get or create collection
 	collectionName := "filtered_search_example"
 	collection, err := client.GetOrCreateCollection(ctx, collectionName,
-		v2.WithMetadata("description", "Filtered search example"))
+		v2.WithCollectionMetadataCreate(
+			v2.NewMetadata(
+				v2.NewStringAttribute("description", "Filtered search example"),
+			),
+		))
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to get/create collection: %v", err)
 	}
+	defer client.Close()
 
 	// Add sample documents with rich metadata
 	fmt.Println("Adding sample documents with metadata...")
+	md1, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"language": "python", "level": "beginner", "category": "tutorial", "rating": 4.5, "year": 2023,
+	})
+	md2, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"language": "python", "level": "advanced", "category": "tutorial", "rating": 4.8, "year": 2024,
+	})
+	md3, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"language": "javascript", "level": "beginner", "category": "tutorial", "rating": 4.2, "year": 2023,
+	})
+	md4, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"language": "javascript", "level": "intermediate", "category": "framework", "rating": 4.6, "year": 2024,
+	})
+	md5, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"language": "python", "level": "intermediate", "category": "ml", "rating": 4.7, "year": 2024,
+	})
+	md6, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"language": "python", "level": "advanced", "category": "ml", "rating": 4.9, "year": 2024,
+	})
+	md7, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"language": "go", "level": "beginner", "category": "tutorial", "rating": 4.4, "year": 2023,
+	})
+	md8, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"language": "go", "level": "advanced", "category": "architecture", "rating": 4.7, "year": 2024,
+	})
+	md9, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"language": "python", "level": "intermediate", "category": "web", "rating": 4.3, "year": 2023,
+	})
+	md10, _ := v2.NewDocumentMetadataFromMap(map[string]interface{}{
+		"language": "javascript", "level": "intermediate", "category": "web", "rating": 4.5, "year": 2024,
+	})
 	err = collection.Add(ctx,
 		v2.WithTexts(
 			"Introduction to Python programming for beginners",
@@ -42,41 +77,11 @@ func main() {
 			"Node.js backend development with Express",
 		),
 		v2.WithIDs("doc1", "doc2", "doc3", "doc4", "doc5", "doc6", "doc7", "doc8", "doc9", "doc10"),
-		v2.WithMetadatas(
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"language": "python", "level": "beginner", "category": "tutorial", "rating": 4.5, "year": 2023,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"language": "python", "level": "advanced", "category": "tutorial", "rating": 4.8, "year": 2024,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"language": "javascript", "level": "beginner", "category": "tutorial", "rating": 4.2, "year": 2023,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"language": "javascript", "level": "intermediate", "category": "framework", "rating": 4.6, "year": 2024,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"language": "python", "level": "intermediate", "category": "ml", "rating": 4.7, "year": 2024,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"language": "python", "level": "advanced", "category": "ml", "rating": 4.9, "year": 2024,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"language": "go", "level": "beginner", "category": "tutorial", "rating": 4.4, "year": 2023,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"language": "go", "level": "advanced", "category": "architecture", "rating": 4.7, "year": 2024,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"language": "python", "level": "intermediate", "category": "web", "rating": 4.3, "year": 2023,
-			}),
-			v2.NewDocumentMetadataFromMap(map[string]interface{}{
-				"language": "javascript", "level": "intermediate", "category": "web", "rating": 4.5, "year": 2024,
-			}),
-		),
+		v2.WithMetadatas(md1, md2, md3, md4, md5, md6, md7, md8, md9, md10),
 	)
 	if err != nil {
-		log.Fatalf("Failed to add documents: %v", err)
+		log.Printf("Failed to add documents: %v", err)
+		return
 	}
 
 	fmt.Println("\n========================================")
@@ -89,7 +94,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResultsWithMetadata(results, collection, "Unfiltered search for 'Python programming'")
@@ -105,7 +111,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResultsWithMetadata(results, collection, "Python documents only")
@@ -121,7 +128,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResultsWithMetadata(results, collection, "Beginner level only")
@@ -140,7 +148,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResultsWithMetadata(results, collection, "Python AND advanced level")
@@ -156,7 +165,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResultsWithMetadata(results, collection, "Rating >= 4.5")
@@ -179,7 +189,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResultsWithMetadata(results, collection, "(Python OR Go) AND rating>=4.5 AND year=2024")
@@ -195,7 +206,8 @@ func main() {
 		v2.WithSearchSelect(v2.SelectID, v2.SelectDocument, v2.SelectScore),
 	)
 	if err != nil {
-		log.Fatalf("Search failed: %v", err)
+		log.Printf("Search failed: %v", err)
+		return
 	}
 
 	printResultsWithMetadata(results, collection, "Category in [ml, web]")

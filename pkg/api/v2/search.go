@@ -125,9 +125,9 @@ func (r *RrfRank) Validate() error {
 
 // ArithmeticRank represents arithmetic operations on rank expressions
 type ArithmeticRank struct {
-	Operator string           `json:"operator"` // "add", "sub", "mul", "div"
-	Left     RankExpression   `json:"left"`
-	Right    RankExpression   `json:"right"`
+	Operator string         `json:"operator"` // "add", "sub", "mul", "div"
+	Left     RankExpression `json:"left"`
+	Right    RankExpression `json:"right"`
 }
 
 func (a *ArithmeticRank) ToJSON() interface{} {
