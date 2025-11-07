@@ -37,9 +37,7 @@ type RerankingResponse struct {
 	Results []struct {
 		Index          int     `json:"index"`
 		RelevanceScore float32 `json:"relevance_score"`
-		Document       struct {
-			Text string `json:"text"`
-		} `json:"document,omitempty"`
+		Document       string  `json:"document,omitempty"`
 	} `json:"results"`
 }
 
@@ -149,8 +147,8 @@ func (r *JinaRerankingFunction) Rerank(ctx context.Context, query string, result
 		if err != nil {
 			return nil, err
 		}
-		if rr.Document.Text != "" {
-			originalDoc = rr.Document.Text
+		if rr.Document != "" {
+			originalDoc = rr.Document
 		}
 		rankedResults[r.ID()][i] = rerankings.RankedResult{
 			String: originalDoc,
