@@ -221,21 +221,59 @@ func (c *CollectionSearchOp) PrepareAndValidate() error {
 }
 
 func (c *CollectionSearchOp) EmbedData(ctx context.Context, ef embeddings.EmbeddingFunction) error {
-	// If the rank is a KNN with query texts, embed them
-	if knn, ok := c.Rank.(*KnnRank); ok {
-		if len(knn.QueryTexts) > 0 && len(knn.QueryEmbeddings) == 0 {
+	if c.Rank == nil {
+		return nil
+	}
+	return embedRankExpression(ctx, c.Rank, ef)
+}
+
+// embedRankExpression recursively traverses rank expressions and embeds query texts in KNN ranks
+func embedRankExpression(ctx context.Context, rank RankExpression, ef embeddings.EmbeddingFunction) error {
+	switch r := rank.(type) {
+	case *KnnRank:
+		// Handle KNN rank with query texts
+		if len(r.QueryTexts) > 0 && len(r.QueryEmbeddings) == 0 {
 			if ef == nil {
 				return errors.New("embedding function is required for query texts")
 			}
-			embeds, err := ef.EmbedDocuments(ctx, knn.QueryTexts)
+			embeds, err := ef.EmbedDocuments(ctx, r.QueryTexts)
 			if err != nil {
 				return errors.Wrap(err, "failed to embed query texts")
 			}
-			knn.QueryEmbeddings = embeds
+			r.QueryEmbeddings = embeds
 		}
+		return nil
+
+	case *RrfRank:
+		// Recursively embed all child ranks in RRF
+		for i, childRank := range r.Ranks {
+			if err := embedRankExpression(ctx, childRank, ef); err != nil {
+				return errors.Wrapf(err, "failed to embed rank %d in RRF", i)
+			}
+		}
+		return nil
+
+	case *ArithmeticRank:
+		// Recursively embed left and right operands
+		if err := embedRankExpression(ctx, r.Left, ef); err != nil {
+			return errors.Wrap(err, "failed to embed left operand in arithmetic expression")
+		}
+		if err := embedRankExpression(ctx, r.Right, ef); err != nil {
+			return errors.Wrap(err, "failed to embed right operand in arithmetic expression")
+		}
+		return nil
+
+	case *FunctionRank:
+		// Recursively embed the function operand
+		if err := embedRankExpression(ctx, r.Operand, ef); err != nil {
+			return errors.Wrap(err, "failed to embed operand in function expression")
+		}
+		return nil
+
+	default:
+		// Unknown rank type - no embedding needed
+		return nil
 	}
-	// TODO: Handle embedding for nested rank expressions (RRF, Arithmetic, Function)
-	return nil
 }
 
 func (c *CollectionSearchOp) MarshalJSON() ([]byte, error) {

@@ -1,9 +1,9 @@
-// go:build basicv2
 //go:build basicv2
 
 package v2
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -614,4 +614,110 @@ func TestSearchResult_UnmarshalJSON(t *testing.T) {
 	assert.Len(t, result.ScoresLists, 2)
 	assert.Equal(t, embeddings.Distance(0.95), result.ScoresLists[0][0])
 	assert.Equal(t, embeddings.Distance(0.85), result.ScoresLists[0][1])
+}
+
+// Mock embedding function for testing
+type mockEmbeddingFunction struct{}
+
+func (m *mockEmbeddingFunction) EmbedDocuments(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
+	results := make([]embeddings.Embedding, len(texts))
+	for i := range texts {
+		results[i] = embeddings.NewEmbeddingFromFloat32([]float32{float32(i), float32(i + 1)})
+	}
+	return results, nil
+}
+
+func (m *mockEmbeddingFunction) EmbedQuery(ctx context.Context, text string) (embeddings.Embedding, error) {
+	return embeddings.NewEmbeddingFromFloat32([]float32{1.0, 2.0}), nil
+}
+
+func TestEmbedData_NestedRRF(t *testing.T) {
+	rank1 := &KnnRank{QueryTexts: []string{"test1"}, K: 5}
+	rank2 := &KnnRank{QueryTexts: []string{"test2"}, K: 5}
+	rrf := &RrfRank{Ranks: []RankExpression{rank1, rank2}, K: 60}
+
+	searchOp := &CollectionSearchOp{Rank: rrf}
+	err := searchOp.EmbedData(context.Background(), &mockEmbeddingFunction{})
+
+	require.NoError(t, err)
+	assert.Len(t, rank1.QueryEmbeddings, 1, "rank1 should have embeddings")
+	assert.Len(t, rank2.QueryEmbeddings, 1, "rank2 should have embeddings")
+	assert.NotNil(t, rank1.QueryTexts, "rank1 query texts should remain")
+	assert.NotNil(t, rank2.QueryTexts, "rank2 query texts should remain")
+}
+
+func TestEmbedData_NestedArithmetic(t *testing.T) {
+	knn1 := &KnnRank{QueryTexts: []string{"left query"}, K: 5}
+	knn2 := &KnnRank{QueryTexts: []string{"right query"}, K: 5}
+	addRank := &ArithmeticRank{
+		Operator: "add",
+		Left:     knn1,
+		Right:    knn2,
+	}
+
+	searchOp := &CollectionSearchOp{Rank: addRank}
+	err := searchOp.EmbedData(context.Background(), &mockEmbeddingFunction{})
+
+	require.NoError(t, err)
+	assert.Len(t, knn1.QueryEmbeddings, 1, "left KNN should have embeddings")
+	assert.Len(t, knn2.QueryEmbeddings, 1, "right KNN should have embeddings")
+}
+
+func TestEmbedData_NestedFunction(t *testing.T) {
+	knn := &KnnRank{QueryTexts: []string{"base query"}, K: 10}
+	expRank := &FunctionRank{
+		Function: "exp",
+		Operand:  knn,
+	}
+
+	searchOp := &CollectionSearchOp{Rank: expRank}
+	err := searchOp.EmbedData(context.Background(), &mockEmbeddingFunction{})
+
+	require.NoError(t, err)
+	assert.Len(t, knn.QueryEmbeddings, 1, "KNN inside function should have embeddings")
+}
+
+func TestEmbedData_DeeplyNested(t *testing.T) {
+	knn1 := &KnnRank{QueryTexts: []string{"query1"}, K: 5}
+	knn2 := &KnnRank{QueryTexts: []string{"query2"}, K: 5}
+	knn3 := &KnnRank{QueryTexts: []string{"query3"}, K: 5}
+
+	// Build: RRF(Exp(knn1), Add(knn2, knn3))
+	expRank := &FunctionRank{Function: "exp", Operand: knn1}
+	addRank := &ArithmeticRank{Operator: "add", Left: knn2, Right: knn3}
+	rrf := &RrfRank{Ranks: []RankExpression{expRank, addRank}, K: 60}
+
+	searchOp := &CollectionSearchOp{Rank: rrf}
+	err := searchOp.EmbedData(context.Background(), &mockEmbeddingFunction{})
+
+	require.NoError(t, err)
+	assert.Len(t, knn1.QueryEmbeddings, 1, "knn1 in Exp should have embeddings")
+	assert.Len(t, knn2.QueryEmbeddings, 1, "knn2 in Add left should have embeddings")
+	assert.Len(t, knn3.QueryEmbeddings, 1, "knn3 in Add right should have embeddings")
+}
+
+func TestEmbedData_SkipsAlreadyEmbedded(t *testing.T) {
+	existingEmbedding := embeddings.NewEmbeddingFromFloat32([]float32{0.1, 0.2})
+	knn := &KnnRank{
+		QueryTexts:      []string{"test"},
+		QueryEmbeddings: []embeddings.Embedding{existingEmbedding},
+		K:               5,
+	}
+
+	searchOp := &CollectionSearchOp{Rank: knn}
+	err := searchOp.EmbedData(context.Background(), &mockEmbeddingFunction{})
+
+	require.NoError(t, err)
+	assert.Len(t, knn.QueryEmbeddings, 1, "should keep existing embedding")
+	assert.Equal(t, existingEmbedding, knn.QueryEmbeddings[0], "should not replace existing embedding")
+}
+
+func TestEmbedData_NoEmbeddingFunction(t *testing.T) {
+	knn := &KnnRank{QueryTexts: []string{"test"}, K: 5}
+	searchOp := &CollectionSearchOp{Rank: knn}
+
+	err := searchOp.EmbedData(context.Background(), nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "embedding function is required")
 }
