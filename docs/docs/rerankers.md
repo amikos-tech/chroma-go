@@ -41,8 +41,9 @@ type RerankingFunction interface {
 ## Supported Rerankers
 
 - Cohere - ✅
-- Jina AI - ✅ 
+- Jina AI - ✅
 - HuggingFace Text Embedding Inference - ✅
+- Together AI - ✅
 - HuggingFace Inference API - coming soon
 
 ### Cohere Reranker
@@ -164,7 +165,49 @@ func main() {
 	if err != nil {
         fmt.Printf("Error reranking: %s \n", err)
     }
-	
+
+	for _, rs := range res[rf.ID()] {
+		fmt.Printf("Rank: %f, Index: %d\n", rs.Rank, rs.Index)
+	}
+}
+```
+
+### Together AI Reranker
+
+To use Together AI reranking, you will need to get an [API Key](https://api.together.ai/).
+
+The default model is `Salesforce/Llama-Rank-V1`.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	together "github.com/amikos-tech/chroma-go/pkg/rerankings/together"
+	"os"
+)
+
+func main() {
+	var query = "What is the capital of the United States?"
+	var results = []string{
+		"Carson City is the capital city of the American state of Nevada.",
+		"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
+		"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
+		"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
+		"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
+	}
+
+	rf, err := together.NewTogetherRerankingFunction(together.WithAPIKey(os.Getenv("TOGETHER_API_KEY")))
+	if err != nil {
+        fmt.Printf("Error creating Together reranking function: %s \n", err)
+    }
+
+	res, err := rf.Rerank(context.Background(), query, results)
+	if err != nil {
+        fmt.Printf("Error reranking: %s \n", err)
+    }
+
 	for _, rs := range res[rf.ID()] {
 		fmt.Printf("Rank: %f, Index: %d\n", rs.Rank, rs.Index)
 	}
