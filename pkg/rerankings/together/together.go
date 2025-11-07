@@ -85,7 +85,7 @@ func (r *TogetherRerankingFunction) sendRequest(ctx context.Context, req *Rerank
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequest("POST", r.rerankingEndpoint, bytes.NewBuffer(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", r.rerankingEndpoint, bytes.NewBuffer(payload))
 	if err != nil {
 		return nil, err
 	}
