@@ -99,9 +99,16 @@ func developmentExample() {
 	collection, err := client.GetOrCreateCollection(
 		ctx,
 		"example-collection",
-		chroma.WithCollectionMetadataCreate(
-			chroma.NewMetadata(chroma.NewStringAttribute("description", "example collection description")),
-		),
+		func() chroma.CreateCollectionOption {
+			meta, err := chroma.Builder().String("description", "example collection description").Build()
+			if err != nil {
+				logger.Error("Failed to build collection metadata", chromalogger.ErrorField("error", err))
+				// Return empty metadata as fallback
+				emptyMeta := chroma.NewEmptyMetadata()
+				return chroma.WithMetadata(emptyMeta)
+			}
+			return chroma.WithMetadata(meta)
+		}(),
 	)
 	if err != nil {
 		logger.Error("Failed to create collection", chromalogger.ErrorField("error", err))
