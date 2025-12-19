@@ -62,7 +62,7 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 	return c, nil
 }
 
-// Deprecated: use NewCloudClient instead
+// Deprecated: use NewCloudClient instead. Will be removed in v0.4.0.
 func NewCloudAPIClient(options ...ClientOption) (*CloudAPIClient, error) {
 	return NewCloudClient(options...)
 }

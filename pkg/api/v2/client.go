@@ -110,6 +110,8 @@ func ListWithOffset(offset int) ListCollectionsOption {
 	}
 }
 
+// Deprecated: Use WithDatabase instead for consistency across operations. Will be removed in v0.4.0.
+// WithDatabaseList sets the database when listing collections.
 func WithDatabaseList(database Database) ListCollectionsOption {
 	return func(op *ListCollectionOp) error {
 		if database == nil {
@@ -181,6 +183,8 @@ func WithCollectionNameGet(name string) GetCollectionOption {
 	}
 }
 
+// Deprecated: Use WithEmbeddingFunction instead for cleaner naming. Will be removed in v0.4.0.
+// WithEmbeddingFunctionGet sets the embedding function when getting a collection.
 func WithEmbeddingFunctionGet(embeddingFunction embeddings.EmbeddingFunction) GetCollectionOption {
 	return func(op *GetCollectionOp) error {
 		if embeddingFunction == nil {
@@ -191,6 +195,8 @@ func WithEmbeddingFunctionGet(embeddingFunction embeddings.EmbeddingFunction) Ge
 	}
 }
 
+// Deprecated: Use WithDatabase instead for consistency across operations. Will be removed in v0.4.0.
+// WithDatabaseGet sets the database when getting a collection.
 func WithDatabaseGet(database Database) GetCollectionOption {
 	return func(op *GetCollectionOp) error {
 		if database == nil {
@@ -293,6 +299,8 @@ func (op *CreateCollectionOp) Operation() OperationType {
 	return OperationCreate
 }
 
+// WithCollectionMetadataCreate sets metadata when creating a collection.
+// Consider using WithMetadata for shorter naming in new code.
 func WithCollectionMetadataCreate(metadata CollectionMetadata) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		op.Metadata = metadata
@@ -301,6 +309,8 @@ func WithCollectionMetadataCreate(metadata CollectionMetadata) CreateCollectionO
 }
 
 // WithDatabaseCreate allows the creation of a collection in a specific database, different from the default one set at Client level.
+// Deprecated: Use WithDatabase instead for consistency across operations. Will be removed in v0.4.0.
+// WithDatabaseCreate allows the creation of a collection in a specific database.
 func WithDatabaseCreate(database Database) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		if database == nil {
@@ -415,6 +425,8 @@ func WithHNSWResizeFactorCreate(resizeFactor float64) CreateCollectionOption {
 	}
 }
 
+// Deprecated: Use WithEmbeddingFunction instead for cleaner naming. Will be removed in v0.4.0.
+// WithEmbeddingFunctionCreate sets the embedding function when creating a collection.
 func WithEmbeddingFunctionCreate(embeddingFunction embeddings.EmbeddingFunction) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		if embeddingFunction == nil {
@@ -425,6 +437,8 @@ func WithEmbeddingFunctionCreate(embeddingFunction embeddings.EmbeddingFunction)
 	}
 }
 
+// Deprecated: Use WithCreateIfNotExists instead for clearer naming. Will be removed in v0.4.0.
+// WithIfNotExistsCreate enables get-or-create behavior.
 func WithIfNotExistsCreate() CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		op.CreateIfNotExists = true
@@ -445,6 +459,8 @@ type DeleteCollectionOp struct {
 }
 type DeleteCollectionOption func(*DeleteCollectionOp) error
 
+// Deprecated: Use WithDatabase instead for consistency across operations. Will be removed in v0.4.0.
+// WithDatabaseDelete sets the database when deleting a collection.
 func WithDatabaseDelete(database Database) DeleteCollectionOption {
 	return func(op *DeleteCollectionOp) error {
 		if database == nil {
@@ -495,6 +511,8 @@ type CountCollectionsOp struct {
 
 type CountCollectionsOption func(*CountCollectionsOp) error
 
+// Deprecated: Use WithDatabase instead for consistency across operations. Will be removed in v0.4.0.
+// WithDatabaseCount sets the database when counting collections.
 func WithDatabaseCount(database Database) CountCollectionsOption {
 	return func(op *CountCollectionsOp) error {
 		if database == nil {
@@ -672,12 +690,12 @@ func WithTransport(transport *http.Transport) ClientOption {
 	}
 }
 
-// Deprecated: Use WithLogger with debug level enabled. See https://github.com/amikos-tech/chroma-go/blob/ad35b6d37f9be4431687945ae4a77470e0832cf4/examples/v2/logging/main.go
+// Deprecated: Use WithLogger with debug level enabled. Will be removed in v0.4.0.
+// See https://github.com/amikos-tech/chroma-go/blob/ad35b6d37f9be4431687945ae4a77470e0832cf4/examples/v2/logging/main.go
 // This function now automatically creates a development logger for backward compatibility.
-// Will be removed in v0.3.0.
 func WithDebug() ClientOption {
 	return func(c *BaseAPIClient) error {
-		_, _ = fmt.Fprintln(os.Stderr, "WARNING: WithDebug is deprecated and will be removed in v0.3.0. Use WithLogger with debug level enabled. See https://github.com/amikos-tech/chroma-go/blob/main/examples/v2/logging/main.go")
+		_, _ = fmt.Fprintln(os.Stderr, "WARNING: WithDebug is deprecated and will be removed in v0.4.0. Use WithLogger with debug level enabled. See https://github.com/amikos-tech/chroma-go/blob/main/examples/v2/logging/main.go")
 
 		// For backward compatibility, automatically enable debug logging
 		if devLogger, err := logger.NewDevelopmentZapLogger(); err == nil {
