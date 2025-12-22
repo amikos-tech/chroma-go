@@ -22,6 +22,43 @@ type Embedding interface {
 	IsDefined() bool
 }
 
+type KnnVector interface {
+	Len() int
+	ValuesAsFloat32() []float32
+}
+
+// SparseVector represents a sparse embedding vector
+type SparseVector struct {
+	Indices []int     `json:"indices"`
+	Values  []float32 `json:"values"`
+}
+
+// NewSparseVector creates a new sparse vector
+func NewSparseVector(indices []int, values []float32) *SparseVector {
+	return &SparseVector{
+		Indices: indices,
+		Values:  values,
+	}
+}
+
+// Len returns the number of non-zero elements
+func (s *SparseVector) Len() int {
+	return len(s.Values)
+}
+
+// ValuesAsFloat32 returns the non-zero values
+func (s *SparseVector) ValuesAsFloat32() []float32 {
+	return s.Values
+}
+
+// MarshalJSON implements JSON marshaling for sparse vectors
+func (s *SparseVector) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"indices": s.Indices,
+		"values":  s.Values,
+	})
+}
+
 type Embeddings []Embedding
 
 type Float32Embedding struct {

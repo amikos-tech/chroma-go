@@ -369,6 +369,114 @@ func (c *CollectionImpl) Fork(ctx context.Context, newName string) (Collection, 
 	c.client.collectionCache[forkedCollection.name] = forkedCollection
 	return forkedCollection, nil
 }
+func (c *CollectionImpl) Search(ctx context.Context, opts ...SearchCollectionOption) (SearchResult, error) {
+	sq := &SearchQuery{}
+	for _, opt := range opts {
+		if err := opt(sq); err != nil {
+			return nil, errors.Wrap(err, "error applying search option")
+		}
+	}
+
+	// Embed any text queries in KnnRank expressions
+	for i := range sq.Searches {
+		if err := c.embedTextQueries(ctx, &sq.Searches[i]); err != nil {
+			return nil, errors.Wrap(err, "error embedding text queries")
+		}
+	}
+
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "search")
+	if err != nil {
+		return nil, errors.Wrap(err, "error composing request URL")
+	}
+
+	respBody, err := c.client.ExecuteRequest(ctx, http.MethodPost, reqURL, sq)
+	if err != nil {
+		return nil, errors.Wrap(err, "error sending search request")
+	}
+
+	var result SearchResultImpl
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, errors.Wrap(err, "error unmarshalling search result")
+	}
+
+	return &result, nil
+}
+
+// embedTextQueries embeds any text queries in the search request
+func (c *CollectionImpl) embedTextQueries(ctx context.Context, req *SearchRequest) error {
+	if req.Rank == nil {
+		return nil
+	}
+	return c.embedRankTextQueries(ctx, req.Rank)
+}
+
+// embedRankTextQueries recursively embeds text queries in rank expressions
+func (c *CollectionImpl) embedRankTextQueries(ctx context.Context, rank Rank) error {
+	switch r := rank.(type) {
+	case *KnnRank:
+		if text, ok := r.Query.(string); ok {
+			if c.embeddingFunction == nil {
+				return errors.New("embedding function required for text queries")
+			}
+			emb, err := c.embeddingFunction.EmbedQuery(ctx, text)
+			if err != nil {
+				return errors.Wrap(err, "error embedding text query")
+			}
+			r.Query = emb.ContentAsFloat32()
+		}
+	case *RrfRank:
+		for _, rw := range r.Ranks {
+			if err := c.embedRankTextQueries(ctx, rw.Rank); err != nil {
+				return err
+			}
+		}
+	case *SumRank:
+		for _, child := range r.ranks {
+			if err := c.embedRankTextQueries(ctx, child); err != nil {
+				return err
+			}
+		}
+	case *MulRank:
+		for _, child := range r.ranks {
+			if err := c.embedRankTextQueries(ctx, child); err != nil {
+				return err
+			}
+		}
+	case *SubRank:
+		if err := c.embedRankTextQueries(ctx, r.left); err != nil {
+			return err
+		}
+		if err := c.embedRankTextQueries(ctx, r.right); err != nil {
+			return err
+		}
+	case *DivRank:
+		if err := c.embedRankTextQueries(ctx, r.left); err != nil {
+			return err
+		}
+		if err := c.embedRankTextQueries(ctx, r.right); err != nil {
+			return err
+		}
+	case *AbsRank:
+		return c.embedRankTextQueries(ctx, r.rank)
+	case *ExpRank:
+		return c.embedRankTextQueries(ctx, r.rank)
+	case *LogRank:
+		return c.embedRankTextQueries(ctx, r.rank)
+	case *MaxRank:
+		for _, child := range r.ranks {
+			if err := c.embedRankTextQueries(ctx, child); err != nil {
+				return err
+			}
+		}
+	case *MinRank:
+		for _, child := range r.ranks {
+			if err := c.embedRankTextQueries(ctx, child); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
 func (c *CollectionImpl) Close() error {
 	if c.embeddingFunction != nil {
