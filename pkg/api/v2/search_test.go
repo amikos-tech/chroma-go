@@ -9,6 +9,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// mustKnnRank is a test helper that creates a KnnRank or fails the test
+func mustKnnRank(t *testing.T, query KnnQueryOption, knnOptions ...KnnOption) *KnnRank {
+	t.Helper()
+	knn, err := NewKnnRank(query, knnOptions...)
+	if err != nil {
+		t.Fatalf("mustKnnRank: %v", err)
+	}
+	return knn
+}
+
 func TestSearchPage(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -132,7 +142,7 @@ func TestSearchFilter(t *testing.T) {
 func TestSearchRequestJSON(t *testing.T) {
 	t.Run("basic request with knn rank", func(t *testing.T) {
 		req := &SearchRequest{
-			Rank: NewKnnRank(KnnQueryText("test query")),
+			Rank: mustKnnRank(t, KnnQueryText("test query")),
 			Limit: &SearchPage{
 				Limit:  10,
 				Offset: 0,
@@ -254,10 +264,12 @@ func TestWithKnnRank(t *testing.T) {
 func TestWithRffRank(t *testing.T) {
 	t.Run("basic rff rank", func(t *testing.T) {
 		req := &SearchRequest{}
+		knn1 := mustKnnRank(t, KnnQueryText("query1"))
+		knn2 := mustKnnRank(t, KnnQueryText("query2"))
 		err := WithRffRank(
 			WithRffRanks(
-				NewKnnRank(KnnQueryText("query1")).WithWeight(0.5),
-				NewKnnRank(KnnQueryText("query2")).WithWeight(0.5),
+				knn1.WithWeight(0.5),
+				knn2.WithWeight(0.5),
 			),
 		)(req)
 		require.NoError(t, err)
@@ -270,8 +282,9 @@ func TestWithRffRank(t *testing.T) {
 
 	t.Run("rff with custom k", func(t *testing.T) {
 		req := &SearchRequest{}
+		knn := mustKnnRank(t, KnnQueryText("test"))
 		err := WithRffRank(
-			WithRffRanks(NewKnnRank(KnnQueryText("test")).WithWeight(1.0)),
+			WithRffRanks(knn.WithWeight(1.0)),
 			WithRffK(100),
 		)(req)
 		require.NoError(t, err)
@@ -282,7 +295,11 @@ func TestWithRffRank(t *testing.T) {
 
 	t.Run("rff with invalid k returns error", func(t *testing.T) {
 		req := &SearchRequest{}
-		err := WithRffRank(WithRffK(-1))(req)
+		knn := mustKnnRank(t, KnnQueryText("test"))
+		err := WithRffRank(
+			WithRffRanks(knn.WithWeight(1.0)),
+			WithRffK(-1),
+		)(req)
 		require.Error(t, err)
 	})
 }

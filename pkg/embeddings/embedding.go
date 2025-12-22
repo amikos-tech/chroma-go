@@ -53,10 +53,24 @@ func (s *SparseVector) ValuesAsFloat32() []float32 {
 
 // MarshalJSON implements JSON marshaling for sparse vectors
 func (s *SparseVector) MarshalJSON() ([]byte, error) {
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
 	return json.Marshal(map[string]interface{}{
 		"indices": s.Indices,
 		"values":  s.Values,
 	})
+}
+
+// Validate checks that the sparse vector is valid
+func (s *SparseVector) Validate() error {
+	if s == nil {
+		return errors.New("sparse vector is nil")
+	}
+	if len(s.Indices) != len(s.Values) {
+		return errors.New("indices and values must have the same length")
+	}
+	return nil
 }
 
 type Embeddings []Embedding

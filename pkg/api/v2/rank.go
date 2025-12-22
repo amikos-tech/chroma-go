@@ -172,10 +172,12 @@ func (s *SumRank) Sub(operand Operand) Rank {
 
 func (s *SumRank) Add(operand Operand) Rank {
 	r := operandToRank(operand)
+	newRanks := make([]Rank, len(s.ranks))
+	copy(newRanks, s.ranks)
 	if sum, ok := r.(*SumRank); ok {
-		return &SumRank{ranks: append(s.ranks, sum.ranks...)}
+		return &SumRank{ranks: append(newRanks, sum.ranks...)}
 	}
-	return &SumRank{ranks: append(s.ranks, r)}
+	return &SumRank{ranks: append(newRanks, r)}
 }
 
 func (s *SumRank) Div(operand Operand) Rank {
@@ -222,8 +224,8 @@ func (s *SumRank) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string][]json.RawMessage{"$sum": rankMaps})
 }
 
-func (s *SumRank) UnmarshalJSON(b []byte) error {
-	return nil
+func (s *SumRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("SumRank: unmarshaling is not supported")
 }
 
 // SubRank represents subtraction of two rank expressions.
@@ -293,8 +295,8 @@ func (s *SubRank) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (s *SubRank) UnmarshalJSON(b []byte) error {
-	return nil
+func (s *SubRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("SubRank: unmarshaling is not supported")
 }
 
 // MulRank represents multiplication of multiple rank expressions.
@@ -307,10 +309,12 @@ func (m *MulRank) IsOperand() {}
 
 func (m *MulRank) Multiply(operand Operand) Rank {
 	r := operandToRank(operand)
+	newRanks := make([]Rank, len(m.ranks))
+	copy(newRanks, m.ranks)
 	if mul, ok := r.(*MulRank); ok {
-		return &MulRank{ranks: append(m.ranks, mul.ranks...)}
+		return &MulRank{ranks: append(newRanks, mul.ranks...)}
 	}
-	return &MulRank{ranks: append(m.ranks, r)}
+	return &MulRank{ranks: append(newRanks, r)}
 }
 
 func (m *MulRank) Sub(operand Operand) Rank {
@@ -365,8 +369,8 @@ func (m *MulRank) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string][]json.RawMessage{"$mul": rankMaps})
 }
 
-func (m *MulRank) UnmarshalJSON(b []byte) error {
-	return nil
+func (m *MulRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("MulRank: unmarshaling is not supported")
 }
 
 // DivRank represents division of two rank expressions.
@@ -436,8 +440,8 @@ func (d *DivRank) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (d *DivRank) UnmarshalJSON(b []byte) error {
-	return nil
+func (d *DivRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("DivRank: unmarshaling is not supported")
 }
 
 // AbsRank represents the absolute value of a rank expression.
@@ -500,8 +504,8 @@ func (a *AbsRank) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]json.RawMessage{"$abs": data})
 }
 
-func (a *AbsRank) UnmarshalJSON(b []byte) error {
-	return nil
+func (a *AbsRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("AbsRank: unmarshaling is not supported")
 }
 
 // ExpRank represents the exponential (e^x) of a rank expression.
@@ -564,8 +568,8 @@ func (e *ExpRank) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]json.RawMessage{"$exp": data})
 }
 
-func (e *ExpRank) UnmarshalJSON(b []byte) error {
-	return nil
+func (e *ExpRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("ExpRank: unmarshaling is not supported")
 }
 
 // LogRank represents the natural logarithm of a rank expression.
@@ -628,8 +632,8 @@ func (l *LogRank) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]json.RawMessage{"$log": data})
 }
 
-func (l *LogRank) UnmarshalJSON(b []byte) error {
-	return nil
+func (l *LogRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("LogRank: unmarshaling is not supported")
 }
 
 // MaxRank represents the maximum of multiple rank expressions.
@@ -674,10 +678,12 @@ func (m *MaxRank) Log() Rank {
 
 func (m *MaxRank) Max(operand Operand) Rank {
 	r := operandToRank(operand)
+	newRanks := make([]Rank, len(m.ranks))
+	copy(newRanks, m.ranks)
 	if max, ok := r.(*MaxRank); ok {
-		return &MaxRank{ranks: append(m.ranks, max.ranks...)}
+		return &MaxRank{ranks: append(newRanks, max.ranks...)}
 	}
-	return &MaxRank{ranks: append(m.ranks, r)}
+	return &MaxRank{ranks: append(newRanks, r)}
 }
 
 func (m *MaxRank) Min(operand Operand) Rank {
@@ -700,8 +706,8 @@ func (m *MaxRank) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string][]json.RawMessage{"$max": rankMaps})
 }
 
-func (m *MaxRank) UnmarshalJSON(b []byte) error {
-	return nil
+func (m *MaxRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("MaxRank: unmarshaling is not supported")
 }
 
 // MinRank represents the minimum of multiple rank expressions.
@@ -750,10 +756,12 @@ func (m *MinRank) Max(operand Operand) Rank {
 
 func (m *MinRank) Min(operand Operand) Rank {
 	r := operandToRank(operand)
+	newRanks := make([]Rank, len(m.ranks))
+	copy(newRanks, m.ranks)
 	if min, ok := r.(*MinRank); ok {
-		return &MinRank{ranks: append(m.ranks, min.ranks...)}
+		return &MinRank{ranks: append(newRanks, min.ranks...)}
 	}
-	return &MinRank{ranks: append(m.ranks, r)}
+	return &MinRank{ranks: append(newRanks, r)}
 }
 
 func (m *MinRank) WithWeight(weight float64) RankWithWeight {
@@ -772,8 +780,8 @@ func (m *MinRank) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string][]json.RawMessage{"$min": rankMaps})
 }
 
-func (m *MinRank) UnmarshalJSON(b []byte) error {
-	return nil
+func (m *MinRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("MinRank: unmarshaling is not supported")
 }
 
 // KnnOption configures optional parameters for [KnnRank].
@@ -905,23 +913,27 @@ type KnnRank struct {
 //
 // Example:
 //
-//	rank := NewKnnRank(
+//	rank, err := NewKnnRank(
 //	    KnnQueryText("machine learning"),
 //	    WithKnnLimit(50),
 //	    WithKnnDefault(10.0),
 //	)
-func NewKnnRank(query KnnQueryOption, knnOptions ...KnnOption) *KnnRank {
+func NewKnnRank(query KnnQueryOption, knnOptions ...KnnOption) (*KnnRank, error) {
 	knn := &KnnRank{
 		Key:   KEmbedding,
 		Limit: 16,
 	}
 	if query != nil {
-		_ = query(knn)
+		if err := query(knn); err != nil {
+			return nil, err
+		}
 	}
 	for _, opt := range knnOptions {
-		_ = opt(knn)
+		if err := opt(knn); err != nil {
+			return nil, err
+		}
 	}
-	return knn
+	return knn, nil
 }
 
 func (k *KnnRank) IsOperand() {}
@@ -1094,6 +1106,9 @@ func NewRrfRank(opts ...RffOption) (*RrfRank, error) {
 			return nil, err
 		}
 	}
+	if len(rrf.Ranks) == 0 {
+		return nil, errors.New("rrf requires at least one rank")
+	}
 	return rrf, nil
 }
 
@@ -1144,10 +1159,6 @@ func (r *RrfRank) WithWeight(weight float64) RankWithWeight {
 }
 
 func (r *RrfRank) MarshalJSON() ([]byte, error) {
-	if len(r.Ranks) == 0 {
-		return nil, errors.New("rrf requires at least one rank")
-	}
-
 	// Compute weights
 	weights := make([]float64, len(r.Ranks))
 	for i, rw := range r.Ranks {
@@ -1192,8 +1203,8 @@ func (r *RrfRank) MarshalJSON() ([]byte, error) {
 	return result.MarshalJSON()
 }
 
-func (r *RrfRank) UnmarshalJSON(b []byte) error {
-	return nil
+func (r *RrfRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("RrfRank: unmarshaling is not supported")
 }
 
 func operandToRank(operand Operand) Rank {
@@ -1219,7 +1230,10 @@ func operandToRank(operand Operand) Rank {
 //	)
 func WithKnnRank(query KnnQueryOption, knnOptions ...KnnOption) SearchOption {
 	return func(req *SearchRequest) error {
-		knn := NewKnnRank(query, knnOptions...)
+		knn, err := NewKnnRank(query, knnOptions...)
+		if err != nil {
+			return err
+		}
 		req.Rank = knn
 		return nil
 	}

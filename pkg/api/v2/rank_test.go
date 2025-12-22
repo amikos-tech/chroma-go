@@ -11,6 +11,16 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
+// mustNewKnnRank is a test helper that panics if NewKnnRank returns an error
+func mustNewKnnRank(t *testing.T, query KnnQueryOption, knnOptions ...KnnOption) *KnnRank {
+	t.Helper()
+	knn, err := NewKnnRank(query, knnOptions...)
+	if err != nil {
+		t.Fatalf("mustNewKnnRank: %v", err)
+	}
+	return knn
+}
+
 func TestValRank(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -52,62 +62,63 @@ func TestValRank(t *testing.T) {
 func TestKnnRank(t *testing.T) {
 	tests := []struct {
 		name     string
-		rank     *KnnRank
+		makeRank func(t *testing.T) *KnnRank
 		expected string
 	}{
 		{
-			name:     "text query with defaults",
-			rank:     NewKnnRank(KnnQueryText("machine learning")),
+			name: "text query with defaults",
+			makeRank: func(t *testing.T) *KnnRank {
+				return mustNewKnnRank(t, KnnQueryText("machine learning"))
+			},
 			expected: `{"$knn":{"query":"machine learning","key":"#embedding","limit":16}}`,
 		},
 		{
 			name: "text query with custom limit",
-			rank: NewKnnRank(
-				KnnQueryText("deep learning"),
-				WithKnnLimit(100),
-			),
+			makeRank: func(t *testing.T) *KnnRank {
+				return mustNewKnnRank(t, KnnQueryText("deep learning"), WithKnnLimit(100))
+			},
 			expected: `{"$knn":{"query":"deep learning","key":"#embedding","limit":100}}`,
 		},
 		{
 			name: "text query with custom key",
-			rank: NewKnnRank(
-				KnnQueryText("neural networks"),
-				WithKnnKey(K("sparse_embedding")),
-			),
+			makeRank: func(t *testing.T) *KnnRank {
+				return mustNewKnnRank(t, KnnQueryText("neural networks"), WithKnnKey(K("sparse_embedding")))
+			},
 			expected: `{"$knn":{"query":"neural networks","key":"sparse_embedding","limit":16}}`,
 		},
 		{
 			name: "text query with default score",
-			rank: NewKnnRank(
-				KnnQueryText("AI research"),
-				WithKnnDefault(10.0),
-			),
+			makeRank: func(t *testing.T) *KnnRank {
+				return mustNewKnnRank(t, KnnQueryText("AI research"), WithKnnDefault(10.0))
+			},
 			expected: `{"$knn":{"query":"AI research","key":"#embedding","limit":16,"default":10}}`,
 		},
 		{
 			name: "text query with return_rank",
-			rank: NewKnnRank(
-				KnnQueryText("papers"),
-				WithKnnReturnRank(),
-			),
+			makeRank: func(t *testing.T) *KnnRank {
+				return mustNewKnnRank(t, KnnQueryText("papers"), WithKnnReturnRank())
+			},
 			expected: `{"$knn":{"query":"papers","key":"#embedding","limit":16,"return_rank":true}}`,
 		},
 		{
 			name: "all options",
-			rank: NewKnnRank(
-				KnnQueryText("complete example"),
-				WithKnnLimit(50),
-				WithKnnKey(K("custom_field")),
-				WithKnnDefault(100.0),
-				WithKnnReturnRank(),
-			),
+			makeRank: func(t *testing.T) *KnnRank {
+				return mustNewKnnRank(t,
+					KnnQueryText("complete example"),
+					WithKnnLimit(50),
+					WithKnnKey(K("custom_field")),
+					WithKnnDefault(100.0),
+					WithKnnReturnRank(),
+				)
+			},
 			expected: `{"$knn":{"query":"complete example","key":"custom_field","limit":50,"default":100,"return_rank":true}}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := tt.rank.MarshalJSON()
+			rank := tt.makeRank(t)
+			data, err := rank.MarshalJSON()
 			require.NoError(t, err)
 			require.JSONEq(t, tt.expected, string(data))
 		})
@@ -117,7 +128,7 @@ func TestKnnRank(t *testing.T) {
 func TestKnnRankWithVectors(t *testing.T) {
 	t.Run("dense vector", func(t *testing.T) {
 		// Create a KnnRank with a float32 slice directly
-		knn := NewKnnRank(nil)
+		knn := mustNewKnnRank(t, nil)
 		knn.Query = []float32{0.1, 0.2, 0.3}
 
 		data, err := knn.MarshalJSON()
@@ -137,7 +148,7 @@ func TestKnnRankWithVectors(t *testing.T) {
 			[]int{1, 5, 10},
 			[]float32{0.5, 0.3, 0.8},
 		)
-		rank := NewKnnRank(
+		rank := mustNewKnnRank(t,
 			KnnQuerySparseVector(sparseVector),
 			WithKnnKey(K("sparse_embedding")),
 		)
@@ -158,49 +169,54 @@ func TestKnnRankWithVectors(t *testing.T) {
 func TestArithmeticOperations(t *testing.T) {
 	tests := []struct {
 		name     string
-		rank     Rank
+		makeRank func(t *testing.T) Rank
 		expected string
 	}{
 		{
 			name:     "addition with val",
-			rank:     Val(1.0).Add(FloatOperand(2.0)),
+			makeRank: func(_ *testing.T) Rank { return Val(1.0).Add(FloatOperand(2.0)) },
 			expected: `{"$sum":[{"$val":1},{"$val":2}]}`,
 		},
 		{
 			name:     "subtraction with val",
-			rank:     Val(5.0).Sub(FloatOperand(3.0)),
+			makeRank: func(_ *testing.T) Rank { return Val(5.0).Sub(FloatOperand(3.0)) },
 			expected: `{"$sub":{"left":{"$val":5},"right":{"$val":3}}}`,
 		},
 		{
 			name:     "multiplication with val",
-			rank:     Val(2.0).Multiply(FloatOperand(3.0)),
+			makeRank: func(_ *testing.T) Rank { return Val(2.0).Multiply(FloatOperand(3.0)) },
 			expected: `{"$mul":[{"$val":2},{"$val":3}]}`,
 		},
 		{
 			name:     "division with val",
-			rank:     Val(10.0).Div(FloatOperand(2.0)),
+			makeRank: func(_ *testing.T) Rank { return Val(10.0).Div(FloatOperand(2.0)) },
 			expected: `{"$div":{"left":{"$val":10},"right":{"$val":2}}}`,
 		},
 		{
 			name:     "negation",
-			rank:     Val(5.0).Negate(),
+			makeRank: func(_ *testing.T) Rank { return Val(5.0).Negate() },
 			expected: `{"$mul":[{"$val":-1},{"$val":5}]}`,
 		},
 		{
 			name: "knn multiply by scalar",
-			rank: NewKnnRank(KnnQueryText("test")).Multiply(FloatOperand(0.5)),
+			makeRank: func(t *testing.T) Rank {
+				return mustNewKnnRank(t, KnnQueryText("test")).Multiply(FloatOperand(0.5))
+			},
 			expected: `{"$mul":[{"$knn":{"query":"test","key":"#embedding","limit":16}},{"$val":0.5}]}`,
 		},
 		{
 			name: "knn add knn",
-			rank: NewKnnRank(KnnQueryText("a")).Add(NewKnnRank(KnnQueryText("b"))),
+			makeRank: func(t *testing.T) Rank {
+				return mustNewKnnRank(t, KnnQueryText("a")).Add(mustNewKnnRank(t, KnnQueryText("b")))
+			},
 			expected: `{"$sum":[{"$knn":{"query":"a","key":"#embedding","limit":16}},{"$knn":{"query":"b","key":"#embedding","limit":16}}]}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := tt.rank.MarshalJSON()
+			rank := tt.makeRank(t)
+			data, err := rank.MarshalJSON()
 			require.NoError(t, err)
 			require.JSONEq(t, tt.expected, string(data))
 		})
@@ -210,49 +226,54 @@ func TestArithmeticOperations(t *testing.T) {
 func TestMathFunctions(t *testing.T) {
 	tests := []struct {
 		name     string
-		rank     Rank
+		makeRank func(t *testing.T) Rank
 		expected string
 	}{
 		{
 			name:     "abs",
-			rank:     Val(-5.0).Abs(),
+			makeRank: func(_ *testing.T) Rank { return Val(-5.0).Abs() },
 			expected: `{"$abs":{"$val":-5}}`,
 		},
 		{
 			name:     "exp",
-			rank:     Val(1.0).Exp(),
+			makeRank: func(_ *testing.T) Rank { return Val(1.0).Exp() },
 			expected: `{"$exp":{"$val":1}}`,
 		},
 		{
 			name:     "log",
-			rank:     Val(10.0).Log(),
+			makeRank: func(_ *testing.T) Rank { return Val(10.0).Log() },
 			expected: `{"$log":{"$val":10}}`,
 		},
 		{
 			name:     "max",
-			rank:     Val(1.0).Max(FloatOperand(5.0)),
+			makeRank: func(_ *testing.T) Rank { return Val(1.0).Max(FloatOperand(5.0)) },
 			expected: `{"$max":[{"$val":1},{"$val":5}]}`,
 		},
 		{
 			name:     "min",
-			rank:     Val(10.0).Min(FloatOperand(5.0)),
+			makeRank: func(_ *testing.T) Rank { return Val(10.0).Min(FloatOperand(5.0)) },
 			expected: `{"$min":[{"$val":10},{"$val":5}]}`,
 		},
 		{
 			name: "knn with exp",
-			rank: NewKnnRank(KnnQueryText("test")).Exp(),
+			makeRank: func(t *testing.T) Rank {
+				return mustNewKnnRank(t, KnnQueryText("test")).Exp()
+			},
 			expected: `{"$exp":{"$knn":{"query":"test","key":"#embedding","limit":16}}}`,
 		},
 		{
 			name: "knn with min and max (clamping)",
-			rank: NewKnnRank(KnnQueryText("test")).Min(FloatOperand(0.0)).Max(FloatOperand(1.0)),
+			makeRank: func(t *testing.T) Rank {
+				return mustNewKnnRank(t, KnnQueryText("test")).Min(FloatOperand(0.0)).Max(FloatOperand(1.0))
+			},
 			expected: `{"$max":[{"$min":[{"$knn":{"query":"test","key":"#embedding","limit":16}},{"$val":0}]},{"$val":1}]}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := tt.rank.MarshalJSON()
+			rank := tt.makeRank(t)
+			data, err := rank.MarshalJSON()
 			require.NoError(t, err)
 			require.JSONEq(t, tt.expected, string(data))
 		})
@@ -262,14 +283,9 @@ func TestMathFunctions(t *testing.T) {
 func TestComplexExpressions(t *testing.T) {
 	t.Run("weighted combination", func(t *testing.T) {
 		// weighted_combo = knn1 * 0.7 + knn2 * 0.3
-		rank := NewKnnRank(KnnQueryText("machine learning")).
-			Multiply(FloatOperand(0.7)).
-			Add(
-				NewKnnRank(
-					KnnQueryText("machine learning"),
-					WithKnnKey(K("sparse_embedding")),
-				).Multiply(FloatOperand(0.3)),
-			)
+		knn1 := mustNewKnnRank(t, KnnQueryText("machine learning"))
+		knn2 := mustNewKnnRank(t, KnnQueryText("machine learning"), WithKnnKey(K("sparse_embedding")))
+		rank := knn1.Multiply(FloatOperand(0.7)).Add(knn2.Multiply(FloatOperand(0.3)))
 
 		data, err := rank.MarshalJSON()
 		require.NoError(t, err)
@@ -283,9 +299,8 @@ func TestComplexExpressions(t *testing.T) {
 
 	t.Run("log compression", func(t *testing.T) {
 		// (knn + 1).log()
-		rank := NewKnnRank(KnnQueryText("deep learning")).
-			Add(FloatOperand(1)).
-			Log()
+		knn := mustNewKnnRank(t, KnnQueryText("deep learning"))
+		rank := knn.Add(FloatOperand(1)).Log()
 
 		data, err := rank.MarshalJSON()
 		require.NoError(t, err)
@@ -298,9 +313,8 @@ func TestComplexExpressions(t *testing.T) {
 
 	t.Run("exponential with clamping", func(t *testing.T) {
 		// knn.exp().min(0.0)
-		rank := NewKnnRank(KnnQueryText("AI")).
-			Exp().
-			Min(FloatOperand(0.0))
+		knn := mustNewKnnRank(t, KnnQueryText("AI"))
+		rank := knn.Exp().Min(FloatOperand(0.0))
 
 		data, err := rank.MarshalJSON()
 		require.NoError(t, err)
@@ -314,10 +328,12 @@ func TestComplexExpressions(t *testing.T) {
 
 func TestRrfRank(t *testing.T) {
 	t.Run("basic rrf", func(t *testing.T) {
+		knn1 := mustNewKnnRank(t, KnnQueryText("query1"), WithKnnReturnRank())
+		knn2 := mustNewKnnRank(t, KnnQueryText("query2"), WithKnnReturnRank())
 		rrf, err := NewRrfRank(
 			WithRffRanks(
-				NewKnnRank(KnnQueryText("query1"), WithKnnReturnRank()).WithWeight(1.0),
-				NewKnnRank(KnnQueryText("query2"), WithKnnReturnRank()).WithWeight(1.0),
+				knn1.WithWeight(1.0),
+				knn2.WithWeight(1.0),
 			),
 			WithRffK(60),
 		)
@@ -334,9 +350,10 @@ func TestRrfRank(t *testing.T) {
 	})
 
 	t.Run("rrf with custom k", func(t *testing.T) {
+		knn := mustNewKnnRank(t, KnnQueryText("test"))
 		rrf, err := NewRrfRank(
 			WithRffRanks(
-				NewKnnRank(KnnQueryText("test")).WithWeight(1.0),
+				knn.WithWeight(1.0),
 			),
 			WithRffK(100),
 		)
@@ -345,10 +362,12 @@ func TestRrfRank(t *testing.T) {
 	})
 
 	t.Run("rrf with normalization", func(t *testing.T) {
+		knnA := mustNewKnnRank(t, KnnQueryText("a"))
+		knnB := mustNewKnnRank(t, KnnQueryText("b"))
 		rrf, err := NewRrfRank(
 			WithRffRanks(
-				NewKnnRank(KnnQueryText("a")).WithWeight(3.0),
-				NewKnnRank(KnnQueryText("b")).WithWeight(1.0),
+				knnA.WithWeight(3.0),
+				knnB.WithWeight(1.0),
 			),
 			WithRffNormalize(),
 		)
@@ -361,10 +380,7 @@ func TestRrfRank(t *testing.T) {
 	})
 
 	t.Run("rrf requires at least one rank", func(t *testing.T) {
-		rrf, err := NewRrfRank()
-		require.NoError(t, err)
-
-		_, err = rrf.MarshalJSON()
+		_, err := NewRrfRank()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "at least one rank")
 	})
@@ -378,7 +394,7 @@ func TestRrfRank(t *testing.T) {
 
 func TestRankWithWeight(t *testing.T) {
 	t.Run("knn with weight", func(t *testing.T) {
-		knn := NewKnnRank(KnnQueryText("test"))
+		knn := mustNewKnnRank(t, KnnQueryText("test"))
 		rw := knn.WithWeight(0.5)
 
 		require.Equal(t, knn, rw.Rank)
@@ -386,7 +402,8 @@ func TestRankWithWeight(t *testing.T) {
 	})
 
 	t.Run("expression with weight", func(t *testing.T) {
-		expr := NewKnnRank(KnnQueryText("test")).Multiply(FloatOperand(0.8))
+		knn := mustNewKnnRank(t, KnnQueryText("test"))
+		expr := knn.Multiply(FloatOperand(0.8))
 		rw := expr.WithWeight(0.3)
 
 		require.Equal(t, 0.3, rw.Weight)

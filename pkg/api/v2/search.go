@@ -242,6 +242,28 @@ func WithSelectAll() SearchOption {
 	}
 }
 
+// WithRank sets a custom ranking expression on the search request.
+// Use this for complex rank expressions built from arithmetic operations.
+//
+// Example:
+//
+//	knn1, _ := NewKnnRank(KnnQueryText("query1"))
+//	knn2, _ := NewKnnRank(KnnQueryText("query2"))
+//	combined := knn1.Multiply(FloatOperand(0.7)).Add(knn2.Multiply(FloatOperand(0.3)))
+//
+//	result, err := col.Search(ctx,
+//	    NewSearchRequest(
+//	        WithRank(combined),
+//	        WithPage(WithLimit(10)),
+//	    ),
+//	)
+func WithRank(rank Rank) SearchOption {
+	return func(req *SearchRequest) error {
+		req.Rank = rank
+		return nil
+	}
+}
+
 // NewSearchRequest creates a search request and adds it to the query.
 //
 // Example:
