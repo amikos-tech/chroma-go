@@ -6,39 +6,43 @@ import (
 	"github.com/pkg/errors"
 )
 
-// SearchQuery contains multiple search requests
+// SearchQuery holds one or more search requests to execute as a batch.
 type SearchQuery struct {
 	Searches []SearchRequest `json:"searches"`
 }
 
-// SearchResult represents the result of a search operation
+// SearchResult represents the result of a search operation.
 type SearchResult interface{}
 
-// ProjectionKey represents a field to project in search results
+// ProjectionKey identifies a field to include in search results.
+// Use standard keys ([KDocument], [KEmbedding], etc.) or create custom ones with [K].
 type ProjectionKey string
 
-// K creates a custom projection key for metadata fields
+// K creates a projection key for a custom metadata field.
+//
+// Example:
+//
+//	WithSelect(KDocument, KScore, K("title"), K("author"))
 func K(key string) ProjectionKey {
 	return ProjectionKey(key)
 }
 
-// Standard projection keys
+// Standard projection keys for search result fields.
 const (
-	KDocument  ProjectionKey = "#document"
-	KEmbedding ProjectionKey = "#embedding"
-	KScore     ProjectionKey = "#score"
-	KMetadata  ProjectionKey = "#metadata"
-	KID        ProjectionKey = "#id"
+	KDocument  ProjectionKey = "#document"  // The document text
+	KEmbedding ProjectionKey = "#embedding" // The vector embedding
+	KScore     ProjectionKey = "#score"     // The ranking score
+	KMetadata  ProjectionKey = "#metadata"  // All metadata fields
+	KID        ProjectionKey = "#id"        // The document ID
 )
 
-// SearchFilter represents filter criteria for search
+// SearchFilter specifies which documents to include in search results.
 type SearchFilter struct {
 	IDs           []DocumentID        `json:"ids,omitempty"`
 	Where         WhereClause         `json:"where,omitempty"`
 	WhereDocument WhereDocumentFilter `json:"where_document,omitempty"`
 }
 
-// MarshalJSON implements custom JSON marshaling for SearchFilter
 func (f *SearchFilter) MarshalJSON() ([]byte, error) {
 	result := make(map[string]interface{})
 	if len(f.IDs) > 0 {
@@ -56,12 +60,12 @@ func (f *SearchFilter) MarshalJSON() ([]byte, error) {
 	return json.Marshal(result)
 }
 
-// SearchSelect represents fields to select in search results
+// SearchSelect specifies which fields to include in search results.
 type SearchSelect struct {
 	Keys []ProjectionKey `json:"keys,omitempty"`
 }
 
-// SearchRequest represents a single search operation
+// SearchRequest represents a single search operation with filter, ranking, pagination, and projection.
 type SearchRequest struct {
 	Filter *SearchFilter `json:"filter,omitempty"`
 	Limit  *SearchPage   `json:"limit,omitempty"`
@@ -69,7 +73,6 @@ type SearchRequest struct {
 	Select *SearchSelect `json:"select,omitempty"`
 }
 
-// MarshalJSON implements custom JSON marshaling for SearchRequest
 func (r *SearchRequest) MarshalJSON() ([]byte, error) {
 	result := make(map[string]interface{})
 
@@ -114,13 +117,13 @@ func (r *SearchRequest) MarshalJSON() ([]byte, error) {
 	return json.Marshal(result)
 }
 
-// SearchCollectionOption is an option for the Search method on a collection
+// SearchCollectionOption configures a [SearchQuery] for the collection's Search method.
 type SearchCollectionOption func(update *SearchQuery) error
 
-// SearchOption is an option for building a SearchRequest
+// SearchOption configures a [SearchRequest].
 type SearchOption func(req *SearchRequest) error
 
-// WithSearchFilter adds a filter to the search request
+// WithSearchFilter sets a complete filter on the search request.
 func WithSearchFilter(filter *SearchFilter) SearchOption {
 	return func(req *SearchRequest) error {
 		req.Filter = filter
@@ -128,7 +131,11 @@ func WithSearchFilter(filter *SearchFilter) SearchOption {
 	}
 }
 
-// WithFilter adds a where filter to the search request
+// WithFilter adds a metadata filter to the search.
+//
+// Example:
+//
+//	WithFilter(And(EqString("status", "published"), GtInt("views", 100)))
 func WithFilter(where WhereClause) SearchOption {
 	return func(req *SearchRequest) error {
 		if req.Filter == nil {
@@ -139,7 +146,7 @@ func WithFilter(where WhereClause) SearchOption {
 	}
 }
 
-// WithFilterIDs adds ID filter to the search request
+// WithFilterIDs restricts search to specific document IDs.
 func WithFilterIDs(ids ...DocumentID) SearchOption {
 	return func(req *SearchRequest) error {
 		if req.Filter == nil {
@@ -150,7 +157,7 @@ func WithFilterIDs(ids ...DocumentID) SearchOption {
 	}
 }
 
-// WithFilterDocument adds a document filter to the search request
+// WithFilterDocument adds a document content filter to the search.
 func WithFilterDocument(whereDoc WhereDocumentFilter) SearchOption {
 	return func(req *SearchRequest) error {
 		if req.Filter == nil {
@@ -161,16 +168,16 @@ func WithFilterDocument(whereDoc WhereDocumentFilter) SearchOption {
 	}
 }
 
-// SearchPage represents pagination options
+// SearchPage specifies pagination for search results.
 type SearchPage struct {
 	Limit  int `json:"limit,omitempty"`
 	Offset int `json:"offset,omitempty"`
 }
 
-// PageOpts is an option for configuring pagination
+// PageOpts configures pagination options.
 type PageOpts func(page *SearchPage) error
 
-// WithLimit sets the limit for pagination
+// WithLimit sets the maximum number of results to return.
 func WithLimit(limit int) PageOpts {
 	return func(page *SearchPage) error {
 		if limit < 1 {
@@ -181,7 +188,7 @@ func WithLimit(limit int) PageOpts {
 	}
 }
 
-// WithOffset sets the offset for pagination
+// WithOffset sets the number of results to skip (for pagination).
 func WithOffset(offset int) PageOpts {
 	return func(page *SearchPage) error {
 		if offset < 0 {
@@ -192,7 +199,11 @@ func WithOffset(offset int) PageOpts {
 	}
 }
 
-// WithPage adds pagination to the search request
+// WithPage adds pagination to the search request.
+//
+// Example:
+//
+//	WithPage(WithLimit(20), WithOffset(40))  // Page 3 of 20 results per page
 func WithPage(pageOpts ...PageOpts) SearchOption {
 	return func(req *SearchRequest) error {
 		page := &SearchPage{}
@@ -206,7 +217,11 @@ func WithPage(pageOpts ...PageOpts) SearchOption {
 	}
 }
 
-// WithSelect adds projection keys to the search request
+// WithSelect specifies which fields to include in search results.
+//
+// Example:
+//
+//	WithSelect(KDocument, KScore, K("title"), K("author"))
 func WithSelect(projectionKeys ...ProjectionKey) SearchOption {
 	return func(req *SearchRequest) error {
 		if req.Select == nil {
@@ -217,7 +232,7 @@ func WithSelect(projectionKeys ...ProjectionKey) SearchOption {
 	}
 }
 
-// WithSelectAll adds all standard projection keys to the search request
+// WithSelectAll includes all standard fields in search results.
 func WithSelectAll() SearchOption {
 	return func(req *SearchRequest) error {
 		req.Select = &SearchSelect{
@@ -227,7 +242,18 @@ func WithSelectAll() SearchOption {
 	}
 }
 
-// NewSearchRequest creates a new search request with the given options
+// NewSearchRequest creates a search request and adds it to the query.
+//
+// Example:
+//
+//	result, err := collection.Search(ctx,
+//	    NewSearchRequest(
+//	        WithKnnRank(KnnQueryText("machine learning"), WithKnnLimit(50)),
+//	        WithFilter(EqString("status", "published")),
+//	        WithPage(WithLimit(10)),
+//	        WithSelect(KDocument, KScore),
+//	    ),
+//	)
 func NewSearchRequest(opts ...SearchOption) SearchCollectionOption {
 	return func(update *SearchQuery) error {
 		search := &SearchRequest{}
@@ -241,7 +267,7 @@ func NewSearchRequest(opts ...SearchOption) SearchCollectionOption {
 	}
 }
 
-// SearchResultImpl is the concrete implementation of SearchResult
+// SearchResultImpl holds the results of a search operation.
 type SearchResultImpl struct {
 	IDs        [][]DocumentID         `json:"ids,omitempty"`
 	Documents  [][]string             `json:"documents,omitempty"`

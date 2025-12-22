@@ -8,22 +8,45 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-// Operand represents a value that can be used in rank expressions
+// Operand is an interface for values that can participate in rank expressions.
+// Concrete types include [IntOperand], [FloatOperand], and all [Rank] implementations.
 type Operand interface {
 	IsOperand()
 }
 
-// IntOperand represents an integer operand
+// IntOperand wraps an integer for use in rank arithmetic expressions.
+//
+// Example:
+//
+//	rank := Val(1.0).Add(IntOperand(5))  // Produces: {"$sum": [{"$val": 1}, {"$val": 5}]}
 type IntOperand int64
 
 func (i IntOperand) IsOperand() {}
 
-// FloatOperand represents a float operand
+// FloatOperand wraps a float for use in rank arithmetic expressions.
+//
+// Example:
+//
+//	rank := NewKnnRank(KnnQueryText("query")).Multiply(FloatOperand(0.7))
 type FloatOperand float64
 
 func (f FloatOperand) IsOperand() {}
 
-// Rank represents a ranking expression that can be serialized to JSON
+// Rank is the core interface for building ranking expressions.
+//
+// Rank expressions are composable through arithmetic operations (Add, Sub, Multiply, Div)
+// and mathematical functions (Abs, Exp, Log, Max, Min). Each operation returns a new Rank,
+// enabling fluent method chaining.
+//
+// Example - weighted combination of two KNN searches:
+//
+//	rank := NewKnnRank(KnnQueryText("machine learning")).
+//	    Multiply(FloatOperand(0.7)).
+//	    Add(NewKnnRank(KnnQueryText("deep learning")).Multiply(FloatOperand(0.3)))
+//
+// Example - log compression with offset:
+//
+//	rank := NewKnnRank(KnnQueryText("query")).Add(FloatOperand(1)).Log()
 type Rank interface {
 	Operand
 	Multiply(operand Operand) Rank
@@ -41,20 +64,31 @@ type Rank interface {
 	UnmarshalJSON(b []byte) error
 }
 
-// RankWithWeight pairs a Rank with a weight for use in RRF
+// RankWithWeight pairs a Rank with a weight for use in Reciprocal Rank Fusion (RRF).
+//
+// Create using the WithWeight method on any Rank:
+//
+//	knn := NewKnnRank(KnnQueryText("query"), WithKnnReturnRank()).WithWeight(0.5)
 type RankWithWeight struct {
 	Rank   Rank
 	Weight float64
 }
 
-// --- Val (constant value) ---
-
-// ValRank represents a constant value in rank expressions
+// ValRank represents a constant numeric value in rank expressions.
+// Serializes to JSON as {"$val": <value>}.
 type ValRank struct {
 	value float64
 }
 
-// Val creates a new constant value rank
+// Val creates a constant value rank expression.
+//
+// Example:
+//
+//	// Add a constant offset to KNN scores
+//	rank := NewKnnRank(KnnQueryText("query")).Add(Val(1.0))
+//
+//	// Create a weighted scalar
+//	rank := Val(0.5).Multiply(NewKnnRank(KnnQueryText("query")))
 func Val(value float64) *ValRank {
 	return &ValRank{value: value}
 }
@@ -120,9 +154,8 @@ func (v *ValRank) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// --- Arithmetic Types ---
-
-// SumRank represents addition of multiple ranks: {"$sum": [...]}
+// SumRank represents the addition of multiple rank expressions.
+// Serializes to JSON as {"$sum": [...]}.
 type SumRank struct {
 	ranks []Rank
 }
@@ -190,10 +223,11 @@ func (s *SumRank) MarshalJSON() ([]byte, error) {
 }
 
 func (s *SumRank) UnmarshalJSON(b []byte) error {
-	return nil // TODO: implement if needed
+	return nil
 }
 
-// SubRank represents subtraction: {"$sub": {"left": ..., "right": ...}}
+// SubRank represents subtraction of two rank expressions.
+// Serializes to JSON as {"$sub": {"left": ..., "right": ...}}.
 type SubRank struct {
 	left  Rank
 	right Rank
@@ -260,10 +294,11 @@ func (s *SubRank) MarshalJSON() ([]byte, error) {
 }
 
 func (s *SubRank) UnmarshalJSON(b []byte) error {
-	return nil // TODO: implement if needed
+	return nil
 }
 
-// MulRank represents multiplication of multiple ranks: {"$mul": [...]}
+// MulRank represents multiplication of multiple rank expressions.
+// Serializes to JSON as {"$mul": [...]}.
 type MulRank struct {
 	ranks []Rank
 }
@@ -331,10 +366,11 @@ func (m *MulRank) MarshalJSON() ([]byte, error) {
 }
 
 func (m *MulRank) UnmarshalJSON(b []byte) error {
-	return nil // TODO: implement if needed
+	return nil
 }
 
-// DivRank represents division: {"$div": {"left": ..., "right": ...}}
+// DivRank represents division of two rank expressions.
+// Serializes to JSON as {"$div": {"left": ..., "right": ...}}.
 type DivRank struct {
 	left  Rank
 	right Rank
@@ -401,12 +437,11 @@ func (d *DivRank) MarshalJSON() ([]byte, error) {
 }
 
 func (d *DivRank) UnmarshalJSON(b []byte) error {
-	return nil // TODO: implement if needed
+	return nil
 }
 
-// --- Math Function Types ---
-
-// AbsRank represents absolute value: {"$abs": rank}
+// AbsRank represents the absolute value of a rank expression.
+// Serializes to JSON as {"$abs": <rank>}.
 type AbsRank struct {
 	rank Rank
 }
@@ -466,10 +501,11 @@ func (a *AbsRank) MarshalJSON() ([]byte, error) {
 }
 
 func (a *AbsRank) UnmarshalJSON(b []byte) error {
-	return nil // TODO: implement if needed
+	return nil
 }
 
-// ExpRank represents exponential: {"$exp": rank}
+// ExpRank represents the exponential (e^x) of a rank expression.
+// Serializes to JSON as {"$exp": <rank>}.
 type ExpRank struct {
 	rank Rank
 }
@@ -529,10 +565,11 @@ func (e *ExpRank) MarshalJSON() ([]byte, error) {
 }
 
 func (e *ExpRank) UnmarshalJSON(b []byte) error {
-	return nil // TODO: implement if needed
+	return nil
 }
 
-// LogRank represents logarithm: {"$log": rank}
+// LogRank represents the natural logarithm of a rank expression.
+// Serializes to JSON as {"$log": <rank>}.
 type LogRank struct {
 	rank Rank
 }
@@ -568,7 +605,7 @@ func (l *LogRank) Exp() Rank {
 }
 
 func (l *LogRank) Log() Rank {
-	return l // log(log(x)) is valid but unusual
+	return l
 }
 
 func (l *LogRank) Max(operand Operand) Rank {
@@ -592,10 +629,11 @@ func (l *LogRank) MarshalJSON() ([]byte, error) {
 }
 
 func (l *LogRank) UnmarshalJSON(b []byte) error {
-	return nil // TODO: implement if needed
+	return nil
 }
 
-// MaxRank represents maximum: {"$max": [...]}
+// MaxRank represents the maximum of multiple rank expressions.
+// Serializes to JSON as {"$max": [...]}.
 type MaxRank struct {
 	ranks []Rank
 }
@@ -663,10 +701,11 @@ func (m *MaxRank) MarshalJSON() ([]byte, error) {
 }
 
 func (m *MaxRank) UnmarshalJSON(b []byte) error {
-	return nil // TODO: implement if needed
+	return nil
 }
 
-// MinRank represents minimum: {"$min": [...]}
+// MinRank represents the minimum of multiple rank expressions.
+// Serializes to JSON as {"$min": [...]}.
 type MinRank struct {
 	ranks []Rank
 }
@@ -734,14 +773,22 @@ func (m *MinRank) MarshalJSON() ([]byte, error) {
 }
 
 func (m *MinRank) UnmarshalJSON(b []byte) error {
-	return nil // TODO: implement if needed
+	return nil
 }
 
-// --- KnnRank ---
-
+// KnnOption configures optional parameters for [KnnRank].
 type KnnOption func(req *KnnRank) error
+
+// KnnQueryOption sets the query for [KnnRank].
 type KnnQueryOption func(req *KnnRank) error
 
+// KnnQueryVector creates a KNN query from a dense vector embedding.
+// The vector will be used directly for similarity search without auto-embedding.
+//
+// Example:
+//
+//	vector := embeddings.NewEmbeddingFromFloat32([]float32{0.1, 0.2, 0.3, ...})
+//	rank := NewKnnRank(KnnQueryVector(vector))
 func KnnQueryVector(queryVector embeddings.KnnVector) KnnQueryOption {
 	return func(req *KnnRank) error {
 		req.Query = queryVector.ValuesAsFloat32()
@@ -749,6 +796,13 @@ func KnnQueryVector(queryVector embeddings.KnnVector) KnnQueryOption {
 	}
 }
 
+// KnnQuerySparseVector creates a KNN query from a sparse vector.
+// Use with [WithKnnKey] to target a sparse embedding field.
+//
+// Example:
+//
+//	sparse := embeddings.NewSparseVector([]int{1, 5, 10}, []float32{0.5, 0.3, 0.8})
+//	rank := NewKnnRank(KnnQuerySparseVector(sparse), WithKnnKey(K("sparse_embedding")))
 func KnnQuerySparseVector(sparseVector *embeddings.SparseVector) KnnQueryOption {
 	return func(req *KnnRank) error {
 		req.Query = sparseVector
@@ -756,6 +810,12 @@ func KnnQuerySparseVector(sparseVector *embeddings.SparseVector) KnnQueryOption 
 	}
 }
 
+// KnnQueryText creates a KNN query from text that will be auto-embedded.
+// The collection's embedding function will convert the text to a vector at search time.
+//
+// Example:
+//
+//	rank := NewKnnRank(KnnQueryText("machine learning research"))
 func KnnQueryText(text string) KnnQueryOption {
 	return func(req *KnnRank) error {
 		req.Query = text
@@ -763,6 +823,9 @@ func KnnQueryText(text string) KnnQueryOption {
 	}
 }
 
+// WithKnnLimit sets the maximum number of nearest neighbors to retrieve.
+// Only the top K documents are scored; others receive the default score or are excluded.
+// Default is 16.
 func WithKnnLimit(limit int) KnnOption {
 	return func(req *KnnRank) error {
 		if limit < 1 {
@@ -773,6 +836,12 @@ func WithKnnLimit(limit int) KnnOption {
 	}
 }
 
+// WithKnnKey specifies which embedding field to search.
+// Default is "#embedding" (the main embedding). Use for multi-vector or sparse searches.
+//
+// Example:
+//
+//	rank := NewKnnRank(query, WithKnnKey(K("sparse_embedding")))
 func WithKnnKey(key ProjectionKey) KnnOption {
 	return func(req *KnnRank) error {
 		req.Key = key
@@ -780,6 +849,13 @@ func WithKnnKey(key ProjectionKey) KnnOption {
 	}
 }
 
+// WithKnnDefault sets the score for documents not in the top-K nearest neighbors.
+// When set, documents outside the KNN results receive this score instead of being excluded.
+// Use this for inclusive multi-query searches where a document should match ANY query.
+//
+// Example:
+//
+//	rank := NewKnnRank(query, WithKnnDefault(10.0))  // Non-matches get score 10.0
 func WithKnnDefault(defaultScore float64) KnnOption {
 	return func(req *KnnRank) error {
 		req.DefaultScore = &defaultScore
@@ -787,6 +863,8 @@ func WithKnnDefault(defaultScore float64) KnnOption {
 	}
 }
 
+// WithKnnReturnRank makes the KNN return rank position (1, 2, 3...) instead of distance.
+// Required when using [KnnRank] with Reciprocal Rank Fusion ([RrfRank]).
 func WithKnnReturnRank() KnnOption {
 	return func(req *KnnRank) error {
 		req.ReturnRank = true
@@ -794,15 +872,44 @@ func WithKnnReturnRank() KnnOption {
 	}
 }
 
-// KnnRank represents a KNN-based ranking expression
+// KnnRank performs K-Nearest Neighbors search and scoring.
+// Serializes to JSON as {"$knn": {...}}.
+//
+// Create using [NewKnnRank] with a query option and optional configuration:
+//
+//	// Text query (auto-embedded)
+//	rank := NewKnnRank(KnnQueryText("search query"))
+//
+//	// With options
+//	rank := NewKnnRank(
+//	    KnnQueryText("query"),
+//	    WithKnnLimit(100),
+//	    WithKnnDefault(10.0),
+//	)
+//
+//	// Weighted combination
+//	combined := rank1.Multiply(FloatOperand(0.7)).Add(rank2.Multiply(FloatOperand(0.3)))
 type KnnRank struct {
-	Query        interface{}   // string (auto-embedded), []float32, []float64, or SparseVector
-	Key          ProjectionKey // default "#embedding"
-	Limit        int           // default 16
-	DefaultScore *float64      // nil means exclude documents not in KNN results
-	ReturnRank   bool          // return rank position instead of distance
+	Query        interface{}
+	Key          ProjectionKey
+	Limit        int
+	DefaultScore *float64
+	ReturnRank   bool
 }
 
+// NewKnnRank creates a K-Nearest Neighbors ranking expression.
+//
+// Parameters:
+//   - query: The search query (use [KnnQueryText], [KnnQueryVector], or [KnnQuerySparseVector])
+//   - knnOptions: Optional configuration ([WithKnnLimit], [WithKnnKey], [WithKnnDefault], [WithKnnReturnRank])
+//
+// Example:
+//
+//	rank := NewKnnRank(
+//	    KnnQueryText("machine learning"),
+//	    WithKnnLimit(50),
+//	    WithKnnDefault(10.0),
+//	)
 func NewKnnRank(query KnnQueryOption, knnOptions ...KnnOption) *KnnRank {
 	knn := &KnnRank{
 		Key:   KEmbedding,
@@ -903,10 +1010,20 @@ func (k *KnnRank) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// --- RRF (Reciprocal Rank Fusion) ---
-
+// RffOption configures [RrfRank] parameters.
 type RffOption func(req *RrfRank) error
 
+// WithRffRanks adds weighted ranking expressions to RRF.
+// Each rank should use [WithKnnReturnRank] to return rank positions instead of distances.
+//
+// Example:
+//
+//	rrf, _ := NewRrfRank(
+//	    WithRffRanks(
+//	        NewKnnRank(KnnQueryText("query1"), WithKnnReturnRank()).WithWeight(0.5),
+//	        NewKnnRank(KnnQueryText("query2"), WithKnnReturnRank()).WithWeight(0.5),
+//	    ),
+//	)
 func WithRffRanks(ranks ...RankWithWeight) RffOption {
 	return func(req *RrfRank) error {
 		req.Ranks = append(req.Ranks, ranks...)
@@ -914,6 +1031,8 @@ func WithRffRanks(ranks ...RankWithWeight) RffOption {
 	}
 }
 
+// WithRffK sets the smoothing constant for RRF. Default is 60.
+// Higher values reduce the impact of rank differences.
 func WithRffK(k int) RffOption {
 	return func(req *RrfRank) error {
 		if k <= 0 {
@@ -924,6 +1043,7 @@ func WithRffK(k int) RffOption {
 	}
 }
 
+// WithRffNormalize enables weight normalization so weights sum to 1.0.
 func WithRffNormalize() RffOption {
 	return func(req *RrfRank) error {
 		req.Normalize = true
@@ -931,14 +1051,40 @@ func WithRffNormalize() RffOption {
 	}
 }
 
-// RrfRank implements Reciprocal Rank Fusion
-// Formula: -sum(weight_i / (k + rank_i))
+// RrfRank implements Reciprocal Rank Fusion for combining multiple ranking strategies.
+//
+// RRF uses the formula: -sum(weight_i / (k + rank_i))
+//
+// This is useful for combining semantic search with keyword search, or multiple
+// embedding types. Each input rank should use [WithKnnReturnRank] to return
+// positions rather than distances.
+//
+// Example:
+//
+//	rrf, err := NewRrfRank(
+//	    WithRffRanks(
+//	        NewKnnRank(KnnQueryText("AI"), WithKnnReturnRank()).WithWeight(1.0),
+//	        NewKnnRank(KnnQueryText("ML"), WithKnnReturnRank()).WithWeight(1.0),
+//	    ),
+//	    WithRffK(60),
+//	)
 type RrfRank struct {
 	Ranks     []RankWithWeight
-	K         int  // smoothing constant, default 60
-	Normalize bool // normalize weights to sum to 1.0
+	K         int
+	Normalize bool
 }
 
+// NewRrfRank creates a Reciprocal Rank Fusion ranking expression.
+//
+// Example:
+//
+//	rrf, err := NewRrfRank(
+//	    WithRffRanks(
+//	        NewKnnRank(KnnQueryText("query"), WithKnnReturnRank()).WithWeight(1.0),
+//	    ),
+//	    WithRffK(60),
+//	    WithRffNormalize(),
+//	)
 func NewRrfRank(opts ...RffOption) (*RrfRank, error) {
 	rrf := &RrfRank{
 		K: 60,
@@ -997,7 +1143,6 @@ func (r *RrfRank) WithWeight(weight float64) RankWithWeight {
 	return RankWithWeight{Rank: r, Weight: weight}
 }
 
-// MarshalJSON builds: -sum(weight_i / (k + rank_i))
 func (r *RrfRank) MarshalJSON() ([]byte, error) {
 	if len(r.Ranks) == 0 {
 		return nil, errors.New("rrf requires at least one rank")
@@ -1048,12 +1193,9 @@ func (r *RrfRank) MarshalJSON() ([]byte, error) {
 }
 
 func (r *RrfRank) UnmarshalJSON(b []byte) error {
-	return nil // RRF is constructed programmatically, not from JSON
+	return nil
 }
 
-// --- Helper Functions ---
-
-// operandToRank converts an Operand to a Rank
 func operandToRank(operand Operand) Rank {
 	switch v := operand.(type) {
 	case Rank:
@@ -1067,8 +1209,14 @@ func operandToRank(operand Operand) Rank {
 	}
 }
 
-// --- Search Option Functions ---
-
+// WithKnnRank adds a KNN ranking expression to a search request.
+//
+// Example:
+//
+//	search := NewSearchRequest(
+//	    WithKnnRank(KnnQueryText("machine learning"), WithKnnLimit(50)),
+//	    WithPage(WithLimit(10)),
+//	)
 func WithKnnRank(query KnnQueryOption, knnOptions ...KnnOption) SearchOption {
 	return func(req *SearchRequest) error {
 		knn := NewKnnRank(query, knnOptions...)
@@ -1077,6 +1225,18 @@ func WithKnnRank(query KnnQueryOption, knnOptions ...KnnOption) SearchOption {
 	}
 }
 
+// WithRffRank adds an RRF ranking expression to a search request.
+//
+// Example:
+//
+//	search := NewSearchRequest(
+//	    WithRffRank(
+//	        WithRffRanks(
+//	            NewKnnRank(KnnQueryText("q1"), WithKnnReturnRank()).WithWeight(0.5),
+//	            NewKnnRank(KnnQueryText("q2"), WithKnnReturnRank()).WithWeight(0.5),
+//	        ),
+//	    ),
+//	)
 func WithRffRank(opts ...RffOption) SearchOption {
 	return func(req *SearchRequest) error {
 		rrf, err := NewRrfRank(opts...)
