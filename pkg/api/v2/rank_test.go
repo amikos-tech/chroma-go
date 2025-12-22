@@ -388,7 +388,7 @@ func TestRrfRank(t *testing.T) {
 	t.Run("rrf k must be positive", func(t *testing.T) {
 		_, err := NewRrfRank(WithRffK(0))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "must be > 0")
+		require.Contains(t, err.Error(), "must be >= 1")
 	})
 }
 

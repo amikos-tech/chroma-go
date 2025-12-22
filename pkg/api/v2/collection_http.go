@@ -412,6 +412,9 @@ func (c *CollectionImpl) embedTextQueries(ctx context.Context, req *SearchReques
 
 // embedRankTextQueries recursively embeds text queries in rank expressions
 func (c *CollectionImpl) embedRankTextQueries(ctx context.Context, rank Rank) error {
+	if rank == nil {
+		return nil
+	}
 	switch r := rank.(type) {
 	case *KnnRank:
 		if text, ok := r.Query.(string); ok {
@@ -426,50 +429,79 @@ func (c *CollectionImpl) embedRankTextQueries(ctx context.Context, rank Rank) er
 		}
 	case *RrfRank:
 		for _, rw := range r.Ranks {
+			if rw.Rank == nil {
+				continue
+			}
 			if err := c.embedRankTextQueries(ctx, rw.Rank); err != nil {
 				return err
 			}
 		}
 	case *SumRank:
 		for _, child := range r.ranks {
+			if child == nil {
+				continue
+			}
 			if err := c.embedRankTextQueries(ctx, child); err != nil {
 				return err
 			}
 		}
 	case *MulRank:
 		for _, child := range r.ranks {
+			if child == nil {
+				continue
+			}
 			if err := c.embedRankTextQueries(ctx, child); err != nil {
 				return err
 			}
 		}
 	case *SubRank:
-		if err := c.embedRankTextQueries(ctx, r.left); err != nil {
-			return err
+		if r.left != nil {
+			if err := c.embedRankTextQueries(ctx, r.left); err != nil {
+				return err
+			}
 		}
-		if err := c.embedRankTextQueries(ctx, r.right); err != nil {
-			return err
+		if r.right != nil {
+			if err := c.embedRankTextQueries(ctx, r.right); err != nil {
+				return err
+			}
 		}
 	case *DivRank:
-		if err := c.embedRankTextQueries(ctx, r.left); err != nil {
-			return err
+		if r.left != nil {
+			if err := c.embedRankTextQueries(ctx, r.left); err != nil {
+				return err
+			}
 		}
-		if err := c.embedRankTextQueries(ctx, r.right); err != nil {
-			return err
+		if r.right != nil {
+			if err := c.embedRankTextQueries(ctx, r.right); err != nil {
+				return err
+			}
 		}
 	case *AbsRank:
-		return c.embedRankTextQueries(ctx, r.rank)
+		if r.rank != nil {
+			return c.embedRankTextQueries(ctx, r.rank)
+		}
 	case *ExpRank:
-		return c.embedRankTextQueries(ctx, r.rank)
+		if r.rank != nil {
+			return c.embedRankTextQueries(ctx, r.rank)
+		}
 	case *LogRank:
-		return c.embedRankTextQueries(ctx, r.rank)
+		if r.rank != nil {
+			return c.embedRankTextQueries(ctx, r.rank)
+		}
 	case *MaxRank:
 		for _, child := range r.ranks {
+			if child == nil {
+				continue
+			}
 			if err := c.embedRankTextQueries(ctx, child); err != nil {
 				return err
 			}
 		}
 	case *MinRank:
 		for _, child := range r.ranks {
+			if child == nil {
+				continue
+			}
 			if err := c.embedRankTextQueries(ctx, child); err != nil {
 				return err
 			}

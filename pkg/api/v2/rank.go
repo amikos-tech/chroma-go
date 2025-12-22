@@ -213,6 +213,9 @@ func (s *SumRank) WithWeight(weight float64) RankWithWeight {
 }
 
 func (s *SumRank) MarshalJSON() ([]byte, error) {
+	if len(s.ranks) > MaxExpressionTerms {
+		return nil, errors.Errorf("sum expression exceeds maximum of %d terms", MaxExpressionTerms)
+	}
 	rankMaps := make([]json.RawMessage, len(s.ranks))
 	for i, r := range s.ranks {
 		data, err := r.MarshalJSON()
@@ -358,6 +361,9 @@ func (m *MulRank) WithWeight(weight float64) RankWithWeight {
 }
 
 func (m *MulRank) MarshalJSON() ([]byte, error) {
+	if len(m.ranks) > MaxExpressionTerms {
+		return nil, errors.Errorf("mul expression exceeds maximum of %d terms", MaxExpressionTerms)
+	}
 	rankMaps := make([]json.RawMessage, len(m.ranks))
 	for i, r := range m.ranks {
 		data, err := r.MarshalJSON()
@@ -427,6 +433,11 @@ func (d *DivRank) WithWeight(weight float64) RankWithWeight {
 }
 
 func (d *DivRank) MarshalJSON() ([]byte, error) {
+	// Check for division by zero literal
+	if v, ok := d.right.(*ValRank); ok && v.value == 0 {
+		return nil, errors.New("division by zero: denominator is a zero literal")
+	}
+
 	leftData, err := d.left.MarshalJSON()
 	if err != nil {
 		return nil, err
@@ -695,6 +706,9 @@ func (m *MaxRank) WithWeight(weight float64) RankWithWeight {
 }
 
 func (m *MaxRank) MarshalJSON() ([]byte, error) {
+	if len(m.ranks) > MaxExpressionTerms {
+		return nil, errors.Errorf("max expression exceeds maximum of %d terms", MaxExpressionTerms)
+	}
 	rankMaps := make([]json.RawMessage, len(m.ranks))
 	for i, r := range m.ranks {
 		data, err := r.MarshalJSON()
@@ -769,6 +783,9 @@ func (m *MinRank) WithWeight(weight float64) RankWithWeight {
 }
 
 func (m *MinRank) MarshalJSON() ([]byte, error) {
+	if len(m.ranks) > MaxExpressionTerms {
+		return nil, errors.Errorf("min expression exceeds maximum of %d terms", MaxExpressionTerms)
+	}
 	rankMaps := make([]json.RawMessage, len(m.ranks))
 	for i, r := range m.ranks {
 		data, err := r.MarshalJSON()
@@ -983,6 +1000,14 @@ func (k *KnnRank) WithWeight(weight float64) RankWithWeight {
 }
 
 func (k *KnnRank) MarshalJSON() ([]byte, error) {
+	// Validate query type
+	switch k.Query.(type) {
+	case string, []float32, *embeddings.SparseVector, nil:
+		// Valid types
+	default:
+		return nil, errors.Errorf("invalid KnnRank query type: %T (expected string, []float32, or *SparseVector)", k.Query)
+	}
+
 	inner := map[string]interface{}{
 		"query": k.Query,
 		"key":   string(k.Key),
@@ -1047,8 +1072,8 @@ func WithRffRanks(ranks ...RankWithWeight) RffOption {
 // Higher values reduce the impact of rank differences.
 func WithRffK(k int) RffOption {
 	return func(req *RrfRank) error {
-		if k <= 0 {
-			return errors.New("rrf k must be > 0")
+		if k < 1 {
+			return errors.New("rrf k must be >= 1")
 		}
 		req.K = k
 		return nil
@@ -1097,6 +1122,13 @@ type RrfRank struct {
 //	    WithRffK(60),
 //	    WithRffNormalize(),
 //	)
+//
+// MaxRrfRanks is the maximum number of ranks allowed in RRF to prevent excessive memory allocation.
+const MaxRrfRanks = 100
+
+// MaxExpressionTerms is the maximum number of terms allowed in variadic rank expressions (Sum, Mul, Max, Min).
+const MaxExpressionTerms = 1000
+
 func NewRrfRank(opts ...RffOption) (*RrfRank, error) {
 	rrf := &RrfRank{
 		K: 60,
@@ -1108,6 +1140,9 @@ func NewRrfRank(opts ...RffOption) (*RrfRank, error) {
 	}
 	if len(rrf.Ranks) == 0 {
 		return nil, errors.New("rrf requires at least one rank")
+	}
+	if len(rrf.Ranks) > MaxRrfRanks {
+		return nil, errors.Errorf("rrf cannot have more than %d ranks", MaxRrfRanks)
 	}
 	return rrf, nil
 }
@@ -1175,7 +1210,7 @@ func (r *RrfRank) MarshalJSON() ([]byte, error) {
 		for _, w := range weights {
 			sum += w
 		}
-		if sum == 0 {
+		if sum < 1e-10 {
 			return nil, errors.New("sum of weights must be positive when normalize=true")
 		}
 		for i := range weights {
