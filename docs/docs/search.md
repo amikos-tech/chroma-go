@@ -82,7 +82,8 @@ vector := embeddings.NewEmbeddingFromFloat32([]float32{0.1, 0.2, 0.3, ...})
 chroma.WithKnnRank(chroma.KnnQueryVector(vector))
 
 // Sparse vector query
-sparse := embeddings.NewSparseVector([]int{1, 5, 10}, []float32{0.5, 0.3, 0.8})
+sparse, err := embeddings.NewSparseVector([]int{1, 5, 10}, []float32{0.5, 0.3, 0.8})
+if err != nil { return err }
 chroma.WithKnnRank(
     chroma.KnnQuerySparseVector(sparse),
     chroma.WithKnnKey(chroma.K("sparse_embedding")),

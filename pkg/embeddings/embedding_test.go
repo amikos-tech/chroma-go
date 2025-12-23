@@ -29,13 +29,13 @@ func TestUnmarshalEmbeddings(t *testing.T) {
 
 func TestSparseVectorValidate(t *testing.T) {
 	t.Run("valid sparse vector", func(t *testing.T) {
-		sv := NewSparseVector([]int{1, 5, 10}, []float32{0.5, 0.3, 0.8})
+		sv, err := NewSparseVector([]int{1, 5, 10}, []float32{0.5, 0.3, 0.8})
+		require.NoError(t, err)
 		require.NoError(t, sv.Validate())
 	})
 
 	t.Run("mismatched lengths", func(t *testing.T) {
-		sv := NewSparseVector([]int{1, 5, 10}, []float32{0.5})
-		err := sv.Validate()
+		_, err := NewSparseVector([]int{1, 5, 10}, []float32{0.5})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "same length")
 	})
@@ -48,7 +48,8 @@ func TestSparseVectorValidate(t *testing.T) {
 	})
 
 	t.Run("empty sparse vector is valid", func(t *testing.T) {
-		sv := NewSparseVector([]int{}, []float32{})
+		sv, err := NewSparseVector([]int{}, []float32{})
+		require.NoError(t, err)
 		require.NoError(t, sv.Validate())
 	})
 }

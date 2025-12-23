@@ -144,10 +144,11 @@ func TestKnnRankWithVectors(t *testing.T) {
 	})
 
 	t.Run("sparse vector", func(t *testing.T) {
-		sparseVector := embeddings.NewSparseVector(
+		sparseVector, err := embeddings.NewSparseVector(
 			[]int{1, 5, 10},
 			[]float32{0.5, 0.3, 0.8},
 		)
+		require.NoError(t, err)
 		rank := mustNewKnnRank(t,
 			KnnQuerySparseVector(sparseVector),
 			WithKnnKey(K("sparse_embedding")),

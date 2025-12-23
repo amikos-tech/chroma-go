@@ -33,12 +33,16 @@ type SparseVector struct {
 	Values  []float32 `json:"values"`
 }
 
-// NewSparseVector creates a new sparse vector
-func NewSparseVector(indices []int, values []float32) *SparseVector {
+// NewSparseVector creates a new sparse vector.
+// Returns an error if indices and values have different lengths.
+func NewSparseVector(indices []int, values []float32) (*SparseVector, error) {
+	if len(indices) != len(values) {
+		return nil, errors.New("indices and values must have the same length")
+	}
 	return &SparseVector{
 		Indices: indices,
 		Values:  values,
-	}
+	}, nil
 }
 
 // Len returns the number of non-zero elements

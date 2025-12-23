@@ -826,8 +826,9 @@ func KnnQueryVector(queryVector embeddings.KnnVector) KnnQueryOption {
 //
 // Example:
 //
-//	sparse := embeddings.NewSparseVector([]int{1, 5, 10}, []float32{0.5, 0.3, 0.8})
-//	rank := NewKnnRank(KnnQuerySparseVector(sparse), WithKnnKey(K("sparse_embedding")))
+//	sparse, err := embeddings.NewSparseVector([]int{1, 5, 10}, []float32{0.5, 0.3, 0.8})
+//	if err != nil { return err }
+//	rank, err := NewKnnRank(KnnQuerySparseVector(sparse), WithKnnKey(K("sparse_embedding")))
 func KnnQuerySparseVector(sparseVector *embeddings.SparseVector) KnnQueryOption {
 	return func(req *KnnRank) error {
 		req.Query = sparseVector
@@ -1035,6 +1036,9 @@ func (k *KnnRank) UnmarshalJSON(b []byte) error {
 			k.Key = ProjectionKey(key)
 		}
 		if limit, ok := knnData["limit"].(float64); ok {
+			if int(limit) < 1 {
+				return errors.New("knn limit must be >= 1")
+			}
 			k.Limit = int(limit)
 		}
 		if def, ok := knnData["default"].(float64); ok {
@@ -1210,7 +1214,7 @@ func (r *RrfRank) MarshalJSON() ([]byte, error) {
 		for _, w := range weights {
 			sum += w
 		}
-		if sum < 1e-10 {
+		if sum < 1e-6 {
 			return nil, errors.New("sum of weights must be positive when normalize=true")
 		}
 		for i := range weights {
@@ -1242,7 +1246,15 @@ func (r *RrfRank) UnmarshalJSON(_ []byte) error {
 	return errors.New("RrfRank: unmarshaling is not supported")
 }
 
+// operandToRank converts an Operand to a Rank.
+// Supported operand types: Rank, IntOperand, FloatOperand.
+// For nil or unknown types, returns Val(0) to maintain fluid API chaining.
+// Note: Only the public operand types (IntOperand, FloatOperand) and Rank implementations
+// are expected; unknown types indicate a programming error.
 func operandToRank(operand Operand) Rank {
+	if operand == nil {
+		return Val(0)
+	}
 	switch v := operand.(type) {
 	case Rank:
 		return v
@@ -1251,6 +1263,8 @@ func operandToRank(operand Operand) Rank {
 	case FloatOperand:
 		return Val(float64(v))
 	default:
+		// Unknown operand type - return zero to maintain chaining.
+		// This should not happen with proper API usage.
 		return Val(0)
 	}
 }
