@@ -401,14 +401,6 @@ func TestRankWithWeight(t *testing.T) {
 		require.Equal(t, knn, rw.Rank)
 		require.Equal(t, 0.5, rw.Weight)
 	})
-
-	t.Run("expression with weight", func(t *testing.T) {
-		knn := mustNewKnnRank(t, KnnQueryText("test"))
-		expr := knn.Multiply(FloatOperand(0.8))
-		rw := expr.WithWeight(0.3)
-
-		require.Equal(t, 0.3, rw.Weight)
-	})
 }
 
 func TestOperandConversion(t *testing.T) {

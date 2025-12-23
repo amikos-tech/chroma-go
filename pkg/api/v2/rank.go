@@ -59,16 +59,16 @@ type Rank interface {
 	Log() Rank
 	Max(operand Operand) Rank
 	Min(operand Operand) Rank
-	WithWeight(weight float64) RankWithWeight
 	MarshalJSON() ([]byte, error)
 	UnmarshalJSON(b []byte) error
 }
 
 // RankWithWeight pairs a Rank with a weight for use in Reciprocal Rank Fusion (RRF).
 //
-// Create using the WithWeight method on any Rank:
+// Create using the WithWeight method on KnnRank:
 //
-//	knn := NewKnnRank(KnnQueryText("query"), WithKnnReturnRank()).WithWeight(0.5)
+//	knn, _ := NewKnnRank(KnnQueryText("query"), WithKnnReturnRank())
+//	weighted := knn.WithWeight(0.5)
 type RankWithWeight struct {
 	Rank   Rank
 	Weight float64
@@ -133,10 +133,6 @@ func (v *ValRank) Max(operand Operand) Rank {
 
 func (v *ValRank) Min(operand Operand) Rank {
 	return &MinRank{ranks: []Rank{v, operandToRank(operand)}}
-}
-
-func (v *ValRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: v, Weight: weight}
 }
 
 func (v *ValRank) MarshalJSON() ([]byte, error) {
@@ -208,10 +204,6 @@ func (s *SumRank) Min(operand Operand) Rank {
 	return &MinRank{ranks: []Rank{s, operandToRank(operand)}}
 }
 
-func (s *SumRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: s, Weight: weight}
-}
-
 func (s *SumRank) MarshalJSON() ([]byte, error) {
 	if len(s.ranks) > MaxExpressionTerms {
 		return nil, errors.Errorf("sum expression exceeds maximum of %d terms", MaxExpressionTerms)
@@ -278,10 +270,6 @@ func (s *SubRank) Max(operand Operand) Rank {
 
 func (s *SubRank) Min(operand Operand) Rank {
 	return &MinRank{ranks: []Rank{s, operandToRank(operand)}}
-}
-
-func (s *SubRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: s, Weight: weight}
 }
 
 func (s *SubRank) MarshalJSON() ([]byte, error) {
@@ -356,10 +344,6 @@ func (m *MulRank) Min(operand Operand) Rank {
 	return &MinRank{ranks: []Rank{m, operandToRank(operand)}}
 }
 
-func (m *MulRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: m, Weight: weight}
-}
-
 func (m *MulRank) MarshalJSON() ([]byte, error) {
 	if len(m.ranks) > MaxExpressionTerms {
 		return nil, errors.Errorf("mul expression exceeds maximum of %d terms", MaxExpressionTerms)
@@ -426,10 +410,6 @@ func (d *DivRank) Max(operand Operand) Rank {
 
 func (d *DivRank) Min(operand Operand) Rank {
 	return &MinRank{ranks: []Rank{d, operandToRank(operand)}}
-}
-
-func (d *DivRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: d, Weight: weight}
 }
 
 func (d *DivRank) MarshalJSON() ([]byte, error) {
@@ -503,10 +483,6 @@ func (a *AbsRank) Min(operand Operand) Rank {
 	return &MinRank{ranks: []Rank{a, operandToRank(operand)}}
 }
 
-func (a *AbsRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: a, Weight: weight}
-}
-
 func (a *AbsRank) MarshalJSON() ([]byte, error) {
 	data, err := a.rank.MarshalJSON()
 	if err != nil {
@@ -567,10 +543,6 @@ func (e *ExpRank) Min(operand Operand) Rank {
 	return &MinRank{ranks: []Rank{e, operandToRank(operand)}}
 }
 
-func (e *ExpRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: e, Weight: weight}
-}
-
 func (e *ExpRank) MarshalJSON() ([]byte, error) {
 	data, err := e.rank.MarshalJSON()
 	if err != nil {
@@ -629,10 +601,6 @@ func (l *LogRank) Max(operand Operand) Rank {
 
 func (l *LogRank) Min(operand Operand) Rank {
 	return &MinRank{ranks: []Rank{l, operandToRank(operand)}}
-}
-
-func (l *LogRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: l, Weight: weight}
 }
 
 func (l *LogRank) MarshalJSON() ([]byte, error) {
@@ -699,10 +667,6 @@ func (m *MaxRank) Max(operand Operand) Rank {
 
 func (m *MaxRank) Min(operand Operand) Rank {
 	return &MinRank{ranks: []Rank{m, operandToRank(operand)}}
-}
-
-func (m *MaxRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: m, Weight: weight}
 }
 
 func (m *MaxRank) MarshalJSON() ([]byte, error) {
@@ -776,10 +740,6 @@ func (m *MinRank) Min(operand Operand) Rank {
 		return &MinRank{ranks: append(newRanks, min.ranks...)}
 	}
 	return &MinRank{ranks: append(newRanks, r)}
-}
-
-func (m *MinRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: m, Weight: weight}
 }
 
 func (m *MinRank) MarshalJSON() ([]byte, error) {
@@ -1191,10 +1151,6 @@ func (r *RrfRank) Max(operand Operand) Rank {
 
 func (r *RrfRank) Min(operand Operand) Rank {
 	return &MinRank{ranks: []Rank{r, operandToRank(operand)}}
-}
-
-func (r *RrfRank) WithWeight(weight float64) RankWithWeight {
-	return RankWithWeight{Rank: r, Weight: weight}
 }
 
 func (r *RrfRank) MarshalJSON() ([]byte, error) {
