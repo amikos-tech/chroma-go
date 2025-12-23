@@ -52,4 +52,21 @@ func TestSparseVectorValidate(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, sv.Validate())
 	})
+
+	t.Run("negative index at construction", func(t *testing.T) {
+		_, err := NewSparseVector([]int{1, -5, 10}, []float32{0.5, 0.3, 0.8})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "negative")
+		require.Contains(t, err.Error(), "position 1")
+	})
+
+	t.Run("negative index in validate", func(t *testing.T) {
+		sv := &SparseVector{
+			Indices: []int{0, -1, 2},
+			Values:  []float32{0.1, 0.2, 0.3},
+		}
+		err := sv.Validate()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "negative")
+	})
 }

@@ -410,10 +410,22 @@ func (c *CollectionImpl) embedTextQueries(ctx context.Context, req *SearchReques
 	return c.embedRankTextQueries(ctx, req.Rank)
 }
 
-// embedRankTextQueries recursively embeds text queries in rank expressions
+// embedRankTextQueries recursively embeds text queries in rank expressions.
+// It validates expression depth and checks context cancellation.
 func (c *CollectionImpl) embedRankTextQueries(ctx context.Context, rank Rank) error {
+	return c.embedRankTextQueriesWithDepth(ctx, rank, 0)
+}
+
+// embedRankTextQueriesWithDepth is the internal implementation that tracks recursion depth.
+func (c *CollectionImpl) embedRankTextQueriesWithDepth(ctx context.Context, rank Rank, depth int) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if rank == nil {
 		return nil
+	}
+	if depth > MaxExpressionDepth {
+		return errors.Errorf("rank expression exceeds maximum depth of %d", MaxExpressionDepth)
 	}
 	switch r := rank.(type) {
 	case *KnnRank:
@@ -429,80 +441,95 @@ func (c *CollectionImpl) embedRankTextQueries(ctx context.Context, rank Rank) er
 		}
 	case *RrfRank:
 		for _, rw := range r.Ranks {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if rw.Rank == nil {
 				continue
 			}
-			if err := c.embedRankTextQueries(ctx, rw.Rank); err != nil {
+			if err := c.embedRankTextQueriesWithDepth(ctx, rw.Rank, depth+1); err != nil {
 				return err
 			}
 		}
 	case *SumRank:
 		for _, child := range r.ranks {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if child == nil {
 				continue
 			}
-			if err := c.embedRankTextQueries(ctx, child); err != nil {
+			if err := c.embedRankTextQueriesWithDepth(ctx, child, depth+1); err != nil {
 				return err
 			}
 		}
 	case *MulRank:
 		for _, child := range r.ranks {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if child == nil {
 				continue
 			}
-			if err := c.embedRankTextQueries(ctx, child); err != nil {
+			if err := c.embedRankTextQueriesWithDepth(ctx, child, depth+1); err != nil {
 				return err
 			}
 		}
 	case *SubRank:
 		if r.left != nil {
-			if err := c.embedRankTextQueries(ctx, r.left); err != nil {
+			if err := c.embedRankTextQueriesWithDepth(ctx, r.left, depth+1); err != nil {
 				return err
 			}
 		}
 		if r.right != nil {
-			if err := c.embedRankTextQueries(ctx, r.right); err != nil {
+			if err := c.embedRankTextQueriesWithDepth(ctx, r.right, depth+1); err != nil {
 				return err
 			}
 		}
 	case *DivRank:
 		if r.left != nil {
-			if err := c.embedRankTextQueries(ctx, r.left); err != nil {
+			if err := c.embedRankTextQueriesWithDepth(ctx, r.left, depth+1); err != nil {
 				return err
 			}
 		}
 		if r.right != nil {
-			if err := c.embedRankTextQueries(ctx, r.right); err != nil {
+			if err := c.embedRankTextQueriesWithDepth(ctx, r.right, depth+1); err != nil {
 				return err
 			}
 		}
 	case *AbsRank:
 		if r.rank != nil {
-			return c.embedRankTextQueries(ctx, r.rank)
+			return c.embedRankTextQueriesWithDepth(ctx, r.rank, depth+1)
 		}
 	case *ExpRank:
 		if r.rank != nil {
-			return c.embedRankTextQueries(ctx, r.rank)
+			return c.embedRankTextQueriesWithDepth(ctx, r.rank, depth+1)
 		}
 	case *LogRank:
 		if r.rank != nil {
-			return c.embedRankTextQueries(ctx, r.rank)
+			return c.embedRankTextQueriesWithDepth(ctx, r.rank, depth+1)
 		}
 	case *MaxRank:
 		for _, child := range r.ranks {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if child == nil {
 				continue
 			}
-			if err := c.embedRankTextQueries(ctx, child); err != nil {
+			if err := c.embedRankTextQueriesWithDepth(ctx, child, depth+1); err != nil {
 				return err
 			}
 		}
 	case *MinRank:
 		for _, child := range r.ranks {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if child == nil {
 				continue
 			}
-			if err := c.embedRankTextQueries(ctx, child); err != nil {
+			if err := c.embedRankTextQueriesWithDepth(ctx, child, depth+1); err != nil {
 				return err
 			}
 		}

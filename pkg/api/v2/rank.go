@@ -1093,6 +1093,9 @@ const MaxRrfRanks = 100
 // MaxExpressionTerms is the maximum number of terms allowed in variadic rank expressions (Sum, Mul, Max, Min).
 const MaxExpressionTerms = 1000
 
+// MaxExpressionDepth is the maximum nesting depth for rank expressions to prevent stack overflow.
+const MaxExpressionDepth = 100
+
 func NewRrfRank(opts ...RffOption) (*RrfRank, error) {
 	rrf := &RrfRank{
 		K: 60,

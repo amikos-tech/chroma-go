@@ -434,3 +434,23 @@ func TestKnnOptionValidation(t *testing.T) {
 		require.Equal(t, 100, knn.Limit)
 	})
 }
+
+func TestMaxExpressionDepthConstant(t *testing.T) {
+	// Verify the constant is defined and has a reasonable value
+	require.Greater(t, MaxExpressionDepth, 0)
+	require.LessOrEqual(t, MaxExpressionDepth, 1000)
+}
+
+func TestDeepExpressionChain(t *testing.T) {
+	// Create a deeply nested Sub expression (which doesn't flatten)
+	// This tests that such expressions can be built and serialized
+	var rank Rank = Val(0.0)
+	for i := 0; i < 50; i++ {
+		rank = rank.Sub(Val(1.0))
+	}
+
+	// Should serialize without error (50 < MaxExpressionDepth)
+	data, err := rank.MarshalJSON()
+	require.NoError(t, err)
+	require.NotEmpty(t, data)
+}

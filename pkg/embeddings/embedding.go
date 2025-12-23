@@ -34,10 +34,15 @@ type SparseVector struct {
 }
 
 // NewSparseVector creates a new sparse vector.
-// Returns an error if indices and values have different lengths.
+// Returns an error if indices and values have different lengths or if any index is negative.
 func NewSparseVector(indices []int, values []float32) (*SparseVector, error) {
 	if len(indices) != len(values) {
 		return nil, errors.New("indices and values must have the same length")
+	}
+	for i, idx := range indices {
+		if idx < 0 {
+			return nil, errors.Errorf("index at position %d is negative: %d", i, idx)
+		}
 	}
 	return &SparseVector{
 		Indices: indices,
@@ -66,13 +71,20 @@ func (s *SparseVector) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// Validate checks that the sparse vector is valid
+// Validate checks that the sparse vector is valid.
+// A valid sparse vector has matching lengths for indices and values,
+// and all indices are non-negative.
 func (s *SparseVector) Validate() error {
 	if s == nil {
 		return errors.New("sparse vector is nil")
 	}
 	if len(s.Indices) != len(s.Values) {
 		return errors.New("indices and values must have the same length")
+	}
+	for i, idx := range s.Indices {
+		if idx < 0 {
+			return errors.Errorf("index at position %d is negative: %d", i, idx)
+		}
 	}
 	return nil
 }
