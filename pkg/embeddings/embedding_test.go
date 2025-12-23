@@ -2,6 +2,7 @@ package embeddings
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -68,5 +69,64 @@ func TestSparseVectorValidate(t *testing.T) {
 		err := sv.Validate()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "negative")
+	})
+
+	t.Run("duplicate index at construction", func(t *testing.T) {
+		_, err := NewSparseVector([]int{1, 5, 1}, []float32{0.1, 0.2, 0.3})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate index")
+	})
+
+	t.Run("duplicate index in validate", func(t *testing.T) {
+		sv := &SparseVector{
+			Indices: []int{1, 5, 1},
+			Values:  []float32{0.1, 0.2, 0.3},
+		}
+		err := sv.Validate()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate index")
+	})
+
+	t.Run("NaN value at construction", func(t *testing.T) {
+		nan := float32(math.NaN())
+		_, err := NewSparseVector([]int{1, 2}, []float32{0.5, nan})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "NaN")
+	})
+
+	t.Run("NaN value in validate", func(t *testing.T) {
+		nan := float32(math.NaN())
+		sv := &SparseVector{
+			Indices: []int{1, 2},
+			Values:  []float32{0.5, nan},
+		}
+		err := sv.Validate()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "NaN")
+	})
+
+	t.Run("positive infinity at construction", func(t *testing.T) {
+		inf := float32(math.Inf(1))
+		_, err := NewSparseVector([]int{1, 2}, []float32{0.5, inf})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "infinite")
+	})
+
+	t.Run("negative infinity at construction", func(t *testing.T) {
+		inf := float32(math.Inf(-1))
+		_, err := NewSparseVector([]int{1, 2}, []float32{inf, 0.5})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "infinite")
+	})
+
+	t.Run("infinity in validate", func(t *testing.T) {
+		inf := float32(math.Inf(1))
+		sv := &SparseVector{
+			Indices: []int{1, 2},
+			Values:  []float32{0.5, inf},
+		}
+		err := sv.Validate()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "infinite")
 	})
 }

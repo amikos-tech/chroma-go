@@ -281,6 +281,36 @@ func TestMathFunctions(t *testing.T) {
 	}
 }
 
+func TestDivisionByZero(t *testing.T) {
+	t.Run("literal zero denominator", func(t *testing.T) {
+		rank := Val(10.0).Div(Val(0.0))
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "division by zero")
+	})
+
+	t.Run("float operand zero denominator", func(t *testing.T) {
+		rank := Val(10.0).Div(FloatOperand(0.0))
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "division by zero")
+	})
+
+	t.Run("int operand zero denominator", func(t *testing.T) {
+		rank := Val(10.0).Div(IntOperand(0))
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "division by zero")
+	})
+
+	t.Run("non-zero denominator succeeds", func(t *testing.T) {
+		rank := Val(10.0).Div(Val(2.0))
+		data, err := rank.MarshalJSON()
+		require.NoError(t, err)
+		require.JSONEq(t, `{"$div":{"left":{"$val":10},"right":{"$val":2}}}`, string(data))
+	})
+}
+
 func TestComplexExpressions(t *testing.T) {
 	t.Run("weighted combination", func(t *testing.T) {
 		// weighted_combo = knn1 * 0.7 + knn2 * 0.3

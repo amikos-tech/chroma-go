@@ -365,6 +365,11 @@ func (m *MulRank) UnmarshalJSON(_ []byte) error {
 
 // DivRank represents division of two rank expressions.
 // Serializes to JSON as {"$div": {"left": ..., "right": ...}}.
+//
+// NOTE: Division by zero validation only catches literal zero denominators (Val(0)).
+// Complex expressions that evaluate to zero at runtime (e.g., Val(1).Sub(Val(1)))
+// will produce Inf/NaN on the server following NumPy semantics.
+// Use epsilon values when dividing by potentially zero expressions.
 type DivRank struct {
 	left  Rank
 	right Rank
@@ -413,7 +418,9 @@ func (d *DivRank) Min(operand Operand) Rank {
 }
 
 func (d *DivRank) MarshalJSON() ([]byte, error) {
-	// Check for division by zero literal
+	// Check for division by zero literal.
+	// NOTE: Only catches literal Val(0). Complex expressions like Val(1).Sub(Val(1))
+	// are not detected; the server will return Inf/NaN following NumPy semantics.
 	if v, ok := d.right.(*ValRank); ok && v.value == 0 {
 		return nil, errors.New("division by zero: denominator is a zero literal")
 	}
