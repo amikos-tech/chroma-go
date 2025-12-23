@@ -4,6 +4,7 @@ package v2
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -435,6 +436,49 @@ func TestRrfRank(t *testing.T) {
 		_, err := NewRrfRank(WithRffK(0))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "must be >= 1")
+	})
+
+	t.Run("rrf rejects negative weights", func(t *testing.T) {
+		knn := mustNewKnnRank(t, KnnQueryText("test"))
+		_, err := NewRrfRank(
+			WithRffRanks(knn.WithWeight(-0.5)),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "negative weight")
+	})
+
+	t.Run("rrf rejects NaN weights", func(t *testing.T) {
+		knn := mustNewKnnRank(t, KnnQueryText("test"))
+		_, err := NewRrfRank(
+			WithRffRanks(knn.WithWeight(math.NaN())),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid weight")
+	})
+
+	t.Run("rrf rejects Inf weights", func(t *testing.T) {
+		knn := mustNewKnnRank(t, KnnQueryText("test"))
+		_, err := NewRrfRank(
+			WithRffRanks(knn.WithWeight(math.Inf(1))),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid weight")
+	})
+
+	t.Run("rrf detects weight sum overflow on normalize", func(t *testing.T) {
+		knn1 := mustNewKnnRank(t, KnnQueryText("a"))
+		knn2 := mustNewKnnRank(t, KnnQueryText("b"))
+		rrf, err := NewRrfRank(
+			WithRffRanks(
+				knn1.WithWeight(math.MaxFloat64),
+				knn2.WithWeight(math.MaxFloat64),
+			),
+			WithRffNormalize(),
+		)
+		require.NoError(t, err)
+		_, err = rrf.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "overflowed")
 	})
 }
 

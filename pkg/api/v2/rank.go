@@ -2,6 +2,7 @@ package v2
 
 import (
 	"encoding/json"
+	"math"
 
 	"github.com/pkg/errors"
 
@@ -1106,6 +1107,14 @@ func (r *RrfRank) Validate() error {
 	if len(r.Ranks) > MaxRrfRanks {
 		return errors.Errorf("rrf cannot have more than %d ranks", MaxRrfRanks)
 	}
+	for i, rw := range r.Ranks {
+		if rw.Weight < 0 {
+			return errors.Errorf("rank %d has negative weight %v: weights must be non-negative", i, rw.Weight)
+		}
+		if math.IsNaN(rw.Weight) || math.IsInf(rw.Weight, 0) {
+			return errors.Errorf("rank %d has invalid weight: NaN and Inf are not allowed", i)
+		}
+	}
 	return nil
 }
 
@@ -1172,6 +1181,9 @@ func (r *RrfRank) MarshalJSON() ([]byte, error) {
 		sum := 0.0
 		for _, w := range weights {
 			sum += w
+		}
+		if math.IsInf(sum, 0) {
+			return nil, errors.New("sum of weights overflowed: use smaller weight values")
 		}
 		if sum < 1e-6 {
 			return nil, errors.New("sum of weights must be positive when normalize=true")
