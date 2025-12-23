@@ -433,6 +433,9 @@ func (c *CollectionImpl) embedRankTextQueriesWithDepth(ctx context.Context, rank
 			if c.embeddingFunction == nil {
 				return errors.New("embedding function required for text queries")
 			}
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			emb, err := c.embeddingFunction.EmbedQuery(ctx, text)
 			if err != nil {
 				return errors.Wrap(err, "error embedding text query")
@@ -533,6 +536,8 @@ func (c *CollectionImpl) embedRankTextQueriesWithDepth(ctx context.Context, rank
 				return err
 			}
 		}
+	default:
+		// No action needed for other rank types
 	}
 	return nil
 }

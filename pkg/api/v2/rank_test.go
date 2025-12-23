@@ -15,9 +15,7 @@ import (
 func mustNewKnnRank(t *testing.T, query KnnQueryOption, knnOptions ...KnnOption) *KnnRank {
 	t.Helper()
 	knn, err := NewKnnRank(query, knnOptions...)
-	if err != nil {
-		t.Fatalf("mustNewKnnRank: %v", err)
-	}
+	require.NoError(t, err)
 	return knn
 }
 
@@ -308,6 +306,23 @@ func TestDivisionByZero(t *testing.T) {
 		data, err := rank.MarshalJSON()
 		require.NoError(t, err)
 		require.JSONEq(t, `{"$div":{"left":{"$val":10},"right":{"$val":2}}}`, string(data))
+	})
+}
+
+func TestUnknownRankError(t *testing.T) {
+	t.Run("unknown rank errors on marshal", func(t *testing.T) {
+		unknown := &UnknownRank{}
+		_, err := unknown.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unknown operand type")
+	})
+
+	t.Run("unknown rank in expression errors on marshal", func(t *testing.T) {
+		// UnknownRank embedded in an expression should still error
+		rank := Val(10.0).Add(&UnknownRank{})
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unknown operand type")
 	})
 }
 

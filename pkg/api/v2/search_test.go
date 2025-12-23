@@ -13,9 +13,7 @@ import (
 func mustKnnRank(t *testing.T, query KnnQueryOption, knnOptions ...KnnOption) *KnnRank {
 	t.Helper()
 	knn, err := NewKnnRank(query, knnOptions...)
-	if err != nil {
-		t.Fatalf("mustKnnRank: %v", err)
-	}
+	require.NoError(t, err)
 	return knn
 }
 

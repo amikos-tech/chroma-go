@@ -74,6 +74,17 @@ type RankWithWeight struct {
 	Weight float64
 }
 
+// UnknownRank is a sentinel type returned by operandToRank when an unknown
+// operand type is encountered. It errors on MarshalJSON to surface programming
+// errors instead of silently producing incorrect results.
+type UnknownRank struct {
+	ValRank
+}
+
+func (u *UnknownRank) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("UnknownRank: cannot marshal unknown operand type - this indicates a programming error")
+}
+
 // ValRank represents a constant numeric value in rank expressions.
 // Serializes to JSON as {"$val": <value>}.
 type ValRank struct {
@@ -140,14 +151,7 @@ func (v *ValRank) MarshalJSON() ([]byte, error) {
 }
 
 func (v *ValRank) UnmarshalJSON(b []byte) error {
-	var data map[string]float64
-	if err := json.Unmarshal(b, &data); err != nil {
-		return err
-	}
-	if val, ok := data["$val"]; ok {
-		v.value = val
-	}
-	return nil
+	return errors.New("ValRank: unmarshaling is not supported")
 }
 
 // SumRank represents the addition of multiple rank expressions.
@@ -991,31 +995,7 @@ func (k *KnnRank) MarshalJSON() ([]byte, error) {
 }
 
 func (k *KnnRank) UnmarshalJSON(b []byte) error {
-	var data map[string]map[string]interface{}
-	if err := json.Unmarshal(b, &data); err != nil {
-		return err
-	}
-	if knnData, ok := data["$knn"]; ok {
-		if query, ok := knnData["query"]; ok {
-			k.Query = query
-		}
-		if key, ok := knnData["key"].(string); ok {
-			k.Key = ProjectionKey(key)
-		}
-		if limit, ok := knnData["limit"].(float64); ok {
-			if int(limit) < 1 {
-				return errors.New("knn limit must be >= 1")
-			}
-			k.Limit = int(limit)
-		}
-		if def, ok := knnData["default"].(float64); ok {
-			k.DefaultScore = &def
-		}
-		if returnRank, ok := knnData["return_rank"].(bool); ok {
-			k.ReturnRank = returnRank
-		}
-	}
-	return nil
+	return errors.New("json: cannot unmarshal KnnRank JSON object")
 }
 
 // RffOption configures [RrfRank] parameters.
@@ -1109,61 +1089,74 @@ func NewRrfRank(opts ...RffOption) (*RrfRank, error) {
 	}
 	for _, opt := range opts {
 		if err := opt(rrf); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "invalid rank options")
 		}
 	}
-	if len(rrf.Ranks) == 0 {
-		return nil, errors.New("rrf requires at least one rank")
-	}
-	if len(rrf.Ranks) > MaxRrfRanks {
-		return nil, errors.Errorf("rrf cannot have more than %d ranks", MaxRrfRanks)
+	err := rrf.Validate()
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot construct RrfRank")
 	}
 	return rrf, nil
 }
 
+func (r *RrfRank) Validate() error {
+	if len(r.Ranks) == 0 {
+		return errors.New("rrf requires at least one rank")
+	}
+	if len(r.Ranks) > MaxRrfRanks {
+		return errors.Errorf("rrf cannot have more than %d ranks", MaxRrfRanks)
+	}
+	return nil
+}
+
 func (r *RrfRank) IsOperand() {}
 
+// no-op
 func (r *RrfRank) Multiply(operand Operand) Rank {
-	return &MulRank{ranks: []Rank{r, operandToRank(operand)}}
+	return r
 }
 
 func (r *RrfRank) Sub(operand Operand) Rank {
-	return &SubRank{left: r, right: operandToRank(operand)}
+	return r
 }
 
 func (r *RrfRank) Add(operand Operand) Rank {
-	return &SumRank{ranks: []Rank{r, operandToRank(operand)}}
+	return r
 }
 
 func (r *RrfRank) Div(operand Operand) Rank {
-	return &DivRank{left: r, right: operandToRank(operand)}
+	return r
 }
 
 func (r *RrfRank) Negate() Rank {
-	return &MulRank{ranks: []Rank{Val(-1), r}}
+	return r
 }
 
 func (r *RrfRank) Abs() Rank {
-	return &AbsRank{rank: r}
+	return r
 }
 
 func (r *RrfRank) Exp() Rank {
-	return &ExpRank{rank: r}
+	return r
 }
 
 func (r *RrfRank) Log() Rank {
-	return &LogRank{rank: r}
+	return r
 }
 
 func (r *RrfRank) Max(operand Operand) Rank {
-	return &MaxRank{ranks: []Rank{r, operandToRank(operand)}}
+	return r
 }
 
 func (r *RrfRank) Min(operand Operand) Rank {
-	return &MinRank{ranks: []Rank{r, operandToRank(operand)}}
+	return r
 }
 
 func (r *RrfRank) MarshalJSON() ([]byte, error) {
+	err := r.Validate()
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot marshal RrfRank")
+	}
 	// Compute weights
 	weights := make([]float64, len(r.Ranks))
 	for i, rw := range r.Ranks {
@@ -1231,7 +1224,7 @@ func operandToRank(operand Operand) Rank {
 	default:
 		// Unknown operand type - return zero to maintain chaining.
 		// This should not happen with proper API usage.
-		return Val(0)
+		return &UnknownRank{}
 	}
 }
 
