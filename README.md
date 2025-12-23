@@ -20,28 +20,29 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/)
 
 ## Feature Parity with ChromaDB API
 
-| Operation                            | V1 support | V2 support |
-|--------------------------------------|------------|------------|
-| Create Tenant                        | ✅          | ✅          |
-| Get Tenant                           | ✅          | ✅          |
-| Create Database                      | ✅          | ✅          |
-| Get Database                         | ✅          | ✅          |
-| Delete Database                      | ❌          | ✅          |
-| Reset                                | ✅          | ✅          |
-| Heartbeat                            | ✅          | ✅          |
-| List Collections                     | ✅          | ✅          |
-| Count Collections                    | ✅          | ✅          |
-| Get Version                          | ✅          | ✅          |
-| Create Collection                    | ✅          | ✅          |
-| Delete Collection                    | ✅          | ✅          |
-| Collection Add                       | ✅          | ✅          |
-| Collection Get                       | ✅          | ✅          |
-| Collection Count                     | ✅          | ✅          |
-| Collection Query                     | ✅          | ✅          |
-| Collection Update                    | ✅          | ✅          |
-| Collection Upsert                    | ✅          | ✅          |
-| Collection Delete (delete documents) | ✅          | ✅          |
-| Modify  Collection                   | ✅          | ⚒️ partial |
+| Operation                            | V1 support (Self-Hosted) | V2 support (Self-Hosted) | Cloud |
+|--------------------------------------|--------------------------|-------------|-------|
+| Create Tenant                        | ✅                        | ✅           | ✅     |
+| Get Tenant                           | ✅                        | ✅           | ✅     |
+| Create Database                      | ✅                        | ✅           | ✅     |
+| Get Database                         | ✅                        | ✅           | ✅     |
+| Delete Database                      | ❌                        | ✅           | ✅     |
+| Reset                                | ✅                        | ✅           | ✅     |
+| Heartbeat                            | ✅                        | ✅           | ✅     |
+| List Collections                     | ✅                        | ✅           | ✅     |
+| Count Collections                    | ✅                        | ✅           | ✅     |
+| Get Version                          | ✅                        | ✅           | ✅     |
+| Create Collection                    | ✅                        | ✅           | ✅     |
+| Delete Collection                    | ✅                        | ✅           | ✅     |
+| Collection Add                       | ✅                        | ✅           | ✅     |
+| Collection Get                       | ✅                        | ✅           | ✅     |
+| Collection Count                     | ✅                        | ✅           | ✅     |
+| Collection Query                     | ✅                        | ✅           | ✅     |
+| Collection Update                    | ✅                        | ✅           | ✅     |
+| Collection Upsert                    | ✅                        | ✅           | ✅     |
+| Collection Delete (delete documents) | ✅                        | ✅           | ✅     |
+| Modify  Collection                   | ✅                        | ⚒️ partial  | ✅     |
+| Search API                           | ❌                        | ❌           | ✅     |
 
 Additional support features:
 
@@ -54,6 +55,7 @@ Additional support features:
   configuration
 - ⚒️ Persistent Client support (coming soon) - Run/embed full-featured Chroma in your go application without the need
   for Chroma server.
+- 🔥✅ [Search API Support](https://go-client.chromadb.dev/search/) - Since `0.3.0-alpha.1`+, we also support the Chroma Search API.
 
 ## Embedding API and Models Support
 
