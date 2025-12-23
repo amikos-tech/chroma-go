@@ -41,31 +41,14 @@ type SparseVector struct {
 //   - any index is duplicated
 //   - any value is NaN or infinite
 func NewSparseVector(indices []int, values []float32) (*SparseVector, error) {
-	if len(indices) != len(values) {
-		return nil, errors.New("indices and values must have the same length")
-	}
-	seen := make(map[int]struct{})
-	for i, idx := range indices {
-		if idx < 0 {
-			return nil, errors.Errorf("index at position %d is negative: %d", i, idx)
-		}
-		if _, exists := seen[idx]; exists {
-			return nil, errors.Errorf("duplicate index at position %d: %d", i, idx)
-		}
-		seen[idx] = struct{}{}
-	}
-	for i, val := range values {
-		if math.IsNaN(float64(val)) {
-			return nil, errors.Errorf("value at position %d is NaN", i)
-		}
-		if math.IsInf(float64(val), 0) {
-			return nil, errors.Errorf("value at position %d is infinite", i)
-		}
-	}
-	return &SparseVector{
+	s := &SparseVector{
 		Indices: indices,
 		Values:  values,
-	}, nil
+	}
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // Len returns the number of non-zero elements
