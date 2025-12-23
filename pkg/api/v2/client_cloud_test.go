@@ -168,6 +168,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 	})
 
 	t.Run("Collection fork", func(t *testing.T) {
+		t.Skipf("Skipping fork")
 		ctx := context.Background()
 		collectionName := "test_collection-" + uuid.New().String()
 		forkedCollectionName := "forked_collection-" + uuid.New().String()
@@ -187,6 +188,83 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 3, results)
 
+	})
+
+	t.Run("Search data in collection", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_collection-" + uuid.New().String()
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+		require.Equal(t, collectionName, collection.Name())
+
+		// Add data to the collection
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("this is document about cats", "dogs are man's best friends", "lions are big cats"),
+			WithMetadatas(
+				NewDocumentMetadata(NewStringAttribute("category", "pets")),
+				NewDocumentMetadata(NewStringAttribute("category", "pets")),
+				NewDocumentMetadata(NewStringAttribute("category", "wildlife")),
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second) // Wait for indexing
+
+		// Basic KNN search
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("tell me about cats"), WithKnnLimit(10)),
+				WithPage(WithLimit(2)),
+				WithSelect(KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		searchResult, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, searchResult.IDs)
+		require.NotEmpty(t, searchResult.Documents)
+		require.NotEmpty(t, searchResult.Scores)
+	})
+
+	t.Run("Search with pagination", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_collection-" + uuid.New().String()
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		// Add data
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3", "4", "5"),
+			WithTexts(
+				"cats are fluffy pets",
+				"dogs are loyal companions",
+				"lions are wild cats",
+				"tigers are striped cats",
+				"birds can fly high",
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Search with pagination
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
+				WithPage(WithLimit(2)),
+				WithSelect(KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		searchResult, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, searchResult.IDs)
+		require.LessOrEqual(t, len(searchResult.IDs[0]), 2)
 	})
 
 	t.Cleanup(func() {

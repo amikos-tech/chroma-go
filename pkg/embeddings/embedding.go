@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -20,6 +21,89 @@ type Embedding interface {
 	FromFloat32(content ...float32) error
 	Compare(other Embedding, metric DistanceMetricOperator) float32
 	IsDefined() bool
+}
+
+type KnnVector interface {
+	Len() int
+	ValuesAsFloat32() []float32
+}
+
+// SparseVector represents a sparse embedding vector
+type SparseVector struct {
+	Indices []int     `json:"indices"`
+	Values  []float32 `json:"values"`
+}
+
+// NewSparseVector creates a new sparse vector.
+// Returns an error if:
+//   - indices and values have different lengths
+//   - any index is negative
+//   - any index is duplicated
+//   - any value is NaN or infinite
+func NewSparseVector(indices []int, values []float32) (*SparseVector, error) {
+	s := &SparseVector{
+		Indices: indices,
+		Values:  values,
+	}
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// Len returns the number of non-zero elements
+func (s *SparseVector) Len() int {
+	return len(s.Values)
+}
+
+// ValuesAsFloat32 returns the non-zero values
+func (s *SparseVector) ValuesAsFloat32() []float32 {
+	return s.Values
+}
+
+// MarshalJSON implements JSON marshaling for sparse vectors
+func (s *SparseVector) MarshalJSON() ([]byte, error) {
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+	return json.Marshal(map[string]interface{}{
+		"indices": s.Indices,
+		"values":  s.Values,
+	})
+}
+
+// Validate checks that the sparse vector is valid.
+// A valid sparse vector has:
+//   - matching lengths for indices and values
+//   - all indices are non-negative
+//   - no duplicate indices
+//   - no NaN or infinite values
+func (s *SparseVector) Validate() error {
+	if s == nil {
+		return errors.New("sparse vector is nil")
+	}
+	if len(s.Indices) != len(s.Values) {
+		return errors.New("indices and values must have the same length")
+	}
+	seen := make(map[int]struct{})
+	for i, idx := range s.Indices {
+		if idx < 0 {
+			return errors.Errorf("index at position %d is negative: %d", i, idx)
+		}
+		if _, exists := seen[idx]; exists {
+			return errors.Errorf("duplicate index at position %d: %d", i, idx)
+		}
+		seen[idx] = struct{}{}
+	}
+	for i, val := range s.Values {
+		if math.IsNaN(float64(val)) {
+			return errors.Errorf("value at position %d is NaN", i)
+		}
+		if math.IsInf(float64(val), 0) {
+			return errors.Errorf("value at position %d is infinite", i)
+		}
+	}
+	return nil
 }
 
 type Embeddings []Embedding
