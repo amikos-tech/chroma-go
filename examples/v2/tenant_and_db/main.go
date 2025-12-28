@@ -35,12 +35,12 @@ func main() {
 		return
 	}
 	col, err := client.GetOrCreateCollection(context.Background(), "col1",
-		chroma.WithDatabaseCreate(db1), chroma.WithCollectionMetadataCreate(
-			chroma.NewMetadata(
-				chroma.NewStringAttribute("str", "hello"),
-				chroma.NewIntAttribute("int", 1),
-				chroma.NewFloatAttribute("float", 1.1),
-			),
+		chroma.WithDatabaseCreate(db1), chroma.WithMetadata(
+			chroma.Builder().
+				String("str", "hello").
+				Int("int", 1).
+				Float("float", 1.1).
+				Build(),
 		),
 	)
 	if err != nil {
@@ -54,8 +54,8 @@ func main() {
 		chroma.WithIDs("1", "2"),
 		chroma.WithTexts("hello world", "goodbye world"),
 		chroma.WithMetadatas(
-			chroma.NewDocumentMetadata(chroma.NewIntAttribute("int", 1)),
-			chroma.NewDocumentMetadata(chroma.NewStringAttribute("str", "hello")),
+			chroma.DocumentBuilder().Int("int", 1).Build(),
+			chroma.DocumentBuilder().String("str", "hello").Build(),
 		))
 	if err != nil {
 		log.Fatalf("Error adding collection: %s \n", err)
