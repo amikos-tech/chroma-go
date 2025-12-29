@@ -234,6 +234,7 @@ type CreateCollectionOp struct {
 	embeddingFunction embeddings.EmbeddingFunction `json:"-"`
 	Metadata          CollectionMetadata           `json:"metadata,omitempty"`
 	Configuration     *CollectionConfigurationImpl `json:"configuration,omitempty"`
+	Schema            *Schema                      `json:"schema,omitempty"`
 	Database          Database                     `json:"-"`
 }
 
@@ -437,11 +438,7 @@ func WithSchemaCreate(schema *Schema) CreateCollectionOption {
 		if schema == nil {
 			return errors.New("schema cannot be nil")
 		}
-		if op.Configuration == nil {
-			op.Configuration = NewCollectionConfiguration(schema)
-		} else {
-			op.Configuration.SetSchema(schema)
-		}
+		op.Schema = schema
 		return nil
 	}
 }
@@ -463,14 +460,12 @@ func WithVectorIndexCreate(config *VectorIndexConfig) CreateCollectionOption {
 		if config == nil {
 			return errors.New("vector index config cannot be nil")
 		}
-		if op.Configuration == nil {
-			schema := NewSchema()
-			op.Configuration = NewCollectionConfiguration(schema)
+		schema, err := NewSchema(WithDefaultVectorIndex(config))
+		if err != nil {
+			return errors.Wrap(err, "failed to create schema with vector index")
 		}
-		if op.Configuration.GetSchema() == nil {
-			op.Configuration.SetSchema(NewSchema())
-		}
-		return op.Configuration.GetSchema().SetDefault("VectorValue", config)
+		op.Schema = schema
+		return nil
 	}
 }
 
@@ -480,14 +475,12 @@ func WithFtsIndexCreate(config *FtsIndexConfig) CreateCollectionOption {
 		if config == nil {
 			return errors.New("FTS index config cannot be nil")
 		}
-		if op.Configuration == nil {
-			schema := NewSchema()
-			op.Configuration = NewCollectionConfiguration(schema)
+		schema, err := NewSchema(WithDefaultFtsIndex(config))
+		if err != nil {
+			return errors.Wrap(err, "failed to create schema with FTS index")
 		}
-		if op.Configuration.GetSchema() == nil {
-			op.Configuration.SetSchema(NewSchema())
-		}
-		return op.Configuration.GetSchema().SetDefault("DocumentValue", config)
+		op.Schema = schema
+		return nil
 	}
 }
 

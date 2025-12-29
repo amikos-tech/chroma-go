@@ -8,331 +8,717 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-// IndexConfig is the interface for all index configuration types
-type IndexConfig interface {
-	// IndexType returns the type of index (e.g., "HNSW", "FTS", "InvertedIndex")
-	IndexType() string
-	// ValueType returns the value type this index operates on (e.g., "VectorValue", "StringValue")
-	ValueType() string
-}
+// Space represents the distance metric for vector similarity search
+type Space string
 
-// VectorIndexConfig represents configuration for vector indexing
-type VectorIndexConfig struct {
-	Space             embeddings.DistanceMetric `json:"space,omitempty"`
-	EmbeddingFunction string                    `json:"embedding_function,omitempty"`
-	HnswConfig        *HnswIndexConfig          `json:"hnsw,omitempty"`
-	SpannConfig       *SpannIndexConfig         `json:"spann,omitempty"`
-}
+const (
+	SpaceL2     Space = "l2"
+	SpaceCosine Space = "cosine"
+	SpaceIP     Space = "ip"
+)
 
-func (c *VectorIndexConfig) IndexType() string {
-	return "VectorIndex"
-}
+// Reserved keys for system-managed fields
+const (
+	DocumentKey  = "#document"
+	EmbeddingKey = "#embedding"
+)
 
-func (c *VectorIndexConfig) ValueType() string {
-	return "VectorValue"
-}
-
-// HnswIndexConfig represents HNSW (Hierarchical Navigable Small World) algorithm configuration
+// HnswIndexConfig represents HNSW algorithm parameters
 type HnswIndexConfig struct {
-	ConstructionEF int     `json:"construction_ef,omitempty"`
-	SearchEF       int     `json:"search_ef,omitempty"`
-	M              int     `json:"M,omitempty"`
-	NumThreads     int     `json:"num_threads,omitempty"`
+	EfConstruction uint    `json:"ef_construction,omitempty"`
+	MaxNeighbors   uint    `json:"max_neighbors,omitempty"`
+	EfSearch       uint    `json:"ef_search,omitempty"`
+	NumThreads     uint    `json:"num_threads,omitempty"`
+	BatchSize      uint    `json:"batch_size,omitempty"`
+	SyncThreshold  uint    `json:"sync_threshold,omitempty"`
 	ResizeFactor   float64 `json:"resize_factor,omitempty"`
 }
 
-func (c *HnswIndexConfig) IndexType() string {
-	return "HNSW"
+// HnswOption configures an HnswIndexConfig
+type HnswOption func(*HnswIndexConfig)
+
+// NewHnswConfig creates a new HnswIndexConfig with the given options
+func NewHnswConfig(opts ...HnswOption) *HnswIndexConfig {
+	cfg := &HnswIndexConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	return cfg
 }
 
-func (c *HnswIndexConfig) ValueType() string {
-	return "VectorValue"
+func WithEfConstruction(ef uint) HnswOption {
+	return func(c *HnswIndexConfig) {
+		c.EfConstruction = ef
+	}
 }
 
-// SpannIndexConfig represents SPANN (Scalable Approximate Nearest Neighbor) algorithm configuration
-type SpannIndexConfig struct {
-	// TODO: Add SPANN-specific configuration when available
+func WithMaxNeighbors(m uint) HnswOption {
+	return func(c *HnswIndexConfig) {
+		c.MaxNeighbors = m
+	}
 }
 
-func (c *SpannIndexConfig) IndexType() string {
-	return "SPANN"
+func WithEfSearch(ef uint) HnswOption {
+	return func(c *HnswIndexConfig) {
+		c.EfSearch = ef
+	}
 }
 
-func (c *SpannIndexConfig) ValueType() string {
-	return "VectorValue"
+func WithNumThreads(n uint) HnswOption {
+	return func(c *HnswIndexConfig) {
+		c.NumThreads = n
+	}
+}
+
+func WithBatchSize(size uint) HnswOption {
+	return func(c *HnswIndexConfig) {
+		c.BatchSize = size
+	}
+}
+
+func WithSyncThreshold(threshold uint) HnswOption {
+	return func(c *HnswIndexConfig) {
+		c.SyncThreshold = threshold
+	}
+}
+
+func WithResizeFactor(factor float64) HnswOption {
+	return func(c *HnswIndexConfig) {
+		c.ResizeFactor = factor
+	}
+}
+
+// SpannIndexConfig represents SPANN algorithm configuration (placeholder)
+type SpannIndexConfig struct{}
+
+// VectorIndexConfig represents configuration for dense vector indexing
+type VectorIndexConfig struct {
+	Space             Space                        `json:"space,omitempty"`
+	EmbeddingFunction embeddings.EmbeddingFunction `json:"-"`
+	SourceKey         string                       `json:"source_key,omitempty"`
+	Hnsw              *HnswIndexConfig             `json:"hnsw,omitempty"`
+	Spann             *SpannIndexConfig            `json:"spann,omitempty"`
+}
+
+// VectorIndexOption configures a VectorIndexConfig
+type VectorIndexOption func(*VectorIndexConfig)
+
+// NewVectorIndexConfig creates a new VectorIndexConfig with the given options
+func NewVectorIndexConfig(opts ...VectorIndexOption) *VectorIndexConfig {
+	cfg := &VectorIndexConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	return cfg
+}
+
+func WithSpace(space Space) VectorIndexOption {
+	return func(c *VectorIndexConfig) {
+		c.Space = space
+	}
+}
+
+func WithVectorEmbeddingFunction(ef embeddings.EmbeddingFunction) VectorIndexOption {
+	return func(c *VectorIndexConfig) {
+		c.EmbeddingFunction = ef
+	}
+}
+
+func WithSourceKey(key string) VectorIndexOption {
+	return func(c *VectorIndexConfig) {
+		c.SourceKey = key
+	}
+}
+
+func WithHnsw(cfg *HnswIndexConfig) VectorIndexOption {
+	return func(c *VectorIndexConfig) {
+		c.Hnsw = cfg
+	}
+}
+
+func WithSpann(cfg *SpannIndexConfig) VectorIndexOption {
+	return func(c *VectorIndexConfig) {
+		c.Spann = cfg
+	}
 }
 
 // FtsIndexConfig represents Full-Text Search index configuration
-type FtsIndexConfig struct {
-	Tokenizer string `json:"tokenizer,omitempty"`
-}
-
-func (c *FtsIndexConfig) IndexType() string {
-	return "FTS"
-}
-
-func (c *FtsIndexConfig) ValueType() string {
-	return "DocumentValue"
-}
+type FtsIndexConfig struct{}
 
 // SparseVectorIndexConfig represents configuration for sparse vector indexing
 type SparseVectorIndexConfig struct {
-	// TODO: Add sparse vector specific configuration when available
+	EmbeddingFunction embeddings.EmbeddingFunction `json:"-"`
+	SourceKey         string                       `json:"source_key,omitempty"`
+	BM25              bool                         `json:"bm25,omitempty"`
 }
 
-func (c *SparseVectorIndexConfig) IndexType() string {
-	return "SparseVectorIndex"
+// SparseVectorIndexOption configures a SparseVectorIndexConfig
+type SparseVectorIndexOption func(*SparseVectorIndexConfig)
+
+// NewSparseVectorIndexConfig creates a new SparseVectorIndexConfig with the given options
+func NewSparseVectorIndexConfig(opts ...SparseVectorIndexOption) *SparseVectorIndexConfig {
+	cfg := &SparseVectorIndexConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	return cfg
 }
 
-func (c *SparseVectorIndexConfig) ValueType() string {
-	return "SparseVectorValue"
+func WithSparseEmbeddingFunction(ef embeddings.EmbeddingFunction) SparseVectorIndexOption {
+	return func(c *SparseVectorIndexConfig) {
+		c.EmbeddingFunction = ef
+	}
 }
 
-// StringInvertedIndexConfig represents configuration for string metadata indexing
+func WithSparseSourceKey(key string) SparseVectorIndexOption {
+	return func(c *SparseVectorIndexConfig) {
+		c.SourceKey = key
+	}
+}
+
+func WithBM25(enabled bool) SparseVectorIndexOption {
+	return func(c *SparseVectorIndexConfig) {
+		c.BM25 = enabled
+	}
+}
+
+// Inverted index configs for metadata fields
 type StringInvertedIndexConfig struct{}
-
-func (c *StringInvertedIndexConfig) IndexType() string {
-	return "InvertedIndex"
-}
-
-func (c *StringInvertedIndexConfig) ValueType() string {
-	return "StringValue"
-}
-
-// IntInvertedIndexConfig represents configuration for integer metadata indexing
 type IntInvertedIndexConfig struct{}
-
-func (c *IntInvertedIndexConfig) IndexType() string {
-	return "InvertedIndex"
-}
-
-func (c *IntInvertedIndexConfig) ValueType() string {
-	return "IntValue"
-}
-
-// FloatInvertedIndexConfig represents configuration for float metadata indexing
 type FloatInvertedIndexConfig struct{}
-
-func (c *FloatInvertedIndexConfig) IndexType() string {
-	return "InvertedIndex"
-}
-
-func (c *FloatInvertedIndexConfig) ValueType() string {
-	return "FloatValue"
-}
-
-// BoolInvertedIndexConfig represents configuration for boolean metadata indexing
 type BoolInvertedIndexConfig struct{}
 
-func (c *BoolInvertedIndexConfig) IndexType() string {
-	return "InvertedIndex"
+// Index type wrappers - pair enabled state with configuration
+
+// VectorIndexType wraps VectorIndexConfig with enabled state
+type VectorIndexType struct {
+	Enabled bool               `json:"enabled"`
+	Config  *VectorIndexConfig `json:"config,omitempty"`
 }
 
-func (c *BoolInvertedIndexConfig) ValueType() string {
-	return "BoolValue"
+// FtsIndexType wraps FtsIndexConfig with enabled state
+type FtsIndexType struct {
+	Enabled bool            `json:"enabled"`
+	Config  *FtsIndexConfig `json:"config,omitempty"`
 }
 
-// IndexEntry represents an index configuration with an enabled flag
-type IndexEntry struct {
-	Config  IndexConfig `json:"config"`
-	Enabled bool        `json:"enabled"`
+// SparseVectorIndexType wraps SparseVectorIndexConfig with enabled state
+type SparseVectorIndexType struct {
+	Enabled bool                     `json:"enabled"`
+	Config  *SparseVectorIndexConfig `json:"config,omitempty"`
+}
+
+// StringInvertedIndexType wraps StringInvertedIndexConfig with enabled state
+type StringInvertedIndexType struct {
+	Enabled bool                       `json:"enabled"`
+	Config  *StringInvertedIndexConfig `json:"config,omitempty"`
+}
+
+// IntInvertedIndexType wraps IntInvertedIndexConfig with enabled state
+type IntInvertedIndexType struct {
+	Enabled bool                    `json:"enabled"`
+	Config  *IntInvertedIndexConfig `json:"config,omitempty"`
+}
+
+// FloatInvertedIndexType wraps FloatInvertedIndexConfig with enabled state
+type FloatInvertedIndexType struct {
+	Enabled bool                      `json:"enabled"`
+	Config  *FloatInvertedIndexConfig `json:"config,omitempty"`
+}
+
+// BoolInvertedIndexType wraps BoolInvertedIndexConfig with enabled state
+type BoolInvertedIndexType struct {
+	Enabled bool                     `json:"enabled"`
+	Config  *BoolInvertedIndexConfig `json:"config,omitempty"`
+}
+
+// Value type structures - map data types to applicable indexes
+
+// StringValueType defines indexes applicable to string fields
+type StringValueType struct {
+	FtsIndex            *FtsIndexType            `json:"fts_index,omitempty"`
+	StringInvertedIndex *StringInvertedIndexType `json:"string_inverted_index,omitempty"`
+}
+
+// FloatListValueType defines indexes for dense vectors
+type FloatListValueType struct {
+	VectorIndex *VectorIndexType `json:"vector_index,omitempty"`
+}
+
+// SparseVectorValueType defines indexes for sparse vectors
+type SparseVectorValueType struct {
+	SparseVectorIndex *SparseVectorIndexType `json:"sparse_vector_index,omitempty"`
+}
+
+// IntValueType defines indexes for integer metadata
+type IntValueType struct {
+	IntInvertedIndex *IntInvertedIndexType `json:"int_inverted_index,omitempty"`
+}
+
+// FloatValueType defines indexes for float metadata
+type FloatValueType struct {
+	FloatInvertedIndex *FloatInvertedIndexType `json:"float_inverted_index,omitempty"`
+}
+
+// BoolValueType defines indexes for boolean metadata
+type BoolValueType struct {
+	BoolInvertedIndex *BoolInvertedIndexType `json:"bool_inverted_index,omitempty"`
+}
+
+// ValueTypes contains all value type configurations
+type ValueTypes struct {
+	String       *StringValueType       `json:"string,omitempty"`
+	FloatList    *FloatListValueType    `json:"float_list,omitempty"`
+	SparseVector *SparseVectorValueType `json:"sparse_vector,omitempty"`
+	Int          *IntValueType          `json:"int,omitempty"`
+	Float        *FloatValueType        `json:"float,omitempty"`
+	Bool         *BoolValueType         `json:"bool,omitempty"`
 }
 
 // Schema manages index configurations for a collection
-// It supports both default index configurations and per-key overrides
 type Schema struct {
-	// defaults maps value type to default index configurations
-	// e.g., "VectorValue" -> VectorIndexConfig
-	defaults map[string]IndexConfig
-
-	// keyOverrides maps key -> value_type -> index_type -> config
-	// e.g., "my_field" -> "StringValue" -> "InvertedIndex" -> StringInvertedIndexConfig
-	keyOverrides map[string]map[string]map[string]IndexConfig
+	defaults *ValueTypes
+	keys     map[string]*ValueTypes
 }
 
-// NewSchema creates a new empty Schema
-func NewSchema() *Schema {
-	return &Schema{
-		defaults:     make(map[string]IndexConfig),
-		keyOverrides: make(map[string]map[string]map[string]IndexConfig),
+// SchemaOption configures a Schema
+type SchemaOption func(*Schema) error
+
+// NewSchema creates a new Schema with the given options
+func NewSchema(opts ...SchemaOption) (*Schema, error) {
+	s := &Schema{
+		defaults: &ValueTypes{},
+		keys:     make(map[string]*ValueTypes),
 	}
+	for _, opt := range opts {
+		if err := opt(s); err != nil {
+			return nil, err
+		}
+	}
+	return s, nil
 }
 
-// NewSchemaWithDefaults creates a new Schema with default configurations
-func NewSchemaWithDefaults() *Schema {
-	schema := NewSchema()
-
-	// Set default vector index with HNSW
-	schema.defaults["VectorValue"] = &VectorIndexConfig{
-		Space: embeddings.L2,
-		HnswConfig: &HnswIndexConfig{
-			ConstructionEF: 100,
-			SearchEF:       10,
-			M:              16,
-		},
-	}
-
-	// Set default FTS index
-	schema.defaults["DocumentValue"] = &FtsIndexConfig{
-		Tokenizer: "default",
-	}
-
-	return schema
+// NewSchemaWithDefaults creates a Schema with L2 vector index configuration.
+// All other indexes (FTS, string, int, float, bool) are enabled by default
+// in Chroma, so they don't need to be explicitly set.
+func NewSchemaWithDefaults() (*Schema, error) {
+	return NewSchema(
+		WithDefaultVectorIndex(NewVectorIndexConfig(
+			WithSpace(SpaceL2),
+			WithHnsw(NewHnswConfig(
+				WithEfConstruction(100),
+				WithMaxNeighbors(16),
+				WithEfSearch(10),
+			)),
+		)),
+	)
 }
 
-// SetDefault sets a default index configuration for a value type
-func (s *Schema) SetDefault(valueType string, config IndexConfig) error {
-	if valueType == "" {
-		return errors.New("value type cannot be empty")
-	}
-	if config == nil {
-		return errors.New("config cannot be nil")
-	}
-	s.defaults[valueType] = config
-	return nil
-}
+// Default configuration options
 
-// GetDefault returns the default index configuration for a value type
-func (s *Schema) GetDefault(valueType string) (IndexConfig, bool) {
-	config, ok := s.defaults[valueType]
-	return config, ok
-}
-
-// CreateIndex enables an index for a specific key with the given configuration
-// If config is nil, it enables all default indexes for the key
-func (s *Schema) CreateIndex(key string, config IndexConfig) error {
-	if key == "" {
-		return errors.New("key cannot be empty")
-	}
-	if config == nil {
-		return errors.New("config cannot be nil")
-	}
-
-	valueType := config.ValueType()
-	indexType := config.IndexType()
-
-	if s.keyOverrides[key] == nil {
-		s.keyOverrides[key] = make(map[string]map[string]IndexConfig)
-	}
-	if s.keyOverrides[key][valueType] == nil {
-		s.keyOverrides[key][valueType] = make(map[string]IndexConfig)
-	}
-
-	s.keyOverrides[key][valueType][indexType] = config
-	return nil
-}
-
-// DeleteIndex removes an index for a specific key, value type, and index type
-func (s *Schema) DeleteIndex(key string, valueType string, indexType string) error {
-	if key == "" {
-		return errors.New("key cannot be empty")
-	}
-	if valueType == "" {
-		return errors.New("value type cannot be empty")
-	}
-	if indexType == "" {
-		return errors.New("index type cannot be empty")
-	}
-
-	if s.keyOverrides[key] == nil {
-		return errors.Errorf("no overrides found for key: %s", key)
-	}
-	if s.keyOverrides[key][valueType] == nil {
-		return errors.Errorf("no overrides found for key: %s, value type: %s", key, valueType)
-	}
-
-	delete(s.keyOverrides[key][valueType], indexType)
-
-	// Clean up empty maps
-	if len(s.keyOverrides[key][valueType]) == 0 {
-		delete(s.keyOverrides[key], valueType)
-	}
-	if len(s.keyOverrides[key]) == 0 {
-		delete(s.keyOverrides, key)
-	}
-
-	return nil
-}
-
-// GetIndexForKey returns the index configuration for a specific key, value type, and index type
-func (s *Schema) GetIndexForKey(key string, valueType string, indexType string) (IndexConfig, bool) {
-	if s.keyOverrides[key] == nil {
-		return nil, false
-	}
-	if s.keyOverrides[key][valueType] == nil {
-		return nil, false
-	}
-	config, ok := s.keyOverrides[key][valueType][indexType]
-	return config, ok
-}
-
-// GetAllIndexesForKey returns all index configurations for a specific key
-func (s *Schema) GetAllIndexesForKey(key string) map[string]map[string]IndexConfig {
-	if s.keyOverrides[key] == nil {
+func WithDefaultVectorIndex(cfg *VectorIndexConfig) SchemaOption {
+	return func(s *Schema) error {
+		if cfg == nil {
+			return errors.New("vector index config cannot be nil")
+		}
+		if s.defaults.FloatList == nil {
+			s.defaults.FloatList = &FloatListValueType{}
+		}
+		s.defaults.FloatList.VectorIndex = &VectorIndexType{
+			Enabled: true,
+			Config:  cfg,
+		}
 		return nil
 	}
-	return s.keyOverrides[key]
 }
 
-// Keys returns all keys that have index overrides
+func WithDefaultSparseVectorIndex(cfg *SparseVectorIndexConfig) SchemaOption {
+	return func(s *Schema) error {
+		if cfg == nil {
+			return errors.New("sparse vector index config cannot be nil")
+		}
+		if s.defaults.SparseVector == nil {
+			s.defaults.SparseVector = &SparseVectorValueType{}
+		}
+		s.defaults.SparseVector.SparseVectorIndex = &SparseVectorIndexType{
+			Enabled: true,
+			Config:  cfg,
+		}
+		return nil
+	}
+}
+
+func WithDefaultFtsIndex(cfg *FtsIndexConfig) SchemaOption {
+	return func(s *Schema) error {
+		if s.defaults.String == nil {
+			s.defaults.String = &StringValueType{}
+		}
+		s.defaults.String.FtsIndex = &FtsIndexType{
+			Enabled: true,
+			Config:  cfg,
+		}
+		return nil
+	}
+}
+
+// Per-key configuration options
+
+func WithVectorIndex(key string, cfg *VectorIndexConfig) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if cfg == nil {
+			return errors.New("vector index config cannot be nil")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].FloatList == nil {
+			s.keys[key].FloatList = &FloatListValueType{}
+		}
+		s.keys[key].FloatList.VectorIndex = &VectorIndexType{
+			Enabled: true,
+			Config:  cfg,
+		}
+		return nil
+	}
+}
+
+func WithFtsIndex(key string) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].String == nil {
+			s.keys[key].String = &StringValueType{}
+		}
+		s.keys[key].String.FtsIndex = &FtsIndexType{
+			Enabled: true,
+			Config:  &FtsIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func WithSparseVectorIndex(key string, cfg *SparseVectorIndexConfig) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if cfg == nil {
+			return errors.New("sparse vector index config cannot be nil")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].SparseVector == nil {
+			s.keys[key].SparseVector = &SparseVectorValueType{}
+		}
+		s.keys[key].SparseVector.SparseVectorIndex = &SparseVectorIndexType{
+			Enabled: true,
+			Config:  cfg,
+		}
+		return nil
+	}
+}
+
+func WithStringIndex(key string) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].String == nil {
+			s.keys[key].String = &StringValueType{}
+		}
+		s.keys[key].String.StringInvertedIndex = &StringInvertedIndexType{
+			Enabled: true,
+			Config:  &StringInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func WithIntIndex(key string) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].Int == nil {
+			s.keys[key].Int = &IntValueType{}
+		}
+		s.keys[key].Int.IntInvertedIndex = &IntInvertedIndexType{
+			Enabled: true,
+			Config:  &IntInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func WithFloatIndex(key string) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].Float == nil {
+			s.keys[key].Float = &FloatValueType{}
+		}
+		s.keys[key].Float.FloatInvertedIndex = &FloatInvertedIndexType{
+			Enabled: true,
+			Config:  &FloatInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func WithBoolIndex(key string) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].Bool == nil {
+			s.keys[key].Bool = &BoolValueType{}
+		}
+		s.keys[key].Bool.BoolInvertedIndex = &BoolInvertedIndexType{
+			Enabled: true,
+			Config:  &BoolInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+// Disable options - disable indexes on specific keys
+
+func DisableStringIndex(key string) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].String == nil {
+			s.keys[key].String = &StringValueType{}
+		}
+		s.keys[key].String.StringInvertedIndex = &StringInvertedIndexType{
+			Enabled: false,
+			Config:  &StringInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func DisableIntIndex(key string) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].Int == nil {
+			s.keys[key].Int = &IntValueType{}
+		}
+		s.keys[key].Int.IntInvertedIndex = &IntInvertedIndexType{
+			Enabled: false,
+			Config:  &IntInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func DisableFloatIndex(key string) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].Float == nil {
+			s.keys[key].Float = &FloatValueType{}
+		}
+		s.keys[key].Float.FloatInvertedIndex = &FloatInvertedIndexType{
+			Enabled: false,
+			Config:  &FloatInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func DisableBoolIndex(key string) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].Bool == nil {
+			s.keys[key].Bool = &BoolValueType{}
+		}
+		s.keys[key].Bool.BoolInvertedIndex = &BoolInvertedIndexType{
+			Enabled: false,
+			Config:  &BoolInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func DisableFtsIndex(key string) SchemaOption {
+	return func(s *Schema) error {
+		if key == "" {
+			return errors.New("key cannot be empty")
+		}
+		if key == DocumentKey {
+			return errors.New("cannot disable FTS index on #document")
+		}
+		if s.keys[key] == nil {
+			s.keys[key] = &ValueTypes{}
+		}
+		if s.keys[key].String == nil {
+			s.keys[key].String = &StringValueType{}
+		}
+		s.keys[key].String.FtsIndex = &FtsIndexType{
+			Enabled: false,
+			Config:  &FtsIndexConfig{},
+		}
+		return nil
+	}
+}
+
+// Disable default options - disable indexes globally
+
+func DisableDefaultStringIndex() SchemaOption {
+	return func(s *Schema) error {
+		if s.defaults.String == nil {
+			s.defaults.String = &StringValueType{}
+		}
+		s.defaults.String.StringInvertedIndex = &StringInvertedIndexType{
+			Enabled: false,
+			Config:  &StringInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func DisableDefaultIntIndex() SchemaOption {
+	return func(s *Schema) error {
+		if s.defaults.Int == nil {
+			s.defaults.Int = &IntValueType{}
+		}
+		s.defaults.Int.IntInvertedIndex = &IntInvertedIndexType{
+			Enabled: false,
+			Config:  &IntInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func DisableDefaultFloatIndex() SchemaOption {
+	return func(s *Schema) error {
+		if s.defaults.Float == nil {
+			s.defaults.Float = &FloatValueType{}
+		}
+		s.defaults.Float.FloatInvertedIndex = &FloatInvertedIndexType{
+			Enabled: false,
+			Config:  &FloatInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func DisableDefaultBoolIndex() SchemaOption {
+	return func(s *Schema) error {
+		if s.defaults.Bool == nil {
+			s.defaults.Bool = &BoolValueType{}
+		}
+		s.defaults.Bool.BoolInvertedIndex = &BoolInvertedIndexType{
+			Enabled: false,
+			Config:  &BoolInvertedIndexConfig{},
+		}
+		return nil
+	}
+}
+
+func DisableDefaultFtsIndex() SchemaOption {
+	return func(s *Schema) error {
+		if s.defaults.String == nil {
+			s.defaults.String = &StringValueType{}
+		}
+		s.defaults.String.FtsIndex = &FtsIndexType{
+			Enabled: false,
+			Config:  &FtsIndexConfig{},
+		}
+		return nil
+	}
+}
+
+// Accessor methods
+
+// Defaults returns the default value types configuration
+func (s *Schema) Defaults() *ValueTypes {
+	return s.defaults
+}
+
+// Keys returns all keys with overrides
 func (s *Schema) Keys() []string {
-	keys := make([]string, 0, len(s.keyOverrides))
-	for k := range s.keyOverrides {
+	keys := make([]string, 0, len(s.keys))
+	for k := range s.keys {
 		keys = append(keys, k)
 	}
 	return keys
 }
 
+// GetKey returns the value types for a specific key
+func (s *Schema) GetKey(key string) (*ValueTypes, bool) {
+	vt, ok := s.keys[key]
+	return vt, ok
+}
+
+// JSON serialization
+
+type schemaJSON struct {
+	Defaults *ValueTypes            `json:"defaults,omitempty"`
+	Keys     map[string]*ValueTypes `json:"keys,omitempty"`
+}
+
 // MarshalJSON serializes the Schema to JSON
 func (s *Schema) MarshalJSON() ([]byte, error) {
-	type schemaJSON struct {
-		Defaults     map[string]interface{}                       `json:"defaults,omitempty"`
-		KeyOverrides map[string]map[string]map[string]interface{} `json:"key_overrides,omitempty"`
-	}
-
-	result := schemaJSON{
-		Defaults:     make(map[string]interface{}),
-		KeyOverrides: make(map[string]map[string]map[string]interface{}),
-	}
-
-	// Marshal defaults
-	for k, v := range s.defaults {
-		result.Defaults[k] = v
-	}
-
-	// Marshal key overrides
-	for key, valueTypes := range s.keyOverrides {
-		result.KeyOverrides[key] = make(map[string]map[string]interface{})
-		for valueType, indexTypes := range valueTypes {
-			result.KeyOverrides[key][valueType] = make(map[string]interface{})
-			for indexType, config := range indexTypes {
-				result.KeyOverrides[key][valueType][indexType] = config
-			}
-		}
-	}
-
-	return json.Marshal(result)
+	return json.Marshal(schemaJSON{
+		Defaults: s.defaults,
+		Keys:     s.keys,
+	})
 }
 
 // UnmarshalJSON deserializes the Schema from JSON
 func (s *Schema) UnmarshalJSON(data []byte) error {
-	// For now, we'll unmarshal into raw map structure
-	// Full implementation would need to handle type detection for different IndexConfig types
-	type schemaJSON struct {
-		Defaults     map[string]json.RawMessage                       `json:"defaults,omitempty"`
-		KeyOverrides map[string]map[string]map[string]json.RawMessage `json:"key_overrides,omitempty"`
-	}
-
 	var raw schemaJSON
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return errors.Wrap(err, "failed to unmarshal schema")
 	}
-
-	s.defaults = make(map[string]IndexConfig)
-	s.keyOverrides = make(map[string]map[string]map[string]IndexConfig)
-
-	// TODO: Implement proper type detection and unmarshaling for different IndexConfig types
-	// For now, this is a placeholder that would need to be enhanced based on actual API responses
-
+	s.defaults = raw.Defaults
+	s.keys = raw.Keys
+	if s.defaults == nil {
+		s.defaults = &ValueTypes{}
+	}
+	if s.keys == nil {
+		s.keys = make(map[string]*ValueTypes)
+	}
 	return nil
 }

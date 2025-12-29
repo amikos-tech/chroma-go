@@ -8,15 +8,13 @@ import (
 
 // CollectionConfigurationImpl is the concrete implementation of CollectionConfiguration
 type CollectionConfigurationImpl struct {
-	schema *Schema
-	raw    map[string]interface{}
+	raw map[string]interface{}
 }
 
 // NewCollectionConfiguration creates a new CollectionConfigurationImpl with the given schema
-func NewCollectionConfiguration(schema *Schema) *CollectionConfigurationImpl {
+func NewCollectionConfiguration() *CollectionConfigurationImpl {
 	return &CollectionConfigurationImpl{
-		schema: schema,
-		raw:    make(map[string]interface{}),
+		raw: make(map[string]interface{}),
 	}
 }
 
@@ -28,16 +26,6 @@ func NewCollectionConfigurationFromMap(raw map[string]interface{}) *CollectionCo
 	}
 
 	// Try to extract schema if present
-	if schemaData, ok := raw["schema"]; ok {
-		if schemaMap, ok := schemaData.(map[string]interface{}); ok {
-			schema := NewSchema()
-			// TODO: Properly deserialize schema from map
-			// For now, store it in raw format
-			_ = schemaMap
-			config.schema = schema
-		}
-	}
-
 	return config
 }
 
@@ -58,19 +46,6 @@ func (c *CollectionConfigurationImpl) SetRaw(key string, value interface{}) {
 	c.raw[key] = value
 }
 
-// GetSchema returns the schema associated with this configuration
-func (c *CollectionConfigurationImpl) GetSchema() *Schema {
-	return c.schema
-}
-
-// SetSchema sets the schema for this configuration
-func (c *CollectionConfigurationImpl) SetSchema(schema *Schema) {
-	c.schema = schema
-	if schema != nil && c.raw != nil {
-		c.raw["schema"] = schema
-	}
-}
-
 // Keys returns all keys in the configuration
 func (c *CollectionConfigurationImpl) Keys() []string {
 	if c.raw == nil {
@@ -89,11 +64,6 @@ func (c *CollectionConfigurationImpl) MarshalJSON() ([]byte, error) {
 		c.raw = make(map[string]interface{})
 	}
 
-	// Include schema if present
-	if c.schema != nil {
-		c.raw["schema"] = c.schema
-	}
-
 	return json.Marshal(c.raw)
 }
 
@@ -105,20 +75,6 @@ func (c *CollectionConfigurationImpl) UnmarshalJSON(data []byte) error {
 
 	if err := json.Unmarshal(data, &c.raw); err != nil {
 		return errors.Wrap(err, "failed to unmarshal configuration")
-	}
-
-	// Try to extract and parse schema if present
-	if schemaData, ok := c.raw["schema"]; ok {
-		schemaBytes, err := json.Marshal(schemaData)
-		if err != nil {
-			return errors.Wrap(err, "failed to marshal schema data")
-		}
-
-		schema := NewSchema()
-		if err := json.Unmarshal(schemaBytes, schema); err != nil {
-			return errors.Wrap(err, "failed to unmarshal schema")
-		}
-		c.schema = schema
 	}
 
 	return nil

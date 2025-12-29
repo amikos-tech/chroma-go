@@ -9,11 +9,8 @@ import (
 )
 
 func TestNewCollectionConfiguration(t *testing.T) {
-	schema := NewSchema()
-	config := NewCollectionConfiguration(schema)
-
+	config := NewCollectionConfiguration()
 	assert.NotNil(t, config)
-	assert.Equal(t, schema, config.GetSchema())
 	assert.NotNil(t, config.raw)
 }
 
@@ -36,7 +33,7 @@ func TestNewCollectionConfigurationFromMap(t *testing.T) {
 }
 
 func TestCollectionConfiguration_GetSetRaw(t *testing.T) {
-	config := NewCollectionConfiguration(nil)
+	config := NewCollectionConfiguration()
 
 	// Test SetRaw and GetRaw
 	config.SetRaw("key1", "value1")
@@ -50,22 +47,8 @@ func TestCollectionConfiguration_GetSetRaw(t *testing.T) {
 	assert.Nil(t, val)
 }
 
-func TestCollectionConfiguration_GetSetSchema(t *testing.T) {
-	config := NewCollectionConfiguration(nil)
-	assert.Nil(t, config.GetSchema())
-
-	schema := NewSchemaWithDefaults()
-	config.SetSchema(schema)
-
-	assert.Equal(t, schema, config.GetSchema())
-	// Schema should also be in raw map
-	val, ok := config.GetRaw("schema")
-	assert.True(t, ok)
-	assert.Equal(t, schema, val)
-}
-
 func TestCollectionConfiguration_Keys(t *testing.T) {
-	config := NewCollectionConfiguration(nil)
+	config := NewCollectionConfiguration()
 
 	// Initially empty
 	keys := config.Keys()
@@ -82,7 +65,7 @@ func TestCollectionConfiguration_Keys(t *testing.T) {
 }
 
 func TestCollectionConfiguration_MarshalJSON(t *testing.T) {
-	config := NewCollectionConfiguration(NewSchemaWithDefaults())
+	config := NewCollectionConfiguration()
 	config.SetRaw("custom_key", "custom_value")
 
 	data, err := json.Marshal(config)
@@ -93,7 +76,6 @@ func TestCollectionConfiguration_MarshalJSON(t *testing.T) {
 	var result map[string]interface{}
 	err = json.Unmarshal(data, &result)
 	require.NoError(t, err)
-	assert.Contains(t, result, "schema")
 	assert.Contains(t, result, "custom_key")
 	assert.Equal(t, "custom_value", result["custom_key"])
 }
