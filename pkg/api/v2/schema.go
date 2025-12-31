@@ -27,13 +27,13 @@ const (
 
 // HnswIndexConfig represents HNSW algorithm parameters
 type HnswIndexConfig struct {
-	EfConstruction uint    `json:"ef_construction,omitempty"`
-	MaxNeighbors   uint    `json:"max_neighbors,omitempty"`
-	EfSearch       uint    `json:"ef_search,omitempty"`
-	NumThreads     uint    `json:"num_threads,omitempty"`
-	BatchSize      uint    `json:"batch_size,omitempty"`
-	SyncThreshold  uint    `json:"sync_threshold,omitempty"`
-	ResizeFactor   float64 `json:"resize_factor,omitempty"`
+	EfConstruction uint    `json:"ef_construction,omitempty" default:"100"`
+	MaxNeighbors   uint    `json:"max_neighbors,omitempty" default:"16"`
+	EfSearch       uint    `json:"ef_search,omitempty" default:"100"`
+	NumThreads     uint    `json:"num_threads,omitempty" default:"1"`
+	BatchSize      uint    `json:"batch_size,omitempty" default:"100" validate:"min=2"`
+	SyncThreshold  uint    `json:"sync_threshold,omitempty" default:"1000" validate:"min=2"`
+	ResizeFactor   float64 `json:"resize_factor,omitempty" default:"1.2"`
 }
 
 // HnswOption configures an HnswIndexConfig
@@ -46,6 +46,22 @@ func NewHnswConfig(opts ...HnswOption) *HnswIndexConfig {
 		opt(cfg)
 	}
 	return cfg
+}
+
+// NewHnswConfigWithDefaults creates a new HnswIndexConfig with defaults applied and validation
+func NewHnswConfigWithDefaults(opts ...HnswOption) (*HnswIndexConfig, error) {
+	cfg := &HnswIndexConfig{}
+	if err := defaults.Set(cfg); err != nil {
+		return nil, errors.Wrap(err, "failed to set defaults")
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	validate := validator.New()
+	if err := validate.Struct(cfg); err != nil {
+		return nil, errors.Wrap(err, "validation failed")
+	}
+	return cfg, nil
 }
 
 func WithEfConstruction(ef uint) HnswOption {

@@ -122,6 +122,53 @@ func TestHnswConfig_Options(t *testing.T) {
 	assert.Equal(t, 1.5, config.ResizeFactor)
 }
 
+func TestHnswConfig_Defaults(t *testing.T) {
+	config, err := NewHnswConfigWithDefaults()
+	require.NoError(t, err)
+
+	assert.Equal(t, uint(100), config.EfConstruction)
+	assert.Equal(t, uint(16), config.MaxNeighbors)
+	assert.Equal(t, uint(100), config.EfSearch)
+	assert.Equal(t, uint(1), config.NumThreads)
+	assert.Equal(t, uint(100), config.BatchSize)
+	assert.Equal(t, uint(1000), config.SyncThreshold)
+	assert.Equal(t, 1.2, config.ResizeFactor)
+}
+
+func TestHnswConfig_DefaultsWithOverride(t *testing.T) {
+	config, err := NewHnswConfigWithDefaults(
+		WithEfConstruction(200),
+		WithMaxNeighbors(32),
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, uint(200), config.EfConstruction)
+	assert.Equal(t, uint(32), config.MaxNeighbors)
+	// Other values should be defaults
+	assert.Equal(t, uint(100), config.EfSearch)
+	assert.Equal(t, uint(1000), config.SyncThreshold)
+}
+
+func TestHnswConfig_ValidationRejectsInvalid(t *testing.T) {
+	// BatchSize < 2 should fail
+	_, err := NewHnswConfigWithDefaults(WithBatchSize(1))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validation failed")
+
+	// SyncThreshold < 2 should fail
+	_, err = NewHnswConfigWithDefaults(WithSyncThreshold(1))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validation failed")
+
+	// BatchSize = 0 should fail
+	_, err = NewHnswConfigWithDefaults(WithBatchSize(0))
+	assert.Error(t, err)
+
+	// SyncThreshold = 0 should fail
+	_, err = NewHnswConfigWithDefaults(WithSyncThreshold(0))
+	assert.Error(t, err)
+}
+
 func TestSpannConfig_Options(t *testing.T) {
 	config := NewSpannConfig(
 		WithSpannSearchNprobe(64),
