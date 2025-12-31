@@ -24,6 +24,8 @@ type Collection interface {
 	Dimension() int
 	// Configuration returns the configuration of the collection
 	Configuration() CollectionConfiguration
+	// Schema returns the schema of the collection
+	Schema() *Schema
 	// Add adds a document to the collection
 	Add(ctx context.Context, opts ...CollectionAddOption) error
 	// Upsert updates or adds a document to the collection

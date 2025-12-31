@@ -5,6 +5,7 @@ go 1.24.11
 require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/amikos-tech/pure-tokenizers v0.1.1
+	github.com/creasty/defaults v1.8.0
 	github.com/docker/docker v28.0.1+incompatible
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/go-viper/mapstructure/v2 v2.4.0

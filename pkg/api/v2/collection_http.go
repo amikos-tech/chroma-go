@@ -50,6 +50,7 @@ type CollectionImpl struct {
 	tenant            Tenant
 	database          Database
 	metadata          CollectionMetadata
+	schema            *Schema
 	dimension         int
 	configuration     CollectionConfiguration
 	client            *APIClientV2
@@ -80,6 +81,10 @@ func (c *CollectionImpl) Dimension() int {
 
 func (c *CollectionImpl) Configuration() CollectionConfiguration {
 	return c.configuration
+}
+
+func (c *CollectionImpl) Schema() *Schema {
+	return c.schema
 }
 
 func (c *CollectionImpl) Add(ctx context.Context, opts ...CollectionAddOption) error {
