@@ -122,6 +122,44 @@ func TestHnswConfig_Options(t *testing.T) {
 	assert.Equal(t, 1.5, config.ResizeFactor)
 }
 
+func TestSpannConfig_Options(t *testing.T) {
+	config := NewSpannConfig(
+		WithSpannSearchNprobe(64),
+		WithSpannSearchRngFactor(1.0),
+		WithSpannSearchRngEpsilon(10.0),
+		WithSpannNReplicaCount(8),
+		WithSpannWriteRngFactor(1.0),
+		WithSpannWriteRngEpsilon(5.0),
+		WithSpannSplitThreshold(50),
+		WithSpannNumSamplesKmeans(1000),
+		WithSpannInitialLambda(100.0),
+		WithSpannReassignNeighborCount(64),
+		WithSpannMergeThreshold(25),
+		WithSpannNumCentersToMergeTo(8),
+		WithSpannWriteNprobe(32),
+		WithSpannEfConstruction(200),
+		WithSpannEfSearch(200),
+		WithSpannMaxNeighbors(64),
+	)
+
+	assert.Equal(t, uint(64), config.SearchNprobe)
+	assert.Equal(t, 1.0, config.SearchRngFactor)
+	assert.Equal(t, 10.0, config.SearchRngEpsilon)
+	assert.Equal(t, uint(8), config.NReplicaCount)
+	assert.Equal(t, 1.0, config.WriteRngFactor)
+	assert.Equal(t, 5.0, config.WriteRngEpsilon)
+	assert.Equal(t, uint(50), config.SplitThreshold)
+	assert.Equal(t, uint(1000), config.NumSamplesKmeans)
+	assert.Equal(t, 100.0, config.InitialLambda)
+	assert.Equal(t, uint(64), config.ReassignNeighborCount)
+	assert.Equal(t, uint(25), config.MergeThreshold)
+	assert.Equal(t, uint(8), config.NumCentersToMergeTo)
+	assert.Equal(t, uint(32), config.WriteNprobe)
+	assert.Equal(t, uint(200), config.EfConstruction)
+	assert.Equal(t, uint(200), config.EfSearch)
+	assert.Equal(t, uint(64), config.MaxNeighbors)
+}
+
 func TestVectorIndexConfig_Options(t *testing.T) {
 	hnswCfg := NewHnswConfig(WithEfConstruction(100))
 	config := NewVectorIndexConfig(
@@ -134,6 +172,80 @@ func TestVectorIndexConfig_Options(t *testing.T) {
 	assert.Equal(t, DocumentKey, config.SourceKey)
 	assert.NotNil(t, config.Hnsw)
 	assert.Equal(t, uint(100), config.Hnsw.EfConstruction)
+}
+
+func TestVectorIndexConfig_WithSpann(t *testing.T) {
+	spannCfg := NewSpannConfig(
+		WithSpannSearchNprobe(64),
+		WithSpannEfConstruction(200),
+	)
+	config := NewVectorIndexConfig(
+		WithSpace(SpaceCosine),
+		WithSpann(spannCfg),
+	)
+
+	assert.Equal(t, SpaceCosine, config.Space)
+	assert.NotNil(t, config.Spann)
+	assert.Equal(t, uint(64), config.Spann.SearchNprobe)
+	assert.Equal(t, uint(200), config.Spann.EfConstruction)
+}
+
+func TestSpannConfig_Defaults(t *testing.T) {
+	config, err := NewSpannConfigWithDefaults()
+	require.NoError(t, err)
+
+	assert.Equal(t, uint(64), config.SearchNprobe)
+	assert.Equal(t, 1.0, config.SearchRngFactor)
+	assert.Equal(t, 10.0, config.SearchRngEpsilon)
+	assert.Equal(t, uint(8), config.NReplicaCount)
+	assert.Equal(t, 1.0, config.WriteRngFactor)
+	assert.Equal(t, 5.0, config.WriteRngEpsilon)
+	assert.Equal(t, uint(50), config.SplitThreshold)
+	assert.Equal(t, uint(1000), config.NumSamplesKmeans)
+	assert.Equal(t, 100.0, config.InitialLambda)
+	assert.Equal(t, uint(64), config.ReassignNeighborCount)
+	assert.Equal(t, uint(25), config.MergeThreshold)
+	assert.Equal(t, uint(8), config.NumCentersToMergeTo)
+	assert.Equal(t, uint(32), config.WriteNprobe)
+	assert.Equal(t, uint(200), config.EfConstruction)
+	assert.Equal(t, uint(200), config.EfSearch)
+	assert.Equal(t, uint(64), config.MaxNeighbors)
+}
+
+func TestSpannConfig_DefaultsWithOverride(t *testing.T) {
+	config, err := NewSpannConfigWithDefaults(
+		WithSpannSearchNprobe(100),
+		WithSpannMergeThreshold(50),
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, uint(100), config.SearchNprobe)
+	assert.Equal(t, uint(50), config.MergeThreshold)
+	// Other values should be defaults
+	assert.Equal(t, uint(64), config.MaxNeighbors)
+}
+
+func TestSpannConfig_ValidationRejectsInvalid(t *testing.T) {
+	// SearchNprobe > 128 should fail
+	_, err := NewSpannConfigWithDefaults(WithSpannSearchNprobe(200))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validation failed")
+
+	// MergeThreshold < 25 should fail
+	_, err = NewSpannConfigWithDefaults(WithSpannMergeThreshold(10))
+	assert.Error(t, err)
+
+	// MergeThreshold > 100 should fail
+	_, err = NewSpannConfigWithDefaults(WithSpannMergeThreshold(150))
+	assert.Error(t, err)
+
+	// SplitThreshold < 50 should fail
+	_, err = NewSpannConfigWithDefaults(WithSpannSplitThreshold(25))
+	assert.Error(t, err)
+
+	// NReplicaCount > 8 should fail
+	_, err = NewSpannConfigWithDefaults(WithSpannNReplicaCount(10))
+	assert.Error(t, err)
 }
 
 func TestSparseVectorIndexConfig_Options(t *testing.T) {

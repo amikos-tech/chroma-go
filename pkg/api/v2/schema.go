@@ -3,6 +3,8 @@ package v2
 import (
 	"encoding/json"
 
+	"github.com/creasty/defaults"
+	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
@@ -88,8 +90,149 @@ func WithResizeFactor(factor float64) HnswOption {
 	}
 }
 
-// SpannIndexConfig represents SPANN algorithm configuration (placeholder)
-type SpannIndexConfig struct{}
+// SpannIndexConfig represents SPANN algorithm configuration for Chroma Cloud
+type SpannIndexConfig struct {
+	SearchNprobe          uint    `json:"search_nprobe,omitempty" default:"64" validate:"omitempty,min=1,max=128"`
+	SearchRngFactor       float64 `json:"search_rng_factor,omitempty" default:"1.0" validate:"omitempty,min=1.0,max=1.0"`
+	SearchRngEpsilon      float64 `json:"search_rng_epsilon,omitempty" default:"10.0" validate:"omitempty,min=5.0,max=10.0"`
+	NReplicaCount         uint    `json:"nreplica_count,omitempty" default:"8" validate:"omitempty,min=1,max=8"`
+	WriteRngFactor        float64 `json:"write_rng_factor,omitempty" default:"1.0" validate:"omitempty,min=1.0,max=1.0"`
+	WriteRngEpsilon       float64 `json:"write_rng_epsilon,omitempty" default:"5.0" validate:"omitempty,min=5.0,max=10.0"`
+	SplitThreshold        uint    `json:"split_threshold,omitempty" default:"50" validate:"omitempty,min=50,max=200"`
+	NumSamplesKmeans      uint    `json:"num_samples_kmeans,omitempty" default:"1000" validate:"omitempty,min=1,max=1000"`
+	InitialLambda         float64 `json:"initial_lambda,omitempty" default:"100.0" validate:"omitempty,min=100.0,max=100.0"`
+	ReassignNeighborCount uint    `json:"reassign_neighbor_count,omitempty" default:"64" validate:"omitempty,min=1,max=64"`
+	MergeThreshold        uint    `json:"merge_threshold,omitempty" default:"25" validate:"omitempty,min=25,max=100"`
+	NumCentersToMergeTo   uint    `json:"num_centers_to_merge_to,omitempty" default:"8" validate:"omitempty,min=1,max=8"`
+	WriteNprobe           uint    `json:"write_nprobe,omitempty" default:"32" validate:"omitempty,min=1,max=64"`
+	EfConstruction        uint    `json:"ef_construction,omitempty" default:"200" validate:"omitempty,min=1,max=200"`
+	EfSearch              uint    `json:"ef_search,omitempty" default:"200" validate:"omitempty,min=1,max=200"`
+	MaxNeighbors          uint    `json:"max_neighbors,omitempty" default:"64" validate:"omitempty,min=1,max=64"`
+}
+
+// SpannOption configures a SpannIndexConfig
+type SpannOption func(*SpannIndexConfig)
+
+// NewSpannConfig creates a new SpannIndexConfig with the given options
+func NewSpannConfig(opts ...SpannOption) *SpannIndexConfig {
+	cfg := &SpannIndexConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	return cfg
+}
+
+// NewSpannConfigWithDefaults creates a new SpannIndexConfig with defaults applied and validation
+func NewSpannConfigWithDefaults(opts ...SpannOption) (*SpannIndexConfig, error) {
+	cfg := &SpannIndexConfig{}
+	if err := defaults.Set(cfg); err != nil {
+		return nil, errors.Wrap(err, "failed to set defaults")
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	validate := validator.New()
+	if err := validate.Struct(cfg); err != nil {
+		return nil, errors.Wrap(err, "validation failed")
+	}
+	return cfg, nil
+}
+
+func WithSpannSearchNprobe(n uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.SearchNprobe = n
+	}
+}
+
+func WithSpannSearchRngFactor(f float64) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.SearchRngFactor = f
+	}
+}
+
+func WithSpannSearchRngEpsilon(e float64) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.SearchRngEpsilon = e
+	}
+}
+
+func WithSpannNReplicaCount(n uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.NReplicaCount = n
+	}
+}
+
+func WithSpannWriteRngFactor(f float64) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.WriteRngFactor = f
+	}
+}
+
+func WithSpannWriteRngEpsilon(e float64) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.WriteRngEpsilon = e
+	}
+}
+
+func WithSpannSplitThreshold(t uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.SplitThreshold = t
+	}
+}
+
+func WithSpannNumSamplesKmeans(n uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.NumSamplesKmeans = n
+	}
+}
+
+func WithSpannInitialLambda(l float64) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.InitialLambda = l
+	}
+}
+
+func WithSpannReassignNeighborCount(n uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.ReassignNeighborCount = n
+	}
+}
+
+func WithSpannMergeThreshold(t uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.MergeThreshold = t
+	}
+}
+
+func WithSpannNumCentersToMergeTo(n uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.NumCentersToMergeTo = n
+	}
+}
+
+func WithSpannWriteNprobe(n uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.WriteNprobe = n
+	}
+}
+
+func WithSpannEfConstruction(ef uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.EfConstruction = ef
+	}
+}
+
+func WithSpannEfSearch(ef uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.EfSearch = ef
+	}
+}
+
+func WithSpannMaxNeighbors(m uint) SpannOption {
+	return func(c *SpannIndexConfig) {
+		c.MaxNeighbors = m
+	}
+}
 
 // VectorIndexConfig represents configuration for dense vector indexing
 type VectorIndexConfig struct {

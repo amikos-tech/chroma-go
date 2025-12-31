@@ -21,13 +21,34 @@ func SpaceStrategy() gopter.Gen {
 
 func HnswConfigStrategy() gopter.Gen {
 	return gen.Struct(reflect.TypeOf(HnswIndexConfig{}), map[string]gopter.Gen{
-		"EfConstruction": gen.UInt(),
-		"MaxNeighbors":   gen.UInt(),
-		"EfSearch":       gen.UInt(),
-		"NumThreads":     gen.UInt(),
-		"BatchSize":      gen.UInt(),
-		"SyncThreshold":  gen.UInt(),
-		"ResizeFactor":   gen.Float64(),
+		"EfConstruction": gen.UIntRange(10, 500),
+		"MaxNeighbors":   gen.UIntRange(4, 128),
+		"EfSearch":       gen.UIntRange(10, 500),
+		"NumThreads":     gen.UIntRange(1, 32),
+		"BatchSize":      gen.UIntRange(2, 1000),
+		"SyncThreshold":  gen.UIntRange(2, 10000),
+		"ResizeFactor":   gen.Float64Range(1.0, 2.0),
+	})
+}
+
+func SpannConfigStrategy() gopter.Gen {
+	return gen.Struct(reflect.TypeOf(SpannIndexConfig{}), map[string]gopter.Gen{
+		"SearchNprobe":          gen.UIntRange(1, 128),
+		"SearchRngFactor":       gen.Const(float64(1.0)),
+		"SearchRngEpsilon":      gen.Float64Range(5.0, 10.0),
+		"NReplicaCount":         gen.UIntRange(1, 8),
+		"WriteRngFactor":        gen.Const(float64(1.0)),
+		"WriteRngEpsilon":       gen.Float64Range(5.0, 10.0),
+		"SplitThreshold":        gen.UIntRange(50, 200),
+		"NumSamplesKmeans":      gen.UIntRange(1, 1000),
+		"InitialLambda":         gen.Const(float64(100.0)),
+		"ReassignNeighborCount": gen.UIntRange(1, 64),
+		"MergeThreshold":        gen.UIntRange(25, 100),
+		"NumCentersToMergeTo":   gen.UIntRange(1, 8),
+		"WriteNprobe":           gen.UIntRange(1, 64),
+		"EfConstruction":        gen.UIntRange(1, 200),
+		"EfSearch":              gen.UIntRange(1, 200),
+		"MaxNeighbors":          gen.UIntRange(1, 64),
 	})
 }
 
@@ -90,6 +111,27 @@ func TestSchemaCreationProperties(t *testing.T) {
 		HnswConfigStrategy(),
 	))
 
+	properties.Property("schema with spann config initializes correctly", prop.ForAll(
+		func(cfg SpannIndexConfig) bool {
+			schema, err := NewSchema(
+				WithDefaultVectorIndex(NewVectorIndexConfig(
+					WithSpace(SpaceCosine),
+					WithSpann(&cfg),
+				)),
+			)
+			require.NoError(t, err)
+			require.NotNil(t, schema)
+			spann := schema.Defaults().FloatList.VectorIndex.Config.Spann
+			require.NotNil(t, spann)
+			require.Equal(t, cfg.SearchNprobe, spann.SearchNprobe)
+			require.Equal(t, cfg.EfConstruction, spann.EfConstruction)
+			require.Equal(t, cfg.MaxNeighbors, spann.MaxNeighbors)
+			require.Equal(t, cfg.MergeThreshold, spann.MergeThreshold)
+			return true
+		},
+		SpannConfigStrategy(),
+	))
+
 	properties.TestingRun(t)
 }
 
@@ -129,6 +171,20 @@ func TestSchemaMarshalProperties(t *testing.T) {
 			return true
 		},
 		HnswConfigStrategy(),
+	))
+
+	properties.Property("spann config marshals correctly", prop.ForAll(
+		func(cfg SpannIndexConfig) bool {
+			data, err := json.Marshal(cfg)
+			require.NoError(t, err)
+			require.NotEmpty(t, data)
+
+			var result map[string]interface{}
+			err = json.Unmarshal(data, &result)
+			require.NoError(t, err)
+			return true
+		},
+		SpannConfigStrategy(),
 	))
 
 	properties.Property("vector index config marshals with space", prop.ForAll(
