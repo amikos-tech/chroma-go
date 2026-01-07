@@ -419,7 +419,7 @@ func TestSchemaConstraintProperties(t *testing.T) {
 		func() bool {
 			_, err := NewSchema(DisableFtsIndex(DocumentKey))
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "cannot disable FTS index on #document")
+			require.Contains(t, err.Error(), "cannot disable FTS index on reserved key")
 			return true
 		},
 	))

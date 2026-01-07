@@ -109,14 +109,14 @@ func WithResizeFactor(factor float64) HnswOption {
 // SpannIndexConfig represents SPANN algorithm configuration for Chroma Cloud
 type SpannIndexConfig struct {
 	SearchNprobe          uint    `json:"search_nprobe,omitempty" default:"64" validate:"omitempty,min=1,max=128"`
-	SearchRngFactor       float64 `json:"search_rng_factor,omitempty" default:"1.0" validate:"omitempty,min=1.0,max=1.0"`
+	SearchRngFactor       float64 `json:"search_rng_factor,omitempty" default:"1.0"`
 	SearchRngEpsilon      float64 `json:"search_rng_epsilon,omitempty" default:"10.0" validate:"omitempty,min=5.0,max=10.0"`
 	NReplicaCount         uint    `json:"nreplica_count,omitempty" default:"8" validate:"omitempty,min=1,max=8"`
-	WriteRngFactor        float64 `json:"write_rng_factor,omitempty" default:"1.0" validate:"omitempty,min=1.0,max=1.0"`
+	WriteRngFactor        float64 `json:"write_rng_factor,omitempty" default:"1.0"`
 	WriteRngEpsilon       float64 `json:"write_rng_epsilon,omitempty" default:"5.0" validate:"omitempty,min=5.0,max=10.0"`
 	SplitThreshold        uint    `json:"split_threshold,omitempty" default:"50" validate:"omitempty,min=50,max=200"`
 	NumSamplesKmeans      uint    `json:"num_samples_kmeans,omitempty" default:"1000" validate:"omitempty,min=1,max=1000"`
-	InitialLambda         float64 `json:"initial_lambda,omitempty" default:"100.0" validate:"omitempty,min=100.0,max=100.0"`
+	InitialLambda         float64 `json:"initial_lambda,omitempty" default:"100.0"`
 	ReassignNeighborCount uint    `json:"reassign_neighbor_count,omitempty" default:"64" validate:"omitempty,min=1,max=64"`
 	MergeThreshold        uint    `json:"merge_threshold,omitempty" default:"25" validate:"omitempty,min=25,max=100"`
 	NumCentersToMergeTo   uint    `json:"num_centers_to_merge_to,omitempty" default:"8" validate:"omitempty,min=1,max=8"`
@@ -513,6 +513,9 @@ func WithDefaultSparseVectorIndex(cfg *SparseVectorIndexConfig) SchemaOption {
 
 func WithDefaultFtsIndex(cfg *FtsIndexConfig) SchemaOption {
 	return func(s *Schema) error {
+		if cfg == nil {
+			return errors.New("FTS index config cannot be nil")
+		}
 		// FTS index must be on #document key, not in defaults (Chroma Cloud requirement)
 		if s.keys[DocumentKey] == nil {
 			s.keys[DocumentKey] = &ValueTypes{}
@@ -676,6 +679,9 @@ func DisableStringIndex(key string) SchemaOption {
 		if key == "" {
 			return errors.New("key cannot be empty")
 		}
+		if key == DocumentKey || key == EmbeddingKey {
+			return errors.Errorf("cannot disable string index on reserved key: %s", key)
+		}
 		if s.keys[key] == nil {
 			s.keys[key] = &ValueTypes{}
 		}
@@ -694,6 +700,9 @@ func DisableIntIndex(key string) SchemaOption {
 	return func(s *Schema) error {
 		if key == "" {
 			return errors.New("key cannot be empty")
+		}
+		if key == DocumentKey || key == EmbeddingKey {
+			return errors.Errorf("cannot disable int index on reserved key: %s", key)
 		}
 		if s.keys[key] == nil {
 			s.keys[key] = &ValueTypes{}
@@ -714,6 +723,9 @@ func DisableFloatIndex(key string) SchemaOption {
 		if key == "" {
 			return errors.New("key cannot be empty")
 		}
+		if key == DocumentKey || key == EmbeddingKey {
+			return errors.Errorf("cannot disable float index on reserved key: %s", key)
+		}
 		if s.keys[key] == nil {
 			s.keys[key] = &ValueTypes{}
 		}
@@ -732,6 +744,9 @@ func DisableBoolIndex(key string) SchemaOption {
 	return func(s *Schema) error {
 		if key == "" {
 			return errors.New("key cannot be empty")
+		}
+		if key == DocumentKey || key == EmbeddingKey {
+			return errors.Errorf("cannot disable bool index on reserved key: %s", key)
 		}
 		if s.keys[key] == nil {
 			s.keys[key] = &ValueTypes{}
@@ -752,8 +767,8 @@ func DisableFtsIndex(key string) SchemaOption {
 		if key == "" {
 			return errors.New("key cannot be empty")
 		}
-		if key == DocumentKey {
-			return errors.New("cannot disable FTS index on #document")
+		if key == DocumentKey || key == EmbeddingKey {
+			return errors.Errorf("cannot disable FTS index on reserved key: %s", key)
 		}
 		if s.keys[key] == nil {
 			s.keys[key] = &ValueTypes{}

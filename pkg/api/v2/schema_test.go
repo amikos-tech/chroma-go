@@ -459,7 +459,59 @@ func TestDisableFtsIndex(t *testing.T) {
 func TestDisableFtsIndex_CannotDisableDocument(t *testing.T) {
 	_, err := NewSchema(DisableFtsIndex(DocumentKey))
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot disable FTS index on #document")
+	assert.Contains(t, err.Error(), "cannot disable FTS index on reserved key")
+}
+
+func TestDisableFtsIndex_CannotDisableEmbedding(t *testing.T) {
+	_, err := NewSchema(DisableFtsIndex(EmbeddingKey))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot disable FTS index on reserved key")
+}
+
+func TestDisableStringIndex_CannotDisableReservedKeys(t *testing.T) {
+	_, err := NewSchema(DisableStringIndex(DocumentKey))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot disable string index on reserved key")
+
+	_, err = NewSchema(DisableStringIndex(EmbeddingKey))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot disable string index on reserved key")
+}
+
+func TestDisableIntIndex_CannotDisableReservedKeys(t *testing.T) {
+	_, err := NewSchema(DisableIntIndex(DocumentKey))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot disable int index on reserved key")
+
+	_, err = NewSchema(DisableIntIndex(EmbeddingKey))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot disable int index on reserved key")
+}
+
+func TestDisableFloatIndex_CannotDisableReservedKeys(t *testing.T) {
+	_, err := NewSchema(DisableFloatIndex(DocumentKey))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot disable float index on reserved key")
+
+	_, err = NewSchema(DisableFloatIndex(EmbeddingKey))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot disable float index on reserved key")
+}
+
+func TestDisableBoolIndex_CannotDisableReservedKeys(t *testing.T) {
+	_, err := NewSchema(DisableBoolIndex(DocumentKey))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot disable bool index on reserved key")
+
+	_, err = NewSchema(DisableBoolIndex(EmbeddingKey))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot disable bool index on reserved key")
+}
+
+func TestWithDefaultFtsIndex_NilConfig(t *testing.T) {
+	_, err := NewSchema(WithDefaultFtsIndex(nil))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "FTS index config cannot be nil")
 }
 
 func TestDisableDefaultStringIndex(t *testing.T) {
@@ -512,4 +564,47 @@ func TestDisableIndex_EmptyKey(t *testing.T) {
 	_, err = NewSchema(DisableFtsIndex(""))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "key cannot be empty")
+}
+
+func TestWithVectorIndexCreate_MergesWithExistingSchema(t *testing.T) {
+	op, err := NewCreateCollectionOp("test",
+		WithVectorIndexCreate(NewVectorIndexConfig(WithSpace(SpaceL2))),
+		WithFtsIndexCreate(&FtsIndexConfig{}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, op.Schema)
+
+	embeddingVT, ok := op.Schema.GetKey(EmbeddingKey)
+	require.True(t, ok, "should have #embedding key")
+	require.NotNil(t, embeddingVT.FloatList)
+	require.NotNil(t, embeddingVT.FloatList.VectorIndex)
+	assert.True(t, embeddingVT.FloatList.VectorIndex.Enabled)
+
+	documentVT, ok := op.Schema.GetKey(DocumentKey)
+	require.True(t, ok, "should have #document key")
+	require.NotNil(t, documentVT.String)
+	require.NotNil(t, documentVT.String.FtsIndex)
+	assert.True(t, documentVT.String.FtsIndex.Enabled)
+}
+
+func TestWithFtsIndexCreate_MergesWithExistingSchema(t *testing.T) {
+	op, err := NewCreateCollectionOp("test",
+		WithFtsIndexCreate(&FtsIndexConfig{}),
+		WithVectorIndexCreate(NewVectorIndexConfig(WithSpace(SpaceCosine))),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, op.Schema)
+
+	embeddingVT, ok := op.Schema.GetKey(EmbeddingKey)
+	require.True(t, ok, "should have #embedding key")
+	require.NotNil(t, embeddingVT.FloatList)
+	require.NotNil(t, embeddingVT.FloatList.VectorIndex)
+	assert.True(t, embeddingVT.FloatList.VectorIndex.Enabled)
+	assert.Equal(t, SpaceCosine, embeddingVT.FloatList.VectorIndex.Config.Space)
+
+	documentVT, ok := op.Schema.GetKey(DocumentKey)
+	require.True(t, ok, "should have #document key")
+	require.NotNil(t, documentVT.String)
+	require.NotNil(t, documentVT.String.FtsIndex)
+	assert.True(t, documentVT.String.FtsIndex.Enabled)
 }

@@ -454,11 +454,15 @@ func WithConfigurationCreate(config *CollectionConfigurationImpl) CreateCollecti
 	}
 }
 
-// WithVectorIndexCreate adds a vector index configuration to the collection schema
+// WithVectorIndexCreate adds a vector index configuration to the collection schema.
+// If a schema already exists on the operation, the vector index is merged into it.
 func WithVectorIndexCreate(config *VectorIndexConfig) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		if config == nil {
 			return errors.New("vector index config cannot be nil")
+		}
+		if op.Schema != nil {
+			return WithDefaultVectorIndex(config)(op.Schema)
 		}
 		schema, err := NewSchema(WithDefaultVectorIndex(config))
 		if err != nil {
@@ -469,11 +473,15 @@ func WithVectorIndexCreate(config *VectorIndexConfig) CreateCollectionOption {
 	}
 }
 
-// WithFtsIndexCreate adds a full-text search index configuration to the collection schema
+// WithFtsIndexCreate adds a full-text search index configuration to the collection schema.
+// If a schema already exists on the operation, the FTS index is merged into it.
 func WithFtsIndexCreate(config *FtsIndexConfig) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		if config == nil {
 			return errors.New("FTS index config cannot be nil")
+		}
+		if op.Schema != nil {
+			return WithDefaultFtsIndex(config)(op.Schema)
 		}
 		schema, err := NewSchema(WithDefaultFtsIndex(config))
 		if err != nil {
