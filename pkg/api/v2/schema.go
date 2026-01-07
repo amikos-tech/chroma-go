@@ -480,10 +480,14 @@ func WithDefaultVectorIndex(cfg *VectorIndexConfig) SchemaOption {
 		if cfg == nil {
 			return errors.New("vector index config cannot be nil")
 		}
-		if s.defaults.FloatList == nil {
-			s.defaults.FloatList = &FloatListValueType{}
+		// Vector index must be on #embedding key, not in defaults (Chroma Cloud requirement)
+		if s.keys[EmbeddingKey] == nil {
+			s.keys[EmbeddingKey] = &ValueTypes{}
 		}
-		s.defaults.FloatList.VectorIndex = &VectorIndexType{
+		if s.keys[EmbeddingKey].FloatList == nil {
+			s.keys[EmbeddingKey].FloatList = &FloatListValueType{}
+		}
+		s.keys[EmbeddingKey].FloatList.VectorIndex = &VectorIndexType{
 			Enabled: true,
 			Config:  cfg,
 		}
@@ -509,10 +513,14 @@ func WithDefaultSparseVectorIndex(cfg *SparseVectorIndexConfig) SchemaOption {
 
 func WithDefaultFtsIndex(cfg *FtsIndexConfig) SchemaOption {
 	return func(s *Schema) error {
-		if s.defaults.String == nil {
-			s.defaults.String = &StringValueType{}
+		// FTS index must be on #document key, not in defaults (Chroma Cloud requirement)
+		if s.keys[DocumentKey] == nil {
+			s.keys[DocumentKey] = &ValueTypes{}
 		}
-		s.defaults.String.FtsIndex = &FtsIndexType{
+		if s.keys[DocumentKey].String == nil {
+			s.keys[DocumentKey].String = &StringValueType{}
+		}
+		s.keys[DocumentKey].String.FtsIndex = &FtsIndexType{
 			Enabled: true,
 			Config:  cfg,
 		}
@@ -854,7 +862,7 @@ func (s *Schema) GetKey(key string) (*ValueTypes, bool) {
 
 type schemaJSON struct {
 	Defaults *ValueTypes            `json:"defaults,omitempty"`
-	Keys     map[string]*ValueTypes `json:"keys,omitempty"`
+	Keys     map[string]*ValueTypes `json:"keys"`
 }
 
 // MarshalJSON serializes the Schema to JSON

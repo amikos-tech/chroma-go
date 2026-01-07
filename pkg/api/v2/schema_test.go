@@ -21,11 +21,13 @@ func TestNewSchemaWithDefaults(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, schema)
 
-	// Check default vector index exists with L2 space
-	assert.NotNil(t, schema.Defaults().FloatList)
-	assert.NotNil(t, schema.Defaults().FloatList.VectorIndex)
-	assert.True(t, schema.Defaults().FloatList.VectorIndex.Enabled)
-	assert.Equal(t, SpaceL2, schema.Defaults().FloatList.VectorIndex.Config.Space)
+	// Check vector index exists on #embedding key with L2 space
+	embeddingVT, ok := schema.GetKey(EmbeddingKey)
+	assert.True(t, ok)
+	assert.NotNil(t, embeddingVT.FloatList)
+	assert.NotNil(t, embeddingVT.FloatList.VectorIndex)
+	assert.True(t, embeddingVT.FloatList.VectorIndex.Enabled)
+	assert.Equal(t, SpaceL2, embeddingVT.FloatList.VectorIndex.Config.Space)
 
 	// Other indexes (FTS, string, int, float, bool) are enabled by default
 	// in Chroma, so they don't need to be explicitly set in the schema
@@ -45,14 +47,16 @@ func TestNewSchema_WithOptions(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, schema)
 
-	// Verify vector config
-	assert.NotNil(t, schema.Defaults().FloatList)
-	assert.NotNil(t, schema.Defaults().FloatList.VectorIndex)
-	assert.True(t, schema.Defaults().FloatList.VectorIndex.Enabled)
-	assert.Equal(t, SpaceCosine, schema.Defaults().FloatList.VectorIndex.Config.Space)
-	assert.Equal(t, uint(200), schema.Defaults().FloatList.VectorIndex.Config.Hnsw.EfConstruction)
-	assert.Equal(t, uint(32), schema.Defaults().FloatList.VectorIndex.Config.Hnsw.MaxNeighbors)
-	assert.Equal(t, uint(20), schema.Defaults().FloatList.VectorIndex.Config.Hnsw.EfSearch)
+	// Verify vector config is on #embedding key
+	embeddingVT, ok := schema.GetKey(EmbeddingKey)
+	assert.True(t, ok)
+	assert.NotNil(t, embeddingVT.FloatList)
+	assert.NotNil(t, embeddingVT.FloatList.VectorIndex)
+	assert.True(t, embeddingVT.FloatList.VectorIndex.Enabled)
+	assert.Equal(t, SpaceCosine, embeddingVT.FloatList.VectorIndex.Config.Space)
+	assert.Equal(t, uint(200), embeddingVT.FloatList.VectorIndex.Config.Hnsw.EfConstruction)
+	assert.Equal(t, uint(32), embeddingVT.FloatList.VectorIndex.Config.Hnsw.MaxNeighbors)
+	assert.Equal(t, uint(20), embeddingVT.FloatList.VectorIndex.Config.Hnsw.EfSearch)
 }
 
 func TestNewSchema_WithKeyOverrides(t *testing.T) {
@@ -64,9 +68,10 @@ func TestNewSchema_WithKeyOverrides(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, schema)
 
-	// Check keys were created
+	// Check keys were created (3 keys: #embedding, category, price)
 	keys := schema.Keys()
-	assert.Equal(t, 2, len(keys))
+	assert.Equal(t, 3, len(keys))
+	assert.Contains(t, keys, EmbeddingKey)
 	assert.Contains(t, keys, "category")
 	assert.Contains(t, keys, "price")
 

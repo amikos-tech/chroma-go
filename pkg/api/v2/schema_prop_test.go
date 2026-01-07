@@ -82,10 +82,14 @@ func TestSchemaCreationProperties(t *testing.T) {
 			)
 			require.NoError(t, err)
 			require.NotNil(t, schema)
-			require.NotNil(t, schema.Defaults().FloatList)
-			require.NotNil(t, schema.Defaults().FloatList.VectorIndex)
-			require.True(t, schema.Defaults().FloatList.VectorIndex.Enabled)
-			require.Equal(t, space, schema.Defaults().FloatList.VectorIndex.Config.Space)
+			// Vector index is now on #embedding key (Chroma Cloud requirement)
+			embeddingKey, ok := schema.GetKey(EmbeddingKey)
+			require.True(t, ok)
+			require.NotNil(t, embeddingKey)
+			require.NotNil(t, embeddingKey.FloatList)
+			require.NotNil(t, embeddingKey.FloatList.VectorIndex)
+			require.True(t, embeddingKey.FloatList.VectorIndex.Enabled)
+			require.Equal(t, space, embeddingKey.FloatList.VectorIndex.Config.Space)
 			return true
 		},
 		SpaceStrategy(),
@@ -101,7 +105,11 @@ func TestSchemaCreationProperties(t *testing.T) {
 			)
 			require.NoError(t, err)
 			require.NotNil(t, schema)
-			hnsw := schema.Defaults().FloatList.VectorIndex.Config.Hnsw
+			// Vector index is now on #embedding key (Chroma Cloud requirement)
+			embeddingKey, ok := schema.GetKey(EmbeddingKey)
+			require.True(t, ok)
+			require.NotNil(t, embeddingKey)
+			hnsw := embeddingKey.FloatList.VectorIndex.Config.Hnsw
 			require.NotNil(t, hnsw)
 			require.Equal(t, cfg.EfConstruction, hnsw.EfConstruction)
 			require.Equal(t, cfg.MaxNeighbors, hnsw.MaxNeighbors)
@@ -121,7 +129,11 @@ func TestSchemaCreationProperties(t *testing.T) {
 			)
 			require.NoError(t, err)
 			require.NotNil(t, schema)
-			spann := schema.Defaults().FloatList.VectorIndex.Config.Spann
+			// Vector index is now on #embedding key (Chroma Cloud requirement)
+			embeddingKey, ok := schema.GetKey(EmbeddingKey)
+			require.True(t, ok)
+			require.NotNil(t, embeddingKey)
+			spann := embeddingKey.FloatList.VectorIndex.Config.Spann
 			require.NotNil(t, spann)
 			require.Equal(t, cfg.SearchNprobe, spann.SearchNprobe)
 			require.Equal(t, cfg.EfConstruction, spann.EfConstruction)
@@ -485,7 +497,7 @@ func TestSchemaAccessorProperties(t *testing.T) {
 		MetadataKeyStrategy(),
 	))
 
-	properties.Property("Defaults() returns defaults", prop.ForAll(
+	properties.Property("Defaults() and GetKey() return correct vector index location", prop.ForAll(
 		func(space Space) bool {
 			schema, err := NewSchema(
 				WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(space))),
@@ -494,9 +506,12 @@ func TestSchemaAccessorProperties(t *testing.T) {
 
 			defaults := schema.Defaults()
 			require.NotNil(t, defaults)
-			require.NotNil(t, defaults.FloatList)
-			require.NotNil(t, defaults.FloatList.VectorIndex)
-			require.Equal(t, space, defaults.FloatList.VectorIndex.Config.Space)
+			// Vector index is now on #embedding key, not defaults (Chroma Cloud requirement)
+			embeddingKey, ok := schema.GetKey(EmbeddingKey)
+			require.True(t, ok)
+			require.NotNil(t, embeddingKey.FloatList)
+			require.NotNil(t, embeddingKey.FloatList.VectorIndex)
+			require.Equal(t, space, embeddingKey.FloatList.VectorIndex.Config.Space)
 			return true
 		},
 		SpaceStrategy(),
