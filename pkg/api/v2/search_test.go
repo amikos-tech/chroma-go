@@ -391,3 +391,112 @@ func TestCompleteSearchScenario(t *testing.T) {
 		require.NotEmpty(t, data)
 	})
 }
+
+func TestSearchResultUnmarshal(t *testing.T) {
+	t.Run("unmarshal with all fields", func(t *testing.T) {
+		jsonData := `{
+			"ids": [["id1", "id2"]],
+			"documents": [["doc1", "doc2"]],
+			"metadatas": [[{"key": "value", "num": 42}]],
+			"embeddings": [[[0.1, 0.2], [0.3, 0.4]]],
+			"scores": [[0.9, 0.8]]
+		}`
+
+		var result SearchResultImpl
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.NoError(t, err)
+
+		require.Len(t, result.IDs, 1)
+		require.Len(t, result.IDs[0], 2)
+		require.Equal(t, DocumentID("id1"), result.IDs[0][0])
+
+		require.Len(t, result.Documents, 1)
+		require.Len(t, result.Documents[0], 2)
+		require.Equal(t, "doc1", result.Documents[0][0])
+
+		require.Len(t, result.Metadatas, 1)
+		require.Len(t, result.Metadatas[0], 1)
+		require.NotNil(t, result.Metadatas[0][0])
+		val, ok := result.Metadatas[0][0].GetString("key")
+		require.True(t, ok)
+		require.Equal(t, "value", val)
+
+		require.Len(t, result.Embeddings, 1)
+		require.Len(t, result.Embeddings[0], 2)
+		require.Equal(t, float32(0.1), result.Embeddings[0][0][0])
+
+		require.Len(t, result.Scores, 1)
+		require.Len(t, result.Scores[0], 2)
+		require.Equal(t, 0.9, result.Scores[0][0])
+	})
+
+	t.Run("unmarshal with null fields", func(t *testing.T) {
+		// Simulates actual Chroma Cloud response format
+		jsonData := `{
+			"ids": [["1", "3"]],
+			"documents": [["cats are fluffy pets", "lions are big cats"]],
+			"embeddings": [null],
+			"metadatas": [null],
+			"scores": [[0.6631017, 0.9698644]],
+			"select": [["#document", "#score"]]
+		}`
+
+		var result SearchResultImpl
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.NoError(t, err)
+
+		require.Len(t, result.IDs, 1)
+		require.Len(t, result.IDs[0], 2)
+		require.Equal(t, DocumentID("1"), result.IDs[0][0])
+
+		require.Len(t, result.Documents, 1)
+		require.Len(t, result.Documents[0], 2)
+
+		require.Len(t, result.Embeddings, 1)
+		require.Nil(t, result.Embeddings[0])
+
+		require.Len(t, result.Metadatas, 1)
+		require.Nil(t, result.Metadatas[0])
+
+		require.Len(t, result.Scores, 1)
+		require.Len(t, result.Scores[0], 2)
+	})
+
+	t.Run("unmarshal with metadata", func(t *testing.T) {
+		jsonData := `{
+			"ids": [["1", "2"]],
+			"documents": [["doc1", "doc2"]],
+			"metadatas": [[{"category": "AI", "year": 2023}, {"category": "ML", "year": 2022}]],
+			"scores": [[0.95, 0.85]]
+		}`
+
+		var result SearchResultImpl
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.NoError(t, err)
+
+		require.Len(t, result.Metadatas, 1)
+		require.Len(t, result.Metadatas[0], 2)
+
+		cat, ok := result.Metadatas[0][0].GetString("category")
+		require.True(t, ok)
+		require.Equal(t, "AI", cat)
+
+		year, ok := result.Metadatas[0][0].GetFloat("year")
+		require.True(t, ok)
+		require.Equal(t, float64(2023), year)
+	})
+
+	t.Run("unmarshal empty result", func(t *testing.T) {
+		jsonData := `{}`
+
+		var result SearchResultImpl
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.NoError(t, err)
+
+		require.Empty(t, result.IDs)
+		require.Empty(t, result.Documents)
+		require.Empty(t, result.Metadatas)
+		require.Empty(t, result.Embeddings)
+		require.Empty(t, result.Scores)
+	})
+}

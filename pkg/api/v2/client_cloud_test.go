@@ -267,6 +267,412 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		require.LessOrEqual(t, len(searchResult.IDs[0]), 2)
 	})
 
+	// Schema Integration Tests
+
+	t.Run("Schema: Create collection with default schema", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_default-" + uuid.New().String()
+
+		schema, err := NewSchemaWithDefaults()
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+		require.Equal(t, collectionName, collection.Name())
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("cats are fluffy pets", "dogs are loyal companions", "lions are big cats"),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Verify Query API
+		results, err := collection.Query(ctx, WithQueryTexts("tell me about cats"), WithNResults(2))
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+		require.Contains(t, results.GetDocumentsGroups()[0][0].ContentString(), "cats")
+
+		// Verify Search API
+		searchResults, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
+				WithPage(WithLimit(2)),
+				WithSelect(KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, searchResults)
+		sr, ok := searchResults.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+	})
+
+	t.Run("Schema: Create collection with cosine space", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_cosine-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceCosine))),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("cats are fluffy pets", "dogs are loyal companions", "lions are big cats"),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		results, err := collection.Query(ctx, WithQueryTexts("fluffy pets"), WithNResults(2))
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+	})
+
+	t.Run("Schema: Create collection with inner product space", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_ip-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceIP))),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("cats are fluffy pets", "dogs are loyal companions", "lions are big cats"),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		results, err := collection.Query(ctx, WithQueryTexts("fluffy pets"), WithNResults(2))
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+	})
+
+	t.Run("Schema: Create collection with custom HNSW config", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_hnsw-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(
+				WithSpace(SpaceL2),
+				WithHnsw(NewHnswConfig(
+					WithEfConstruction(200),
+					WithMaxNeighbors(32),
+					WithEfSearch(50),
+				)),
+			)),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("cats are fluffy pets", "dogs are loyal companions", "lions are big cats"),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Verify Query
+		results, err := collection.Query(ctx, WithQueryTexts("cats"), WithNResults(2))
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+
+		// Verify Search
+		searchResults, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
+				WithPage(WithLimit(2)),
+				WithSelect(KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, searchResults)
+	})
+
+	t.Run("Schema: Create collection with WithVectorIndexCreate", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_convenience-" + uuid.New().String()
+
+		collection, err := client.CreateCollection(ctx, collectionName,
+			WithVectorIndexCreate(NewVectorIndexConfig(WithSpace(SpaceCosine))),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("cats are fluffy pets", "dogs are loyal companions", "lions are big cats"),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		results, err := collection.Query(ctx, WithQueryTexts("fluffy"), WithNResults(2))
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+	})
+
+	t.Run("Schema: Create collection with FTS index", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_fts-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+			WithDefaultFtsIndex(&FtsIndexConfig{}),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts(
+				"The quick brown fox jumps over the lazy dog",
+				"A journey of a thousand miles begins with a single step",
+				"To be or not to be that is the question",
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Test Search with FTS
+		searchResults, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("quick fox"), WithKnnLimit(10)),
+				WithPage(WithLimit(2)),
+				WithSelect(KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, searchResults)
+		sr, ok := searchResults.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+	})
+
+	t.Run("Schema: Create collection with metadata indexes", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_metadata-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+			WithStringIndex("category"),
+			WithIntIndex("year"),
+			WithFloatIndex("rating"),
+			WithBoolIndex("available"),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3", "4"),
+			WithTexts("cats are fluffy pets", "dogs are loyal companions", "lions are big cats", "birds can fly"),
+			WithMetadatas(
+				NewDocumentMetadata(
+					NewStringAttribute("category", "pets"),
+					NewIntAttribute("year", 2020),
+					NewFloatAttribute("rating", 4.5),
+					NewBoolAttribute("available", true),
+				),
+				NewDocumentMetadata(
+					NewStringAttribute("category", "pets"),
+					NewIntAttribute("year", 2021),
+					NewFloatAttribute("rating", 4.8),
+					NewBoolAttribute("available", true),
+				),
+				NewDocumentMetadata(
+					NewStringAttribute("category", "wildlife"),
+					NewIntAttribute("year", 2019),
+					NewFloatAttribute("rating", 4.2),
+					NewBoolAttribute("available", false),
+				),
+				NewDocumentMetadata(
+					NewStringAttribute("category", "wildlife"),
+					NewIntAttribute("year", 2022),
+					NewFloatAttribute("rating", 3.9),
+					NewBoolAttribute("available", true),
+				),
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Test string filter
+		results, err := collection.Query(ctx,
+			WithQueryTexts("animals"),
+			WithNResults(10),
+			WithWhereQuery(EqString("category", "pets")),
+		)
+		require.NoError(t, err)
+		require.LessOrEqual(t, len(results.GetDocumentsGroups()[0]), 2)
+
+		// Test int filter (year >= 2020)
+		results, err = collection.Query(ctx,
+			WithQueryTexts("animals"),
+			WithNResults(10),
+			WithWhereQuery(GteInt("year", 2020)),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+
+		// Test float filter (rating > 4.0)
+		results, err = collection.Query(ctx,
+			WithQueryTexts("animals"),
+			WithNResults(10),
+			WithWhereQuery(GtFloat("rating", 4.0)),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+
+		// Test bool filter
+		results, err = collection.Query(ctx,
+			WithQueryTexts("animals"),
+			WithNResults(10),
+			WithWhereQuery(EqBool("available", true)),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+
+		// Test Search API with metadata selection
+		searchResults, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("animals"), WithKnnLimit(10)),
+				WithPage(WithLimit(5)),
+				WithSelect(KDocument, KScore, KMetadata),
+			),
+		)
+		require.NoError(t, err)
+		sr, ok := searchResults.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+	})
+
+	t.Run("Schema: Create collection with disabled indexes", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_disabled-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+			DisableStringIndex("large_text"),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2"),
+			WithTexts("cats are fluffy pets", "dogs are loyal companions"),
+			WithMetadatas(
+				NewDocumentMetadata(NewStringAttribute("large_text", "some long text that should not be indexed")),
+				NewDocumentMetadata(NewStringAttribute("large_text", "another long text")),
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Collection should still work for vector search
+		results, err := collection.Query(ctx, WithQueryTexts("pets"), WithNResults(2))
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+	})
+
+	t.Run("Schema: Comprehensive schema test", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_comprehensive-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(
+				WithSpace(SpaceCosine),
+				WithHnsw(NewHnswConfig(WithEfConstruction(150))),
+			)),
+			WithDefaultFtsIndex(&FtsIndexConfig{}),
+			WithStringIndex("category"),
+			WithIntIndex("year"),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts(
+				"Machine learning is transforming industries",
+				"Deep learning neural networks are powerful",
+				"Natural language processing enables chatbots",
+			),
+			WithMetadatas(
+				NewDocumentMetadata(NewStringAttribute("category", "AI"), NewIntAttribute("year", 2023)),
+				NewDocumentMetadata(NewStringAttribute("category", "AI"), NewIntAttribute("year", 2022)),
+				NewDocumentMetadata(NewStringAttribute("category", "NLP"), NewIntAttribute("year", 2023)),
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Test KNN Search
+		searchResults, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("machine learning AI"), WithKnnLimit(10)),
+				WithPage(WithLimit(3)),
+				WithSelect(KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, searchResults)
+
+		// Test Search API with metadata selection
+		searchResults, err = collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("learning"), WithKnnLimit(10)),
+				WithPage(WithLimit(3)),
+				WithSelect(KDocument, KScore, KMetadata),
+			),
+		)
+		require.NoError(t, err)
+		sr, ok := searchResults.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+
+		// Test Query API
+		results, err := collection.Query(ctx,
+			WithQueryTexts("neural networks"),
+			WithNResults(2),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+
+		// Test Query with where clause
+		results, err = collection.Query(ctx,
+			WithQueryTexts("learning"),
+			WithNResults(10),
+			WithWhereQuery(EqInt("year", 2023)),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+	})
+
 	t.Cleanup(func() {
 		collections, err := client.ListCollections(context.Background())
 		require.NoError(t, err)

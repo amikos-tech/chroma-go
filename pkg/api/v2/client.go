@@ -228,14 +228,14 @@ func NewGetCollectionOp(opts ...GetCollectionOption) (*GetCollectionOp, error) {
 
 type CreateCollectionOption func(*CreateCollectionOp) error
 
-// TODO we need to support collection configuration
-
 type CreateCollectionOp struct {
-	Name              string `json:"name"`
-	CreateIfNotExists bool   `json:"get_or_create,omitempty"`
-	embeddingFunction embeddings.EmbeddingFunction
-	Metadata          CollectionMetadata `json:"metadata,omitempty"`
-	Database          Database           `json:"-"`
+	Name              string                       `json:"name"`
+	CreateIfNotExists bool                         `json:"get_or_create,omitempty"`
+	embeddingFunction embeddings.EmbeddingFunction `json:"-"`
+	Metadata          CollectionMetadata           `json:"metadata,omitempty"`
+	Configuration     *CollectionConfigurationImpl `json:"configuration,omitempty"`
+	Schema            *Schema                      `json:"schema,omitempty"`
+	Database          Database                     `json:"-"`
 }
 
 func NewCreateCollectionOp(name string, opts ...CreateCollectionOption) (*CreateCollectionOp, error) {
@@ -428,6 +428,66 @@ func WithEmbeddingFunctionCreate(embeddingFunction embeddings.EmbeddingFunction)
 func WithIfNotExistsCreate() CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		op.CreateIfNotExists = true
+		return nil
+	}
+}
+
+// WithSchemaCreate sets the schema for the collection
+func WithSchemaCreate(schema *Schema) CreateCollectionOption {
+	return func(op *CreateCollectionOp) error {
+		if schema == nil {
+			return errors.New("schema cannot be nil")
+		}
+		op.Schema = schema
+		return nil
+	}
+}
+
+// WithConfigurationCreate sets the complete configuration for the collection
+func WithConfigurationCreate(config *CollectionConfigurationImpl) CreateCollectionOption {
+	return func(op *CreateCollectionOp) error {
+		if config == nil {
+			return errors.New("configuration cannot be nil")
+		}
+		op.Configuration = config
+		return nil
+	}
+}
+
+// WithVectorIndexCreate adds a vector index configuration to the collection schema.
+// If a schema already exists on the operation, the vector index is merged into it.
+func WithVectorIndexCreate(config *VectorIndexConfig) CreateCollectionOption {
+	return func(op *CreateCollectionOp) error {
+		if config == nil {
+			return errors.New("vector index config cannot be nil")
+		}
+		if op.Schema != nil {
+			return WithDefaultVectorIndex(config)(op.Schema)
+		}
+		schema, err := NewSchema(WithDefaultVectorIndex(config))
+		if err != nil {
+			return errors.Wrap(err, "failed to create schema with vector index")
+		}
+		op.Schema = schema
+		return nil
+	}
+}
+
+// WithFtsIndexCreate adds a full-text search index configuration to the collection schema.
+// If a schema already exists on the operation, the FTS index is merged into it.
+func WithFtsIndexCreate(config *FtsIndexConfig) CreateCollectionOption {
+	return func(op *CreateCollectionOp) error {
+		if config == nil {
+			return errors.New("FTS index config cannot be nil")
+		}
+		if op.Schema != nil {
+			return WithDefaultFtsIndex(config)(op.Schema)
+		}
+		schema, err := NewSchema(WithDefaultFtsIndex(config))
+		if err != nil {
+			return errors.Wrap(err, "failed to create schema with FTS index")
+		}
+		op.Schema = schema
 		return nil
 	}
 }

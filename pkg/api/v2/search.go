@@ -297,3 +297,139 @@ type SearchResultImpl struct {
 	Embeddings [][][]float32          `json:"embeddings,omitempty"`
 	Scores     [][]float64            `json:"scores,omitempty"`
 }
+
+// UnmarshalJSON implements custom JSON unmarshalling for SearchResultImpl.
+// This is necessary because CollectionMetadata is an interface type that
+// cannot be directly unmarshalled by the standard JSON decoder.
+func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
+	var temp map[string]interface{}
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return errors.Wrap(err, "failed to unmarshal SearchResult")
+	}
+
+	// Parse IDs
+	if idsRaw, ok := temp["ids"]; ok && idsRaw != nil {
+		if idsList, ok := idsRaw.([]interface{}); ok {
+			r.IDs = make([][]DocumentID, 0, len(idsList))
+			for _, idsGroup := range idsList {
+				if idsGroup == nil {
+					r.IDs = append(r.IDs, nil)
+					continue
+				}
+				if group, ok := idsGroup.([]interface{}); ok {
+					ids := make([]DocumentID, 0, len(group))
+					for _, id := range group {
+						if idStr, ok := id.(string); ok {
+							ids = append(ids, DocumentID(idStr))
+						}
+					}
+					r.IDs = append(r.IDs, ids)
+				}
+			}
+		}
+	}
+
+	// Parse Documents
+	if docsRaw, ok := temp["documents"]; ok && docsRaw != nil {
+		if docsList, ok := docsRaw.([]interface{}); ok {
+			r.Documents = make([][]string, 0, len(docsList))
+			for _, docsGroup := range docsList {
+				if docsGroup == nil {
+					r.Documents = append(r.Documents, nil)
+					continue
+				}
+				if group, ok := docsGroup.([]interface{}); ok {
+					docs := make([]string, 0, len(group))
+					for _, doc := range group {
+						if docStr, ok := doc.(string); ok {
+							docs = append(docs, docStr)
+						}
+					}
+					r.Documents = append(r.Documents, docs)
+				}
+			}
+		}
+	}
+
+	// Parse Metadatas - needs special handling for interface type
+	if metasRaw, ok := temp["metadatas"]; ok && metasRaw != nil {
+		if metasList, ok := metasRaw.([]interface{}); ok {
+			r.Metadatas = make([][]CollectionMetadata, 0, len(metasList))
+			for _, metasGroup := range metasList {
+				if metasGroup == nil {
+					r.Metadatas = append(r.Metadatas, nil)
+					continue
+				}
+				if group, ok := metasGroup.([]interface{}); ok {
+					metas := make([]CollectionMetadata, 0, len(group))
+					for _, meta := range group {
+						if meta == nil {
+							metas = append(metas, nil)
+							continue
+						}
+						if metaMap, ok := meta.(map[string]interface{}); ok {
+							metas = append(metas, NewMetadataFromMap(metaMap))
+						}
+					}
+					r.Metadatas = append(r.Metadatas, metas)
+				}
+			}
+		}
+	}
+
+	// Parse Embeddings
+	if embsRaw, ok := temp["embeddings"]; ok && embsRaw != nil {
+		if embsList, ok := embsRaw.([]interface{}); ok {
+			r.Embeddings = make([][][]float32, 0, len(embsList))
+			for _, embsGroup := range embsList {
+				if embsGroup == nil {
+					r.Embeddings = append(r.Embeddings, nil)
+					continue
+				}
+				if group, ok := embsGroup.([]interface{}); ok {
+					embs := make([][]float32, 0, len(group))
+					for _, emb := range group {
+						if emb == nil {
+							embs = append(embs, nil)
+							continue
+						}
+						if embArr, ok := emb.([]interface{}); ok {
+							floats := make([]float32, 0, len(embArr))
+							for _, f := range embArr {
+								if fVal, ok := f.(float64); ok {
+									floats = append(floats, float32(fVal))
+								}
+							}
+							embs = append(embs, floats)
+						}
+					}
+					r.Embeddings = append(r.Embeddings, embs)
+				}
+			}
+		}
+	}
+
+	// Parse Scores
+	if scoresRaw, ok := temp["scores"]; ok && scoresRaw != nil {
+		if scoresList, ok := scoresRaw.([]interface{}); ok {
+			r.Scores = make([][]float64, 0, len(scoresList))
+			for _, scoresGroup := range scoresList {
+				if scoresGroup == nil {
+					r.Scores = append(r.Scores, nil)
+					continue
+				}
+				if group, ok := scoresGroup.([]interface{}); ok {
+					scores := make([]float64, 0, len(group))
+					for _, score := range group {
+						if scoreVal, ok := score.(float64); ok {
+							scores = append(scores, scoreVal)
+						}
+					}
+					r.Scores = append(r.Scores, scores)
+				}
+			}
+		}
+	}
+
+	return nil
+}
