@@ -64,6 +64,19 @@ func TestClient_Validation(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid task")
 	})
+
+	t.Run("fails with HTTP base URL without WithInsecure", func(t *testing.T) {
+		_, err := NewClient(WithAPIKey("test-key"), WithBaseURL("http://example.com"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "base URL must use HTTPS")
+	})
+
+	t.Run("succeeds with HTTP base URL when WithInsecure is set", func(t *testing.T) {
+		client, err := NewClient(WithAPIKey("test-key"), WithBaseURL("http://example.com"), WithInsecure())
+		require.NoError(t, err)
+		require.Equal(t, "http://example.com", client.BaseURL)
+		require.True(t, client.Insecure)
+	})
 }
 
 func TestClient_Options(t *testing.T) {

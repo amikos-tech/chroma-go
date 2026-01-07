@@ -74,3 +74,10 @@ func WithBaseURL(baseURL string) Option {
 		return nil
 	}
 }
+
+func WithInsecure() Option {
+	return func(c *Client) error {
+		c.Insecure = true
+		return nil
+	}
+}

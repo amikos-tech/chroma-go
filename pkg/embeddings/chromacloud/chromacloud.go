@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -50,6 +51,7 @@ type Client struct {
 	Model      embeddings.EmbeddingModel
 	Task       Task
 	HTTPClient *http.Client
+	Insecure   bool
 }
 
 type embeddingRequest struct {
@@ -77,6 +79,9 @@ func applyDefaults(c *Client) {
 func validate(c *Client) error {
 	if c.APIKey == "" {
 		return errors.New("API key is required")
+	}
+	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
+		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return nil
 }
@@ -153,7 +158,7 @@ func (c *Client) embed(ctx context.Context, texts []string, forQuery bool) ([][]
 	}
 
 	if embResp.Error != "" {
-		return nil, errors.Errorf("API error: %s", embResp.Error)
+		return nil, errors.Errorf("API error [status %d]: %s", resp.StatusCode, embResp.Error)
 	}
 
 	return embResp.Embeddings, nil
