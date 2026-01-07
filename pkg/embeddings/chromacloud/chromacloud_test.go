@@ -52,6 +52,18 @@ func TestClient_Validation(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "base URL cannot be empty")
 	})
+
+	t.Run("fails with invalid base URL", func(t *testing.T) {
+		_, err := NewClient(WithAPIKey("test-key"), WithBaseURL("not a valid url"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid base URL")
+	})
+
+	t.Run("fails with invalid task", func(t *testing.T) {
+		_, err := NewClient(WithAPIKey("test-key"), WithTask("invalid_task"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid task")
+	})
 }
 
 func TestClient_Options(t *testing.T) {

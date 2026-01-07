@@ -2,6 +2,7 @@ package chromacloud
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/pkg/errors"
@@ -23,6 +24,9 @@ func WithModel(model embeddings.EmbeddingModel) Option {
 
 func WithTask(task Task) Option {
 	return func(c *Client) error {
+		if task != TaskDefault && task != TaskNLToCode {
+			return errors.Errorf("invalid task %q, must be one of: %q, %q", task, TaskDefault, TaskNLToCode)
+		}
 		c.Task = task
 		return nil
 	}
@@ -58,12 +62,15 @@ func WithHTTPClient(client *http.Client) Option {
 	}
 }
 
-func WithBaseURL(url string) Option {
+func WithBaseURL(baseURL string) Option {
 	return func(c *Client) error {
-		if url == "" {
+		if baseURL == "" {
 			return errors.New("base URL cannot be empty")
 		}
-		c.BaseURL = url
+		if _, err := url.ParseRequestURI(baseURL); err != nil {
+			return errors.Wrap(err, "invalid base URL")
+		}
+		c.BaseURL = baseURL
 		return nil
 	}
 }

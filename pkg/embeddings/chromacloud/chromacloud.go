@@ -108,7 +108,7 @@ func (c *Client) getInstruction(forQuery bool) string {
 
 func (c *Client) embed(ctx context.Context, texts []string, forQuery bool) ([][]float32, error) {
 	if len(texts) == 0 {
-		return [][]float32{}, nil
+		return make([][]float32, 0), nil
 	}
 
 	reqBody := embeddingRequest{
