@@ -443,7 +443,20 @@ type Schema struct {
 // SchemaOption configures a Schema
 type SchemaOption func(*Schema) error
 
-// NewSchema creates a new Schema with the given options
+// NewSchema creates a new Schema with the given options.
+//
+// Example:
+//
+//	schema, err := NewSchema(
+//		WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceCosine))),
+//		WithStringIndex("category"),
+//		WithIntIndex("year"),
+//	)
+//	if err != nil {
+//		// handle error
+//	}
+//
+// For a schema with default L2 vector index, use [NewSchemaWithDefaults].
 func NewSchema(opts ...SchemaOption) (*Schema, error) {
 	s := &Schema{
 		defaults: &ValueTypes{},
