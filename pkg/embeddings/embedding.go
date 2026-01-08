@@ -219,8 +219,13 @@ type EmbeddingFunction interface {
 	EmbedDocuments(ctx context.Context, texts []string) ([]Embedding, error)
 	// EmbedQuery embeds a single text.
 	EmbedQuery(ctx context.Context, text string) (Embedding, error)
-	//// EmbedRecords embeds a list of records.
-	// EmbedRecords(ctx context.Context, records []v2.Record, force bool) error
+}
+
+type SparseEmbeddingFunction interface {
+	// EmbedDocumentsSparse returns a sparse vector for each text.
+	EmbedDocumentsSparse(ctx context.Context, texts []string) ([]*SparseVector, error)
+	// EmbedQuerySparse embeds a single text as a sparse vector.
+	EmbedQuerySparse(ctx context.Context, text string) (*SparseVector, error)
 }
 
 func NewEmbeddingFromFloat32(embedding []float32) Embedding {
