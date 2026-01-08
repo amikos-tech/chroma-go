@@ -306,9 +306,9 @@ type FtsIndexConfig struct{}
 
 // SparseVectorIndexConfig represents configuration for sparse vector indexing
 type SparseVectorIndexConfig struct {
-	EmbeddingFunction embeddings.EmbeddingFunction `json:"-"`
-	SourceKey         string                       `json:"source_key,omitempty"`
-	BM25              bool                         `json:"bm25,omitempty"`
+	EmbeddingFunction embeddings.SparseEmbeddingFunction `json:"-"`
+	SourceKey         string                             `json:"source_key,omitempty"`
+	BM25              bool                               `json:"bm25,omitempty"`
 }
 
 // SparseVectorIndexOption configures a SparseVectorIndexConfig
@@ -323,7 +323,7 @@ func NewSparseVectorIndexConfig(opts ...SparseVectorIndexOption) *SparseVectorIn
 	return cfg
 }
 
-func WithSparseEmbeddingFunction(ef embeddings.EmbeddingFunction) SparseVectorIndexOption {
+func WithSparseEmbeddingFunction(ef embeddings.SparseEmbeddingFunction) SparseVectorIndexOption {
 	return func(c *SparseVectorIndexConfig) {
 		c.EmbeddingFunction = ef
 	}
