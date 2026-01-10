@@ -59,6 +59,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.5 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
+	github.com/kljensen/snowball v0.10.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.9 // indirect
@@ -75,6 +76,7 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/shirou/gopsutil/v4 v4.25.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect

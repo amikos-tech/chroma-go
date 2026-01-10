@@ -1,0 +1,187 @@
+package bm25
+
+import (
+	"context"
+	"sort"
+	"strings"
+
+	"github.com/pkg/errors"
+	"github.com/spaolacci/murmur3"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+)
+
+// Client holds the BM25 configuration
+type Client struct {
+	K              float64
+	B              float64
+	AvgDocLength   float64
+	TokenMaxLength int
+	Stopwords      []string
+	IncludeTokens  bool
+	tokenizer      *Tokenizer
+	kSet           bool // tracks if K was explicitly set
+	bSet           bool // tracks if B was explicitly set
+}
+
+// NewClient creates a new BM25 client with the given options
+func NewClient(opts ...Option) (*Client, error) {
+	c := &Client{}
+	for _, opt := range opts {
+		if err := opt(c); err != nil {
+			return nil, errors.Wrap(err, "failed to apply option")
+		}
+	}
+	applyDefaults(c)
+	c.tokenizer = NewTokenizer(c.Stopwords, c.TokenMaxLength)
+	return c, nil
+}
+
+// EmbeddingFunction wraps Client to implement SparseEmbeddingFunction
+type EmbeddingFunction struct {
+	client *Client
+}
+
+// NewEmbeddingFunction creates a new BM25 embedding function
+func NewEmbeddingFunction(opts ...Option) (*EmbeddingFunction, error) {
+	client, err := NewClient(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &EmbeddingFunction{client: client}, nil
+}
+
+// embed computes BM25 sparse embeddings for the given texts
+func (c *Client) embed(texts []string) ([]*embeddings.SparseVector, error) {
+	if len(texts) == 0 {
+		return []*embeddings.SparseVector{}, nil
+	}
+
+	result := make([]*embeddings.SparseVector, len(texts))
+	for i, text := range texts {
+		sv, err := c.embedSingle(text)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to embed text at index %d", i)
+		}
+		result[i] = sv
+	}
+	return result, nil
+}
+
+// embedSingle computes BM25 sparse embedding for a single text
+func (c *Client) embedSingle(text string) (*embeddings.SparseVector, error) {
+	if text == "" {
+		return &embeddings.SparseVector{
+			Indices: []int{},
+			Values:  []float32{},
+		}, nil
+	}
+
+	tokens := c.tokenizer.Tokenize(text)
+	if len(tokens) == 0 {
+		return &embeddings.SparseVector{
+			Indices: []int{},
+			Values:  []float32{},
+		}, nil
+	}
+
+	// Count term frequencies
+	tf := make(map[string]int)
+	for _, token := range tokens {
+		tf[token]++
+	}
+
+	docLen := float64(len(tokens))
+
+	// Sort tokens for deterministic output
+	uniqueTokens := make([]string, 0, len(tf))
+	for token := range tf {
+		uniqueTokens = append(uniqueTokens, token)
+	}
+	sort.Strings(uniqueTokens)
+
+	// Use map to handle hash collisions by summing scores
+	indexScores := make(map[int]float32, len(tf))
+	indexLabels := make(map[int][]string)
+
+	for _, token := range uniqueTokens {
+		freq := tf[token]
+
+		// Compute BM25 score
+		tfFloat := float64(freq)
+		denominator := tfFloat + c.K*(1-c.B+c.B*docLen/c.AvgDocLength)
+		score := tfFloat * (c.K + 1) / denominator
+
+		// Hash token to index using murmur3, matching Python mmh3 behavior.
+		// Python's mmh3.hash() returns signed 32-bit, then abs() is applied.
+		// Go's murmur3.Sum32() returns unsigned 32-bit. To match Python:
+		// - If hash >= 2^31, interpret as signed negative, then take abs
+		// - abs(signed) = 2^32 - unsigned for values >= 2^31
+		hash := murmur3.Sum32([]byte(token))
+		var index int
+		if hash >= 0x80000000 {
+			// Interpret as signed negative and take absolute value
+			index = int(0x100000000 - uint64(hash))
+		} else {
+			index = int(hash)
+		}
+
+		// Handle hash collisions by summing scores
+		indexScores[index] += float32(score)
+		if c.IncludeTokens {
+			indexLabels[index] = append(indexLabels[index], token)
+		}
+	}
+
+	// Extract sorted indices for deterministic output
+	indices := make([]int, 0, len(indexScores))
+	for idx := range indexScores {
+		indices = append(indices, idx)
+	}
+	sort.Ints(indices)
+
+	values := make([]float32, len(indices))
+	var labels []string
+	if c.IncludeTokens {
+		labels = make([]string, len(indices))
+	}
+	for i, idx := range indices {
+		values[i] = indexScores[idx]
+		if c.IncludeTokens {
+			labels[i] = strings.Join(indexLabels[idx], "+")
+		}
+	}
+
+	sv := &embeddings.SparseVector{
+		Indices: indices,
+		Values:  values,
+	}
+	if c.IncludeTokens {
+		sv.Labels = labels
+	}
+
+	if err := sv.Validate(); err != nil {
+		return nil, errors.Wrap(err, "generated invalid sparse vector")
+	}
+	return sv, nil
+}
+
+// EmbedDocumentsSparse returns a sparse vector for each text
+func (e *EmbeddingFunction) EmbedDocumentsSparse(_ context.Context, texts []string) ([]*embeddings.SparseVector, error) {
+	return e.client.embed(texts)
+}
+
+// EmbedQuerySparse embeds a single text as a sparse vector
+func (e *EmbeddingFunction) EmbedQuerySparse(_ context.Context, text string) (*embeddings.SparseVector, error) {
+	results, err := e.client.embed([]string{text})
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return nil, errors.New("no embedding returned")
+	}
+	return results[0], nil
+}
+
+// Ensure EmbeddingFunction implements SparseEmbeddingFunction
+var _ embeddings.SparseEmbeddingFunction = (*EmbeddingFunction)(nil)

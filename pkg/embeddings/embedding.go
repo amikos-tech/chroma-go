@@ -32,6 +32,7 @@ type KnnVector interface {
 type SparseVector struct {
 	Indices []int     `json:"indices"`
 	Values  []float32 `json:"values"`
+	Labels  []string  `json:"labels,omitempty"`
 }
 
 // NewSparseVector creates a new sparse vector.
@@ -66,10 +67,14 @@ func (s *SparseVector) MarshalJSON() ([]byte, error) {
 	if err := s.Validate(); err != nil {
 		return nil, err
 	}
-	return json.Marshal(map[string]interface{}{
+	m := map[string]interface{}{
 		"indices": s.Indices,
 		"values":  s.Values,
-	})
+	}
+	if len(s.Labels) > 0 {
+		m["labels"] = s.Labels
+	}
+	return json.Marshal(m)
 }
 
 // Validate checks that the sparse vector is valid.
