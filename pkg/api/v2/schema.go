@@ -2,6 +2,7 @@ package v2
 
 import (
 	"encoding/json"
+	"regexp"
 
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
@@ -24,6 +25,72 @@ const (
 	DocumentKey  = "#document"
 	EmbeddingKey = "#embedding"
 )
+
+// CmekProvider represents supported cloud providers for customer-managed encryption keys
+type CmekProvider string
+
+const (
+	CmekProviderGCP CmekProvider = "gcp"
+)
+
+var cmekGCPPattern = regexp.MustCompile(`^projects/.+/locations/.+/keyRings/.+/cryptoKeys/.+$`)
+
+// Cmek represents a customer-managed encryption key configuration
+type Cmek struct {
+	Provider CmekProvider
+	Resource string
+}
+
+// NewGCPCmek creates a CMEK configuration for Google Cloud Platform KMS.
+// The resource should be in the format:
+// projects/{project-id}/locations/{location}/keyRings/{key-ring}/cryptoKeys/{key}
+func NewGCPCmek(resource string) *Cmek {
+	return &Cmek{
+		Provider: CmekProviderGCP,
+		Resource: resource,
+	}
+}
+
+// ValidatePattern validates the CMEK resource format for the provider.
+// This validates format only; it does not verify key accessibility.
+func (c *Cmek) ValidatePattern() error {
+	if c == nil {
+		return errors.New("cmek is nil")
+	}
+	switch c.Provider {
+	case CmekProviderGCP:
+		if !cmekGCPPattern.MatchString(c.Resource) {
+			return errors.New("invalid GCP CMEK resource format: expected projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{key}")
+		}
+	default:
+		return errors.Errorf("unsupported CMEK provider: %s", c.Provider)
+	}
+	return nil
+}
+
+// MarshalJSON serializes CMEK to the variant format {"provider": "resource"}
+func (c *Cmek) MarshalJSON() ([]byte, error) {
+	switch c.Provider {
+	case CmekProviderGCP:
+		return json.Marshal(map[string]string{"gcp": c.Resource})
+	default:
+		return nil, errors.Errorf("unknown CMEK provider: %s", c.Provider)
+	}
+}
+
+// UnmarshalJSON deserializes CMEK from the variant format {"provider": "resource"}
+func (c *Cmek) UnmarshalJSON(data []byte) error {
+	var raw map[string]string
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return errors.Wrap(err, "failed to unmarshal CMEK")
+	}
+	if resource, ok := raw["gcp"]; ok {
+		c.Provider = CmekProviderGCP
+		c.Resource = resource
+		return nil
+	}
+	return errors.Errorf("unsupported or missing CMEK provider in data: %v", raw)
+}
 
 // HnswIndexConfig represents HNSW algorithm parameters
 type HnswIndexConfig struct {
@@ -438,6 +505,7 @@ type ValueTypes struct {
 type Schema struct {
 	defaults *ValueTypes
 	keys     map[string]*ValueTypes
+	cmek     *Cmek
 }
 
 // SchemaOption configures a Schema
@@ -864,6 +932,17 @@ func DisableDefaultFtsIndex() SchemaOption {
 	}
 }
 
+// WithCmek sets a customer-managed encryption key for the schema
+func WithCmek(cmek *Cmek) SchemaOption {
+	return func(s *Schema) error {
+		if cmek == nil {
+			return errors.New("cmek cannot be nil")
+		}
+		s.cmek = cmek
+		return nil
+	}
+}
+
 // Accessor methods
 
 // Defaults returns the default value types configuration
@@ -886,11 +965,17 @@ func (s *Schema) GetKey(key string) (*ValueTypes, bool) {
 	return vt, ok
 }
 
+// Cmek returns the customer-managed encryption key configuration, if set
+func (s *Schema) Cmek() *Cmek {
+	return s.cmek
+}
+
 // JSON serialization
 
 type schemaJSON struct {
 	Defaults *ValueTypes            `json:"defaults,omitempty"`
 	Keys     map[string]*ValueTypes `json:"keys"`
+	Cmek     *Cmek                  `json:"cmek,omitempty"`
 }
 
 // MarshalJSON serializes the Schema to JSON
@@ -898,6 +983,7 @@ func (s *Schema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(schemaJSON{
 		Defaults: s.defaults,
 		Keys:     s.keys,
+		Cmek:     s.cmek,
 	})
 }
 
@@ -909,6 +995,7 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 	}
 	s.defaults = raw.Defaults
 	s.keys = raw.Keys
+	s.cmek = raw.Cmek
 	if s.defaults == nil {
 		s.defaults = &ValueTypes{}
 	}
