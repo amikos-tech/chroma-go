@@ -623,6 +623,10 @@ func TestCmek_ValidatePattern_InvalidGCP(t *testing.T) {
 		"projects/my-project/locations//keyRings/my-keyring/cryptoKeys/my-key",      // empty location
 		"projects/my-project/locations/us-central1/keyRings//cryptoKeys/my-key",     // empty keyring
 		"projects/my-project/locations/us-central1/keyRings/my-keyring/cryptoKeys/", // empty key
+		"projects/my/project/locations/us-central1/keyRings/ring/cryptoKeys/key",    // slash in project
+		"projects/proj/locations/us/central/keyRings/ring/cryptoKeys/key",           // slash in location
+		"projects/proj/locations/loc/keyRings/key/ring/cryptoKeys/key",              // slash in keyring
+		"projects/proj/locations/loc/keyRings/ring/cryptoKeys/my/key",               // slash in key
 	}
 
 	for _, resource := range invalidResources {

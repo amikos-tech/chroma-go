@@ -33,7 +33,7 @@ const (
 	CmekProviderGCP CmekProvider = "gcp"
 )
 
-var cmekGCPPattern = regexp.MustCompile(`^projects/.+/locations/.+/keyRings/.+/cryptoKeys/.+$`)
+var cmekGCPPattern = regexp.MustCompile(`^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$`)
 
 // Cmek represents a customer-managed encryption key configuration
 type Cmek struct {
