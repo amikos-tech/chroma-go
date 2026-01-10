@@ -42,18 +42,16 @@ type Cmek struct {
 }
 
 // NewGCPCmek creates a CMEK configuration for Google Cloud Platform KMS.
-// The resource must be in the format:
+// The resource should be in the format:
 // projects/{project-id}/locations/{location}/keyRings/{key-ring}/cryptoKeys/{key}
-// Returns an error if the resource format is invalid.
-func NewGCPCmek(resource string) (*Cmek, error) {
-	cmek := &Cmek{
+//
+// Validation occurs when the CMEK is added to a schema via WithCmek.
+// For early validation, call ValidatePattern() on the returned Cmek.
+func NewGCPCmek(resource string) *Cmek {
+	return &Cmek{
 		Provider: CmekProviderGCP,
 		Resource: resource,
 	}
-	if err := cmek.ValidatePattern(); err != nil {
-		return nil, err
-	}
-	return cmek, nil
 }
 
 // ValidatePattern validates the CMEK resource format for the provider.
@@ -937,11 +935,15 @@ func DisableDefaultFtsIndex() SchemaOption {
 	}
 }
 
-// WithCmek sets a customer-managed encryption key for the schema
+// WithCmek sets a customer-managed encryption key for the schema.
+// Returns an error if the CMEK is nil or has an invalid resource format.
 func WithCmek(cmek *Cmek) SchemaOption {
 	return func(s *Schema) error {
 		if cmek == nil {
 			return errors.New("cmek cannot be nil")
+		}
+		if err := cmek.ValidatePattern(); err != nil {
+			return err
 		}
 		s.cmek = cmek
 		return nil
