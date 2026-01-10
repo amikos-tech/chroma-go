@@ -591,11 +591,18 @@ func TestWithVectorIndexCreate_MergesWithExistingSchema(t *testing.T) {
 
 func TestNewGCPCmek(t *testing.T) {
 	resource := "projects/my-project/locations/us-central1/keyRings/my-keyring/cryptoKeys/my-key"
-	cmek := NewGCPCmek(resource)
+	cmek, err := NewGCPCmek(resource)
 
+	require.NoError(t, err)
 	assert.NotNil(t, cmek)
 	assert.Equal(t, CmekProviderGCP, cmek.Provider)
 	assert.Equal(t, resource, cmek.Resource)
+}
+
+func TestNewGCPCmek_InvalidResource(t *testing.T) {
+	_, err := NewGCPCmek("invalid-resource")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid GCP CMEK resource format")
 }
 
 func TestCmek_ValidatePattern_ValidGCP(t *testing.T) {
@@ -606,9 +613,9 @@ func TestCmek_ValidatePattern_ValidGCP(t *testing.T) {
 	}
 
 	for _, resource := range validResources {
-		cmek := NewGCPCmek(resource)
-		err := cmek.ValidatePattern()
+		cmek, err := NewGCPCmek(resource)
 		assert.NoError(t, err, "resource %q should be valid", resource)
+		assert.NotNil(t, cmek)
 	}
 }
 
@@ -630,8 +637,7 @@ func TestCmek_ValidatePattern_InvalidGCP(t *testing.T) {
 	}
 
 	for _, resource := range invalidResources {
-		cmek := NewGCPCmek(resource)
-		err := cmek.ValidatePattern()
+		_, err := NewGCPCmek(resource)
 		assert.Error(t, err, "resource %q should be invalid", resource)
 		assert.Contains(t, err.Error(), "invalid GCP CMEK resource format")
 	}
@@ -656,7 +662,8 @@ func TestCmek_ValidatePattern_UnsupportedProvider(t *testing.T) {
 
 func TestCmek_MarshalJSON(t *testing.T) {
 	resource := "projects/my-project/locations/us-central1/keyRings/my-keyring/cryptoKeys/my-key"
-	cmek := NewGCPCmek(resource)
+	cmek, err := NewGCPCmek(resource)
+	require.NoError(t, err)
 
 	data, err := json.Marshal(cmek)
 	require.NoError(t, err)
@@ -689,7 +696,8 @@ func TestCmek_UnmarshalJSON_PythonDocstringExample(t *testing.T) {
 }
 
 func TestCmek_MarshalUnmarshal_Roundtrip(t *testing.T) {
-	original := NewGCPCmek("projects/test/locations/global/keyRings/ring/cryptoKeys/key")
+	original, err := NewGCPCmek("projects/test/locations/global/keyRings/ring/cryptoKeys/key")
+	require.NoError(t, err)
 
 	data, err := json.Marshal(original)
 	require.NoError(t, err)
@@ -733,7 +741,8 @@ func TestCmek_UnmarshalJSON_InvalidJSON(t *testing.T) {
 }
 
 func TestSchema_WithCmek(t *testing.T) {
-	cmek := NewGCPCmek("projects/my-project/locations/us-central1/keyRings/my-keyring/cryptoKeys/my-key")
+	cmek, err := NewGCPCmek("projects/my-project/locations/us-central1/keyRings/my-keyring/cryptoKeys/my-key")
+	require.NoError(t, err)
 	schema, err := NewSchema(
 		WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
 		WithCmek(cmek),
@@ -758,7 +767,8 @@ func TestSchema_WithoutCmek(t *testing.T) {
 }
 
 func TestSchema_MarshalJSON_WithCmek(t *testing.T) {
-	cmek := NewGCPCmek("projects/my-project/locations/us-central1/keyRings/my-keyring/cryptoKeys/my-key")
+	cmek, err := NewGCPCmek("projects/my-project/locations/us-central1/keyRings/my-keyring/cryptoKeys/my-key")
+	require.NoError(t, err)
 	schema, err := NewSchema(
 		WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
 		WithCmek(cmek),
@@ -795,7 +805,8 @@ func TestSchema_MarshalJSON_WithoutCmek(t *testing.T) {
 }
 
 func TestSchema_UnmarshalJSON_WithCmek(t *testing.T) {
-	cmek := NewGCPCmek("projects/my-project/locations/us-central1/keyRings/my-keyring/cryptoKeys/my-key")
+	cmek, err := NewGCPCmek("projects/my-project/locations/us-central1/keyRings/my-keyring/cryptoKeys/my-key")
+	require.NoError(t, err)
 	original, err := NewSchema(
 		WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
 		WithCmek(cmek),

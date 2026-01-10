@@ -42,13 +42,18 @@ type Cmek struct {
 }
 
 // NewGCPCmek creates a CMEK configuration for Google Cloud Platform KMS.
-// The resource should be in the format:
+// The resource must be in the format:
 // projects/{project-id}/locations/{location}/keyRings/{key-ring}/cryptoKeys/{key}
-func NewGCPCmek(resource string) *Cmek {
-	return &Cmek{
+// Returns an error if the resource format is invalid.
+func NewGCPCmek(resource string) (*Cmek, error) {
+	cmek := &Cmek{
 		Provider: CmekProviderGCP,
 		Resource: resource,
 	}
+	if err := cmek.ValidatePattern(); err != nil {
+		return nil, err
+	}
+	return cmek, nil
 }
 
 // ValidatePattern validates the CMEK resource format for the provider.
