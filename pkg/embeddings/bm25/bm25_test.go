@@ -254,3 +254,54 @@ func TestBM25Scoring(t *testing.T) {
 		assert.Greater(t, score2, score1)
 	})
 }
+
+func TestBM25PythonCompatibility(t *testing.T) {
+	// Test compatibility with Python ChromaBm25EmbeddingFunction output
+	// Python code:
+	//   from chromadb.utils.embedding_functions.chroma_bm25_embedding_function import ChromaBm25EmbeddingFunction
+	//   ef = ChromaBm25EmbeddingFunction()
+	//   embeddings = ef(["the quick brown fox jumped over the lazy dog"])
+	// Expected output:
+	//   SparseVector(indices=[226376294, 741580288, 771291085, 1312749093, 1621867415, 1913189942],
+	//                values=[1.6652868125369606, ...], labels=None)
+	t.Run("matches Python output", func(t *testing.T) {
+		ef, err := NewEmbeddingFunction()
+		require.NoError(t, err)
+
+		sv, err := ef.EmbedQuerySparse(context.Background(), "the quick brown fox jumped over the lazy dog")
+		require.NoError(t, err)
+		require.NotNil(t, sv)
+
+		expectedIndices := []int{226376294, 741580288, 771291085, 1312749093, 1621867415, 1913189942}
+		expectedValue := float32(1.6652868125369606)
+
+		assert.Equal(t, expectedIndices, sv.Indices)
+		require.Len(t, sv.Values, len(expectedIndices))
+		for i, val := range sv.Values {
+			assert.InDelta(t, expectedValue, val, 0.0001, "value at index %d", i)
+		}
+	})
+}
+
+func TestZeroParameters(t *testing.T) {
+	t.Run("K=0 disables saturation", func(t *testing.T) {
+		client, err := NewClient(WithK(0))
+		require.NoError(t, err)
+		assert.Equal(t, float64(0), client.K)
+		assert.True(t, client.kSet)
+	})
+
+	t.Run("B=0 disables length normalization", func(t *testing.T) {
+		client, err := NewClient(WithB(0))
+		require.NoError(t, err)
+		assert.Equal(t, float64(0), client.B)
+		assert.True(t, client.bSet)
+	})
+
+	t.Run("K=0 and B=0 together", func(t *testing.T) {
+		client, err := NewClient(WithK(0), WithB(0))
+		require.NoError(t, err)
+		assert.Equal(t, float64(0), client.K)
+		assert.Equal(t, float64(0), client.B)
+	})
+}

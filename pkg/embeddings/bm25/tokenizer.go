@@ -3,10 +3,13 @@ package bm25
 import (
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/kljensen/snowball"
 )
 
+// nonAlphanumericRegex matches non-letter/non-number characters.
+// MustCompile is safe here: the pattern is a compile-time constant that will never fail.
 var nonAlphanumericRegex = regexp.MustCompile(`[^\p{L}\p{N}]+`)
 
 // Tokenizer handles text tokenization and stemming for BM25
@@ -42,7 +45,7 @@ func (t *Tokenizer) Tokenize(text string) []string {
 		if _, isStopword := t.stopwords[word]; isStopword {
 			continue
 		}
-		if len(word) > t.tokenMaxLength {
+		if utf8.RuneCountInString(word) > t.tokenMaxLength {
 			continue
 		}
 		stemmed, err := snowball.Stem(word, "english", true)

@@ -3,6 +3,7 @@ package bm25
 import (
 	"context"
 	"sort"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/spaolacci/murmur3"
@@ -19,6 +20,8 @@ type Client struct {
 	Stopwords      []string
 	IncludeTokens  bool
 	tokenizer      *Tokenizer
+	kSet           bool // tracks if K was explicitly set
+	bSet           bool // tracks if B was explicitly set
 }
 
 // NewClient creates a new BM25 client with the given options
@@ -30,9 +33,6 @@ func NewClient(opts ...Option) (*Client, error) {
 		}
 	}
 	applyDefaults(c)
-	if err := validate(c); err != nil {
-		return nil, errors.Wrap(err, "validation failed")
-	}
 	c.tokenizer = NewTokenizer(c.Stopwords, c.TokenMaxLength)
 	return c, nil
 }
@@ -100,12 +100,9 @@ func (c *Client) embedSingle(text string) (*embeddings.SparseVector, error) {
 	}
 	sort.Strings(uniqueTokens)
 
-	indices := make([]int, 0, len(tf))
-	values := make([]float32, 0, len(tf))
-	var labels []string
-	if c.IncludeTokens {
-		labels = make([]string, 0, len(tf))
-	}
+	// Use map to handle hash collisions by summing scores
+	indexScores := make(map[int]float32, len(tf))
+	indexLabels := make(map[int][]string)
 
 	for _, token := range uniqueTokens {
 		freq := tf[token]
@@ -115,17 +112,43 @@ func (c *Client) embedSingle(text string) (*embeddings.SparseVector, error) {
 		denominator := tfFloat + c.K*(1-c.B+c.B*docLen/c.AvgDocLength)
 		score := tfFloat * (c.K + 1) / denominator
 
-		// Hash token to index using murmur3 (absolute value)
+		// Hash token to index using murmur3, matching Python mmh3 behavior.
+		// Python's mmh3.hash() returns signed 32-bit, then abs() is applied.
+		// Go's murmur3.Sum32() returns unsigned 32-bit. To match Python:
+		// - If hash >= 2^31, interpret as signed negative, then take abs
+		// - abs(signed) = 2^32 - unsigned for values >= 2^31
 		hash := murmur3.Sum32([]byte(token))
-		index := int(hash)
-		if index < 0 {
-			index = -index
+		var index int
+		if hash >= 0x80000000 {
+			// Interpret as signed negative and take absolute value
+			index = int(0x100000000 - uint64(hash))
+		} else {
+			index = int(hash)
 		}
 
-		indices = append(indices, index)
-		values = append(values, float32(score))
+		// Handle hash collisions by summing scores
+		indexScores[index] += float32(score)
 		if c.IncludeTokens {
-			labels = append(labels, token)
+			indexLabels[index] = append(indexLabels[index], token)
+		}
+	}
+
+	// Extract sorted indices for deterministic output
+	indices := make([]int, 0, len(indexScores))
+	for idx := range indexScores {
+		indices = append(indices, idx)
+	}
+	sort.Ints(indices)
+
+	values := make([]float32, len(indices))
+	var labels []string
+	if c.IncludeTokens {
+		labels = make([]string, len(indices))
+	}
+	for i, idx := range indices {
+		values[i] = indexScores[idx]
+		if c.IncludeTokens {
+			labels[i] = strings.Join(indexLabels[idx], "+")
 		}
 	}
 
