@@ -81,6 +81,9 @@ func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
 			return nil, err
 		}
 	}
+	if ef.apiKey == "" {
+		return nil, errors.New("API key is required, use WithAPIKey() or WithEnvAPIKey()")
+	}
 	return ef, nil
 }
 

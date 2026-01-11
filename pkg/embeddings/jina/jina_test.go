@@ -122,4 +122,10 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 		require.Len(t, resp, 1)
 		require.Equal(t, 1024, resp[0].Len())
 	})
+
+	t.Run("Test missing API key", func(t *testing.T) {
+		_, err := NewJinaEmbeddingFunction()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "API key is required")
+	})
 }
