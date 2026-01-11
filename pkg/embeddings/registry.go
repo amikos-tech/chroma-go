@@ -53,6 +53,23 @@ func BuildDense(name string, config EmbeddingFunctionConfig) (EmbeddingFunction,
 	return factory(config)
 }
 
+// BuildDenseCloseable creates a dense EmbeddingFunction and returns a closer function.
+// The closer handles cleanup for embedding functions that implement Closeable.
+// If the embedding function does not implement Closeable, the closer is a no-op.
+func BuildDenseCloseable(name string, config EmbeddingFunctionConfig) (EmbeddingFunction, func() error, error) {
+	ef, err := BuildDense(name, config)
+	if err != nil {
+		return nil, nil, err
+	}
+	closer := func() error {
+		if c, ok := ef.(Closeable); ok {
+			return c.Close()
+		}
+		return nil
+	}
+	return ef, closer, nil
+}
+
 // BuildSparse creates a SparseEmbeddingFunction from name and config.
 func BuildSparse(name string, config EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
 	mu.RLock()
@@ -62,6 +79,23 @@ func BuildSparse(name string, config EmbeddingFunctionConfig) (SparseEmbeddingFu
 		return nil, errors.Errorf("unknown sparse embedding function: %s", name)
 	}
 	return factory(config)
+}
+
+// BuildSparseCloseable creates a SparseEmbeddingFunction and returns a closer function.
+// The closer handles cleanup for embedding functions that implement Closeable.
+// If the embedding function does not implement Closeable, the closer is a no-op.
+func BuildSparseCloseable(name string, config EmbeddingFunctionConfig) (SparseEmbeddingFunction, func() error, error) {
+	ef, err := BuildSparse(name, config)
+	if err != nil {
+		return nil, nil, err
+	}
+	closer := func() error {
+		if c, ok := ef.(Closeable); ok {
+			return c.Close()
+		}
+		return nil
+	}
+	return ef, closer, nil
 }
 
 // ListDense returns all registered dense embedding function names.

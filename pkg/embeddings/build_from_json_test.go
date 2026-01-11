@@ -87,7 +87,7 @@ func TestBuildDenseFromJSON(t *testing.T) {
 			efName: "mistral",
 			jsonConfig: `{
 				"api_key_env_var": "MISTRAL_API_KEY",
-				"model": "mistral-embed"
+				"model_name": "mistral-embed"
 			}`,
 			requiresAPIKey: true,
 			envVar:         "MISTRAL_API_KEY",
@@ -97,7 +97,7 @@ func TestBuildDenseFromJSON(t *testing.T) {
 			efName: "nomic",
 			jsonConfig: `{
 				"api_key_env_var": "NOMIC_API_KEY",
-				"model": "nomic-embed-text-v1.5"
+				"model_name": "nomic-embed-text-v1.5"
 			}`,
 			requiresAPIKey: true,
 			envVar:         "NOMIC_API_KEY",
@@ -137,7 +137,7 @@ func TestBuildDenseFromJSON(t *testing.T) {
 			efName: "chroma_cloud",
 			jsonConfig: `{
 				"api_key_env_var": "CHROMA_API_KEY",
-				"model": "chroma-embedding-v1"
+				"model_name": "chroma-embedding-v1"
 			}`,
 			requiresAPIKey: true,
 			envVar:         "CHROMA_API_KEY",
@@ -227,7 +227,7 @@ func TestBuildSparseFromJSON(t *testing.T) {
 			efName: "chroma_splade",
 			jsonConfig: `{
 				"api_key_env_var": "CHROMA_API_KEY",
-				"model": "prithivida/Splade_PP_en_v1"
+				"model_name": "prithivida/Splade_PP_en_v1"
 			}`,
 			requiresAPIKey: true,
 			envVar:         "CHROMA_API_KEY",

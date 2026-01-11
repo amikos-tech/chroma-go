@@ -189,7 +189,7 @@ func (e *EmbeddingFunction) Name() string {
 
 func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 	cfg := embeddings.EmbeddingFunctionConfig{
-		"model":           string(e.client.Model),
+		"model_name":      string(e.client.Model),
 		"api_key_env_var": APIKeyEnvVar,
 	}
 	if e.client.BaseURL != "" {
@@ -199,13 +199,13 @@ func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 }
 
 // NewEmbeddingFunctionFromConfig creates a ChromaCloud Splade embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model, base_url.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url.
 func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*EmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
 		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
-	if model, ok := cfg["model"].(string); ok && model != "" {
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
 	}
 	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {

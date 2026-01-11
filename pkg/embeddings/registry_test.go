@@ -36,6 +36,40 @@ func (m *mockEmbeddingFunction) SupportedSpaces() []DistanceMetric {
 	return []DistanceMetric{COSINE, L2, IP}
 }
 
+type mockCloseableEmbeddingFunction struct {
+	name   string
+	closed bool
+}
+
+func (m *mockCloseableEmbeddingFunction) EmbedDocuments(_ context.Context, _ []string) ([]Embedding, error) {
+	return nil, nil
+}
+
+func (m *mockCloseableEmbeddingFunction) EmbedQuery(_ context.Context, _ string) (Embedding, error) {
+	return nil, nil
+}
+
+func (m *mockCloseableEmbeddingFunction) Name() string {
+	return m.name
+}
+
+func (m *mockCloseableEmbeddingFunction) GetConfig() EmbeddingFunctionConfig {
+	return EmbeddingFunctionConfig{"name": m.name}
+}
+
+func (m *mockCloseableEmbeddingFunction) DefaultSpace() DistanceMetric {
+	return COSINE
+}
+
+func (m *mockCloseableEmbeddingFunction) SupportedSpaces() []DistanceMetric {
+	return []DistanceMetric{COSINE, L2, IP}
+}
+
+func (m *mockCloseableEmbeddingFunction) Close() error {
+	m.closed = true
+	return nil
+}
+
 type mockSparseEmbeddingFunction struct {
 	name string
 }
@@ -168,4 +202,72 @@ func TestRegisterSparseDuplicate(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already registered")
+}
+
+func TestBuildDenseCloseableWithCloseable(t *testing.T) {
+	name := "test_dense_closeable"
+	mockEf := &mockCloseableEmbeddingFunction{name: name}
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+		return mockEf, nil
+	})
+	require.NoError(t, err)
+
+	ef, closer, err := BuildDenseCloseable(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+	require.NotNil(t, closer)
+	assert.Equal(t, name, ef.Name())
+	assert.False(t, mockEf.closed)
+
+	err = closer()
+	require.NoError(t, err)
+	assert.True(t, mockEf.closed)
+}
+
+func TestBuildDenseCloseableWithoutCloseable(t *testing.T) {
+	name := "test_dense_no_closeable"
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+		return &mockEmbeddingFunction{name: name}, nil
+	})
+	require.NoError(t, err)
+
+	ef, closer, err := BuildDenseCloseable(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+	require.NotNil(t, closer)
+	assert.Equal(t, name, ef.Name())
+
+	// closer should be a no-op for non-closeable EFs
+	err = closer()
+	require.NoError(t, err)
+}
+
+func TestBuildDenseCloseableUnknown(t *testing.T) {
+	_, _, err := BuildDenseCloseable("nonexistent_closeable", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown embedding function")
+}
+
+func TestBuildSparseCloseableWithoutCloseable(t *testing.T) {
+	name := "test_sparse_closeable"
+	err := RegisterSparse(name, func(_ EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
+		return &mockSparseEmbeddingFunction{name: name}, nil
+	})
+	require.NoError(t, err)
+
+	ef, closer, err := BuildSparseCloseable(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+	require.NotNil(t, closer)
+	assert.Equal(t, name, ef.Name())
+
+	// closer should be a no-op for non-closeable EFs
+	err = closer()
+	require.NoError(t, err)
+}
+
+func TestBuildSparseCloseableUnknown(t *testing.T) {
+	_, _, err := BuildSparseCloseable("nonexistent_sparse_closeable", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown sparse embedding function")
 }

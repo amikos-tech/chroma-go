@@ -246,7 +246,7 @@ func (e *NomicEmbeddingFunction) Name() string {
 
 func (e *NomicEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 	return embeddings.EmbeddingFunctionConfig{
-		"model":           string(e.apiClient.DefaultModel),
+		"model_name":      string(e.apiClient.DefaultModel),
 		"api_key_env_var": APIKeyEnvVar,
 	}
 }
@@ -260,13 +260,13 @@ func (e *NomicEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
 }
 
 // NewNomicEmbeddingFunctionFromConfig creates a Nomic embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model.
+// Uses schema-compliant field names: api_key_env_var, model_name.
 func NewNomicEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*NomicEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
 		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
-	if model, ok := cfg["model"].(string); ok && model != "" {
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
 	}
 	return NewNomicEmbeddingFunction(opts...)
