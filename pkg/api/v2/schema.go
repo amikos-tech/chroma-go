@@ -33,6 +33,8 @@ const (
 	CmekProviderGCP CmekProvider = "gcp"
 )
 
+// cmekGCPPattern validates GCP KMS resource format.
+// MustCompile is safe here: the pattern is a compile-time constant that is known valid.
 var cmekGCPPattern = regexp.MustCompile(`^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$`)
 
 // Cmek represents a customer-managed encryption key configuration
