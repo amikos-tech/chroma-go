@@ -135,9 +135,11 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 		task = TaskRetrievalPassage
 	}
 	req := &EmbeddingRequest{
-		Model: string(e.defaultModel),
-		Input: Input,
-		Task:  task,
+		Model:         string(e.defaultModel),
+		Input:         Input,
+		Task:          task,
+		Normalized:    e.normalized,
+		EmbeddingType: e.embeddingType,
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
@@ -162,14 +164,18 @@ func (e *JinaEmbeddingFunction) EmbedQuery(ctx context.Context, document string)
 		task = TaskRetrievalQuery
 	}
 	req := &EmbeddingRequest{
-		Model: string(e.defaultModel),
-		Input: Input,
-		Task:  task,
+		Model:         string(e.defaultModel),
+		Input:         Input,
+		Task:          task,
+		Normalized:    e.normalized,
+		EmbeddingType: e.embeddingType,
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to embed query")
 	}
-
+	if len(response.Data) == 0 {
+		return nil, errors.New("empty embedding response from Jina API")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
 }
