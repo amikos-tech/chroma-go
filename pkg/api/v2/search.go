@@ -67,10 +67,11 @@ type SearchSelect struct {
 
 // SearchRequest represents a single search operation with filter, ranking, pagination, and projection.
 type SearchRequest struct {
-	Filter *SearchFilter `json:"filter,omitempty"`
-	Limit  *SearchPage   `json:"limit,omitempty"`
-	Rank   Rank          `json:"rank,omitempty"`
-	Select *SearchSelect `json:"select,omitempty"`
+	Filter  *SearchFilter `json:"filter,omitempty"`
+	Limit   *SearchPage   `json:"limit,omitempty"`
+	Rank    Rank          `json:"rank,omitempty"`
+	Select  *SearchSelect `json:"select,omitempty"`
+	GroupBy *GroupBy      `json:"group_by,omitempty"`
 }
 
 func (r *SearchRequest) MarshalJSON() ([]byte, error) {
@@ -112,6 +113,18 @@ func (r *SearchRequest) MarshalJSON() ([]byte, error) {
 			keys[i] = string(k)
 		}
 		result["select"] = map[string][]string{"keys": keys}
+	}
+
+	if r.GroupBy != nil {
+		groupByData, err := r.GroupBy.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		var groupByMap any
+		if err := json.Unmarshal(groupByData, &groupByMap); err != nil {
+			return nil, err
+		}
+		result["group_by"] = groupByMap
 	}
 
 	return json.Marshal(result)
@@ -260,6 +273,30 @@ func WithSelectAll() SearchOption {
 func WithRank(rank Rank) SearchOption {
 	return func(req *SearchRequest) error {
 		req.Rank = rank
+		return nil
+	}
+}
+
+// WithGroupBy groups results by metadata keys using the specified aggregation.
+//
+// Example:
+//
+//	result, err := col.Search(ctx,
+//	    NewSearchRequest(
+//	        WithKnnRank(KnnQueryText("query"), WithKnnLimit(100)),
+//	        WithGroupBy(NewGroupBy(NewMinK(3, KScore), K("category"))),
+//	        WithPage(WithLimit(30)),
+//	    ),
+//	)
+func WithGroupBy(groupBy *GroupBy) SearchOption {
+	return func(req *SearchRequest) error {
+		if groupBy == nil {
+			return nil
+		}
+		if err := groupBy.Validate(); err != nil {
+			return err
+		}
+		req.GroupBy = groupBy
 		return nil
 	}
 }
