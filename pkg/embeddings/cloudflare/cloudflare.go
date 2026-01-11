@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -221,10 +220,7 @@ func (e *CloudflareEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMet
 func NewCloudflareEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*CloudflareEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiToken := os.Getenv(envVar)
-		if apiToken != "" {
-			opts = append(opts, WithAPIToken(apiToken))
-		}
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
 	if accountID, ok := cfg["account_id"].(string); ok && accountID != "" {
 		opts = append(opts, WithAccountID(accountID))

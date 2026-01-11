@@ -30,7 +30,7 @@ func WithEnvAPIKey() Option {
 	}
 }
 
-// WithEnvAPIKey sets the API key for the client from a specified environment variable
+// WithAPIKeyFromEnvVar sets the API key for the client from a specified environment variable
 func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *CohereEmbeddingFunction) ccommons.Option { return ccommons.WithAPIKeyFromEnvVar(envVar) }
 }

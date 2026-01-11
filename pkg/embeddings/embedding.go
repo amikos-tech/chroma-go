@@ -249,6 +249,13 @@ type SparseEmbeddingFunction interface {
 	GetConfig() EmbeddingFunctionConfig
 }
 
+// Closeable is an optional interface for embedding functions that hold resources.
+// Callers should check if an embedding function implements this interface and call
+// Close() when done to release resources (e.g., ONNX runtime, native libraries).
+type Closeable interface {
+	Close() error
+}
+
 func NewEmbeddingFromFloat32(embedding []float32) Embedding {
 	return &Float32Embedding{
 		ArrayOfFloat32: &embedding,
