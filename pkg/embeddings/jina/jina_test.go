@@ -33,7 +33,7 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
-		require.Equal(t, 768, resp[0].Len())
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test with env API key", func(t *testing.T) {
@@ -46,7 +46,7 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 1)
-		require.Equal(t, 768, resp[0].Len())
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test with normalized off", func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 1)
-		require.Equal(t, 768, resp[0].Len())
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test with model", func(t *testing.T) {
@@ -85,7 +85,7 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 1)
-		require.Equal(t, 768, resp[0].Len())
+		require.Equal(t, 1024, resp[0].Len())
 	})
 
 	t.Run("Test with embedding endpoint", func(t *testing.T) {
@@ -98,6 +98,34 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 1)
-		require.Equal(t, 768, resp[0].Len())
+		require.Equal(t, 1024, resp[0].Len())
+	})
+
+	t.Run("Test EmbedQuery", func(t *testing.T) {
+		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey())
+		require.NoError(t, err)
+		resp, err := ef.EmbedQuery(context.Background(), "What is the meaning of life?")
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, 1024, resp.Len())
+	})
+
+	t.Run("Test with task", func(t *testing.T) {
+		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey(), WithTask(TaskClassification))
+		require.NoError(t, err)
+		documents := []string{
+			"This is a positive review",
+		}
+		resp, err := ef.EmbedDocuments(context.Background(), documents)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Len(t, resp, 1)
+		require.Equal(t, 1024, resp[0].Len())
+	})
+
+	t.Run("Test missing API key", func(t *testing.T) {
+		_, err := NewJinaEmbeddingFunction()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "API key is required")
 	})
 }

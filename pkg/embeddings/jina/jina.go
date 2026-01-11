@@ -15,10 +15,18 @@ import (
 
 type EmbeddingType string
 
+type TaskType string
+
 const (
 	EmbeddingTypeFloat     EmbeddingType             = "float"
 	DefaultBaseAPIEndpoint                           = "https://api.jina.ai/v1/embeddings"
-	DefaultEmbeddingModel  embeddings.EmbeddingModel = "jina-embeddings-v2-base-en"
+	DefaultEmbeddingModel  embeddings.EmbeddingModel = "jina-embeddings-v3"
+
+	TaskRetrievalQuery   TaskType = "retrieval.query"
+	TaskRetrievalPassage TaskType = "retrieval.passage"
+	TaskClassification   TaskType = "classification"
+	TaskTextMatching     TaskType = "text-matching"
+	TaskSeparation       TaskType = "separation"
 )
 
 type EmbeddingRequest struct {
@@ -26,6 +34,7 @@ type EmbeddingRequest struct {
 	Normalized    bool                `json:"normalized,omitempty"`
 	EmbeddingType EmbeddingType       `json:"embedding_type,omitempty"`
 	Input         []map[string]string `json:"input"`
+	Task          TaskType            `json:"task,omitempty"`
 }
 
 type EmbeddingResponse struct {
@@ -61,6 +70,7 @@ type JinaEmbeddingFunction struct {
 	embeddingEndpoint string
 	normalized        bool
 	embeddingType     EmbeddingType
+	task              TaskType
 }
 
 func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
@@ -70,6 +80,9 @@ func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	if ef.apiKey == "" {
+		return nil, errors.New("API key is required, use WithAPIKey() or WithEnvAPIKey()")
 	}
 	return ef, nil
 }
@@ -113,6 +126,9 @@ func (e *JinaEmbeddingFunction) sendRequest(ctx context.Context, req *EmbeddingR
 }
 
 func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
+	if len(documents) == 0 {
+		return nil, nil
+	}
 	var Input = make([]map[string]string, len(documents))
 
 	for i, doc := range documents {
@@ -120,19 +136,34 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 			"text": doc,
 		}
 	}
+	task := e.task
+	if task == "" {
+		task = TaskRetrievalPassage
+	}
 	req := &EmbeddingRequest{
-		Model: string(e.defaultModel),
-		Input: Input,
+		Model:         string(e.defaultModel),
+		Input:         Input,
+		Task:          task,
+		Normalized:    e.normalized,
+		EmbeddingType: e.embeddingType,
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to embed documents")
 	}
-	var embs []embeddings.Embedding
-	for _, data := range response.Data {
-		embs = append(embs, embeddings.NewEmbeddingFromFloat32(data.Embedding))
+	if len(response.Data) == 0 {
+		return nil, errors.New("empty embedding response from Jina API")
 	}
-
+	if len(response.Data) != len(documents) {
+		return nil, errors.Errorf("embedding count mismatch: got %d, expected %d", len(response.Data), len(documents))
+	}
+	embs := make([]embeddings.Embedding, len(documents))
+	for _, data := range response.Data {
+		if data.Index < 0 || data.Index >= len(documents) {
+			return nil, errors.Errorf("invalid embedding index %d for %d documents", data.Index, len(documents))
+		}
+		embs[data.Index] = embeddings.NewEmbeddingFromFloat32(data.Embedding)
+	}
 	return embs, nil
 }
 
@@ -142,14 +173,23 @@ func (e *JinaEmbeddingFunction) EmbedQuery(ctx context.Context, document string)
 	Input[0] = map[string]string{
 		"text": document,
 	}
+	task := e.task
+	if task == "" {
+		task = TaskRetrievalQuery
+	}
 	req := &EmbeddingRequest{
-		Model: string(e.defaultModel),
-		Input: Input,
+		Model:         string(e.defaultModel),
+		Input:         Input,
+		Task:          task,
+		Normalized:    e.normalized,
+		EmbeddingType: e.embeddingType,
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to embed query")
 	}
-
+	if len(response.Data) == 0 {
+		return nil, errors.New("empty embedding response from Jina API")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
 }
