@@ -100,4 +100,26 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 		require.Len(t, resp, 1)
 		require.Equal(t, 1024, resp[0].Len())
 	})
+
+	t.Run("Test EmbedQuery", func(t *testing.T) {
+		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey())
+		require.NoError(t, err)
+		resp, err := ef.EmbedQuery(context.Background(), "What is the meaning of life?")
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, 1024, resp.Len())
+	})
+
+	t.Run("Test with task", func(t *testing.T) {
+		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey(), WithTask(TaskClassification))
+		require.NoError(t, err)
+		documents := []string{
+			"This is a positive review",
+		}
+		resp, err := ef.EmbedDocuments(context.Background(), documents)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Len(t, resp, 1)
+		require.Equal(t, 1024, resp[0].Len())
+	})
 }

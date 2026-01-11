@@ -145,6 +145,9 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to embed documents")
 	}
+	if len(response.Data) == 0 && len(documents) > 0 {
+		return nil, errors.New("empty embedding response from Jina API")
+	}
 	var embs []embeddings.Embedding
 	for _, data := range response.Data {
 		embs = append(embs, embeddings.NewEmbeddingFromFloat32(data.Embedding))
