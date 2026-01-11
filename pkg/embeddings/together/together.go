@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/pkg/errors"
 
@@ -25,7 +24,7 @@ const (
 
 type TogetherAIClient struct {
 	BaseAPI        string
-	APIToken       string
+	apiToken       string
 	DefaultModel   embeddings.EmbeddingModel
 	MaxBatchSize   int
 	DefaultHeaders map[string]string
@@ -48,7 +47,7 @@ func applyDefaults(c *TogetherAIClient) {
 }
 
 func validate(c *TogetherAIClient) error {
-	if c.APIToken == "" {
+	if c.apiToken == "" {
 		return errors.New("API key is required")
 	}
 	if c.MaxBatchSize <= 0 {
@@ -132,7 +131,7 @@ func (c *TogetherAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken)
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiToken)
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request to TogetherAI API")
@@ -237,10 +236,7 @@ func (e *TogetherEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetri
 func NewTogetherEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*TogetherEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiToken := os.Getenv(envVar)
-		if apiToken != "" {
-			opts = append(opts, WithAPIToken(apiToken))
-		}
+		opts = append(opts, WithAPTokenFromEnvVar(envVar))
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
@@ -249,7 +245,9 @@ func NewTogetherEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConf
 }
 
 func init() {
-	embeddings.RegisterDense("together_ai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("together_ai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewTogetherEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

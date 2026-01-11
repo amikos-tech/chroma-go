@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/pkg/errors"
 
@@ -231,10 +230,7 @@ func (e *MistralEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric
 func NewMistralEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*MistralEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiKey := os.Getenv(envVar)
-		if apiKey != "" {
-			opts = append(opts, WithAPIKey(apiKey))
-		}
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
 	if model, ok := cfg["model"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(model))
@@ -243,7 +239,9 @@ func NewMistralEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfi
 }
 
 func init() {
-	embeddings.RegisterDense("mistral", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("mistral", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewMistralEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

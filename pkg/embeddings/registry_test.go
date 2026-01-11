@@ -58,9 +58,10 @@ func (m *mockSparseEmbeddingFunction) GetConfig() EmbeddingFunctionConfig {
 
 func TestRegisterAndBuildDense(t *testing.T) {
 	name := "test_dense_ef"
-	RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
 		return &mockEmbeddingFunction{name: name}, nil
 	})
+	require.NoError(t, err)
 
 	assert.True(t, HasDense(name))
 
@@ -71,9 +72,10 @@ func TestRegisterAndBuildDense(t *testing.T) {
 
 func TestRegisterAndBuildSparse(t *testing.T) {
 	name := "test_sparse_ef"
-	RegisterSparse(name, func(_ EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
+	err := RegisterSparse(name, func(_ EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
 		return &mockSparseEmbeddingFunction{name: name}, nil
 	})
+	require.NoError(t, err)
 
 	assert.True(t, HasSparse(name))
 
@@ -96,9 +98,10 @@ func TestBuildSparseUnknown(t *testing.T) {
 
 func TestListDense(t *testing.T) {
 	name := "test_list_dense"
-	RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
 		return &mockEmbeddingFunction{name: name}, nil
 	})
+	require.NoError(t, err)
 
 	names := ListDense()
 	assert.Contains(t, names, name)
@@ -106,9 +109,10 @@ func TestListDense(t *testing.T) {
 
 func TestListSparse(t *testing.T) {
 	name := "test_list_sparse"
-	RegisterSparse(name, func(_ EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
+	err := RegisterSparse(name, func(_ EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
 		return &mockSparseEmbeddingFunction{name: name}, nil
 	})
+	require.NoError(t, err)
 
 	names := ListSparse()
 	assert.Contains(t, names, name)
@@ -118,9 +122,10 @@ func TestHasDense(t *testing.T) {
 	name := "test_has_dense"
 	assert.False(t, HasDense(name))
 
-	RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
 		return &mockEmbeddingFunction{name: name}, nil
 	})
+	require.NoError(t, err)
 
 	assert.True(t, HasDense(name))
 }
@@ -129,9 +134,38 @@ func TestHasSparse(t *testing.T) {
 	name := "test_has_sparse"
 	assert.False(t, HasSparse(name))
 
-	RegisterSparse(name, func(_ EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
+	err := RegisterSparse(name, func(_ EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
 		return &mockSparseEmbeddingFunction{name: name}, nil
 	})
+	require.NoError(t, err)
 
 	assert.True(t, HasSparse(name))
+}
+
+func TestRegisterDenseDuplicate(t *testing.T) {
+	name := "test_dense_duplicate"
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+		return &mockEmbeddingFunction{name: name}, nil
+	})
+	require.NoError(t, err)
+
+	err = RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+		return &mockEmbeddingFunction{name: name}, nil
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already registered")
+}
+
+func TestRegisterSparseDuplicate(t *testing.T) {
+	name := "test_sparse_duplicate"
+	err := RegisterSparse(name, func(_ EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
+		return &mockSparseEmbeddingFunction{name: name}, nil
+	})
+	require.NoError(t, err)
+
+	err = RegisterSparse(name, func(_ EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
+		return &mockSparseEmbeddingFunction{name: name}, nil
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already registered")
 }

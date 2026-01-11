@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 
 	"github.com/pkg/errors"
 
@@ -21,7 +20,7 @@ const (
 
 type HuggingFaceClient struct {
 	BaseURL        string
-	APIKey         string
+	apiKey         string
 	Model          string
 	Client         *http.Client
 	DefaultHeaders map[string]string
@@ -32,7 +31,7 @@ func NewHuggingFaceClient(apiKey string, model string) *HuggingFaceClient {
 	return &HuggingFaceClient{
 		BaseURL: "https://router.huggingface.co/hf-inference/models/",
 		Client:  &http.Client{},
-		APIKey:  apiKey,
+		apiKey:  apiKey,
 		Model:   model,
 	}
 }
@@ -93,8 +92,8 @@ func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbe
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	httpReq.Header.Set("Content-Type", "application/json")
-	if c.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	if c.apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
 
 	resp, err := c.Client.Do(httpReq)
@@ -208,10 +207,7 @@ func (e *HuggingFaceEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMe
 func NewHuggingFaceEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*HuggingFaceEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiKey := os.Getenv(envVar)
-		if apiKey != "" {
-			opts = append(opts, WithAPIKey(apiKey))
-		}
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithModel(model))
@@ -223,7 +219,9 @@ func NewHuggingFaceEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionC
 }
 
 func init() {
-	embeddings.RegisterDense("huggingface", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("huggingface", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewHuggingFaceEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

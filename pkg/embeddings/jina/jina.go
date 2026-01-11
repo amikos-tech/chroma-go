@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/pkg/errors"
 
@@ -224,10 +223,7 @@ func (e *JinaEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
 func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*JinaEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiKey := os.Getenv(envVar)
-		if apiKey != "" {
-			opts = append(opts, WithAPIKey(apiKey))
-		}
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
@@ -239,7 +235,9 @@ func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) 
 }
 
 func init() {
-	embeddings.RegisterDense("jina", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("jina", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewJinaEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

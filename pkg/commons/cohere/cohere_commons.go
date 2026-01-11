@@ -136,6 +136,17 @@ func WithEnvAPIKey() Option {
 	}
 }
 
+// WithEnvAPIKey sets the API key for the client from a specified environment variable
+func WithAPIKeyFromEnvVar(envVar string) Option {
+	return func(p *CohereClient) error {
+		if apiKey := os.Getenv(envVar); apiKey != "" {
+			p.apiKey = apiKey
+			return nil
+		}
+		return errors.Errorf("%s not set", envVar)
+	}
+}
+
 func WithAPIVersion(version APIVersion) Option {
 	return func(p *CohereClient) error {
 		if version == "" {

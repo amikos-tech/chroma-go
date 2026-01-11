@@ -43,7 +43,7 @@ func WithAPIKey(apiToken string) Option {
 		if apiToken == "" {
 			return errors.New("API key cannot be empty")
 		}
-		p.APIKey = apiToken
+		p.apiKey = apiToken
 		return nil
 	}
 }
@@ -51,10 +51,21 @@ func WithAPIKey(apiToken string) Option {
 func WithEnvAPIKey() Option {
 	return func(p *VoyageAIClient) error {
 		if apiToken := os.Getenv(APIKeyEnvVar); apiToken != "" {
-			p.APIKey = apiToken
+			p.apiKey = apiToken
 			return nil
 		}
 		return errors.Errorf("%s not set", APIKeyEnvVar)
+	}
+}
+
+// WithEnvAPIKey sets the API key for the client from a specified environment variable
+func WithAPIKeyFromEnvVar(envVar string) Option {
+	return func(p *VoyageAIClient) error {
+		if apiKey := os.Getenv(envVar); apiKey != "" {
+			p.apiKey = apiKey
+			return nil
+		}
+		return errors.Errorf("%s not set", envVar)
 	}
 }
 

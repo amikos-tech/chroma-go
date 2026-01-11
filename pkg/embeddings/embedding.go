@@ -441,3 +441,63 @@ func (e *ConsistentHashEmbeddingFunction) SupportedSpaces() []DistanceMetric {
 // func (e *ConsistentHashEmbeddingFunction) EmbedRecords(ctx context.Context, records []v2.Record, force bool) error {
 //	return EmbedRecordsDefaultImpl(e, ctx, records, force)
 //}
+
+// ConfigInt extracts an integer from EmbeddingFunctionConfig.
+// Handles both int (direct assignment) and float64 (JSON unmarshaling).
+func ConfigInt(cfg EmbeddingFunctionConfig, key string) (int, bool) {
+	val, exists := cfg[key]
+	if !exists {
+		return 0, false
+	}
+	switch v := val.(type) {
+	case int:
+		return v, true
+	case float64:
+		return int(v), true
+	case int64:
+		return int(v), true
+	}
+	return 0, false
+}
+
+// ConfigFloat64 extracts a float64 from EmbeddingFunctionConfig.
+// Handles both float64 and int types.
+func ConfigFloat64(cfg EmbeddingFunctionConfig, key string) (float64, bool) {
+	val, exists := cfg[key]
+	if !exists {
+		return 0, false
+	}
+	switch v := val.(type) {
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	}
+	return 0, false
+}
+
+// ConfigStringSlice extracts a []string from EmbeddingFunctionConfig.
+// Handles both []string (direct assignment) and []interface{} (JSON unmarshaling).
+func ConfigStringSlice(cfg EmbeddingFunctionConfig, key string) ([]string, bool) {
+	val, exists := cfg[key]
+	if !exists {
+		return nil, false
+	}
+	switch v := val.(type) {
+	case []string:
+		return v, true
+	case []any:
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				result = append(result, s)
+			}
+		}
+		if len(result) == len(v) {
+			return result, true
+		}
+	}
+	return nil, false
+}

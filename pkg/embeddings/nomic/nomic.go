@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 
 	"github.com/pkg/errors"
 
@@ -265,10 +264,7 @@ func (e *NomicEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
 func NewNomicEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*NomicEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiKey := os.Getenv(envVar)
-		if apiKey != "" {
-			opts = append(opts, WithAPIKey(apiKey))
-		}
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
 	if model, ok := cfg["model"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
@@ -277,7 +273,9 @@ func NewNomicEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig)
 }
 
 func init() {
-	embeddings.RegisterDense("nomic", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("nomic", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewNomicEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

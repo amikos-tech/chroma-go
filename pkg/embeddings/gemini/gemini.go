@@ -2,7 +2,6 @@ package gemini
 
 import (
 	"context"
-	"os"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/pkg/errors"
@@ -169,10 +168,7 @@ func (e *GeminiEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric 
 func NewGeminiEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*GeminiEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiKey := os.Getenv(envVar)
-		if apiKey != "" {
-			opts = append(opts, WithAPIKey(apiKey))
-		}
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
@@ -181,7 +177,9 @@ func NewGeminiEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig
 }
 
 func init() {
-	embeddings.RegisterDense("google_genai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("google_genai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewGeminiEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

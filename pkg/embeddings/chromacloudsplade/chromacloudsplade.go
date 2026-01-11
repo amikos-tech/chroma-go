@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -25,7 +24,7 @@ const (
 
 type Client struct {
 	BaseURL    string
-	APIKey     string
+	apiKey     string
 	Model      embeddings.EmbeddingModel
 	HTTPClient *http.Client
 	Insecure   bool
@@ -60,7 +59,7 @@ func applyDefaults(c *Client) {
 }
 
 func validate(c *Client) error {
-	if c.APIKey == "" {
+	if c.apiKey == "" {
 		return errors.New("API key is required")
 	}
 	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
@@ -107,7 +106,7 @@ func (c *Client) embed(ctx context.Context, texts []string) ([]*embeddings.Spars
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	req.Header.Set("Cache-Control", "no-store")
-	req.Header.Set("x-chroma-token", c.APIKey)
+	req.Header.Set("x-chroma-token", c.apiKey)
 	req.Header.Set("x-chroma-embedding-model", string(c.Model))
 
 	resp, err := c.HTTPClient.Do(req)
@@ -204,10 +203,7 @@ func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*EmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiKey := os.Getenv(envVar)
-		if apiKey != "" {
-			opts = append(opts, WithAPIKey(apiKey))
-		}
+		opts = append(opts, WithAPIKey(envVar))
 	}
 	if model, ok := cfg["model"].(string); ok && model != "" {
 		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
@@ -219,7 +215,9 @@ func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*Em
 }
 
 func init() {
-	embeddings.RegisterSparse("chroma_splade", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
+	if err := embeddings.RegisterSparse("chroma_splade", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
 		return NewEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

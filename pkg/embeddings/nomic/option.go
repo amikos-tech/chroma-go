@@ -34,6 +34,17 @@ func WithAPIKey(apiKey string) Option {
 	}
 }
 
+// WithEnvAPIKey sets the API key for the client from a specified environment variable
+func WithAPIKeyFromEnvVar(envVar string) Option {
+	return func(p *Client) error {
+		if apiKey := os.Getenv(envVar); apiKey != "" {
+			p.apiKey = apiKey
+			return nil
+		}
+		return errors.Errorf("%s not set", envVar)
+	}
+}
+
 // WithEnvAPIKey sets the API key for the client from the environment variable GOOGLE_API_KEY
 func WithEnvAPIKey() Option {
 	return func(p *Client) error {

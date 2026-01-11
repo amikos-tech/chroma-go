@@ -190,7 +190,9 @@ func NewOllamaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig
 }
 
 func init() {
-	embeddings.RegisterDense("ollama", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("ollama", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewOllamaEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

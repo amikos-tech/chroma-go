@@ -9,7 +9,6 @@ import (
 	"io"
 	"math"
 	"net/http"
-	"os"
 
 	"github.com/pkg/errors"
 
@@ -40,7 +39,7 @@ const (
 
 type VoyageAIClient struct {
 	BaseAPI               string
-	APIKey                string
+	apiKey                string
 	DefaultModel          embeddings.EmbeddingModel
 	MaxBatchSize          int
 	DefaultHeaders        map[string]string
@@ -71,7 +70,7 @@ func applyDefaults(c *VoyageAIClient) {
 }
 
 func validate(c *VoyageAIClient) error {
-	if c.APIKey == "" {
+	if c.apiKey == "" {
 		return errors.New("API key is required")
 	}
 	if c.MaxBatchSize < 1 {
@@ -204,7 +203,7 @@ func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddi
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.Client.Do(httpReq)
 
@@ -346,10 +345,7 @@ func (e *VoyageAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetri
 func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*VoyageAIEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiKey := os.Getenv(envVar)
-		if apiKey != "" {
-			opts = append(opts, WithAPIKey(apiKey))
-		}
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
@@ -358,7 +354,9 @@ func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConf
 }
 
 func init() {
-	embeddings.RegisterDense("voyageai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("voyageai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewVoyageAIEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

@@ -19,17 +19,27 @@ var (
 )
 
 // RegisterDense registers a dense embedding function factory by name.
-func RegisterDense(name string, factory EmbeddingFunctionFactory) {
+// Returns an error if a factory with the same name is already registered.
+func RegisterDense(name string, factory EmbeddingFunctionFactory) error {
 	mu.Lock()
 	defer mu.Unlock()
+	if _, exists := denseFactories[name]; exists {
+		return errors.Errorf("dense embedding function %q already registered", name)
+	}
 	denseFactories[name] = factory
+	return nil
 }
 
 // RegisterSparse registers a sparse embedding function factory by name.
-func RegisterSparse(name string, factory SparseEmbeddingFunctionFactory) {
+// Returns an error if a factory with the same name is already registered.
+func RegisterSparse(name string, factory SparseEmbeddingFunctionFactory) error {
 	mu.Lock()
 	defer mu.Unlock()
+	if _, exists := sparseFactories[name]; exists {
+		return errors.Errorf("sparse embedding function %q already registered", name)
+	}
 	sparseFactories[name] = factory
+	return nil
 }
 
 // BuildDense creates a dense EmbeddingFunction from name and config.

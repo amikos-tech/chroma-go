@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -48,7 +47,7 @@ var taskInstructions = map[Task]instructionPair{
 
 type Client struct {
 	BaseURL    string
-	APIKey     string
+	apiKey     string
 	Model      embeddings.EmbeddingModel
 	Task       Task
 	HTTPClient *http.Client
@@ -78,7 +77,7 @@ func applyDefaults(c *Client) {
 }
 
 func validate(c *Client) error {
-	if c.APIKey == "" {
+	if c.apiKey == "" {
 		return errors.New("API key is required")
 	}
 	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
@@ -135,7 +134,7 @@ func (c *Client) embed(ctx context.Context, texts []string, forQuery bool) ([][]
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	req.Header.Set("Cache-Control", "no-store")
-	req.Header.Set("x-chroma-token", c.APIKey)
+	req.Header.Set("x-chroma-token", c.apiKey)
 	req.Header.Set("x-chroma-embedding-model", string(c.Model))
 
 	resp, err := c.HTTPClient.Do(req)
@@ -235,10 +234,7 @@ func (e *EmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
 func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*EmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiKey := os.Getenv(envVar)
-		if apiKey != "" {
-			opts = append(opts, WithAPIKey(apiKey))
-		}
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
 	if model, ok := cfg["model"].(string); ok && model != "" {
 		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
@@ -250,7 +246,9 @@ func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*Em
 }
 
 func init() {
-	embeddings.RegisterDense("chroma_cloud", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("chroma_cloud", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

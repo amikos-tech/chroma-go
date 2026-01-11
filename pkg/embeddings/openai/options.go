@@ -2,6 +2,7 @@ package openai
 
 import (
 	"net/url"
+	"os"
 
 	"github.com/pkg/errors"
 )
@@ -64,5 +65,27 @@ func WithDimensions(dimensions int) Option {
 		}
 		c.Dimensions = &dimensions
 		return nil
+	}
+}
+
+// WithEnvAPIKey sets the API key for the client from the environment variable OPENAI_API_KEY
+func WithEnvAPIKey() Option {
+	return func(p *OpenAIClient) error {
+		if apiKey := os.Getenv(APIKeyEnvVar); apiKey != "" {
+			p.apiKey = apiKey
+			return nil
+		}
+		return errors.Errorf("%s not set", APIKeyEnvVar)
+	}
+}
+
+// WithEnvAPIKey sets the API key for the client from a specified environment variable
+func WithAPIKeyFromEnvVar(envVar string) Option {
+	return func(p *OpenAIClient) error {
+		if apiKey := os.Getenv(envVar); apiKey != "" {
+			p.apiKey = apiKey
+			return nil
+		}
+		return errors.Errorf("%s not set", envVar)
 	}
 }

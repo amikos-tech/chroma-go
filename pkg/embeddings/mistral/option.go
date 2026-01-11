@@ -43,6 +43,17 @@ func WithEnvAPIKey() Option {
 	}
 }
 
+// WithEnvAPIKey sets the API key for the client from a specified environment variable
+func WithAPIKeyFromEnvVar(envVar string) Option {
+	return func(p *Client) error {
+		if apiKey := os.Getenv(envVar); apiKey != "" {
+			p.apiKey = apiKey
+			return nil
+		}
+		return errors.Errorf("%s not set", envVar)
+	}
+}
+
 // WithHTTPClient sets the generative AI client for the client
 func WithHTTPClient(client *http.Client) Option {
 	return func(p *Client) error {

@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
@@ -96,7 +95,7 @@ func (c *CreateEmbeddingResponse) String() string {
 
 type OpenAIClient struct {
 	BaseURL    string       `default:"https://api.openai.com/v1/" json:"base_url,omitempty"`
-	APIKey     string       `validate:"required" json:"api_key"`
+	apiKey     string       `validate:"required"`
 	OrgID      string       `json:"org_id,omitempty"`
 	Client     *http.Client `json:"-"`
 	Model      string       `default:"text-embedding-ada-002" json:"model,omitempty"`
@@ -106,7 +105,7 @@ type OpenAIClient struct {
 
 func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
 	client := &OpenAIClient{
-		APIKey: apiKey,
+		apiKey: apiKey,
 	}
 	if err := defaults.Set(client); err != nil {
 		return nil, errors.Wrap(err, "failed to set defaults")
@@ -148,7 +147,7 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	// OpenAI Organization ID (Optional)
 	if c.OrgID != "" {
@@ -286,17 +285,17 @@ func (e *OpenAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric 
 // Uses schema-compliant field names: api_key_env_var, model_name, api_base, organization_id, dimensions.
 func NewOpenAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*OpenAIEmbeddingFunction, error) {
 	var apiKey string
-	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		apiKey = os.Getenv(envVar)
-	}
 	opts := make([]Option, 0)
+	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
+	}
 	if baseURL, ok := cfg["api_base"].(string); ok && baseURL != "" {
 		opts = append(opts, WithBaseURL(baseURL))
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithModel(EmbeddingModel(model)))
 	}
-	if dims, ok := cfg["dimensions"].(int); ok && dims > 0 {
+	if dims, ok := embeddings.ConfigInt(cfg, "dimensions"); ok && dims > 0 {
 		opts = append(opts, WithDimensions(dims))
 	}
 	if orgID, ok := cfg["organization_id"].(string); ok && orgID != "" {
@@ -306,7 +305,9 @@ func NewOpenAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig
 }
 
 func init() {
-	embeddings.RegisterDense("openai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("openai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewOpenAIEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

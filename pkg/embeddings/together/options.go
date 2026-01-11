@@ -43,18 +43,29 @@ func WithAPIToken(apiToken string) Option {
 		if apiToken == "" {
 			return errors.New("API token cannot be empty")
 		}
-		p.APIToken = apiToken
+		p.apiToken = apiToken
 		return nil
 	}
 }
 
-func WithEnvAPIKey() Option {
+func WithEnvAPIToken() Option {
 	return func(p *TogetherAIClient) error {
 		if apiToken := os.Getenv("TOGETHER_API_KEY"); apiToken != "" {
-			p.APIToken = apiToken
+			p.apiToken = apiToken
 			return nil
 		}
 		return errors.New("TOGETHER_API_KEY not set")
+	}
+}
+
+// WithAPTokenFromEnvVar sets the API key for the client from a specified environment variable
+func WithAPTokenFromEnvVar(envVar string) Option {
+	return func(p *TogetherAIClient) error {
+		if apiKey := os.Getenv(envVar); apiKey != "" {
+			p.apiToken = apiKey
+			return nil
+		}
+		return errors.Errorf("%s not set", envVar)
 	}
 }
 

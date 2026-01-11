@@ -416,7 +416,9 @@ func NewDefaultEmbeddingFunctionFromConfig(_ embeddings.EmbeddingFunctionConfig)
 }
 
 func init() {
-	embeddings.RegisterDense("onnx_mini_lm_l6_v2", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("onnx_mini_lm_l6_v2", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewDefaultEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

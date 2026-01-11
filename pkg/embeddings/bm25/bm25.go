@@ -205,29 +205,34 @@ func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 }
 
 // NewEmbeddingFunctionFromConfig creates a BM25 embedding function from a config map.
-// Uses schema-compliant field names: k, b, avg_len, token_max_length, include_tokens.
+// Uses schema-compliant field names: k, b, avg_len, token_max_length, include_tokens, stopwords.
 func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*EmbeddingFunction, error) {
 	opts := make([]Option, 0)
-	if k, ok := cfg["k"].(float64); ok {
+	if k, ok := embeddings.ConfigFloat64(cfg, "k"); ok {
 		opts = append(opts, WithK(k))
 	}
-	if b, ok := cfg["b"].(float64); ok {
+	if b, ok := embeddings.ConfigFloat64(cfg, "b"); ok {
 		opts = append(opts, WithB(b))
 	}
-	if avgLen, ok := cfg["avg_len"].(float64); ok {
+	if avgLen, ok := embeddings.ConfigFloat64(cfg, "avg_len"); ok {
 		opts = append(opts, WithAvgDocLength(avgLen))
 	}
-	if tokenMaxLength, ok := cfg["token_max_length"].(int); ok {
+	if tokenMaxLength, ok := embeddings.ConfigInt(cfg, "token_max_length"); ok {
 		opts = append(opts, WithTokenMaxLength(tokenMaxLength))
 	}
 	if includeTokens, ok := cfg["include_tokens"].(bool); ok {
 		opts = append(opts, WithIncludeTokens(includeTokens))
 	}
+	if stopwords, ok := embeddings.ConfigStringSlice(cfg, "stopwords"); ok {
+		opts = append(opts, WithStopwords(stopwords))
+	}
 	return NewEmbeddingFunction(opts...)
 }
 
 func init() {
-	embeddings.RegisterSparse("bm25", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
+	if err := embeddings.RegisterSparse("bm25", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
 		return NewEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

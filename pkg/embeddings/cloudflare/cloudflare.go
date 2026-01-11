@@ -28,7 +28,7 @@ const (
 type CloudflareClient struct {
 	BaseAPI        string
 	endpoint       string
-	APIToken       string
+	apiToken       string
 	AccountID      string
 	DefaultModel   embeddings.EmbeddingModel
 	IsGateway      bool
@@ -61,7 +61,7 @@ func applyDefaults(c *CloudflareClient) {
 }
 
 func validate(c *CloudflareClient) error {
-	if c.APIToken == "" {
+	if c.apiToken == "" {
 		return errors.Errorf("API key is required")
 	}
 	if c.AccountID == "" && !c.IsGateway {
@@ -129,7 +129,7 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken)
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiToken)
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed send request to Cloudflare API")
@@ -236,7 +236,9 @@ func NewCloudflareEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionCo
 }
 
 func init() {
-	embeddings.RegisterDense("cloudflare_workers_ai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	if err := embeddings.RegisterDense("cloudflare_workers_ai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewCloudflareEmbeddingFunctionFromConfig(cfg)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }
