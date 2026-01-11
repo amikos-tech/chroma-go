@@ -284,7 +284,6 @@ func (e *OpenAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric 
 // NewOpenAIEmbeddingFunctionFromConfig creates an OpenAI embedding function from a config map.
 // Uses schema-compliant field names: api_key_env_var, model_name, api_base, organization_id, dimensions.
 func NewOpenAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*OpenAIEmbeddingFunction, error) {
-	var apiKey string
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
 		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
@@ -301,7 +300,7 @@ func NewOpenAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig
 	if orgID, ok := cfg["organization_id"].(string); ok && orgID != "" {
 		opts = append(opts, WithOpenAIOrganizationID(orgID))
 	}
-	return NewOpenAIEmbeddingFunction(apiKey, opts...)
+	return NewOpenAIEmbeddingFunction("", opts...)
 }
 
 func init() {
