@@ -170,6 +170,13 @@ func TestGroupBy(t *testing.T) {
 		aggregate := result["aggregate"].(map[string]any)
 		require.Contains(t, aggregate, "$min_k")
 	})
+
+	t.Run("marshal with nil aggregate returns error not panic", func(t *testing.T) {
+		groupBy := NewGroupBy(nil, K("category"))
+		_, err := groupBy.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "aggregate is required")
+	})
 }
 
 func TestWithGroupBy(t *testing.T) {

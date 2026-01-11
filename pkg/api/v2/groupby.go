@@ -41,6 +41,10 @@ func (g *GroupBy) Validate() error {
 }
 
 func (g *GroupBy) MarshalJSON() ([]byte, error) {
+	if g.Aggregate == nil {
+		return nil, errors.New("aggregate is required")
+	}
+
 	keys := make([]string, len(g.Keys))
 	for i, k := range g.Keys {
 		keys[i] = string(k)
