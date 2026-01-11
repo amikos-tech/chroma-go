@@ -297,6 +297,9 @@ func (e *VoyageAIEmbeddingFunction) EmbedDocuments(ctx context.Context, document
 	}
 	embs := make([]embeddings.Embedding, 0, len(response.Data))
 	for _, result := range response.Data {
+		if result.Embedding == nil {
+			return nil, errors.New("nil embedding in VoyageAI API response")
+		}
 		embs = append(embs, embeddings.NewEmbeddingFromFloat32(result.Embedding.Floats))
 	}
 	return embs, nil
@@ -316,6 +319,9 @@ func (e *VoyageAIEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 	}
 	if len(response.Data) == 0 {
 		return nil, errors.New("no embedding returned from VoyageAI API")
+	}
+	if response.Data[0].Embedding == nil {
+		return nil, errors.New("nil embedding in VoyageAI API response")
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding.Floats), nil
 }

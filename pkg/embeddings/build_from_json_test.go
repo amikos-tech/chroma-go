@@ -18,6 +18,7 @@ import (
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloudsplade"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/cloudflare"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/cohere"
+	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/gemini"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/hf"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/jina"
@@ -332,6 +333,7 @@ func TestAllRegisteredProvidersHaveFactories(t *testing.T) {
 		"chroma_cloud",
 		"ollama",
 		"cloudflare_workers_ai",
+		"onnx_mini_lm_l6_v2",
 	}
 
 	expectedSparse := []string{
