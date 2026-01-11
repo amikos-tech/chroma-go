@@ -154,6 +154,9 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 	if len(response.Data) == 0 {
 		return nil, errors.New("empty embedding response from Jina API")
 	}
+	if len(response.Data) != len(documents) {
+		return nil, errors.Errorf("embedding count mismatch: got %d, expected %d", len(response.Data), len(documents))
+	}
 	embs := make([]embeddings.Embedding, len(documents))
 	for _, data := range response.Data {
 		if data.Index < 0 || data.Index >= len(documents) {
