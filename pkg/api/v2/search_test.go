@@ -390,6 +390,83 @@ func TestCompleteSearchScenario(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, data)
 	})
+
+	t.Run("full search with groupby", func(t *testing.T) {
+		sq := &SearchQuery{}
+
+		opt := NewSearchRequest(
+			WithFilter(EqString("status", "published")),
+			WithKnnRank(
+				KnnQueryText("machine learning"),
+				WithKnnLimit(100),
+			),
+			WithGroupBy(NewGroupBy(NewMinK(3, KScore), K("category"))),
+			WithPage(WithLimit(30)),
+			WithSelect(KDocument, KScore, K("category")),
+		)
+
+		err := opt(sq)
+		require.NoError(t, err)
+		require.Len(t, sq.Searches, 1)
+
+		search := sq.Searches[0]
+		require.NotNil(t, search.Filter)
+		require.NotNil(t, search.Rank)
+		require.NotNil(t, search.GroupBy)
+		require.NotNil(t, search.Limit)
+		require.NotNil(t, search.Select)
+
+		// Verify JSON serialization
+		data, err := json.Marshal(sq)
+		require.NoError(t, err)
+
+		var result map[string]any
+		err = json.Unmarshal(data, &result)
+		require.NoError(t, err)
+
+		searches := result["searches"].([]any)
+		searchObj := searches[0].(map[string]any)
+		require.Contains(t, searchObj, "group_by")
+
+		groupBy := searchObj["group_by"].(map[string]any)
+		require.Contains(t, groupBy, "keys")
+		require.Contains(t, groupBy, "aggregate")
+
+		keys := groupBy["keys"].([]any)
+		require.Equal(t, "category", keys[0])
+
+		aggregate := groupBy["aggregate"].(map[string]any)
+		require.Contains(t, aggregate, "$min_k")
+	})
+
+	t.Run("search with maxk groupby", func(t *testing.T) {
+		sq := &SearchQuery{}
+
+		opt := NewSearchRequest(
+			WithKnnRank(KnnQueryText("top rated movies")),
+			WithGroupBy(NewGroupBy(NewMaxK(5, K("rating")), K("genre"))),
+			WithPage(WithLimit(50)),
+		)
+
+		err := opt(sq)
+		require.NoError(t, err)
+
+		search := sq.Searches[0]
+		require.NotNil(t, search.GroupBy)
+
+		data, err := search.GroupBy.MarshalJSON()
+		require.NoError(t, err)
+
+		var groupBy map[string]any
+		err = json.Unmarshal(data, &groupBy)
+		require.NoError(t, err)
+
+		aggregate := groupBy["aggregate"].(map[string]any)
+		require.Contains(t, aggregate, "$max_k")
+
+		maxK := aggregate["$max_k"].(map[string]any)
+		require.Equal(t, float64(5), maxK["k"])
+	})
 }
 
 func TestSearchResultUnmarshal(t *testing.T) {
