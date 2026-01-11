@@ -82,6 +82,7 @@ func (c *Cmek) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON deserializes CMEK from the variant format {"provider": "resource"}
+// and validates the resource format.
 func (c *Cmek) UnmarshalJSON(data []byte) error {
 	var raw map[string]string
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -90,7 +91,7 @@ func (c *Cmek) UnmarshalJSON(data []byte) error {
 	if resource, ok := raw["gcp"]; ok {
 		c.Provider = CmekProviderGCP
 		c.Resource = resource
-		return nil
+		return c.ValidatePattern()
 	}
 	return errors.Errorf("unsupported or missing CMEK provider in data: %v", raw)
 }

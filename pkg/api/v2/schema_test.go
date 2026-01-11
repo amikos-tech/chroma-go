@@ -709,6 +709,13 @@ func TestCmek_UnmarshalJSON_EmptyObject(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported or missing CMEK provider")
 }
 
+func TestCmek_UnmarshalJSON_InvalidResource(t *testing.T) {
+	var cmek Cmek
+	err := json.Unmarshal([]byte(`{"gcp":"invalid-resource"}`), &cmek)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid GCP CMEK resource format")
+}
+
 func TestCmek_UnmarshalJSON_UnsupportedProvider(t *testing.T) {
 	var cmek Cmek
 	err := json.Unmarshal([]byte(`{"aws": "arn:aws:kms:..."}`), &cmek)
@@ -835,6 +842,15 @@ func TestSchema_UnmarshalJSON_WithoutCmek(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Nil(t, restored.Cmek())
+}
+
+func TestSchema_UnmarshalJSON_InvalidCmekResource(t *testing.T) {
+	data := `{"keys":{},"cmek":{"gcp":"invalid-resource"}}`
+
+	var schema Schema
+	err := json.Unmarshal([]byte(data), &schema)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid GCP CMEK resource format")
 }
 
 func TestCmekProviderConstants(t *testing.T) {
