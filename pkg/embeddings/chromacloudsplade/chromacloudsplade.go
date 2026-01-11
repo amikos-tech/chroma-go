@@ -203,7 +203,7 @@ func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*EmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		opts = append(opts, WithAPIKey(envVar))
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
 	if model, ok := cfg["model"].(string); ok && model != "" {
 		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
