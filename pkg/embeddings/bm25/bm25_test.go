@@ -4,10 +4,13 @@ package bm25
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 func TestTokenizer(t *testing.T) {
@@ -303,5 +306,77 @@ func TestZeroParameters(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, float64(0), client.K)
 		assert.Equal(t, float64(0), client.B)
+	})
+}
+
+func TestBM25ConfigJSONRoundTrip(t *testing.T) {
+	t.Run("config survives JSON round-trip", func(t *testing.T) {
+		// Create EF with custom config
+		ef, err := NewEmbeddingFunction(
+			WithK(1.5),
+			WithB(0.8),
+			WithAvgDocLength(150.0),
+			WithTokenMaxLength(50),
+			WithStopwords([]string{"custom", "stopwords"}),
+			WithIncludeTokens(true),
+		)
+		require.NoError(t, err)
+
+		// Get config
+		cfg := ef.GetConfig()
+
+		// Marshal to JSON (simulating persistence/network transfer)
+		jsonBytes, err := json.Marshal(cfg)
+		require.NoError(t, err)
+
+		// Unmarshal from JSON
+		var restoredCfg embeddings.EmbeddingFunctionConfig
+		err = json.Unmarshal(jsonBytes, &restoredCfg)
+		require.NoError(t, err)
+
+		// Create new EF from restored config
+		ef2, err := NewEmbeddingFunctionFromConfig(restoredCfg)
+		require.NoError(t, err)
+
+		// Verify config matches
+		cfg2 := ef2.GetConfig()
+		assert.Equal(t, 1.5, cfg2["k"])
+		assert.Equal(t, 0.8, cfg2["b"])
+		assert.Equal(t, 150.0, cfg2["avg_len"])
+		assert.Equal(t, 50, cfg2["token_max_length"])
+		assert.Equal(t, []string{"custom", "stopwords"}, cfg2["stopwords"])
+		assert.Equal(t, true, cfg2["include_tokens"])
+	})
+
+	t.Run("embedding output matches after round-trip", func(t *testing.T) {
+		// Create EF with custom config
+		ef1, err := NewEmbeddingFunction(
+			WithK(1.2),
+			WithB(0.75),
+			WithTokenMaxLength(30),
+		)
+		require.NoError(t, err)
+
+		// Get config and round-trip through JSON
+		cfg := ef1.GetConfig()
+		jsonBytes, err := json.Marshal(cfg)
+		require.NoError(t, err)
+
+		var restoredCfg embeddings.EmbeddingFunctionConfig
+		err = json.Unmarshal(jsonBytes, &restoredCfg)
+		require.NoError(t, err)
+
+		ef2, err := NewEmbeddingFunctionFromConfig(restoredCfg)
+		require.NoError(t, err)
+
+		// Both should produce identical embeddings
+		text := "the quick brown fox jumps over lazy dog"
+		sv1, err := ef1.EmbedQuerySparse(context.Background(), text)
+		require.NoError(t, err)
+		sv2, err := ef2.EmbedQuerySparse(context.Background(), text)
+		require.NoError(t, err)
+
+		assert.Equal(t, sv1.Indices, sv2.Indices)
+		assert.Equal(t, sv1.Values, sv2.Values)
 	})
 }
