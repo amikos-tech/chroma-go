@@ -151,6 +151,9 @@ func (e *OllamaEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response.Embeddings) == 0 {
+		return nil, errors.New("no embedding returned from Ollama API")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
 }
 

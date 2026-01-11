@@ -208,6 +208,9 @@ func (e *TogetherEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response.Data) == 0 {
+		return nil, errors.New("no embedding returned from TogetherAI API")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
 }
 
@@ -236,7 +239,7 @@ func (e *TogetherEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetri
 func NewTogetherEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*TogetherEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		opts = append(opts, WithAPTokenFromEnvVar(envVar))
+		opts = append(opts, WithAPITokenFromEnvVar(envVar))
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))

@@ -58,8 +58,8 @@ func WithEnvAPIToken() Option {
 	}
 }
 
-// WithAPTokenFromEnvVar sets the API key for the client from a specified environment variable
-func WithAPTokenFromEnvVar(envVar string) Option {
+// WithAPITokenFromEnvVar sets the API key for the client from a specified environment variable
+func WithAPITokenFromEnvVar(envVar string) Option {
 	return func(p *TogetherAIClient) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
 			p.apiToken = apiKey

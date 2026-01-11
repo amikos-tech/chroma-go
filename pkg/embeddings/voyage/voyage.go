@@ -314,6 +314,9 @@ func (e *VoyageAIEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response.Data) == 0 {
+		return nil, errors.New("no embedding returned from VoyageAI API")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding.Floats), nil
 }
 
@@ -341,7 +344,7 @@ func (e *VoyageAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetri
 }
 
 // NewVoyageAIEmbeddingFunctionFromConfig creates a VoyageAI embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url.
 func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*VoyageAIEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
@@ -349,6 +352,9 @@ func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConf
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
+		opts = append(opts, WithBaseURL(baseURL))
 	}
 	return NewVoyageAIEmbeddingFunction(opts...)
 }

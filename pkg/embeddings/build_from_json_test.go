@@ -146,7 +146,7 @@ func TestBuildDenseFromJSON(t *testing.T) {
 			efName: "ollama",
 			jsonConfig: `{
 				"model_name": "nomic-embed-text",
-				"base_url": "http://localhost:11434"
+				"url": "http://localhost:11434"
 			}`,
 			requiresAPIKey: false,
 		},
@@ -163,6 +163,10 @@ func TestBuildDenseFromJSON(t *testing.T) {
 			require.NoError(t, err, "JSON should parse successfully")
 
 			if tc.requiresAPIKey {
+				// Save current env var value (CI may have it set) and unset it for this test
+				originalValue := os.Getenv(tc.envVar)
+				os.Unsetenv(tc.envVar)
+
 				// Without API key set, should get an error
 				_, err = embeddings.BuildDense(tc.efName, cfg)
 				require.Error(t, err, "Should fail without API key")
@@ -171,12 +175,18 @@ func TestBuildDenseFromJSON(t *testing.T) {
 				// With API key set (using a dummy value), should succeed in creating the EF
 				// (actual API calls would fail, but instantiation should work)
 				os.Setenv(tc.envVar, "test-api-key-dummy")
-				defer os.Unsetenv(tc.envVar)
 
 				ef, err := embeddings.BuildDense(tc.efName, cfg)
 				require.NoError(t, err, "Should succeed with API key set")
 				require.NotNil(t, ef)
 				assert.Equal(t, tc.efName, ef.Name())
+
+				// Restore original env var value
+				if originalValue != "" {
+					os.Setenv(tc.envVar, originalValue)
+				} else {
+					os.Unsetenv(tc.envVar)
+				}
 			} else {
 				// For EFs without API key requirement (like Ollama)
 				ef, err := embeddings.BuildDense(tc.efName, cfg)
@@ -234,18 +244,28 @@ func TestBuildSparseFromJSON(t *testing.T) {
 			require.NoError(t, err, "JSON should parse successfully")
 
 			if tc.requiresAPIKey {
+				// Save current env var value (CI may have it set) and unset it for this test
+				originalValue := os.Getenv(tc.envVar)
+				os.Unsetenv(tc.envVar)
+
 				// Without API key set, should get an error
 				_, err = embeddings.BuildSparse(tc.efName, cfg)
 				require.Error(t, err, "Should fail without API key")
 
 				// With API key set
 				os.Setenv(tc.envVar, "test-api-key-dummy")
-				defer os.Unsetenv(tc.envVar)
 
 				ef, err := embeddings.BuildSparse(tc.efName, cfg)
 				require.NoError(t, err, "Should succeed with API key set")
 				require.NotNil(t, ef)
 				assert.Equal(t, tc.efName, ef.Name())
+
+				// Restore original env var value
+				if originalValue != "" {
+					os.Setenv(tc.envVar, originalValue)
+				} else {
+					os.Unsetenv(tc.envVar)
+				}
 			} else {
 				// For EFs without API key requirement (like BM25)
 				ef, err := embeddings.BuildSparse(tc.efName, cfg)

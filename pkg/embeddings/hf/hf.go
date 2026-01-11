@@ -176,6 +176,9 @@ func (e *HuggingFaceEmbeddingFunction) EmbedQuery(ctx context.Context, document 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response.Embeddings) == 0 {
+		return nil, errors.New("no embedding returned from HuggingFace API")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
 }
 

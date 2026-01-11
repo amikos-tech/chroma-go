@@ -96,3 +96,13 @@ func WithEncodingFormat(format EncodingFormat) Option {
 		return nil
 	}
 }
+
+func WithBaseURL(baseURL string) Option {
+	return func(p *VoyageAIClient) error {
+		if baseURL == "" {
+			return errors.New("base URL cannot be empty")
+		}
+		p.BaseAPI = baseURL
+		return nil
+	}
+}

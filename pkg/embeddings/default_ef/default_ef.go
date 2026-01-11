@@ -19,7 +19,10 @@ import (
 
 type Option func(p *DefaultEmbeddingFunction) error
 
-var _ embeddings.EmbeddingFunction = (*DefaultEmbeddingFunction)(nil)
+var (
+	_ embeddings.EmbeddingFunction = (*DefaultEmbeddingFunction)(nil)
+	_ embeddings.Closeable         = (*DefaultEmbeddingFunction)(nil)
+)
 
 type DefaultEmbeddingFunction struct {
 	tokenizer *tokenizers.Tokenizer
@@ -410,6 +413,8 @@ func (e *DefaultEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric
 }
 
 // NewDefaultEmbeddingFunctionFromConfig creates a default embedding function from a config map.
+// The returned EmbeddingFunction implements Closeable; callers should type-assert
+// and call Close() when done to release ONNX runtime and tokenizer resources.
 func NewDefaultEmbeddingFunctionFromConfig(_ embeddings.EmbeddingFunctionConfig) (*DefaultEmbeddingFunction, error) {
 	ef, _, err := NewDefaultEmbeddingFunction()
 	return ef, err
