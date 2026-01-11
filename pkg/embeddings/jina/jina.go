@@ -154,11 +154,13 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 	if len(response.Data) == 0 {
 		return nil, errors.New("empty embedding response from Jina API")
 	}
-	var embs []embeddings.Embedding
+	embs := make([]embeddings.Embedding, len(documents))
 	for _, data := range response.Data {
-		embs = append(embs, embeddings.NewEmbeddingFromFloat32(data.Embedding))
+		if data.Index < 0 || data.Index >= len(documents) {
+			return nil, errors.Errorf("invalid embedding index %d for %d documents", data.Index, len(documents))
+		}
+		embs[data.Index] = embeddings.NewEmbeddingFromFloat32(data.Embedding)
 	}
-
 	return embs, nil
 }
 
