@@ -126,6 +126,9 @@ func (e *JinaEmbeddingFunction) sendRequest(ctx context.Context, req *EmbeddingR
 }
 
 func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
+	if len(documents) == 0 {
+		return nil, nil
+	}
 	var Input = make([]map[string]string, len(documents))
 
 	for i, doc := range documents {
@@ -148,7 +151,7 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to embed documents")
 	}
-	if len(response.Data) == 0 && len(documents) > 0 {
+	if len(response.Data) == 0 {
 		return nil, errors.New("empty embedding response from Jina API")
 	}
 	var embs []embeddings.Embedding
