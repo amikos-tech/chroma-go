@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"context"
+	"os"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/pkg/errors"
@@ -142,4 +143,45 @@ func (e *GeminiEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return response[0], nil
+}
+
+func (e *GeminiEmbeddingFunction) Name() string {
+	return "google_genai"
+}
+
+func (e *GeminiEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	return embeddings.EmbeddingFunctionConfig{
+		"model_name":      string(e.apiClient.DefaultModel),
+		"api_key_env_var": APIKeyEnvVar,
+	}
+}
+
+func (e *GeminiEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *GeminiEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewGeminiEmbeddingFunctionFromConfig creates a Gemini embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name.
+func NewGeminiEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*GeminiEmbeddingFunction, error) {
+	opts := make([]Option, 0)
+	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
+		apiKey := os.Getenv(envVar)
+		if apiKey != "" {
+			opts = append(opts, WithAPIKey(apiKey))
+		}
+	}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewGeminiEmbeddingFunction(opts...)
+}
+
+func init() {
+	embeddings.RegisterDense("google_genai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewGeminiEmbeddingFunctionFromConfig(cfg)
+	})
 }

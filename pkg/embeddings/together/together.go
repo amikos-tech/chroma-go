@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -19,6 +20,7 @@ const (
 	defaultBaseAPI = "https://api.together.xyz/v1/embeddings"
 	// https://docs.together.ai/reference/embeddings
 	defaultMaxSize = 100
+	APIKeyEnvVar   = "TOGETHER_API_KEY"
 )
 
 type TogetherAIClient struct {
@@ -208,4 +210,46 @@ func (e *TogetherEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
+}
+
+func (e *TogetherEmbeddingFunction) Name() string {
+	return "together_ai"
+}
+
+func (e *TogetherEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"model_name":      string(e.apiClient.DefaultModel),
+		"api_key_env_var": APIKeyEnvVar,
+	}
+	return cfg
+}
+
+func (e *TogetherEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *TogetherEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewTogetherEmbeddingFunctionFromConfig creates a Together embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name.
+func NewTogetherEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*TogetherEmbeddingFunction, error) {
+	opts := make([]Option, 0)
+	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
+		apiToken := os.Getenv(envVar)
+		if apiToken != "" {
+			opts = append(opts, WithAPIToken(apiToken))
+		}
+	}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewTogetherEmbeddingFunction(opts...)
+}
+
+func init() {
+	embeddings.RegisterDense("together_ai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewTogetherEmbeddingFunctionFromConfig(cfg)
+	})
 }

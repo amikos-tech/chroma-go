@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -21,6 +22,7 @@ const (
 	defaultBaseAPI = "https://api.cloudflare.com/client/v4/"
 	// https://developers.cloudflare.com/workers-ai/models/bge-small-en-v1.5/#api-schema (Input JSON Schema)
 	defaultMaxSize = 100
+	APIKeyEnvVar   = "CLOUDFLARE_API_TOKEN"
 )
 
 type CloudflareClient struct {
@@ -191,4 +193,50 @@ func (e *CloudflareEmbeddingFunction) EmbedQuery(ctx context.Context, document s
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Result.Data[0]), nil
+}
+
+func (e *CloudflareEmbeddingFunction) Name() string {
+	return "cloudflare_workers_ai"
+}
+
+func (e *CloudflareEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"model_name":      string(e.apiClient.DefaultModel),
+		"account_id":      e.apiClient.AccountID,
+		"api_key_env_var": APIKeyEnvVar,
+	}
+	return cfg
+}
+
+func (e *CloudflareEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *CloudflareEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewCloudflareEmbeddingFunctionFromConfig creates a Cloudflare embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name, account_id.
+func NewCloudflareEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*CloudflareEmbeddingFunction, error) {
+	opts := make([]Option, 0)
+	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
+		apiToken := os.Getenv(envVar)
+		if apiToken != "" {
+			opts = append(opts, WithAPIToken(apiToken))
+		}
+	}
+	if accountID, ok := cfg["account_id"].(string); ok && accountID != "" {
+		opts = append(opts, WithAccountID(accountID))
+	}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewCloudflareEmbeddingFunction(opts...)
+}
+
+func init() {
+	embeddings.RegisterDense("cloudflare_workers_ai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewCloudflareEmbeddingFunctionFromConfig(cfg)
+	})
 }

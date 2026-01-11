@@ -153,3 +153,44 @@ func (e *OllamaEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
 }
+
+func (e *OllamaEmbeddingFunction) Name() string {
+	return "ollama"
+}
+
+func (e *OllamaEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"model_name": string(e.apiClient.Model),
+	}
+	if e.apiClient.BaseURL != "" {
+		cfg["url"] = e.apiClient.BaseURL
+	}
+	return cfg
+}
+
+func (e *OllamaEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *OllamaEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewOllamaEmbeddingFunctionFromConfig creates an Ollama embedding function from a config map.
+// Uses schema-compliant field names: url, model_name.
+func NewOllamaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*OllamaEmbeddingFunction, error) {
+	opts := make([]Option, 0)
+	if url, ok := cfg["url"].(string); ok && url != "" {
+		opts = append(opts, WithBaseURL(url))
+	}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewOllamaEmbeddingFunction(opts...)
+}
+
+func init() {
+	embeddings.RegisterDense("ollama", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewOllamaEmbeddingFunctionFromConfig(cfg)
+	})
+}

@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -315,4 +316,49 @@ func (e *VoyageAIEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding.Floats), nil
+}
+
+func (e *VoyageAIEmbeddingFunction) Name() string {
+	return "voyageai"
+}
+
+func (e *VoyageAIEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": APIKeyEnvVar,
+		"model_name":      string(e.apiClient.DefaultModel),
+	}
+	if e.apiClient.BaseAPI != "" {
+		cfg["base_url"] = e.apiClient.BaseAPI
+	}
+	return cfg
+}
+
+func (e *VoyageAIEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *VoyageAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewVoyageAIEmbeddingFunctionFromConfig creates a VoyageAI embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name.
+func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*VoyageAIEmbeddingFunction, error) {
+	opts := make([]Option, 0)
+	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
+		apiKey := os.Getenv(envVar)
+		if apiKey != "" {
+			opts = append(opts, WithAPIKey(apiKey))
+		}
+	}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewVoyageAIEmbeddingFunction(opts...)
+}
+
+func init() {
+	embeddings.RegisterDense("voyageai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewVoyageAIEmbeddingFunctionFromConfig(cfg)
+	})
 }

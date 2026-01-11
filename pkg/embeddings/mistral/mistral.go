@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -204,4 +205,45 @@ func (e *MistralEmbeddingFunction) EmbedQuery(ctx context.Context, document stri
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return response[0], nil
+}
+
+func (e *MistralEmbeddingFunction) Name() string {
+	return "mistral"
+}
+
+func (e *MistralEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	return embeddings.EmbeddingFunctionConfig{
+		"model":           e.apiClient.DefaultModel,
+		"api_key_env_var": APIKeyEnvVar,
+	}
+}
+
+func (e *MistralEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *MistralEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewMistralEmbeddingFunctionFromConfig creates a Mistral embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model.
+func NewMistralEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*MistralEmbeddingFunction, error) {
+	opts := make([]Option, 0)
+	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
+		apiKey := os.Getenv(envVar)
+		if apiKey != "" {
+			opts = append(opts, WithAPIKey(apiKey))
+		}
+	}
+	if model, ok := cfg["model"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(model))
+	}
+	return NewMistralEmbeddingFunction(opts...)
+}
+
+func init() {
+	embeddings.RegisterDense("mistral", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewMistralEmbeddingFunctionFromConfig(cfg)
+	})
 }

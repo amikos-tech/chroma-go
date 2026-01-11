@@ -219,11 +219,23 @@ func (e *Int32Embedding) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// EmbeddingFunctionConfig represents serializable configuration for an embedding function.
+// Used for cross-language compatibility and config persistence.
+type EmbeddingFunctionConfig map[string]interface{}
+
 type EmbeddingFunction interface {
 	// EmbedDocuments returns a vector for each text.
 	EmbedDocuments(ctx context.Context, texts []string) ([]Embedding, error)
 	// EmbedQuery embeds a single text.
 	EmbedQuery(ctx context.Context, text string) (Embedding, error)
+	// Name returns the static identifier for this embedding function (e.g., "openai", "cohere").
+	Name() string
+	// GetConfig returns the current configuration as a serializable map.
+	GetConfig() EmbeddingFunctionConfig
+	// DefaultSpace returns the recommended distance metric for this embedding function.
+	DefaultSpace() DistanceMetric
+	// SupportedSpaces returns all distance metrics supported by this embedding function.
+	SupportedSpaces() []DistanceMetric
 }
 
 type SparseEmbeddingFunction interface {
@@ -231,6 +243,10 @@ type SparseEmbeddingFunction interface {
 	EmbedDocumentsSparse(ctx context.Context, texts []string) ([]*SparseVector, error)
 	// EmbedQuerySparse embeds a single text as a sparse vector.
 	EmbedQuerySparse(ctx context.Context, text string) (*SparseVector, error)
+	// Name returns the static identifier for this sparse embedding function (e.g., "bm25", "splade").
+	Name() string
+	// GetConfig returns the current configuration as a serializable map.
+	GetConfig() EmbeddingFunctionConfig
 }
 
 func NewEmbeddingFromFloat32(embedding []float32) Embedding {
@@ -402,6 +418,24 @@ func (e *ConsistentHashEmbeddingFunction) EmbedDocuments(ctx context.Context, do
 		embeddings = append(embeddings, embedding)
 	}
 	return embeddings, nil
+}
+
+func (e *ConsistentHashEmbeddingFunction) Name() string {
+	return "consistent_hash"
+}
+
+func (e *ConsistentHashEmbeddingFunction) GetConfig() EmbeddingFunctionConfig {
+	return EmbeddingFunctionConfig{
+		"dim": e.dim,
+	}
+}
+
+func (e *ConsistentHashEmbeddingFunction) DefaultSpace() DistanceMetric {
+	return L2
+}
+
+func (e *ConsistentHashEmbeddingFunction) SupportedSpaces() []DistanceMetric {
+	return []DistanceMetric{L2, COSINE, IP}
 }
 
 // func (e *ConsistentHashEmbeddingFunction) EmbedRecords(ctx context.Context, records []v2.Record, force bool) error {

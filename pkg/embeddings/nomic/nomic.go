@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -238,4 +239,45 @@ func (e *NomicEmbeddingFunction) EmbedQuery(ctx context.Context, document string
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	return response[0], nil
+}
+
+func (e *NomicEmbeddingFunction) Name() string {
+	return "nomic"
+}
+
+func (e *NomicEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	return embeddings.EmbeddingFunctionConfig{
+		"model":           string(e.apiClient.DefaultModel),
+		"api_key_env_var": APIKeyEnvVar,
+	}
+}
+
+func (e *NomicEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *NomicEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewNomicEmbeddingFunctionFromConfig creates a Nomic embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model.
+func NewNomicEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*NomicEmbeddingFunction, error) {
+	opts := make([]Option, 0)
+	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
+		apiKey := os.Getenv(envVar)
+		if apiKey != "" {
+			opts = append(opts, WithAPIKey(apiKey))
+		}
+	}
+	if model, ok := cfg["model"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewNomicEmbeddingFunction(opts...)
+}
+
+func init() {
+	embeddings.RegisterDense("nomic", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewNomicEmbeddingFunctionFromConfig(cfg)
+	})
 }

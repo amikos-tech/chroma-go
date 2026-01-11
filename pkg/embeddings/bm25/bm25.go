@@ -185,3 +185,49 @@ func (e *EmbeddingFunction) EmbedQuerySparse(_ context.Context, text string) (*e
 
 // Ensure EmbeddingFunction implements SparseEmbeddingFunction
 var _ embeddings.SparseEmbeddingFunction = (*EmbeddingFunction)(nil)
+
+func (e *EmbeddingFunction) Name() string {
+	return "bm25"
+}
+
+func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"k":                e.client.K,
+		"b":                e.client.B,
+		"avg_len":          e.client.AvgDocLength,
+		"token_max_length": e.client.TokenMaxLength,
+		"include_tokens":   e.client.IncludeTokens,
+	}
+	if len(e.client.Stopwords) > 0 {
+		cfg["stopwords"] = e.client.Stopwords
+	}
+	return cfg
+}
+
+// NewEmbeddingFunctionFromConfig creates a BM25 embedding function from a config map.
+// Uses schema-compliant field names: k, b, avg_len, token_max_length, include_tokens.
+func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*EmbeddingFunction, error) {
+	opts := make([]Option, 0)
+	if k, ok := cfg["k"].(float64); ok {
+		opts = append(opts, WithK(k))
+	}
+	if b, ok := cfg["b"].(float64); ok {
+		opts = append(opts, WithB(b))
+	}
+	if avgLen, ok := cfg["avg_len"].(float64); ok {
+		opts = append(opts, WithAvgDocLength(avgLen))
+	}
+	if tokenMaxLength, ok := cfg["token_max_length"].(int); ok {
+		opts = append(opts, WithTokenMaxLength(tokenMaxLength))
+	}
+	if includeTokens, ok := cfg["include_tokens"].(bool); ok {
+		opts = append(opts, WithIncludeTokens(includeTokens))
+	}
+	return NewEmbeddingFunction(opts...)
+}
+
+func init() {
+	embeddings.RegisterSparse("bm25", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
+		return NewEmbeddingFunctionFromConfig(cfg)
+	})
+}

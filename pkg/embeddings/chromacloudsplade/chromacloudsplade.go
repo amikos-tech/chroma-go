@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -181,4 +182,44 @@ func (e *EmbeddingFunction) EmbedQuerySparse(ctx context.Context, query string) 
 		return nil, errors.New("no embedding returned")
 	}
 	return vectors[0], nil
+}
+
+func (e *EmbeddingFunction) Name() string {
+	return "chroma_splade"
+}
+
+func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"model":           string(e.client.Model),
+		"api_key_env_var": APIKeyEnvVar,
+	}
+	if e.client.BaseURL != "" {
+		cfg["base_url"] = e.client.BaseURL
+	}
+	return cfg
+}
+
+// NewEmbeddingFunctionFromConfig creates a ChromaCloud Splade embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model, base_url.
+func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*EmbeddingFunction, error) {
+	opts := make([]Option, 0)
+	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
+		apiKey := os.Getenv(envVar)
+		if apiKey != "" {
+			opts = append(opts, WithAPIKey(apiKey))
+		}
+	}
+	if model, ok := cfg["model"].(string); ok && model != "" {
+		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
+	}
+	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
+		opts = append(opts, WithBaseURL(baseURL))
+	}
+	return NewEmbeddingFunction(opts...)
+}
+
+func init() {
+	embeddings.RegisterSparse("chroma_splade", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
+		return NewEmbeddingFunctionFromConfig(cfg)
+	})
 }
