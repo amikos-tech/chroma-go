@@ -15,10 +15,18 @@ import (
 
 type EmbeddingType string
 
+type TaskType string
+
 const (
 	EmbeddingTypeFloat     EmbeddingType             = "float"
 	DefaultBaseAPIEndpoint                           = "https://api.jina.ai/v1/embeddings"
-	DefaultEmbeddingModel  embeddings.EmbeddingModel = "jina-embeddings-v2-base-en"
+	DefaultEmbeddingModel  embeddings.EmbeddingModel = "jina-embeddings-v3"
+
+	TaskRetrievalQuery   TaskType = "retrieval.query"
+	TaskRetrievalPassage TaskType = "retrieval.passage"
+	TaskClassification   TaskType = "classification"
+	TaskTextMatching     TaskType = "text-matching"
+	TaskSeparation       TaskType = "separation"
 )
 
 type EmbeddingRequest struct {
@@ -26,6 +34,7 @@ type EmbeddingRequest struct {
 	Normalized    bool                `json:"normalized,omitempty"`
 	EmbeddingType EmbeddingType       `json:"embedding_type,omitempty"`
 	Input         []map[string]string `json:"input"`
+	Task          TaskType            `json:"task,omitempty"`
 }
 
 type EmbeddingResponse struct {
@@ -61,6 +70,7 @@ type JinaEmbeddingFunction struct {
 	embeddingEndpoint string
 	normalized        bool
 	embeddingType     EmbeddingType
+	task              TaskType
 }
 
 func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
@@ -120,9 +130,14 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 			"text": doc,
 		}
 	}
+	task := e.task
+	if task == "" {
+		task = TaskRetrievalPassage
+	}
 	req := &EmbeddingRequest{
 		Model: string(e.defaultModel),
 		Input: Input,
+		Task:  task,
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
@@ -142,9 +157,14 @@ func (e *JinaEmbeddingFunction) EmbedQuery(ctx context.Context, document string)
 	Input[0] = map[string]string{
 		"text": document,
 	}
+	task := e.task
+	if task == "" {
+		task = TaskRetrievalQuery
+	}
 	req := &EmbeddingRequest{
 		Model: string(e.defaultModel),
 		Input: Input,
+		Task:  task,
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {

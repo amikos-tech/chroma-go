@@ -65,3 +65,16 @@ func WithEmbeddingType(embeddingType EmbeddingType) Option {
 		return nil
 	}
 }
+
+// WithTask sets the task type for the embedding. Valid values are retrieval.query, retrieval.passage,
+// classification, text-matching, and separation. If not set, defaults to retrieval.passage for
+// EmbedDocuments and retrieval.query for EmbedQuery.
+func WithTask(task TaskType) Option {
+	return func(c *JinaEmbeddingFunction) error {
+		if task == "" {
+			return errors.New("task cannot be empty")
+		}
+		c.task = task
+		return nil
+	}
+}
