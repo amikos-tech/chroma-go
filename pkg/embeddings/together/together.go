@@ -24,7 +24,7 @@ const (
 
 type TogetherAIClient struct {
 	BaseAPI        string
-	apiToken       string
+	APIToken       embeddings.Secret `json:"-" validate:"required"`
 	DefaultModel   embeddings.EmbeddingModel
 	MaxBatchSize   int
 	DefaultHeaders map[string]string
@@ -47,8 +47,8 @@ func applyDefaults(c *TogetherAIClient) {
 }
 
 func validate(c *TogetherAIClient) error {
-	if c.apiToken == "" {
-		return errors.New("API key is required")
+	if err := embeddings.NewValidator().Struct(c); err != nil {
+		return err
 	}
 	if c.MaxBatchSize <= 0 {
 		return errors.New("max batch size must be greater than 0")
@@ -131,7 +131,7 @@ func (c *TogetherAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiToken)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken.Value())
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request to TogetherAI API")

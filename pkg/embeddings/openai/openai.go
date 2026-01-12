@@ -10,7 +10,6 @@ import (
 	"net/url"
 
 	"github.com/creasty/defaults"
-	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
 
 	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
@@ -94,18 +93,18 @@ func (c *CreateEmbeddingResponse) String() string {
 }
 
 type OpenAIClient struct {
-	BaseURL    string       `default:"https://api.openai.com/v1/" json:"base_url,omitempty"`
-	apiKey     string       `validate:"required"`
-	OrgID      string       `json:"org_id,omitempty"`
-	Client     *http.Client `json:"-"`
-	Model      string       `default:"text-embedding-ada-002" json:"model,omitempty"`
-	Dimensions *int         `json:"dimensions,omitempty"`
-	User       string       `json:"user,omitempty"`
+	BaseURL    string            `default:"https://api.openai.com/v1/" json:"base_url,omitempty"`
+	APIKey     embeddings.Secret `json:"-" validate:"required"`
+	OrgID      string            `json:"org_id,omitempty"`
+	Client     *http.Client      `json:"-"`
+	Model      string            `default:"text-embedding-ada-002" json:"model,omitempty"`
+	Dimensions *int              `json:"dimensions,omitempty"`
+	User       string            `json:"user,omitempty"`
 }
 
 func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
 	client := &OpenAIClient{
-		apiKey: apiKey,
+		APIKey: embeddings.NewSecret(apiKey),
 	}
 	if err := defaults.Set(client); err != nil {
 		return nil, errors.Wrap(err, "failed to set defaults")
@@ -121,8 +120,8 @@ func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
 	if client.User == "" {
 		client.User = chttp.ChromaGoClientUserAgent
 	}
-	if err := validator.New().Struct(client); err != nil {
-		return nil, errors.Wrap(err, "validation failed")
+	if err := embeddings.NewValidator().Struct(client); err != nil {
+		return nil, errors.Wrap(err, "failed to validate OpenAI client options")
 	}
 	return client, nil
 }
@@ -147,7 +146,7 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 
 	// OpenAI Organization ID (Optional)
 	if c.OrgID != "" {

@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type Option func(p *Client) error
@@ -27,16 +29,16 @@ func WithAPIKey(apiKey string) Option {
 		if apiKey == "" {
 			return errors.Errorf("api key cannot be empty")
 		}
-		p.apiKey = apiKey
+		p.APIKey = embeddings.NewSecret(apiKey)
 		return nil
 	}
 }
 
-// WithEnvAPIKey sets the API key for the client from the environment variable GOOGLE_API_KEY
+// WithEnvAPIKey sets the API key for the client from the environment variable MISTRAL_API_KEY
 func WithEnvAPIKey() Option {
 	return func(p *Client) error {
 		if apiKey := os.Getenv(APIKeyEnvVar); apiKey != "" {
-			p.apiKey = apiKey
+			p.APIKey = embeddings.NewSecret(apiKey)
 			return nil
 		}
 		return errors.Errorf("%s not set", APIKeyEnvVar)
@@ -47,7 +49,7 @@ func WithEnvAPIKey() Option {
 func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *Client) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
-			p.apiKey = apiKey
+			p.APIKey = embeddings.NewSecret(apiKey)
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

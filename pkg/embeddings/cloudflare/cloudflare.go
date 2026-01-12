@@ -27,7 +27,7 @@ const (
 type CloudflareClient struct {
 	BaseAPI        string
 	endpoint       string
-	apiToken       string
+	APIToken       embeddings.Secret `json:"-" validate:"required"`
 	AccountID      string
 	DefaultModel   embeddings.EmbeddingModel
 	IsGateway      bool
@@ -60,8 +60,8 @@ func applyDefaults(c *CloudflareClient) {
 }
 
 func validate(c *CloudflareClient) error {
-	if c.apiToken == "" {
-		return errors.Errorf("API key is required")
+	if err := embeddings.NewValidator().Struct(c); err != nil {
+		return err
 	}
 	if c.AccountID == "" && !c.IsGateway {
 		return errors.Errorf("account ID is required")
@@ -128,7 +128,7 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiToken)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken.Value())
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed send request to Cloudflare API")
@@ -201,8 +201,13 @@ func (e *CloudflareEmbeddingFunction) Name() string {
 func (e *CloudflareEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.apiClient.DefaultModel),
-		"account_id":      e.apiClient.AccountID,
 		"api_key_env_var": APIKeyEnvVar,
+	}
+	if e.apiClient.IsGateway {
+		cfg["is_gateway"] = true
+		cfg["gateway_endpoint"] = e.apiClient.BaseAPI
+	} else {
+		cfg["account_id"] = e.apiClient.AccountID
 	}
 	return cfg
 }
@@ -216,13 +221,17 @@ func (e *CloudflareEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMet
 }
 
 // NewCloudflareEmbeddingFunctionFromConfig creates a Cloudflare embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, account_id.
+// Uses schema-compliant field names: api_key_env_var, model_name, account_id, is_gateway, gateway_endpoint.
 func NewCloudflareEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*CloudflareEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
 		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
 	}
-	if accountID, ok := cfg["account_id"].(string); ok && accountID != "" {
+	if isGateway, ok := cfg["is_gateway"].(bool); ok && isGateway {
+		if gatewayEndpoint, ok := cfg["gateway_endpoint"].(string); ok && gatewayEndpoint != "" {
+			opts = append(opts, WithGatewayEndpoint(gatewayEndpoint))
+		}
+	} else if accountID, ok := cfg["account_id"].(string); ok && accountID != "" {
 		opts = append(opts, WithAccountID(accountID))
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {

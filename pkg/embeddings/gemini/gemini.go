@@ -17,7 +17,7 @@ const (
 )
 
 type Client struct {
-	apiKey         string
+	APIKey         embeddings.Secret `json:"-" validate:"required"`
 	DefaultModel   embeddings.EmbeddingModel
 	Client         *genai.Client
 	DefaultContext *context.Context
@@ -35,7 +35,7 @@ func applyDefaults(c *Client) (err error) {
 	}
 
 	if c.Client == nil {
-		c.Client, err = genai.NewClient(*c.DefaultContext, option.WithAPIKey(c.apiKey))
+		c.Client, err = genai.NewClient(*c.DefaultContext, option.WithAPIKey(c.APIKey.Value()))
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -44,10 +44,7 @@ func applyDefaults(c *Client) (err error) {
 }
 
 func validate(c *Client) error {
-	if c.apiKey == "" {
-		return errors.New("API key is required")
-	}
-	return nil
+	return embeddings.NewValidator().Struct(c)
 }
 
 func NewGeminiClient(opts ...Option) (*Client, error) {
@@ -140,6 +137,9 @@ func (e *GeminiEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	response, err := e.apiClient.CreateEmbedding(ctx, []string{document})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
+	}
+	if len(response) == 0 {
+		return nil, errors.New("no embedding returned from Gemini API")
 	}
 	return response[0], nil
 }

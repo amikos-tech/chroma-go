@@ -39,7 +39,7 @@ const (
 
 type VoyageAIClient struct {
 	BaseAPI               string
-	apiKey                string
+	APIKey                embeddings.Secret `json:"-" validate:"required"`
 	DefaultModel          embeddings.EmbeddingModel
 	MaxBatchSize          int
 	DefaultHeaders        map[string]string
@@ -70,8 +70,8 @@ func applyDefaults(c *VoyageAIClient) {
 }
 
 func validate(c *VoyageAIClient) error {
-	if c.apiKey == "" {
-		return errors.New("API key is required")
+	if err := embeddings.NewValidator().Struct(c); err != nil {
+		return err
 	}
 	if c.MaxBatchSize < 1 {
 		return errors.New("max batch size must be greater than 0")
@@ -203,7 +203,7 @@ func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddi
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 
 	resp, err := c.Client.Do(httpReq)
 

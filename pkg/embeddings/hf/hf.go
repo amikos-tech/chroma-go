@@ -20,7 +20,7 @@ const (
 
 type HuggingFaceClient struct {
 	BaseURL        string
-	apiKey         string
+	APIKey         embeddings.Secret `json:"-"`
 	Model          string
 	Client         *http.Client
 	DefaultHeaders map[string]string
@@ -31,7 +31,7 @@ func NewHuggingFaceClient(apiKey string, model string) *HuggingFaceClient {
 	return &HuggingFaceClient{
 		BaseURL: "https://router.huggingface.co/hf-inference/models/",
 		Client:  &http.Client{},
-		apiKey:  apiKey,
+		APIKey:  embeddings.NewSecret(apiKey),
 		Model:   model,
 	}
 }
@@ -46,6 +46,11 @@ func NewHuggingFaceClientFromOptions(opts ...Option) (*HuggingFaceClient, error)
 		if err := opt(c); err != nil {
 			return nil, errors.Wrap(err, "failed to apply HuggingFace option")
 		}
+	}
+	// API key is only required for the public HuggingFace Inference API,
+	// not for self-hosted Text Embedding Inference (TEI) endpoints
+	if !c.IsHFEIEndpoint && c.APIKey.IsEmpty() {
+		return nil, errors.New("API key is required")
 	}
 	return c, nil
 }
@@ -92,8 +97,8 @@ func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbe
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	httpReq.Header.Set("Content-Type", "application/json")
-	if c.apiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	if !c.APIKey.IsEmpty() {
+		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 	}
 
 	resp, err := c.Client.Do(httpReq)

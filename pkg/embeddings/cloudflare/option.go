@@ -48,7 +48,7 @@ func WithDefaultHeaders(headers map[string]string) Option {
 
 func WithAPIToken(apiToken string) Option {
 	return func(p *CloudflareClient) error {
-		p.apiToken = apiToken
+		p.APIToken = embeddings.NewSecret(apiToken)
 		return nil
 	}
 }
@@ -66,7 +66,7 @@ func WithAccountID(accountID string) Option {
 func WithEnvAPIToken() Option {
 	return func(p *CloudflareClient) error {
 		if apiToken := os.Getenv("CF_API_TOKEN"); apiToken != "" {
-			p.apiToken = apiToken
+			p.APIToken = embeddings.NewSecret(apiToken)
 			return nil
 		}
 		return errors.Errorf("CF_API_TOKEN not set")
@@ -77,7 +77,7 @@ func WithEnvAPIToken() Option {
 func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *CloudflareClient) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
-			p.apiToken = apiKey
+			p.APIToken = embeddings.NewSecret(apiKey)
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

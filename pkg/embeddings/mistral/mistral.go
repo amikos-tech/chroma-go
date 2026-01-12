@@ -23,7 +23,7 @@ const (
 )
 
 type Client struct {
-	apiKey            string
+	APIKey            embeddings.Secret `json:"-" validate:"required"`
 	DefaultModel      string
 	Client            *http.Client
 	DefaultContext    *context.Context
@@ -54,10 +54,7 @@ func applyDefaults(c *Client) (err error) {
 }
 
 func validate(c *Client) error {
-	if c.apiKey == "" {
-		return errors.New("API key is required")
-	}
-	return nil
+	return embeddings.NewValidator().Struct(c)
 }
 
 func NewMistralClient(opts ...Option) (*Client, error) {
@@ -122,7 +119,7 @@ func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
@@ -202,6 +199,9 @@ func (e *MistralEmbeddingFunction) EmbedQuery(ctx context.Context, document stri
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
+	}
+	if len(response) == 0 {
+		return nil, errors.New("no embedding returned from Mistral API")
 	}
 	return response[0], nil
 }

@@ -12,7 +12,7 @@ type Option func(c *JinaEmbeddingFunction) error
 
 func WithAPIKey(apiKey string) Option {
 	return func(c *JinaEmbeddingFunction) error {
-		c.apiKey = apiKey
+		c.APIKey = embeddings.NewSecret(apiKey)
 		return nil
 	}
 }
@@ -22,7 +22,7 @@ func WithEnvAPIKey() Option {
 		if os.Getenv("JINA_API_KEY") == "" {
 			return errors.Errorf("JINA_API_KEY not set")
 		}
-		c.apiKey = os.Getenv("JINA_API_KEY")
+		c.APIKey = embeddings.NewSecret(os.Getenv("JINA_API_KEY"))
 		return nil
 	}
 }
@@ -31,7 +31,7 @@ func WithEnvAPIKey() Option {
 func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *JinaEmbeddingFunction) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
-			p.apiKey = apiKey
+			p.APIKey = embeddings.NewSecret(apiKey)
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

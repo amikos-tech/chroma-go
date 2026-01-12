@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 // Option is a function type that can be used to modify the client.
@@ -72,7 +74,7 @@ func WithDimensions(dimensions int) Option {
 func WithEnvAPIKey() Option {
 	return func(p *OpenAIClient) error {
 		if apiKey := os.Getenv(APIKeyEnvVar); apiKey != "" {
-			p.apiKey = apiKey
+			p.APIKey = embeddings.NewSecret(apiKey)
 			return nil
 		}
 		return errors.Errorf("%s not set", APIKeyEnvVar)
@@ -83,7 +85,7 @@ func WithEnvAPIKey() Option {
 func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *OpenAIClient) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
-			p.apiKey = apiKey
+			p.APIKey = embeddings.NewSecret(apiKey)
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

@@ -24,7 +24,7 @@ const (
 
 type Client struct {
 	BaseURL    string
-	apiKey     string
+	APIKey     embeddings.Secret `json:"-"`
 	Model      embeddings.EmbeddingModel
 	HTTPClient *http.Client
 	Insecure   bool
@@ -59,7 +59,7 @@ func applyDefaults(c *Client) {
 }
 
 func validate(c *Client) error {
-	if c.apiKey == "" {
+	if c.APIKey.IsEmpty() {
 		return errors.New("API key is required")
 	}
 	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
@@ -106,7 +106,7 @@ func (c *Client) embed(ctx context.Context, texts []string) ([]*embeddings.Spars
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	req.Header.Set("Cache-Control", "no-store")
-	req.Header.Set("x-chroma-token", c.apiKey)
+	req.Header.Set("x-chroma-token", c.APIKey.Value())
 	req.Header.Set("x-chroma-embedding-model", string(c.Model))
 
 	resp, err := c.HTTPClient.Do(req)

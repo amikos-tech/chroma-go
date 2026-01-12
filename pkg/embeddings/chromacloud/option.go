@@ -37,7 +37,7 @@ func WithAPIKey(apiKey string) Option {
 		if apiKey == "" {
 			return errors.New("API key cannot be empty")
 		}
-		c.apiKey = apiKey
+		c.APIKey = embeddings.NewSecret(apiKey)
 		return nil
 	}
 }
@@ -45,7 +45,7 @@ func WithAPIKey(apiKey string) Option {
 func WithEnvAPIKey() Option {
 	return func(c *Client) error {
 		if apiKey := os.Getenv(APIKeyEnvVar); apiKey != "" {
-			c.apiKey = apiKey
+			c.APIKey = embeddings.NewSecret(apiKey)
 			return nil
 		}
 		return errors.Errorf("%s not set", APIKeyEnvVar)
@@ -56,7 +56,7 @@ func WithEnvAPIKey() Option {
 func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *Client) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
-			p.apiKey = apiKey
+			p.APIKey = embeddings.NewSecret(apiKey)
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

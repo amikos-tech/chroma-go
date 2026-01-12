@@ -66,7 +66,7 @@ func getDefaults() *JinaEmbeddingFunction {
 
 type JinaEmbeddingFunction struct {
 	httpClient        *http.Client
-	apiKey            string
+	APIKey            embeddings.Secret `json:"-" validate:"required"`
 	defaultModel      embeddings.EmbeddingModel
 	embeddingEndpoint string
 	normalized        bool
@@ -82,8 +82,8 @@ func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
 			return nil, err
 		}
 	}
-	if ef.apiKey == "" {
-		return nil, errors.New("API key is required, use WithAPIKey() or WithEnvAPIKey()")
+	if err := embeddings.NewValidator().Struct(ef); err != nil {
+		return nil, errors.Wrap(err, "failed to validate Jina embedding function options")
 	}
 	return ef, nil
 }
@@ -102,7 +102,7 @@ func (e *JinaEmbeddingFunction) sendRequest(ctx context.Context, req *EmbeddingR
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+e.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+e.APIKey.Value())
 
 	resp, err := e.httpClient.Do(httpReq)
 	if err != nil {
