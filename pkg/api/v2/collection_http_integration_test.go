@@ -316,8 +316,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("update documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx,
-			"test_collection",
+		collection, err := createCollection("test_collection",
 			WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
 		)
 		require.NoError(t, err)
