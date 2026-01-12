@@ -368,6 +368,9 @@ func TestClientHTTPIntegration(t *testing.T) {
 	})
 
 	t.Run("auto-wire embedding function on GetCollection", func(t *testing.T) {
+		if !supportsEFConfig {
+			t.Skip("Skipping auto-wire test: Chroma version doesn't support EF config persistence")
+		}
 		err := c.Reset(ctx)
 		require.NoError(t, err)
 
@@ -395,6 +398,9 @@ func TestClientHTTPIntegration(t *testing.T) {
 	})
 
 	t.Run("auto-wire embedding function on ListCollections", func(t *testing.T) {
+		if !supportsEFConfig {
+			t.Skip("Skipping auto-wire test: Chroma version doesn't support EF config persistence")
+		}
 		err := c.Reset(ctx)
 		require.NoError(t, err)
 
@@ -421,6 +427,9 @@ func TestClientHTTPIntegration(t *testing.T) {
 	})
 
 	t.Run("explicit EF overrides auto-wire", func(t *testing.T) {
+		if !supportsEFConfig {
+			t.Skip("Skipping auto-wire test: Chroma version doesn't support EF config persistence")
+		}
 		err := c.Reset(ctx)
 		require.NoError(t, err)
 

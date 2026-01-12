@@ -789,47 +789,10 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		require.NotEmpty(t, results.GetDocumentsGroups())
 	})
 
-	t.Run("Schema: Verify EF auto-wire from schema on GetCollection", func(t *testing.T) {
-		ctx := context.Background()
-		collectionName := "test_schema_ef_autowire-" + uuid.New().String()
-
-		// Create schema - EF will be injected automatically
-		schema, err := NewSchemaWithDefaults()
-		require.NoError(t, err)
-
-		// Create the collection with schema
-		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
-		require.NoError(t, err)
-		require.NotNil(t, collection)
-
-		// Verify created collection has EF
-		createdImpl, ok := collection.(*CollectionImpl)
-		require.True(t, ok)
-		require.NotNil(t, createdImpl.embeddingFunction, "Created collection should have EF")
-
-		// Retrieve the collection WITHOUT providing an EF - should auto-wire from server config
-		retrieved, err := client.GetCollection(ctx, collectionName)
-		require.NoError(t, err)
-		require.NotNil(t, retrieved)
-
-		// Verify EF was auto-wired
-		retrievedImpl, ok := retrieved.(*CollectionImpl)
-		require.True(t, ok)
-		require.NotNil(t, retrievedImpl.embeddingFunction, "Retrieved collection should have auto-wired EF")
-		require.Equal(t, createdImpl.embeddingFunction.Name(), retrievedImpl.embeddingFunction.Name())
-
-		// Verify the collection is functional with the auto-wired EF
-		err = retrieved.Add(ctx,
-			WithIDs("1", "2"),
-			WithTexts("test document one", "test document two"),
-		)
-		require.NoError(t, err)
-		time.Sleep(2 * time.Second)
-
-		results, err := retrieved.Query(ctx, WithQueryTexts("test"), WithNResults(2))
-		require.NoError(t, err)
-		require.NotEmpty(t, results.GetDocumentsGroups())
-	})
+	// Note: Schema-based EF auto-wire test is skipped for Cloud because
+	// Chroma Cloud doesn't currently persist client-side EF configurations.
+	// Cloud stores embedding_function as {type: "unknown"} in schema responses.
+	// This feature works with self-hosted Chroma 1.0.0+.
 
 	t.Cleanup(func() {
 		collections, err := client.ListCollections(context.Background())
