@@ -123,7 +123,7 @@ func TestRerank(t *testing.T) {
 		{
 			name: "Test Rerank With Different Model",
 			rankingFunction: func() *JinaRerankingFunction {
-				rf, err := NewJinaRerankingFunction(WithEnvAPIKey(), WithModel("jina-reranker-v1-turbo-en"))
+				rf, err := NewJinaRerankingFunction(WithEnvAPIKey(), WithModel("jina-reranker-v2-base-multilingual"))
 				require.NoError(t, err, "Failed to create JinaRerankingFunction")
 				return rf
 			},
