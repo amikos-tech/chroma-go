@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/creasty/defaults"
 	"github.com/pkg/errors"
 
 	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
@@ -23,6 +24,7 @@ const (
 	TextEmbeddingAda002  EmbeddingModel = "text-embedding-ada-002"
 	TextEmbedding3Small  EmbeddingModel = "text-embedding-3-small"
 	TextEmbedding3Large  EmbeddingModel = "text-embedding-3-large"
+	APIKeyEnvVar                        = "OPENAI_API_KEY"
 )
 
 type Input struct {
@@ -91,52 +93,34 @@ func (c *CreateEmbeddingResponse) String() string {
 }
 
 type OpenAIClient struct {
-	BaseURL    string
-	APIKey     string
-	OrgID      string
-	Client     *http.Client
-	Model      string
-	Dimensions *int
-	User       string
-}
-
-func applyDefaults(c *OpenAIClient) {
-	if c.BaseURL == "" {
-		c.BaseURL = "https://api.openai.com/v1/"
-	}
-	if c.Client == nil {
-		c.Client = &http.Client{}
-	}
-	if c.User == "" {
-		c.User = chttp.ChromaGoClientUserAgent
-	}
-}
-
-func validate(c *OpenAIClient) error {
-	if c.APIKey == "" {
-		return errors.New("API key is required")
-	}
-	if c.BaseURL == "" {
-		return errors.New("Base URL is required")
-	}
-	return nil
+	BaseURL    string            `default:"https://api.openai.com/v1/" json:"base_url,omitempty"`
+	APIKey     embeddings.Secret `json:"-" validate:"required"`
+	OrgID      string            `json:"org_id,omitempty"`
+	Client     *http.Client      `json:"-"`
+	Model      string            `default:"text-embedding-ada-002" json:"model,omitempty"`
+	Dimensions *int              `json:"dimensions,omitempty"`
+	User       string            `json:"user,omitempty"`
 }
 
 func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
 	client := &OpenAIClient{
-		BaseURL: "https://api.openai.com/v1/",
-		Client:  &http.Client{},
-		APIKey:  apiKey,
-		Model:   string(TextEmbeddingAda002),
+		APIKey: embeddings.NewSecret(apiKey),
+	}
+	if err := defaults.Set(client); err != nil {
+		return nil, errors.Wrap(err, "failed to set defaults")
 	}
 	for _, opt := range opts {
-		err := opt(client)
-		if err != nil {
+		if err := opt(client); err != nil {
 			return nil, errors.Wrap(err, "failed to apply OpenAI option")
 		}
 	}
-	applyDefaults(client)
-	if err := validate(client); err != nil {
+	if client.Client == nil {
+		client.Client = &http.Client{}
+	}
+	if client.User == "" {
+		client.User = chttp.ChromaGoClientUserAgent
+	}
+	if err := embeddings.NewValidator().Struct(client); err != nil {
 		return nil, errors.Wrap(err, "failed to validate OpenAI client options")
 	}
 	return client, nil
@@ -162,7 +146,7 @@ func (c *OpenAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbedding
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 
 	// OpenAI Organization ID (Optional)
 	if c.OrgID != "" {
@@ -264,5 +248,69 @@ func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
-	return embeddings.NewEmbeddingFromFloat32(ConvertToMatrix(response)[0]), nil
+	matrix := ConvertToMatrix(response)
+	if len(matrix) == 0 {
+		return nil, errors.New("no embedding returned from OpenAI API")
+	}
+	return embeddings.NewEmbeddingFromFloat32(matrix[0]), nil
+}
+
+func (e *OpenAIEmbeddingFunction) Name() string {
+	return "openai"
+}
+
+func (e *OpenAIEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": APIKeyEnvVar,
+		"model_name":      e.apiClient.Model,
+	}
+	if e.apiClient.BaseURL != "" {
+		cfg["api_base"] = e.apiClient.BaseURL
+	}
+	if e.apiClient.Dimensions != nil {
+		cfg["dimensions"] = *e.apiClient.Dimensions
+	}
+	if e.apiClient.OrgID != "" {
+		cfg["organization_id"] = e.apiClient.OrgID
+	}
+	return cfg
+}
+
+func (e *OpenAIEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *OpenAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewOpenAIEmbeddingFunctionFromConfig creates an OpenAI embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name, api_base, organization_id, dimensions.
+func NewOpenAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*OpenAIEmbeddingFunction, error) {
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
+	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
+	if baseURL, ok := cfg["api_base"].(string); ok && baseURL != "" {
+		opts = append(opts, WithBaseURL(baseURL))
+	}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithModel(EmbeddingModel(model)))
+	}
+	if dims, ok := embeddings.ConfigInt(cfg, "dimensions"); ok && dims > 0 {
+		opts = append(opts, WithDimensions(dims))
+	}
+	if orgID, ok := cfg["organization_id"].(string); ok && orgID != "" {
+		opts = append(opts, WithOpenAIOrganizationID(orgID))
+	}
+	return NewOpenAIEmbeddingFunction("", opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterDense("openai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewOpenAIEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }

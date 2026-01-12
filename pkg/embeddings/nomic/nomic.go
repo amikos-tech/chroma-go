@@ -36,7 +36,7 @@ const (
 )
 
 type Client struct {
-	apiKey                   string
+	APIKey                   embeddings.Secret `json:"-" validate:"required"`
 	DefaultModel             embeddings.EmbeddingModel
 	Client                   *http.Client
 	DefaultContext           *context.Context
@@ -79,10 +79,7 @@ func applyDefaults(c *Client) (err error) {
 }
 
 func validate(c *Client) error {
-	if c.apiKey == "" {
-		return errors.New("API key is required")
-	}
-	return nil
+	return embeddings.NewValidator().Struct(c)
 }
 
 func NewNomicClient(opts ...Option) (*Client, error) {
@@ -140,7 +137,7 @@ func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
@@ -237,5 +234,49 @@ func (e *NomicEmbeddingFunction) EmbedQuery(ctx context.Context, document string
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response) == 0 {
+		return nil, errors.New("no embedding returned from Nomic API")
+	}
 	return response[0], nil
+}
+
+func (e *NomicEmbeddingFunction) Name() string {
+	return "nomic"
+}
+
+func (e *NomicEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	return embeddings.EmbeddingFunctionConfig{
+		"model_name":      string(e.apiClient.DefaultModel),
+		"api_key_env_var": APIKeyEnvVar,
+	}
+}
+
+func (e *NomicEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *NomicEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewNomicEmbeddingFunctionFromConfig creates a Nomic embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name.
+func NewNomicEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*NomicEmbeddingFunction, error) {
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
+	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewNomicEmbeddingFunction(opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterDense("nomic", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewNomicEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }

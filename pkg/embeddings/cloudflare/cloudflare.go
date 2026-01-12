@@ -21,16 +21,17 @@ const (
 	defaultBaseAPI = "https://api.cloudflare.com/client/v4/"
 	// https://developers.cloudflare.com/workers-ai/models/bge-small-en-v1.5/#api-schema (Input JSON Schema)
 	defaultMaxSize = 100
+	APIKeyEnvVar   = "CLOUDFLARE_API_TOKEN"
 )
 
 type CloudflareClient struct {
 	BaseAPI        string
 	endpoint       string
-	APIToken       string
-	AccountID      string
+	APIToken       embeddings.Secret `json:"-" validate:"required"`
+	AccountID      string            `validate:"required_if=IsGateway false"`
 	DefaultModel   embeddings.EmbeddingModel
 	IsGateway      bool
-	MaxBatchSize   int
+	MaxBatchSize   int `validate:"gt=0,lte=100"`
 	DefaultHeaders map[string]string
 	Client         *http.Client
 }
@@ -59,8 +60,8 @@ func applyDefaults(c *CloudflareClient) {
 }
 
 func validate(c *CloudflareClient) error {
-	if c.APIToken == "" {
-		return errors.Errorf("API key is required")
+	if err := embeddings.NewValidator().Struct(c); err != nil {
+		return err
 	}
 	if c.AccountID == "" && !c.IsGateway {
 		return errors.Errorf("account ID is required")
@@ -127,7 +128,7 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken.Value())
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed send request to Cloudflare API")
@@ -190,5 +191,63 @@ func (e *CloudflareEmbeddingFunction) EmbedQuery(ctx context.Context, document s
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response.Result.Data) == 0 {
+		return nil, errors.New("no embedding returned from Cloudflare API")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Result.Data[0]), nil
+}
+
+func (e *CloudflareEmbeddingFunction) Name() string {
+	return "cloudflare_workers_ai"
+}
+
+func (e *CloudflareEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"model_name":      string(e.apiClient.DefaultModel),
+		"api_key_env_var": APIKeyEnvVar,
+	}
+	if e.apiClient.IsGateway {
+		cfg["is_gateway"] = true
+		cfg["gateway_endpoint"] = e.apiClient.BaseAPI
+	} else {
+		cfg["account_id"] = e.apiClient.AccountID
+	}
+	return cfg
+}
+
+func (e *CloudflareEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *CloudflareEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewCloudflareEmbeddingFunctionFromConfig creates a Cloudflare embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name, account_id, is_gateway, gateway_endpoint.
+func NewCloudflareEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*CloudflareEmbeddingFunction, error) {
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
+	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
+	if isGateway, ok := cfg["is_gateway"].(bool); ok && isGateway {
+		if gatewayEndpoint, ok := cfg["gateway_endpoint"].(string); ok && gatewayEndpoint != "" {
+			opts = append(opts, WithGatewayEndpoint(gatewayEndpoint))
+		}
+	} else if accountID, ok := cfg["account_id"].(string); ok && accountID != "" {
+		opts = append(opts, WithAccountID(accountID))
+	}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewCloudflareEmbeddingFunction(opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterDense("cloudflare_workers_ai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewCloudflareEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }

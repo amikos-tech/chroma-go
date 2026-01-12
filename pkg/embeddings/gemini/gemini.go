@@ -17,7 +17,7 @@ const (
 )
 
 type Client struct {
-	apiKey         string
+	APIKey         embeddings.Secret `json:"-" validate:"required"`
 	DefaultModel   embeddings.EmbeddingModel
 	Client         *genai.Client
 	DefaultContext *context.Context
@@ -35,7 +35,7 @@ func applyDefaults(c *Client) (err error) {
 	}
 
 	if c.Client == nil {
-		c.Client, err = genai.NewClient(*c.DefaultContext, option.WithAPIKey(c.apiKey))
+		c.Client, err = genai.NewClient(*c.DefaultContext, option.WithAPIKey(c.APIKey.Value()))
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -44,10 +44,7 @@ func applyDefaults(c *Client) (err error) {
 }
 
 func validate(c *Client) error {
-	if c.apiKey == "" {
-		return errors.New("API key is required")
-	}
-	return nil
+	return embeddings.NewValidator().Struct(c)
 }
 
 func NewGeminiClient(opts ...Option) (*Client, error) {
@@ -141,5 +138,49 @@ func (e *GeminiEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response) == 0 {
+		return nil, errors.New("no embedding returned from Gemini API")
+	}
 	return response[0], nil
+}
+
+func (e *GeminiEmbeddingFunction) Name() string {
+	return "google_genai"
+}
+
+func (e *GeminiEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	return embeddings.EmbeddingFunctionConfig{
+		"model_name":      string(e.apiClient.DefaultModel),
+		"api_key_env_var": APIKeyEnvVar,
+	}
+}
+
+func (e *GeminiEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *GeminiEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewGeminiEmbeddingFunctionFromConfig creates a Gemini embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name.
+func NewGeminiEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*GeminiEmbeddingFunction, error) {
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
+	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewGeminiEmbeddingFunction(opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterDense("google_genai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewGeminiEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }

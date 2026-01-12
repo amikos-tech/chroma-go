@@ -77,7 +77,7 @@ func TestClient_Options(t *testing.T) {
 	t.Run("creates client with API key", func(t *testing.T) {
 		client, err := NewClient(WithAPIKey("test-key"))
 		require.NoError(t, err)
-		require.Equal(t, "test-key", client.APIKey)
+		require.Equal(t, "test-key", client.APIKey.Value())
 		require.Equal(t, defaultBaseURL, client.BaseURL)
 		require.Equal(t, defaultModel, string(client.Model))
 	})

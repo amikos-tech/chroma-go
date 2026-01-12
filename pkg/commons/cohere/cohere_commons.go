@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
 
 	httpc "github.com/amikos-tech/chroma-go/pkg/commons/http"
@@ -34,9 +33,9 @@ const (
 
 // CohereClient is a common struct for various Cohere integrations - Embeddings, Rerank etc.
 type CohereClient struct {
-	BaseURL       string     `validate:"required"`
-	APIVersion    APIVersion `validate:"required"`
-	apiKey        string     `validate:"required"`
+	BaseURL       string            `validate:"required"`
+	APIVersion    APIVersion        `validate:"required"`
+	APIKey        embeddings.Secret `json:"-" validate:"required"`
 	Client        *http.Client
 	DefaultModel  embeddings.EmbeddingModel `validate:"required"`
 	RetryStrategy httpc.RetryStrategy
@@ -55,12 +54,11 @@ func NewCohereClient(opts ...Option) (*CohereClient, error) {
 			return nil, errors.Wrap(err, "failed to apply Cohere option")
 		}
 	}
-	validate := validator.New(validator.WithRequiredStructEnabled(), validator.WithPrivateFieldValidation())
-	err := validate.Struct(client)
-	if err != nil {
+	if err := embeddings.NewValidator().Struct(client); err != nil {
 		return nil, errors.Wrap(err, "failed to validate Cohere client options")
 	}
 	if client.RetryStrategy == nil {
+		var err error
 		client.RetryStrategy, err = httpc.NewSimpleRetryStrategy(httpc.WithRetryableStatusCodes(429), httpc.WithExponentialBackOff())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create retry strategy")
@@ -86,7 +84,7 @@ func (c *CohereClient) GetRequest(ctx context.Context, method string, endpoint s
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", ClientName)
 	httpReq.Header.Set("X-Client-Name", ClientName)
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 	return httpReq, nil
 }
 
@@ -121,7 +119,7 @@ func WithAPIKey(apiKey string) Option {
 		if apiKey == "" {
 			return errors.New("API key cannot be empty")
 		}
-		p.apiKey = apiKey
+		p.APIKey = embeddings.NewSecret(apiKey)
 		return nil
 	}
 }
@@ -129,10 +127,21 @@ func WithAPIKey(apiKey string) Option {
 func WithEnvAPIKey() Option {
 	return func(p *CohereClient) error {
 		if apiKey := os.Getenv(APIKeyEnv); apiKey != "" {
-			p.apiKey = apiKey
+			p.APIKey = embeddings.NewSecret(apiKey)
 			return nil
 		}
 		return errors.Errorf("API key env variable %s not found or does not contain a key", APIKeyEnv)
+	}
+}
+
+// WithAPIKeyFromEnvVar sets the API key for the client from a specified environment variable
+func WithAPIKeyFromEnvVar(envVar string) Option {
+	return func(p *CohereClient) error {
+		if apiKey := os.Getenv(envVar); apiKey != "" {
+			p.APIKey = embeddings.NewSecret(apiKey)
+			return nil
+		}
+		return errors.Errorf("%s not set", envVar)
 	}
 }
 

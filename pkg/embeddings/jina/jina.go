@@ -21,6 +21,7 @@ const (
 	EmbeddingTypeFloat     EmbeddingType             = "float"
 	DefaultBaseAPIEndpoint                           = "https://api.jina.ai/v1/embeddings"
 	DefaultEmbeddingModel  embeddings.EmbeddingModel = "jina-embeddings-v3"
+	APIKeyEnvVar                                     = "JINA_API_KEY"
 
 	TaskRetrievalQuery   TaskType = "retrieval.query"
 	TaskRetrievalPassage TaskType = "retrieval.passage"
@@ -65,7 +66,7 @@ func getDefaults() *JinaEmbeddingFunction {
 
 type JinaEmbeddingFunction struct {
 	httpClient        *http.Client
-	apiKey            string
+	APIKey            embeddings.Secret `json:"-" validate:"required"`
 	defaultModel      embeddings.EmbeddingModel
 	embeddingEndpoint string
 	normalized        bool
@@ -81,8 +82,8 @@ func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
 			return nil, err
 		}
 	}
-	if ef.apiKey == "" {
-		return nil, errors.New("API key is required, use WithAPIKey() or WithEnvAPIKey()")
+	if err := embeddings.NewValidator().Struct(ef); err != nil {
+		return nil, errors.Wrap(err, "failed to validate Jina embedding function options")
 	}
 	return ef, nil
 }
@@ -101,7 +102,7 @@ func (e *JinaEmbeddingFunction) sendRequest(ctx context.Context, req *EmbeddingR
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+e.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+e.APIKey.Value())
 
 	resp, err := e.httpClient.Do(httpReq)
 	if err != nil {
@@ -192,4 +193,52 @@ func (e *JinaEmbeddingFunction) EmbedQuery(ctx context.Context, document string)
 		return nil, errors.New("empty embedding response from Jina API")
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
+}
+
+func (e *JinaEmbeddingFunction) Name() string {
+	return "jina"
+}
+
+func (e *JinaEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"model_name":      string(e.defaultModel),
+		"api_key_env_var": APIKeyEnvVar,
+	}
+	if e.embeddingEndpoint != "" {
+		cfg["base_url"] = e.embeddingEndpoint
+	}
+	return cfg
+}
+
+func (e *JinaEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *JinaEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewJinaEmbeddingFunctionFromConfig creates a Jina embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url.
+func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*JinaEmbeddingFunction, error) {
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
+	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
+	}
+	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
+		opts = append(opts, WithEmbeddingEndpoint(baseURL))
+	}
+	return NewJinaEmbeddingFunction(opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterDense("jina", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewJinaEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }

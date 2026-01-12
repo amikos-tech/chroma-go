@@ -2,8 +2,11 @@ package openai
 
 import (
 	"net/url"
+	"os"
 
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 // Option is a function type that can be used to modify the client.
@@ -64,5 +67,27 @@ func WithDimensions(dimensions int) Option {
 		}
 		c.Dimensions = &dimensions
 		return nil
+	}
+}
+
+// WithEnvAPIKey sets the API key for the client from the environment variable OPENAI_API_KEY
+func WithEnvAPIKey() Option {
+	return func(p *OpenAIClient) error {
+		if apiKey := os.Getenv(APIKeyEnvVar); apiKey != "" {
+			p.APIKey = embeddings.NewSecret(apiKey)
+			return nil
+		}
+		return errors.Errorf("%s not set", APIKeyEnvVar)
+	}
+}
+
+// WithAPIKeyFromEnvVar sets the API key for the client from a specified environment variable
+func WithAPIKeyFromEnvVar(envVar string) Option {
+	return func(p *OpenAIClient) error {
+		if apiKey := os.Getenv(envVar); apiKey != "" {
+			p.APIKey = embeddings.NewSecret(apiKey)
+			return nil
+		}
+		return errors.Errorf("%s not set", envVar)
 	}
 }

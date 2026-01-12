@@ -4,6 +4,8 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type Option func(p *HuggingFaceClient) error
@@ -23,7 +25,7 @@ func WithAPIKey(apiKey string) Option {
 		if apiKey == "" {
 			return errors.New("API key cannot be empty")
 		}
-		p.APIKey = apiKey
+		p.APIKey = embeddings.NewSecret(apiKey)
 		return nil
 	}
 }
@@ -33,8 +35,19 @@ func WithEnvAPIKey() Option {
 		if os.Getenv("HF_API_KEY") == "" {
 			return errors.New("HF_API_KEY not set")
 		}
-		p.APIKey = os.Getenv("HF_API_KEY")
+		p.APIKey = embeddings.NewSecret(os.Getenv("HF_API_KEY"))
 		return nil
+	}
+}
+
+// WithAPIKeyFromEnvVar sets the API key for the client from a specified environment variable
+func WithAPIKeyFromEnvVar(envVar string) Option {
+	return func(p *HuggingFaceClient) error {
+		if apiKey := os.Getenv(envVar); apiKey != "" {
+			p.APIKey = embeddings.NewSecret(apiKey)
+			return nil
+		}
+		return errors.Errorf("%s not set", envVar)
 	}
 }
 

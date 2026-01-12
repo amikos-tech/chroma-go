@@ -74,6 +74,19 @@ test-ef: gotestsum-bin
 		-coverprofile=coverage-ef.out \
 		-timeout=30m
 
+.PHONY: test-ef-cloud
+test-ef-cloud: gotestsum-bin
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=1 \
+		--packages="./..." \
+		--junitfile unit-ef-cloud.xml \
+		-- \
+		-v \
+		-tags=ef,cloud \
+		-coverprofile=coverage-ef-cloud.out \
+		-timeout=30m
+
 .PHONY: lint
 lint:
 	golangci-lint run

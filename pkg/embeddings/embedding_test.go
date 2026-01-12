@@ -130,3 +130,139 @@ func TestSparseVectorValidate(t *testing.T) {
 		require.Contains(t, err.Error(), "infinite")
 	})
 }
+
+func TestConfigInt(t *testing.T) {
+	t.Run("direct int value", func(t *testing.T) {
+		cfg := EmbeddingFunctionConfig{"value": 42}
+		val, ok := ConfigInt(cfg, "value")
+		require.True(t, ok)
+		require.Equal(t, 42, val)
+	})
+
+	t.Run("float64 from JSON unmarshal", func(t *testing.T) {
+		// Simulate JSON unmarshaling where numbers become float64
+		jsonStr := `{"value": 42}`
+		var cfg EmbeddingFunctionConfig
+		err := json.Unmarshal([]byte(jsonStr), &cfg)
+		require.NoError(t, err)
+
+		val, ok := ConfigInt(cfg, "value")
+		require.True(t, ok)
+		require.Equal(t, 42, val)
+	})
+
+	t.Run("missing key", func(t *testing.T) {
+		cfg := EmbeddingFunctionConfig{}
+		_, ok := ConfigInt(cfg, "value")
+		require.False(t, ok)
+	})
+
+	t.Run("wrong type", func(t *testing.T) {
+		cfg := EmbeddingFunctionConfig{"value": "not a number"}
+		_, ok := ConfigInt(cfg, "value")
+		require.False(t, ok)
+	})
+}
+
+func TestConfigFloat64(t *testing.T) {
+	t.Run("direct float64 value", func(t *testing.T) {
+		cfg := EmbeddingFunctionConfig{"value": 3.14}
+		val, ok := ConfigFloat64(cfg, "value")
+		require.True(t, ok)
+		require.Equal(t, 3.14, val)
+	})
+
+	t.Run("float64 from JSON unmarshal", func(t *testing.T) {
+		jsonStr := `{"value": 3.14}`
+		var cfg EmbeddingFunctionConfig
+		err := json.Unmarshal([]byte(jsonStr), &cfg)
+		require.NoError(t, err)
+
+		val, ok := ConfigFloat64(cfg, "value")
+		require.True(t, ok)
+		require.Equal(t, 3.14, val)
+	})
+
+	t.Run("int converted to float64", func(t *testing.T) {
+		cfg := EmbeddingFunctionConfig{"value": 42}
+		val, ok := ConfigFloat64(cfg, "value")
+		require.True(t, ok)
+		require.Equal(t, 42.0, val)
+	})
+
+	t.Run("missing key", func(t *testing.T) {
+		cfg := EmbeddingFunctionConfig{}
+		_, ok := ConfigFloat64(cfg, "value")
+		require.False(t, ok)
+	})
+}
+
+func TestConfigStringSlice(t *testing.T) {
+	t.Run("direct string slice", func(t *testing.T) {
+		cfg := EmbeddingFunctionConfig{"words": []string{"hello", "world"}}
+		val, ok := ConfigStringSlice(cfg, "words")
+		require.True(t, ok)
+		require.Equal(t, []string{"hello", "world"}, val)
+	})
+
+	t.Run("[]any from JSON unmarshal", func(t *testing.T) {
+		// Simulate JSON unmarshaling where arrays become []any
+		jsonStr := `{"words": ["hello", "world"]}`
+		var cfg EmbeddingFunctionConfig
+		err := json.Unmarshal([]byte(jsonStr), &cfg)
+		require.NoError(t, err)
+
+		val, ok := ConfigStringSlice(cfg, "words")
+		require.True(t, ok)
+		require.Equal(t, []string{"hello", "world"}, val)
+	})
+
+	t.Run("missing key", func(t *testing.T) {
+		cfg := EmbeddingFunctionConfig{}
+		_, ok := ConfigStringSlice(cfg, "words")
+		require.False(t, ok)
+	})
+
+	t.Run("mixed types in array", func(t *testing.T) {
+		cfg := EmbeddingFunctionConfig{"words": []any{"hello", 42}}
+		_, ok := ConfigStringSlice(cfg, "words")
+		require.False(t, ok) // Should fail because not all elements are strings
+	})
+}
+
+func TestConfigJSONRoundTrip(t *testing.T) {
+	t.Run("full config round-trip", func(t *testing.T) {
+		original := EmbeddingFunctionConfig{
+			"int_value":    42,
+			"float_value":  3.14,
+			"string_value": "hello",
+			"string_slice": []string{"a", "b", "c"},
+		}
+
+		// Marshal to JSON
+		jsonBytes, err := json.Marshal(original)
+		require.NoError(t, err)
+
+		// Unmarshal from JSON
+		var restored EmbeddingFunctionConfig
+		err = json.Unmarshal(jsonBytes, &restored)
+		require.NoError(t, err)
+
+		// Verify values can be extracted with helpers
+		intVal, ok := ConfigInt(restored, "int_value")
+		require.True(t, ok)
+		require.Equal(t, 42, intVal)
+
+		floatVal, ok := ConfigFloat64(restored, "float_value")
+		require.True(t, ok)
+		require.Equal(t, 3.14, floatVal)
+
+		strVal, ok := restored["string_value"].(string)
+		require.True(t, ok)
+		require.Equal(t, "hello", strVal)
+
+		sliceVal, ok := ConfigStringSlice(restored, "string_slice")
+		require.True(t, ok)
+		require.Equal(t, []string{"a", "b", "c"}, sliceVal)
+	})
+}

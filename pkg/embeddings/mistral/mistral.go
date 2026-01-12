@@ -23,7 +23,7 @@ const (
 )
 
 type Client struct {
-	apiKey            string
+	APIKey            embeddings.Secret `json:"-" validate:"required"`
 	DefaultModel      string
 	Client            *http.Client
 	DefaultContext    *context.Context
@@ -54,10 +54,7 @@ func applyDefaults(c *Client) (err error) {
 }
 
 func validate(c *Client) error {
-	if c.apiKey == "" {
-		return errors.New("API key is required")
-	}
-	return nil
+	return embeddings.NewValidator().Struct(c)
 }
 
 func NewMistralClient(opts ...Option) (*Client, error) {
@@ -122,7 +119,7 @@ func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
@@ -203,5 +200,49 @@ func (e *MistralEmbeddingFunction) EmbedQuery(ctx context.Context, document stri
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response) == 0 {
+		return nil, errors.New("no embedding returned from Mistral API")
+	}
 	return response[0], nil
+}
+
+func (e *MistralEmbeddingFunction) Name() string {
+	return "mistral"
+}
+
+func (e *MistralEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	return embeddings.EmbeddingFunctionConfig{
+		"model_name":      e.apiClient.DefaultModel,
+		"api_key_env_var": APIKeyEnvVar,
+	}
+}
+
+func (e *MistralEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *MistralEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewMistralEmbeddingFunctionFromConfig creates a Mistral embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name.
+func NewMistralEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*MistralEmbeddingFunction, error) {
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
+	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(model))
+	}
+	return NewMistralEmbeddingFunction(opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterDense("mistral", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewMistralEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }

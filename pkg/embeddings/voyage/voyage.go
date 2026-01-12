@@ -39,7 +39,7 @@ const (
 
 type VoyageAIClient struct {
 	BaseAPI               string
-	APIKey                string
+	APIKey                embeddings.Secret `json:"-" validate:"required"`
 	DefaultModel          embeddings.EmbeddingModel
 	MaxBatchSize          int
 	DefaultHeaders        map[string]string
@@ -70,8 +70,8 @@ func applyDefaults(c *VoyageAIClient) {
 }
 
 func validate(c *VoyageAIClient) error {
-	if c.APIKey == "" {
-		return errors.New("API key is required")
+	if err := embeddings.NewValidator().Struct(c); err != nil {
+		return err
 	}
 	if c.MaxBatchSize < 1 {
 		return errors.New("max batch size must be greater than 0")
@@ -203,7 +203,7 @@ func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddi
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 
 	resp, err := c.Client.Do(httpReq)
 
@@ -297,6 +297,9 @@ func (e *VoyageAIEmbeddingFunction) EmbedDocuments(ctx context.Context, document
 	}
 	embs := make([]embeddings.Embedding, 0, len(response.Data))
 	for _, result := range response.Data {
+		if result.Embedding == nil {
+			return nil, errors.New("nil embedding in VoyageAI API response")
+		}
 		embs = append(embs, embeddings.NewEmbeddingFromFloat32(result.Embedding.Floats))
 	}
 	return embs, nil
@@ -314,5 +317,59 @@ func (e *VoyageAIEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response.Data) == 0 {
+		return nil, errors.New("no embedding returned from VoyageAI API")
+	}
+	if response.Data[0].Embedding == nil {
+		return nil, errors.New("nil embedding in VoyageAI API response")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding.Floats), nil
+}
+
+func (e *VoyageAIEmbeddingFunction) Name() string {
+	return "voyageai"
+}
+
+func (e *VoyageAIEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": APIKeyEnvVar,
+		"model_name":      string(e.apiClient.DefaultModel),
+	}
+	if e.apiClient.BaseAPI != "" {
+		cfg["base_url"] = e.apiClient.BaseAPI
+	}
+	return cfg
+}
+
+func (e *VoyageAIEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *VoyageAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewVoyageAIEmbeddingFunctionFromConfig creates a VoyageAI embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url.
+func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*VoyageAIEmbeddingFunction, error) {
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
+	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
+		opts = append(opts, WithBaseURL(baseURL))
+	}
+	return NewVoyageAIEmbeddingFunction(opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterDense("voyageai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewVoyageAIEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }

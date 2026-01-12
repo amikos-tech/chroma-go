@@ -87,7 +87,7 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 	t.Run("Test EmbedDocuments with too large init batch", func(t *testing.T) {
 		_, err := NewCloudflareEmbeddingFunction(WithEnvAPIToken(), WithEnvAccountID(), WithMaxBatchSize(200))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "max batch size must be less than")
+		require.Contains(t, err.Error(), "MaxBatchSize")
 	})
 
 	t.Run("Test EmbedDocuments with too large batch at inference", func(t *testing.T) {

@@ -22,7 +22,7 @@ func Test_client(t *testing.T) {
 		}
 		apiKey = os.Getenv("TOGETHER_API_KEY")
 	}
-	client, err := NewTogetherClient(WithEnvAPIKey())
+	client, err := NewTogetherClient(WithEnvAPIToken())
 	require.NoError(t, err)
 
 	t.Run("Test CreateEmbedding", func(t *testing.T) {
@@ -49,7 +49,7 @@ func Test_together_embedding_function(t *testing.T) {
 	}
 
 	t.Run("Test EmbedDocuments with env-based API Key", func(t *testing.T) {
-		client, err := NewTogetherEmbeddingFunction(WithEnvAPIKey())
+		client, err := NewTogetherEmbeddingFunction(WithEnvAPIToken())
 		require.NoError(t, err)
 		resp, rerr := client.EmbedDocuments(context.Background(), []string{"Test document", "Another test document"})
 
@@ -61,7 +61,7 @@ func Test_together_embedding_function(t *testing.T) {
 	})
 
 	t.Run("Test EmbedDocuments for model with env-based API Key", func(t *testing.T) {
-		client, err := NewTogetherEmbeddingFunction(WithEnvAPIKey(), WithDefaultModel("BAAI/bge-base-en-v1.5"))
+		client, err := NewTogetherEmbeddingFunction(WithEnvAPIToken(), WithDefaultModel("BAAI/bge-base-en-v1.5"))
 		require.NoError(t, err)
 		resp, rerr := client.EmbedDocuments(context.Background(), []string{"Test document", "Another test document"})
 
@@ -72,13 +72,13 @@ func Test_together_embedding_function(t *testing.T) {
 	})
 
 	t.Run("Test EmbedDocuments with too large init batch", func(t *testing.T) {
-		_, err := NewTogetherEmbeddingFunction(WithEnvAPIKey(), WithMaxBatchSize(200))
+		_, err := NewTogetherEmbeddingFunction(WithEnvAPIToken(), WithMaxBatchSize(200))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "max batch size must be less than")
 	})
 
 	t.Run("Test EmbedDocuments with too large batch at inference", func(t *testing.T) {
-		client, err := NewTogetherEmbeddingFunction(WithEnvAPIKey())
+		client, err := NewTogetherEmbeddingFunction(WithEnvAPIToken())
 		require.NoError(t, err)
 		docs200 := make([]string, 200)
 		for i := 0; i < 200; i++ {
@@ -90,7 +90,7 @@ func Test_together_embedding_function(t *testing.T) {
 	})
 
 	t.Run("Test EmbedQuery", func(t *testing.T) {
-		client, err := NewTogetherEmbeddingFunction(WithEnvAPIKey())
+		client, err := NewTogetherEmbeddingFunction(WithEnvAPIToken())
 		require.NoError(t, err)
 		resp, err := client.EmbedQuery(context.Background(), "Test query")
 		require.Nil(t, err)
@@ -99,7 +99,7 @@ func Test_together_embedding_function(t *testing.T) {
 	})
 
 	t.Run("Test EmbedDocuments with env-based API Key and WithDefaultHeaders", func(t *testing.T) {
-		client, err := NewTogetherEmbeddingFunction(WithEnvAPIKey(), WithDefaultModel("BAAI/bge-base-en-v1.5"), WithDefaultHeaders(map[string]string{"X-Test-Header": "test"}))
+		client, err := NewTogetherEmbeddingFunction(WithEnvAPIToken(), WithDefaultModel("BAAI/bge-base-en-v1.5"), WithDefaultHeaders(map[string]string{"X-Test-Header": "test"}))
 		require.NoError(t, err)
 		resp, rerr := client.EmbedDocuments(context.Background(), []string{"Test document", "Another test document"})
 

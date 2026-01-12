@@ -43,7 +43,7 @@ func WithAPIKey(apiToken string) Option {
 		if apiToken == "" {
 			return errors.New("API key cannot be empty")
 		}
-		p.APIKey = apiToken
+		p.APIKey = embeddings.NewSecret(apiToken)
 		return nil
 	}
 }
@@ -51,10 +51,21 @@ func WithAPIKey(apiToken string) Option {
 func WithEnvAPIKey() Option {
 	return func(p *VoyageAIClient) error {
 		if apiToken := os.Getenv(APIKeyEnvVar); apiToken != "" {
-			p.APIKey = apiToken
+			p.APIKey = embeddings.NewSecret(apiToken)
 			return nil
 		}
 		return errors.Errorf("%s not set", APIKeyEnvVar)
+	}
+}
+
+// WithAPIKeyFromEnvVar sets the API key for the client from a specified environment variable
+func WithAPIKeyFromEnvVar(envVar string) Option {
+	return func(p *VoyageAIClient) error {
+		if apiKey := os.Getenv(envVar); apiKey != "" {
+			p.APIKey = embeddings.NewSecret(apiKey)
+			return nil
+		}
+		return errors.Errorf("%s not set", envVar)
 	}
 }
 
@@ -82,6 +93,16 @@ func WithEncodingFormat(format EncodingFormat) Option {
 		}
 		var defaultEncodingFormat = format
 		p.DefaultEncodingFormat = &defaultEncodingFormat
+		return nil
+	}
+}
+
+func WithBaseURL(baseURL string) Option {
+	return func(p *VoyageAIClient) error {
+		if baseURL == "" {
+			return errors.New("base URL cannot be empty")
+		}
+		p.BaseAPI = baseURL
 		return nil
 	}
 }

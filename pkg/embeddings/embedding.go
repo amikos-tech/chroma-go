@@ -219,11 +219,23 @@ func (e *Int32Embedding) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// EmbeddingFunctionConfig represents serializable configuration for an embedding function.
+// Used for cross-language compatibility and config persistence.
+type EmbeddingFunctionConfig map[string]interface{}
+
 type EmbeddingFunction interface {
 	// EmbedDocuments returns a vector for each text.
 	EmbedDocuments(ctx context.Context, texts []string) ([]Embedding, error)
 	// EmbedQuery embeds a single text.
 	EmbedQuery(ctx context.Context, text string) (Embedding, error)
+	// Name returns the static identifier for this embedding function (e.g., "openai", "cohere").
+	Name() string
+	// GetConfig returns the current configuration as a serializable map.
+	GetConfig() EmbeddingFunctionConfig
+	// DefaultSpace returns the recommended distance metric for this embedding function.
+	DefaultSpace() DistanceMetric
+	// SupportedSpaces returns all distance metrics supported by this embedding function.
+	SupportedSpaces() []DistanceMetric
 }
 
 type SparseEmbeddingFunction interface {
@@ -231,6 +243,17 @@ type SparseEmbeddingFunction interface {
 	EmbedDocumentsSparse(ctx context.Context, texts []string) ([]*SparseVector, error)
 	// EmbedQuerySparse embeds a single text as a sparse vector.
 	EmbedQuerySparse(ctx context.Context, text string) (*SparseVector, error)
+	// Name returns the static identifier for this sparse embedding function (e.g., "bm25", "splade").
+	Name() string
+	// GetConfig returns the current configuration as a serializable map.
+	GetConfig() EmbeddingFunctionConfig
+}
+
+// Closeable is an optional interface for embedding functions that hold resources.
+// Callers should check if an embedding function implements this interface and call
+// Close() when done to release resources (e.g., ONNX runtime, native libraries).
+type Closeable interface {
+	Close() error
 }
 
 func NewEmbeddingFromFloat32(embedding []float32) Embedding {
@@ -404,6 +427,84 @@ func (e *ConsistentHashEmbeddingFunction) EmbedDocuments(ctx context.Context, do
 	return embeddings, nil
 }
 
+func (e *ConsistentHashEmbeddingFunction) Name() string {
+	return "consistent_hash"
+}
+
+func (e *ConsistentHashEmbeddingFunction) GetConfig() EmbeddingFunctionConfig {
+	return EmbeddingFunctionConfig{
+		"dim": e.dim,
+	}
+}
+
+func (e *ConsistentHashEmbeddingFunction) DefaultSpace() DistanceMetric {
+	return L2
+}
+
+func (e *ConsistentHashEmbeddingFunction) SupportedSpaces() []DistanceMetric {
+	return []DistanceMetric{L2, COSINE, IP}
+}
+
 // func (e *ConsistentHashEmbeddingFunction) EmbedRecords(ctx context.Context, records []v2.Record, force bool) error {
 //	return EmbedRecordsDefaultImpl(e, ctx, records, force)
 //}
+
+// ConfigInt extracts an integer from EmbeddingFunctionConfig.
+// Handles both int (direct assignment) and float64 (JSON unmarshaling).
+func ConfigInt(cfg EmbeddingFunctionConfig, key string) (int, bool) {
+	val, exists := cfg[key]
+	if !exists {
+		return 0, false
+	}
+	switch v := val.(type) {
+	case int:
+		return v, true
+	case float64:
+		return int(v), true
+	case int64:
+		return int(v), true
+	}
+	return 0, false
+}
+
+// ConfigFloat64 extracts a float64 from EmbeddingFunctionConfig.
+// Handles both float64 and int types.
+func ConfigFloat64(cfg EmbeddingFunctionConfig, key string) (float64, bool) {
+	val, exists := cfg[key]
+	if !exists {
+		return 0, false
+	}
+	switch v := val.(type) {
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	}
+	return 0, false
+}
+
+// ConfigStringSlice extracts a []string from EmbeddingFunctionConfig.
+// Handles both []string (direct assignment) and []interface{} (JSON unmarshaling).
+func ConfigStringSlice(cfg EmbeddingFunctionConfig, key string) ([]string, bool) {
+	val, exists := cfg[key]
+	if !exists {
+		return nil, false
+	}
+	switch v := val.(type) {
+	case []string:
+		return v, true
+	case []any:
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				result = append(result, s)
+			}
+		}
+		if len(result) == len(v) {
+			return result, true
+		}
+	}
+	return nil, false
+}

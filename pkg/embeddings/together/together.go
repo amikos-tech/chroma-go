@@ -19,11 +19,12 @@ const (
 	defaultBaseAPI = "https://api.together.xyz/v1/embeddings"
 	// https://docs.together.ai/reference/embeddings
 	defaultMaxSize = 100
+	APIKeyEnvVar   = "TOGETHER_API_KEY"
 )
 
 type TogetherAIClient struct {
 	BaseAPI        string
-	APIToken       string
+	APIToken       embeddings.Secret `json:"-" validate:"required"`
 	DefaultModel   embeddings.EmbeddingModel
 	MaxBatchSize   int
 	DefaultHeaders map[string]string
@@ -46,8 +47,8 @@ func applyDefaults(c *TogetherAIClient) {
 }
 
 func validate(c *TogetherAIClient) error {
-	if c.APIToken == "" {
-		return errors.New("API key is required")
+	if err := embeddings.NewValidator().Struct(c); err != nil {
+		return err
 	}
 	if c.MaxBatchSize <= 0 {
 		return errors.New("max batch size must be greater than 0")
@@ -130,7 +131,7 @@ func (c *TogetherAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIToken.Value())
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request to TogetherAI API")
@@ -207,5 +208,50 @@ func (e *TogetherEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response.Data) == 0 {
+		return nil, errors.New("no embedding returned from TogetherAI API")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
+}
+
+func (e *TogetherEmbeddingFunction) Name() string {
+	return "together_ai"
+}
+
+func (e *TogetherEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"model_name":      string(e.apiClient.DefaultModel),
+		"api_key_env_var": APIKeyEnvVar,
+	}
+	return cfg
+}
+
+func (e *TogetherEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *TogetherEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewTogetherEmbeddingFunctionFromConfig creates a Together embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name.
+func NewTogetherEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*TogetherEmbeddingFunction, error) {
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
+	}
+	opts := []Option{WithAPITokenFromEnvVar(envVar)}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewTogetherEmbeddingFunction(opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterDense("together_ai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewTogetherEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }

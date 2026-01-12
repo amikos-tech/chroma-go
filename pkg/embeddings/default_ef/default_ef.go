@@ -19,7 +19,10 @@ import (
 
 type Option func(p *DefaultEmbeddingFunction) error
 
-var _ embeddings.EmbeddingFunction = (*DefaultEmbeddingFunction)(nil)
+var (
+	_ embeddings.EmbeddingFunction = (*DefaultEmbeddingFunction)(nil)
+	_ embeddings.Closeable         = (*DefaultEmbeddingFunction)(nil)
+)
 
 type DefaultEmbeddingFunction struct {
 	tokenizer *tokenizers.Tokenizer
@@ -391,4 +394,39 @@ func (arc *AtomicRefCounter) Decrement() {
 
 func (arc *AtomicRefCounter) GetCount() int32 {
 	return atomic.LoadInt32(&arc.count)
+}
+
+func (e *DefaultEmbeddingFunction) Name() string {
+	return "onnx_mini_lm_l6_v2"
+}
+
+func (e *DefaultEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	return embeddings.EmbeddingFunctionConfig{}
+}
+
+func (e *DefaultEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.L2
+}
+
+func (e *DefaultEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.L2, embeddings.COSINE, embeddings.IP}
+}
+
+// NewDefaultEmbeddingFunctionFromConfig creates a default embedding function from a config map.
+// The returned EmbeddingFunction implements Closeable; callers should type-assert
+// and call Close() when done to release ONNX runtime and tokenizer resources.
+//
+// TODO: The closer function is discarded here. Consider adding a BuildDenseCloseable
+// variant to the registry or documenting that callers must type-assert to Closeable.
+func NewDefaultEmbeddingFunctionFromConfig(_ embeddings.EmbeddingFunctionConfig) (*DefaultEmbeddingFunction, error) {
+	ef, _, err := NewDefaultEmbeddingFunction()
+	return ef, err
+}
+
+func init() {
+	if err := embeddings.RegisterDense("onnx_mini_lm_l6_v2", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewDefaultEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }

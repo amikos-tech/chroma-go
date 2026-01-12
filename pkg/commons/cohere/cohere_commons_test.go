@@ -20,7 +20,7 @@ func TestValidations(t *testing.T) {
 			options: []Option{
 				WithDefaultModel("model"),
 			},
-			expectedError: "'apiKey' failed on the 'required'",
+			expectedError: "'APIKey' failed on the 'required'",
 		},
 		{
 			name: "Test without default model",

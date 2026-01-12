@@ -282,3 +282,45 @@ func int32FromInt8Embeddings(embeddings [][]int8) [][]int32 {
 	}
 	return int32s
 }
+
+func (c *CohereEmbeddingFunction) Name() string {
+	return "cohere"
+}
+
+func (c *CohereEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": ccommons.APIKeyEnv,
+		"model_name":      string(c.DefaultModel),
+	}
+	return cfg
+}
+
+func (c *CohereEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (c *CohereEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewCohereEmbeddingFunctionFromConfig creates a Cohere embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name.
+func NewCohereEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*CohereEmbeddingFunction, error) {
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
+	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
+	}
+	return NewCohereEmbeddingFunction(opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterDense("cohere", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewCohereEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
+}

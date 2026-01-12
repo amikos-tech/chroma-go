@@ -24,7 +24,7 @@ const (
 
 type Client struct {
 	BaseURL    string
-	APIKey     string
+	APIKey     embeddings.Secret `json:"-"`
 	Model      embeddings.EmbeddingModel
 	HTTPClient *http.Client
 	Insecure   bool
@@ -59,7 +59,7 @@ func applyDefaults(c *Client) {
 }
 
 func validate(c *Client) error {
-	if c.APIKey == "" {
+	if c.APIKey.IsEmpty() {
 		return errors.New("API key is required")
 	}
 	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
@@ -106,7 +106,7 @@ func (c *Client) embed(ctx context.Context, texts []string) ([]*embeddings.Spars
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	req.Header.Set("Cache-Control", "no-store")
-	req.Header.Set("x-chroma-token", c.APIKey)
+	req.Header.Set("x-chroma-token", c.APIKey.Value())
 	req.Header.Set("x-chroma-embedding-model", string(c.Model))
 
 	resp, err := c.HTTPClient.Do(req)
@@ -181,4 +181,44 @@ func (e *EmbeddingFunction) EmbedQuerySparse(ctx context.Context, query string) 
 		return nil, errors.New("no embedding returned")
 	}
 	return vectors[0], nil
+}
+
+func (e *EmbeddingFunction) Name() string {
+	return "chroma_splade"
+}
+
+func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"model_name":      string(e.client.Model),
+		"api_key_env_var": APIKeyEnvVar,
+	}
+	if e.client.BaseURL != "" {
+		cfg["base_url"] = e.client.BaseURL
+	}
+	return cfg
+}
+
+// NewEmbeddingFunctionFromConfig creates a ChromaCloud Splade embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url.
+func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*EmbeddingFunction, error) {
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
+	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
+	}
+	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
+		opts = append(opts, WithBaseURL(baseURL))
+	}
+	return NewEmbeddingFunction(opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterSparse("chroma_splade", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
+		return NewEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }

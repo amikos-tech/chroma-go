@@ -14,9 +14,13 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
+const (
+	APIKeyEnvVar = "HF_API_KEY"
+)
+
 type HuggingFaceClient struct {
 	BaseURL        string
-	APIKey         string
+	APIKey         embeddings.Secret `json:"-"`
 	Model          string
 	Client         *http.Client
 	DefaultHeaders map[string]string
@@ -27,7 +31,7 @@ func NewHuggingFaceClient(apiKey string, model string) *HuggingFaceClient {
 	return &HuggingFaceClient{
 		BaseURL: "https://router.huggingface.co/hf-inference/models/",
 		Client:  &http.Client{},
-		APIKey:  apiKey,
+		APIKey:  embeddings.NewSecret(apiKey),
 		Model:   model,
 	}
 }
@@ -42,6 +46,11 @@ func NewHuggingFaceClientFromOptions(opts ...Option) (*HuggingFaceClient, error)
 		if err := opt(c); err != nil {
 			return nil, errors.Wrap(err, "failed to apply HuggingFace option")
 		}
+	}
+	// API key is only required for the public HuggingFace Inference API,
+	// not for self-hosted Text Embedding Inference (TEI) endpoints
+	if !c.IsHFEIEndpoint && c.APIKey.IsEmpty() {
+		return nil, errors.New("API key is required")
 	}
 	return c, nil
 }
@@ -88,8 +97,8 @@ func (c *HuggingFaceClient) CreateEmbedding(ctx context.Context, req *CreateEmbe
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
 	httpReq.Header.Set("Content-Type", "application/json")
-	if c.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	if !c.APIKey.IsEmpty() {
+		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 	}
 
 	resp, err := c.Client.Do(httpReq)
@@ -172,5 +181,55 @@ func (e *HuggingFaceEmbeddingFunction) EmbedQuery(ctx context.Context, document 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response.Embeddings) == 0 {
+		return nil, errors.New("no embedding returned from HuggingFace API")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
+}
+
+func (e *HuggingFaceEmbeddingFunction) Name() string {
+	return "huggingface"
+}
+
+func (e *HuggingFaceEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"model_name":      e.apiClient.Model,
+		"api_key_env_var": APIKeyEnvVar,
+	}
+	if e.apiClient.BaseURL != "" {
+		cfg["base_url"] = e.apiClient.BaseURL
+	}
+	return cfg
+}
+
+func (e *HuggingFaceEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (e *HuggingFaceEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
+}
+
+// NewHuggingFaceEmbeddingFunctionFromConfig creates a HuggingFace embedding function from a config map.
+// Uses schema-compliant field names: model_name, api_key_env_var, base_url.
+func NewHuggingFaceEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*HuggingFaceEmbeddingFunction, error) {
+	opts := make([]Option, 0)
+	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
+		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
+	}
+	if model, ok := cfg["model_name"].(string); ok && model != "" {
+		opts = append(opts, WithModel(model))
+	}
+	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
+		opts = append(opts, WithBaseURL(baseURL))
+	}
+	return NewHuggingFaceEmbeddingFunctionFromOptions(opts...)
+}
+
+func init() {
+	if err := embeddings.RegisterDense("huggingface", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewHuggingFaceEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
 }
