@@ -332,6 +332,62 @@ type VectorIndexConfig struct {
 	Spann             *SpannIndexConfig            `json:"spann,omitempty"`
 }
 
+// vectorIndexConfigJSON is the JSON representation of VectorIndexConfig
+type vectorIndexConfigJSON struct {
+	Space             Space                  `json:"space,omitempty"`
+	EmbeddingFunction *EmbeddingFunctionInfo `json:"embedding_function,omitempty"`
+	SourceKey         string                 `json:"source_key,omitempty"`
+	Hnsw              *HnswIndexConfig       `json:"hnsw,omitempty"`
+	Spann             *SpannIndexConfig      `json:"spann,omitempty"`
+}
+
+// MarshalJSON serializes VectorIndexConfig to JSON, including EmbeddingFunction as EmbeddingFunctionInfo
+func (v *VectorIndexConfig) MarshalJSON() ([]byte, error) {
+	j := vectorIndexConfigJSON{
+		Space:     v.Space,
+		SourceKey: v.SourceKey,
+		Hnsw:      v.Hnsw,
+		Spann:     v.Spann,
+	}
+
+	// Convert EmbeddingFunction to EmbeddingFunctionInfo if present
+	if v.EmbeddingFunction != nil {
+		j.EmbeddingFunction = &EmbeddingFunctionInfo{
+			Type:   efTypeKnown,
+			Name:   v.EmbeddingFunction.Name(),
+			Config: v.EmbeddingFunction.GetConfig(),
+		}
+	}
+
+	return json.Marshal(j)
+}
+
+// UnmarshalJSON deserializes VectorIndexConfig from JSON, optionally reconstructing EmbeddingFunction
+func (v *VectorIndexConfig) UnmarshalJSON(data []byte) error {
+	var j vectorIndexConfigJSON
+	if err := json.Unmarshal(data, &j); err != nil {
+		return errors.Wrap(err, "failed to unmarshal vector index config")
+	}
+
+	v.Space = j.Space
+	v.SourceKey = j.SourceKey
+	v.Hnsw = j.Hnsw
+	v.Spann = j.Spann
+
+	// Try to reconstruct EmbeddingFunction from EmbeddingFunctionInfo
+	if j.EmbeddingFunction != nil && j.EmbeddingFunction.IsKnown() {
+		if embeddings.HasDense(j.EmbeddingFunction.Name) {
+			ef, err := embeddings.BuildDense(j.EmbeddingFunction.Name, j.EmbeddingFunction.Config)
+			if err == nil {
+				v.EmbeddingFunction = ef
+			}
+			// Silently ignore build errors - EF will be nil
+		}
+	}
+
+	return nil
+}
+
 // VectorIndexOption configures a VectorIndexConfig
 type VectorIndexOption func(*VectorIndexConfig)
 
@@ -1013,4 +1069,59 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 		s.keys = make(map[string]*ValueTypes)
 	}
 	return nil
+}
+
+// GetEmbeddingFunction returns the EmbeddingFunction from the default vector index (#embedding key)
+// Returns nil if no vector index is configured or if the EmbeddingFunction couldn't be reconstructed
+func (s *Schema) GetEmbeddingFunction() embeddings.EmbeddingFunction {
+	if s == nil || s.keys == nil {
+		return nil
+	}
+
+	// Check #embedding key first (default vector index location)
+	if vt, ok := s.keys[EmbeddingKey]; ok && vt != nil {
+		if vt.FloatList != nil && vt.FloatList.VectorIndex != nil && vt.FloatList.VectorIndex.Config != nil {
+			return vt.FloatList.VectorIndex.Config.EmbeddingFunction
+		}
+	}
+
+	return nil
+}
+
+// SetEmbeddingFunction sets the EmbeddingFunction on the default vector index (#embedding key)
+// Creates the necessary structure if it doesn't exist
+func (s *Schema) SetEmbeddingFunction(ef embeddings.EmbeddingFunction) {
+	if s == nil || ef == nil {
+		return
+	}
+
+	if s.keys == nil {
+		s.keys = make(map[string]*ValueTypes)
+	}
+
+	// Ensure #embedding key exists
+	if s.keys[EmbeddingKey] == nil {
+		s.keys[EmbeddingKey] = &ValueTypes{}
+	}
+
+	// Ensure FloatList exists
+	if s.keys[EmbeddingKey].FloatList == nil {
+		s.keys[EmbeddingKey].FloatList = &FloatListValueType{}
+	}
+
+	// Ensure VectorIndex exists
+	if s.keys[EmbeddingKey].FloatList.VectorIndex == nil {
+		s.keys[EmbeddingKey].FloatList.VectorIndex = &VectorIndexType{
+			Enabled: true,
+			Config:  &VectorIndexConfig{},
+		}
+	}
+
+	// Ensure Config exists
+	if s.keys[EmbeddingKey].FloatList.VectorIndex.Config == nil {
+		s.keys[EmbeddingKey].FloatList.VectorIndex.Config = &VectorIndexConfig{}
+	}
+
+	// Set the EmbeddingFunction
+	s.keys[EmbeddingKey].FloatList.VectorIndex.Config.EmbeddingFunction = ef
 }

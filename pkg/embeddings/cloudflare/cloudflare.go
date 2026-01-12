@@ -28,7 +28,8 @@ type CloudflareClient struct {
 	BaseAPI        string
 	endpoint       string
 	APIToken       embeddings.Secret `json:"-" validate:"required"`
-	AccountID      string            `validate:"required_if=IsGateway false"`
+	APIKeyEnvVar   string
+	AccountID      string `validate:"required_if=IsGateway false"`
 	DefaultModel   embeddings.EmbeddingModel
 	IsGateway      bool
 	MaxBatchSize   int `validate:"gt=0,lte=100"`
@@ -202,9 +203,13 @@ func (e *CloudflareEmbeddingFunction) Name() string {
 }
 
 func (e *CloudflareEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := e.apiClient.APIKeyEnvVar
+	if envVar == "" {
+		envVar = APIKeyEnvVar
+	}
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.apiClient.DefaultModel),
-		"api_key_env_var": APIKeyEnvVar,
+		"api_key_env_var": envVar,
 	}
 	if e.apiClient.IsGateway {
 		cfg["is_gateway"] = true

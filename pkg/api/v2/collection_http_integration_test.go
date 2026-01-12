@@ -84,6 +84,17 @@ func TestCollectionAddIntegration(t *testing.T) {
 	c, err := NewHTTPClient(WithBaseURL(chromaURL), WithDebug())
 	require.NoError(t, err)
 
+	// For Chroma versions < 1.0.0, disable EF config storage as they don't support it
+	supportsEFConfig := supportsEFConfigPersistence(chromaVersion)
+
+	// Helper to create collection with proper legacy support
+	createCollection := func(name string, opts ...CreateCollectionOption) (Collection, error) {
+		if !supportsEFConfig {
+			opts = append(opts, WithDisableEFConfigStorage())
+		}
+		return c.CreateCollection(ctx, name, opts...)
+	}
+
 	t.Cleanup(func() {
 		err := c.Close()
 		require.NoError(t, err)
@@ -92,7 +103,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("add documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -113,7 +124,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("add documents with errors", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		// no ids or id generator
 		err = collection.Add(ctx, WithTexts("test_document_1", "test_document_2", "test_document_3"))
@@ -134,7 +145,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("get documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -155,7 +166,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("get documents with errors", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 
 		// wrong limit
@@ -176,7 +187,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("get documents with limit and offset", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -195,7 +206,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 		}
 		err = c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("this is document 1", "another document", "384km is the distance between the earth and the moon"))
 		require.NoError(t, err)
@@ -208,7 +219,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("get documents with where", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"),
 			WithMetadatas(
@@ -226,7 +237,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("count documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -238,7 +249,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("delete documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -252,7 +263,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("delete documents with errors", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 
 		// No Filters
@@ -264,7 +275,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("upsert documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 
 		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("test_document_1", "test_document_2", "test_document_3"))
@@ -285,7 +296,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("upsert with errors", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		// no ids or id generator
 		err = collection.Upsert(ctx, WithTexts("test_document_1", "test_document_2", "test_document_3"))
@@ -305,8 +316,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("update documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx,
-			"test_collection",
+		collection, err := createCollection("test_collection",
 			WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
 		)
 		require.NoError(t, err)
@@ -355,7 +365,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("update documents with errors", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		// silent ignore of update
 		err = collection.Update(ctx, WithIDsUpdate("1", "2", "3"), WithTextsUpdate("test_document_1_updated", "test_document_2_updated", "test_document_3_updated"))
@@ -375,7 +385,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("query documents", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -388,7 +398,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("query documents with where", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(
 			NewUUIDGenerator()),
@@ -409,7 +419,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("query documents with where document", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -430,7 +440,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 		}
 		err = c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("this is document about cats", "123141231", "$@!123115"))
 		require.NoError(t, err)
@@ -444,7 +454,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("query documents with include", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -460,7 +470,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("query with n_results", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -479,7 +489,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("query with query embeddings", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDGenerator(NewUUIDGenerator()), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -503,7 +513,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 		}
 		err = c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("test_document_1", "test_document_2", "test_document_3"))
 		require.NoError(t, err)
@@ -519,7 +529,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 	t.Run("query with errors ", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		// no options
 		_, err = collection.Query(ctx)

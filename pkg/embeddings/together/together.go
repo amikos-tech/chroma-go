@@ -25,6 +25,7 @@ const (
 type TogetherAIClient struct {
 	BaseAPI        string
 	APIToken       embeddings.Secret `json:"-" validate:"required"`
+	APIKeyEnvVar   string
 	DefaultModel   embeddings.EmbeddingModel
 	MaxBatchSize   int
 	DefaultHeaders map[string]string
@@ -219,9 +220,13 @@ func (e *TogetherEmbeddingFunction) Name() string {
 }
 
 func (e *TogetherEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := e.apiClient.APIKeyEnvVar
+	if envVar == "" {
+		envVar = APIKeyEnvVar
+	}
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.apiClient.DefaultModel),
-		"api_key_env_var": APIKeyEnvVar,
+		"api_key_env_var": envVar,
 	}
 	return cfg
 }

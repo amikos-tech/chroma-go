@@ -33,11 +33,12 @@ func WithAPIKey(apiKey string) Option {
 	}
 }
 
-// WithEnvAPIKey sets the API key for the client from the environment variable GOOGLE_API_KEY
+// WithEnvAPIKey sets the API key for the client from the environment variable GEMINI_API_KEY
 func WithEnvAPIKey() Option {
 	return func(p *Client) error {
 		if apiKey := os.Getenv(APIKeyEnvVar); apiKey != "" {
 			p.APIKey = embeddings.NewSecret(apiKey)
+			p.APIKeyEnvVar = APIKeyEnvVar
 			return nil
 		}
 		return errors.Errorf("%s not set", APIKeyEnvVar)
@@ -49,6 +50,7 @@ func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *Client) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
 			p.APIKey = embeddings.NewSecret(apiKey)
+			p.APIKeyEnvVar = envVar
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

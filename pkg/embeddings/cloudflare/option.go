@@ -64,12 +64,14 @@ func WithAccountID(accountID string) Option {
 }
 
 func WithEnvAPIToken() Option {
+	const cfAPITokenEnvVar = "CF_API_TOKEN"
 	return func(p *CloudflareClient) error {
-		if apiToken := os.Getenv("CF_API_TOKEN"); apiToken != "" {
+		if apiToken := os.Getenv(cfAPITokenEnvVar); apiToken != "" {
 			p.APIToken = embeddings.NewSecret(apiToken)
+			p.APIKeyEnvVar = cfAPITokenEnvVar
 			return nil
 		}
-		return errors.Errorf("CF_API_TOKEN not set")
+		return errors.Errorf("%s not set", cfAPITokenEnvVar)
 	}
 }
 
@@ -78,6 +80,7 @@ func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *CloudflareClient) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
 			p.APIToken = embeddings.NewSecret(apiKey)
+			p.APIKeyEnvVar = envVar
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

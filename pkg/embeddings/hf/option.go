@@ -32,10 +32,11 @@ func WithAPIKey(apiKey string) Option {
 
 func WithEnvAPIKey() Option {
 	return func(p *HuggingFaceClient) error {
-		if os.Getenv("HF_API_KEY") == "" {
-			return errors.New("HF_API_KEY not set")
+		if os.Getenv(APIKeyEnvVar) == "" {
+			return errors.Errorf("%s not set", APIKeyEnvVar)
 		}
-		p.APIKey = embeddings.NewSecret(os.Getenv("HF_API_KEY"))
+		p.APIKey = embeddings.NewSecret(os.Getenv(APIKeyEnvVar))
+		p.APIKeyEnvVar = APIKeyEnvVar
 		return nil
 	}
 }
@@ -45,6 +46,7 @@ func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *HuggingFaceClient) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
 			p.APIKey = embeddings.NewSecret(apiKey)
+			p.APIKeyEnvVar = envVar
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

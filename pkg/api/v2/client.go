@@ -209,9 +209,7 @@ func (op *GetCollectionOp) PrepareAndValidateCollectionRequest() error {
 	if op.name == "" {
 		return errors.New("collection name cannot be empty")
 	}
-	if op.embeddingFunction == nil {
-		return errors.New("embedding function cannot be nil")
-	}
+	// EF validation removed - will be auto-wired from server config or user provides explicitly
 	return nil
 }
 
@@ -229,13 +227,14 @@ func NewGetCollectionOp(opts ...GetCollectionOption) (*GetCollectionOp, error) {
 type CreateCollectionOption func(*CreateCollectionOp) error
 
 type CreateCollectionOp struct {
-	Name              string                       `json:"name"`
-	CreateIfNotExists bool                         `json:"get_or_create,omitempty"`
-	embeddingFunction embeddings.EmbeddingFunction `json:"-"`
-	Metadata          CollectionMetadata           `json:"metadata,omitempty"`
-	Configuration     *CollectionConfigurationImpl `json:"configuration,omitempty"`
-	Schema            *Schema                      `json:"schema,omitempty"`
-	Database          Database                     `json:"-"`
+	Name                   string                       `json:"name"`
+	CreateIfNotExists      bool                         `json:"get_or_create,omitempty"`
+	embeddingFunction      embeddings.EmbeddingFunction `json:"-"`
+	Metadata               CollectionMetadata           `json:"metadata,omitempty"`
+	Configuration          *CollectionConfigurationImpl `json:"configuration,omitempty"`
+	Schema                 *Schema                      `json:"schema,omitempty"`
+	Database               Database                     `json:"-"`
+	disableEFConfigStorage bool                         `json:"-"`
 }
 
 func NewCreateCollectionOp(name string, opts ...CreateCollectionOption) (*CreateCollectionOp, error) {
@@ -261,7 +260,23 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 			return errors.Wrap(err, "error creating default embedding function")
 		}
 		op.embeddingFunction = ef
-		// return fmt.Errorf("embedding function is required when creating a new collection. \nUse WithEmbeddingFunctionCreate to set the embedding function")
+	}
+
+	// Skip EF config storage if explicitly disabled (for older Chroma versions)
+	if op.disableEFConfigStorage {
+		return nil
+	}
+
+	// Inject EF config into Schema or Configuration for server-side storage
+	if op.Schema != nil {
+		// Inject EF into the schema's vector index config (#embedding key)
+		op.Schema.SetEmbeddingFunction(op.embeddingFunction)
+	} else {
+		// Inject EF into Configuration
+		if op.Configuration == nil {
+			op.Configuration = NewCollectionConfiguration()
+		}
+		op.Configuration.SetEmbeddingFunction(op.embeddingFunction)
 	}
 	return nil
 }
@@ -450,6 +465,16 @@ func WithConfigurationCreate(config *CollectionConfigurationImpl) CreateCollecti
 			return errors.New("configuration cannot be nil")
 		}
 		op.Configuration = config
+		return nil
+	}
+}
+
+// WithDisableEFConfigStorage disables storing embedding function configuration
+// in the collection's server-side configuration. Use this when connecting to
+// Chroma versions prior to 1.0.0 that don't support configuration.embedding_function.
+func WithDisableEFConfigStorage() CreateCollectionOption {
+	return func(op *CreateCollectionOp) error {
+		op.disableEFConfigStorage = true
 		return nil
 	}
 }

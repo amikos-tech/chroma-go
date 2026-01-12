@@ -333,7 +333,8 @@ func TestAllRegisteredProvidersHaveFactories(t *testing.T) {
 		"chroma_cloud",
 		"ollama",
 		"cloudflare_workers_ai",
-		"onnx_mini_lm_l6_v2",
+		"default",            // Primary name (matches Python client)
+		"onnx_mini_lm_l6_v2", // Alias for backward compatibility
 	}
 
 	expectedSparse := []string{

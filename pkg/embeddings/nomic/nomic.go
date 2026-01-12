@@ -37,6 +37,7 @@ const (
 
 type Client struct {
 	APIKey                   embeddings.Secret `json:"-" validate:"required"`
+	APIKeyEnvVar             string
 	DefaultModel             embeddings.EmbeddingModel
 	Client                   *http.Client
 	DefaultContext           *context.Context
@@ -245,9 +246,13 @@ func (e *NomicEmbeddingFunction) Name() string {
 }
 
 func (e *NomicEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := e.apiClient.APIKeyEnvVar
+	if envVar == "" {
+		envVar = APIKeyEnvVar
+	}
 	return embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.apiClient.DefaultModel),
-		"api_key_env_var": APIKeyEnvVar,
+		"api_key_env_var": envVar,
 	}
 }
 

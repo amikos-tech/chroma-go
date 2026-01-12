@@ -445,6 +445,21 @@ func (e *ConsistentHashEmbeddingFunction) SupportedSpaces() []DistanceMetric {
 	return []DistanceMetric{L2, COSINE, IP}
 }
 
+// NewConsistentHashEmbeddingFunctionFromConfig creates a ConsistentHashEmbeddingFunction from config
+func NewConsistentHashEmbeddingFunctionFromConfig(cfg EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+	dim := 384
+	if d, ok := ConfigInt(cfg, "dim"); ok && d > 0 {
+		dim = d
+	}
+	return &ConsistentHashEmbeddingFunction{dim: dim}, nil
+}
+
+func init() {
+	if err := RegisterDense("consistent_hash", NewConsistentHashEmbeddingFunctionFromConfig); err != nil {
+		panic(err)
+	}
+}
+
 // func (e *ConsistentHashEmbeddingFunction) EmbedRecords(ctx context.Context, records []v2.Record, force bool) error {
 //	return EmbedRecordsDefaultImpl(e, ctx, records, force)
 //}

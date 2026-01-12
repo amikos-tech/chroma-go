@@ -39,6 +39,21 @@ func isChromaVersion1x(version string) bool {
 	return v.Major() == 1
 }
 
+// supportsEFConfigPersistence checks if the Chroma version supports storing
+// embedding function configuration in collection configuration.
+// This feature was introduced in Chroma 1.0.0.
+func supportsEFConfigPersistence(version string) bool {
+	if version == "latest" {
+		return true
+	}
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return false
+	}
+	constraint, _ := semver.NewConstraint(">= 1.0.0")
+	return constraint.Check(v)
+}
+
 func TestClientHTTPIntegration(t *testing.T) {
 	ctx := context.Background()
 	var chromaVersion = "1.3.3"
@@ -103,6 +118,17 @@ func TestClientHTTPIntegration(t *testing.T) {
 	}
 	c, err := NewHTTPClient(WithBaseURL(chromaURL), WithDebug())
 	require.NoError(t, err)
+
+	// For Chroma versions < 1.0.0, disable EF config storage as they don't support it
+	supportsEFConfig := supportsEFConfigPersistence(chromaVersion)
+
+	// Helper to create collection with proper legacy support
+	createCollection := func(name string, opts ...CreateCollectionOption) (Collection, error) {
+		if !supportsEFConfig {
+			opts = append(opts, WithDisableEFConfigStorage())
+		}
+		return c.CreateCollection(ctx, name, opts...)
+	}
 
 	t.Run("get version", func(t *testing.T) {
 		v, err := c.GetVersion(ctx)
@@ -256,13 +282,13 @@ func TestClientHTTPIntegration(t *testing.T) {
 	t.Run("create collection", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		require.Equal(t, "test_collection", collection.Name())
 
 		db, err := c.CreateDatabase(ctx, NewDefaultTenant().Database("test"))
 		require.NoError(t, err)
-		newCWithtenant, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()), WithDatabaseCreate(db))
+		newCWithtenant, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()), WithDatabaseCreate(db))
 		require.NoError(t, err)
 		require.Equal(t, "test_collection", newCWithtenant.Name())
 		require.Equal(t, "test", newCWithtenant.Database().Name())
@@ -273,29 +299,29 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.NoError(t, err)
 		err = c.Reset(ctx)
 		require.NoError(t, err)
-		_, err = c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		_, err = createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
-		_, err = c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		_, err = createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already exists")
 		if strings.HasPrefix(ver, "1.0") {
-			_, err = c.CreateCollection(ctx, "test_collection1", WithDatabaseCreate(NewDatabase("test", NewDefaultTenant())))
+			_, err = createCollection("test_collection1", WithDatabaseCreate(NewDatabase("test", NewDefaultTenant())))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "does not exist")
 		}
-		_, err = c.CreateCollection(ctx, "")
+		_, err = createCollection("")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "collection name cannot be empty")
 
-		_, err = c.CreateCollection(ctx, "1")
+		_, err = createCollection("1")
 		require.Error(t, err)
 		require.True(t, strings.Contains(err.Error(), "Expected a name containing 3-512 characters") || strings.Contains(err.Error(), "Expected collection name that (1) contains 3-63 characters"))
 
-		_, err = c.CreateCollection(ctx, "11111$$")
+		_, err = createCollection("11111$$")
 		require.Error(t, err)
 		require.True(t, strings.Contains(err.Error(), "Expected a name containing 3-512 characters") || strings.Contains(err.Error(), "Expected collection name that (1) contains 3-63 characters"))
 
-		_, err = c.CreateCollection(ctx, "_1abc2")
+		_, err = createCollection("_1abc2")
 		require.Error(t, err)
 		require.True(t, strings.Contains(err.Error(), "Expected a name containing 3-512 characters") || strings.Contains(err.Error(), "Expected collection name that (1) contains 3-63 characters"))
 	})
@@ -303,7 +329,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 	t.Run("get collection", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		newCollection, err := c.CreateCollection(ctx, "test_collection_2", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		newCollection, err := createCollection("test_collection_2", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		collection, err := c.GetCollection(ctx, newCollection.Name(), WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
@@ -311,7 +337,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 
 		db, err := c.CreateDatabase(ctx, NewDefaultTenant().Database("test_database"))
 		require.NoError(t, err)
-		newCollection, err = c.CreateCollection(ctx, "test_collection_2", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()), WithDatabaseCreate(NewDatabase("test_database", NewDefaultTenant())))
+		newCollection, err = createCollection("test_collection_2", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()), WithDatabaseCreate(NewDatabase("test_database", NewDefaultTenant())))
 		require.NoError(t, err)
 		collection, err = c.GetCollection(ctx, newCollection.Name(), WithDatabaseGet(db))
 	})
@@ -320,10 +346,11 @@ func TestClientHTTPIntegration(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
 
+		// Create a collection first so we can test getting non-existent ones
+		_, err = createCollection("existing_col", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+
 		_, err = c.GetCollection(ctx, "non_existing_collection")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "embedding function cannot be nil")
-		_, err = c.GetCollection(ctx, "non_existing_collection", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "does not exist")
 
@@ -340,10 +367,92 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.Contains(t, err.Error(), "does not exist")
 	})
 
+	t.Run("auto-wire embedding function on GetCollection", func(t *testing.T) {
+		if !supportsEFConfig {
+			t.Skip("Skipping auto-wire test: Chroma version doesn't support EF config persistence")
+		}
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+
+		// Create collection WITH embedding function
+		ef := embeddings.NewConsistentHashEmbeddingFunction()
+		createdCol, err := createCollection("auto_wire_test", WithEmbeddingFunctionCreate(ef))
+		require.NoError(t, err)
+		require.NotNil(t, createdCol)
+
+		// Get collection WITHOUT specifying embedding function - should auto-wire
+		retrievedCol, err := c.GetCollection(ctx, "auto_wire_test")
+		require.NoError(t, err)
+		require.NotNil(t, retrievedCol)
+
+		// Verify the collection can be used for embedding operations
+		// Add documents using text (requires EF to be wired)
+		err = retrievedCol.Add(ctx, WithIDs("doc1", "doc2"), WithTexts("hello world", "goodbye world"))
+		require.NoError(t, err)
+
+		// Query using text (requires EF to be wired)
+		results, err := retrievedCol.Query(ctx, WithQueryTexts("hello"), WithNResults(1))
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+	})
+
+	t.Run("auto-wire embedding function on ListCollections", func(t *testing.T) {
+		if !supportsEFConfig {
+			t.Skip("Skipping auto-wire test: Chroma version doesn't support EF config persistence")
+		}
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+
+		// Create collection with EF
+		ef := embeddings.NewConsistentHashEmbeddingFunction()
+		_, err = createCollection("list_test_col", WithEmbeddingFunctionCreate(ef))
+		require.NoError(t, err)
+
+		// List collections - should auto-wire EF
+		collections, err := c.ListCollections(ctx)
+		require.NoError(t, err)
+		require.Len(t, collections, 1)
+
+		col := collections[0]
+		require.Equal(t, "list_test_col", col.Name())
+
+		// Verify the collection can be used for embedding operations
+		err = col.Add(ctx, WithIDs("doc1"), WithTexts("test document"))
+		require.NoError(t, err)
+
+		count, err := col.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+	})
+
+	t.Run("explicit EF overrides auto-wire", func(t *testing.T) {
+		if !supportsEFConfig {
+			t.Skip("Skipping auto-wire test: Chroma version doesn't support EF config persistence")
+		}
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+
+		// Create collection with one EF
+		ef1 := embeddings.NewConsistentHashEmbeddingFunction()
+		_, err = createCollection("override_test", WithEmbeddingFunctionCreate(ef1))
+		require.NoError(t, err)
+
+		// Get with explicit EF - should use the explicit one
+		ef2 := embeddings.NewConsistentHashEmbeddingFunction()
+		col, err := c.GetCollection(ctx, "override_test", WithEmbeddingFunctionGet(ef2))
+		require.NoError(t, err)
+		require.NotNil(t, col)
+
+		// Verify it works
+		err = col.Add(ctx, WithIDs("doc1"), WithTexts("test"))
+		require.NoError(t, err)
+	})
+
 	t.Run("list collections", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		_, err = c.CreateCollection(ctx, "test_collection_3", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		_, err = createCollection("test_collection_3", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		collections, err := c.ListCollections(ctx)
 		require.NoError(t, err)
@@ -359,7 +468,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
 		for i := 0; i < 10; i++ {
-			_, err := c.CreateCollection(ctx, fmt.Sprintf("collection-%s", uuid.New().String()), WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+			_, err := createCollection(fmt.Sprintf("collection-%s", uuid.New().String()), WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 			require.NoError(t, err)
 		}
 		collections, err := c.ListCollections(ctx, ListWithLimit(5), ListWithOffset(0))
@@ -380,7 +489,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
 		for i := 0; i < 10; i++ {
-			_, err := c.CreateCollection(ctx, fmt.Sprintf("collection-%s", uuid.New().String()), WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+			_, err := createCollection(fmt.Sprintf("collection-%s", uuid.New().String()), WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 			require.NoError(t, err)
 		}
 		_, err = c.ListCollections(ctx, ListWithLimit(-1), ListWithOffset(1))
@@ -395,7 +504,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 	t.Run("delete collection", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		newCollection, err := c.CreateCollection(ctx, "test_collection_4", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		newCollection, err := createCollection("test_collection_4", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		err = c.DeleteCollection(ctx, newCollection.Name())
 		require.NoError(t, err)
@@ -412,7 +521,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 	t.Run("count collections", func(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
-		_, err = c.CreateCollection(ctx, "test_collection_5", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		_, err = createCollection("test_collection_5", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		count, err := c.CountCollections(ctx)
 		require.NoError(t, err)
@@ -420,7 +529,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 
 		db, err := c.CreateDatabase(ctx, NewDefaultTenant().Database("test"))
 		require.NoError(t, err)
-		_, err = c.CreateCollection(ctx, "test_collection_5", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()), WithDatabaseCreate(db))
+		_, err = createCollection("test_collection_5", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()), WithDatabaseCreate(db))
 		require.NoError(t, err)
 		count, err = c.CountCollections(ctx, WithDatabaseCount(db))
 		require.NoError(t, err)
@@ -452,7 +561,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 		require.Equal(t, "test_db", db.Name())
 		err = c.UseDatabase(ctx, db)
 		require.NoError(t, err)
-		collection, err := c.CreateCollection(ctx, "test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.NoError(t, err)
 		require.Equal(t, "test_collection", collection.Name())
 		require.Equal(t, tenant.Name(), collection.Tenant().Name())

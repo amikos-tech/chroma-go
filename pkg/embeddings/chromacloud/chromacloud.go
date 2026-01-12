@@ -46,12 +46,13 @@ var taskInstructions = map[Task]instructionPair{
 }
 
 type Client struct {
-	BaseURL    string
-	APIKey     embeddings.Secret `json:"-"`
-	Model      embeddings.EmbeddingModel
-	Task       Task
-	HTTPClient *http.Client
-	Insecure   bool
+	BaseURL      string
+	APIKey       embeddings.Secret `json:"-"`
+	APIKeyEnvVar string
+	Model        embeddings.EmbeddingModel
+	Task         Task
+	HTTPClient   *http.Client
+	Insecure     bool
 }
 
 type embeddingRequest struct {
@@ -211,9 +212,13 @@ func (e *EmbeddingFunction) Name() string {
 }
 
 func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := e.client.APIKeyEnvVar
+	if envVar == "" {
+		envVar = APIKeyEnvVar
+	}
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.client.Model),
-		"api_key_env_var": APIKeyEnvVar,
+		"api_key_env_var": envVar,
 	}
 	if e.client.BaseURL != "" {
 		cfg["base_url"] = e.client.BaseURL

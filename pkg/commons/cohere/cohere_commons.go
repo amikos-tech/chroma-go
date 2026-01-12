@@ -36,6 +36,7 @@ type CohereClient struct {
 	BaseURL       string            `validate:"required"`
 	APIVersion    APIVersion        `validate:"required"`
 	APIKey        embeddings.Secret `json:"-" validate:"required"`
+	APIKeyEnvVar  string            `json:"-"`
 	Client        *http.Client
 	DefaultModel  embeddings.EmbeddingModel `validate:"required"`
 	RetryStrategy httpc.RetryStrategy
@@ -128,6 +129,7 @@ func WithEnvAPIKey() Option {
 	return func(p *CohereClient) error {
 		if apiKey := os.Getenv(APIKeyEnv); apiKey != "" {
 			p.APIKey = embeddings.NewSecret(apiKey)
+			p.APIKeyEnvVar = APIKeyEnv
 			return nil
 		}
 		return errors.Errorf("API key env variable %s not found or does not contain a key", APIKeyEnv)
@@ -139,6 +141,7 @@ func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *CohereClient) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
 			p.APIKey = embeddings.NewSecret(apiKey)
+			p.APIKeyEnvVar = envVar
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

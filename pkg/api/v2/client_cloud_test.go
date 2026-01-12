@@ -12,6 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloud"
 )
 
 func TestCloudClientHTTPIntegration(t *testing.T) {
@@ -165,6 +168,119 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		require.Contains(t, results.GetDocumentsGroups()[0][0].ContentString(), "cats")
 		require.Contains(t, results.GetDocumentsGroups()[0][1].ContentString(), "cats")
 
+	})
+
+	t.Run("auto-wire chroma cloud embedding function on GetCollection", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_autowire_cloud_get-" + uuid.New().String()
+
+		// Create collection WITH Chroma Cloud embedding function (the default for cloud)
+		ef, err := chromacloud.NewEmbeddingFunction(chromacloud.WithEnvAPIKey())
+		require.NoError(t, err)
+		createdCol, err := client.CreateCollection(ctx, collectionName, WithEmbeddingFunctionCreate(ef))
+		require.NoError(t, err)
+		require.NotNil(t, createdCol)
+		require.Equal(t, collectionName, createdCol.Name())
+
+		// Get collection WITHOUT specifying embedding function - should auto-wire
+		retrievedCol, err := client.GetCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedCol)
+
+		// Verify the collection can be used for embedding operations
+		err = retrievedCol.Add(ctx, WithIDs("doc1", "doc2"), WithTexts("hello world", "goodbye world"))
+		require.NoError(t, err)
+
+		time.Sleep(2 * time.Second) // Wait for indexing
+
+		// Query using text (requires EF to be wired)
+		results, err := retrievedCol.Query(ctx, WithQueryTexts("hello"), WithNResults(1))
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+	})
+
+	t.Run("auto-wire custom embedding function on GetCollection", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_autowire_custom_get-" + uuid.New().String()
+
+		// Create collection WITH custom embedding function (consistent_hash)
+		ef := embeddings.NewConsistentHashEmbeddingFunction()
+		createdCol, err := client.CreateCollection(ctx, collectionName, WithEmbeddingFunctionCreate(ef))
+		require.NoError(t, err)
+		require.NotNil(t, createdCol)
+		require.Equal(t, collectionName, createdCol.Name())
+
+		// Get collection WITHOUT specifying embedding function - should auto-wire
+		retrievedCol, err := client.GetCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedCol)
+
+		// Verify the collection can be used for embedding operations
+		err = retrievedCol.Add(ctx, WithIDs("doc1", "doc2"), WithTexts("hello world", "goodbye world"))
+		require.NoError(t, err)
+
+		time.Sleep(2 * time.Second) // Wait for indexing
+
+		// Query using text (requires EF to be wired)
+		results, err := retrievedCol.Query(ctx, WithQueryTexts("hello"), WithNResults(1))
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+	})
+
+	t.Run("auto-wire embedding function on ListCollections", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_autowire_list-" + uuid.New().String()
+
+		// Create collection with EF
+		ef := embeddings.NewConsistentHashEmbeddingFunction()
+		_, err := client.CreateCollection(ctx, collectionName, WithEmbeddingFunctionCreate(ef))
+		require.NoError(t, err)
+
+		// List collections - should auto-wire EF
+		collections, err := client.ListCollections(ctx)
+		require.NoError(t, err)
+
+		// Find our collection
+		var foundCol Collection
+		for _, col := range collections {
+			if col.Name() == collectionName {
+				foundCol = col
+				break
+			}
+		}
+		require.NotNil(t, foundCol, "collection should be found in list")
+
+		// Verify the collection can be used for embedding operations
+		err = foundCol.Add(ctx, WithIDs("doc1"), WithTexts("test document"))
+		require.NoError(t, err)
+
+		time.Sleep(2 * time.Second) // Wait for indexing
+
+		count, err := foundCol.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+	})
+
+	t.Run("explicit EF overrides auto-wire", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_autowire_override-" + uuid.New().String()
+
+		// Create collection with one EF
+		ef1 := embeddings.NewConsistentHashEmbeddingFunction()
+		_, err := client.CreateCollection(ctx, collectionName, WithEmbeddingFunctionCreate(ef1))
+		require.NoError(t, err)
+
+		// Get with explicit EF - should use the explicit one
+		ef2 := embeddings.NewConsistentHashEmbeddingFunction()
+		col, err := client.GetCollection(ctx, collectionName, WithEmbeddingFunctionGet(ef2))
+		require.NoError(t, err)
+		require.NotNil(t, col)
+
+		// Verify it works
+		err = col.Add(ctx, WithIDs("doc1"), WithTexts("test"))
+		require.NoError(t, err)
 	})
 
 	t.Run("Collection fork", func(t *testing.T) {
@@ -672,6 +788,11 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, results.GetDocumentsGroups())
 	})
+
+	// Note: Schema-based EF auto-wire test is skipped for Cloud because
+	// Chroma Cloud doesn't currently persist client-side EF configurations.
+	// Cloud stores embedding_function as {type: "unknown"} in schema responses.
+	// This feature works with self-hosted Chroma 1.0.0+.
 
 	t.Cleanup(func() {
 		collections, err := client.ListCollections(context.Background())

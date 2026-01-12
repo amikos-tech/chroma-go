@@ -24,6 +24,7 @@ const (
 
 type Client struct {
 	APIKey            embeddings.Secret `json:"-" validate:"required"`
+	APIKeyEnvVar      string
 	DefaultModel      string
 	Client            *http.Client
 	DefaultContext    *context.Context
@@ -211,9 +212,13 @@ func (e *MistralEmbeddingFunction) Name() string {
 }
 
 func (e *MistralEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := e.apiClient.APIKeyEnvVar
+	if envVar == "" {
+		envVar = APIKeyEnvVar
+	}
 	return embeddings.EmbeddingFunctionConfig{
 		"model_name":      e.apiClient.DefaultModel,
-		"api_key_env_var": APIKeyEnvVar,
+		"api_key_env_var": envVar,
 	}
 }
 

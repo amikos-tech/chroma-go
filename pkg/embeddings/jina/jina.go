@@ -67,6 +67,7 @@ func getDefaults() *JinaEmbeddingFunction {
 type JinaEmbeddingFunction struct {
 	httpClient        *http.Client
 	APIKey            embeddings.Secret `json:"-" validate:"required"`
+	apiKeyEnvVar      string
 	defaultModel      embeddings.EmbeddingModel
 	embeddingEndpoint string
 	normalized        bool
@@ -200,9 +201,13 @@ func (e *JinaEmbeddingFunction) Name() string {
 }
 
 func (e *JinaEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := e.apiKeyEnvVar
+	if envVar == "" {
+		envVar = APIKeyEnvVar
+	}
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.defaultModel),
-		"api_key_env_var": APIKeyEnvVar,
+		"api_key_env_var": envVar,
 	}
 	if e.embeddingEndpoint != "" {
 		cfg["base_url"] = e.embeddingEndpoint

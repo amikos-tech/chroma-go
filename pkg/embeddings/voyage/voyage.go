@@ -40,6 +40,7 @@ const (
 type VoyageAIClient struct {
 	BaseAPI               string
 	APIKey                embeddings.Secret `json:"-" validate:"required"`
+	APIKeyEnvVar          string
 	DefaultModel          embeddings.EmbeddingModel
 	MaxBatchSize          int
 	DefaultHeaders        map[string]string
@@ -331,8 +332,12 @@ func (e *VoyageAIEmbeddingFunction) Name() string {
 }
 
 func (e *VoyageAIEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := e.apiClient.APIKeyEnvVar
+	if envVar == "" {
+		envVar = APIKeyEnvVar
+	}
 	cfg := embeddings.EmbeddingFunctionConfig{
-		"api_key_env_var": APIKeyEnvVar,
+		"api_key_env_var": envVar,
 		"model_name":      string(e.apiClient.DefaultModel),
 	}
 	if e.apiClient.BaseAPI != "" {
