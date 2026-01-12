@@ -206,6 +206,7 @@ func (e *HuggingFaceEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionC
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      e.apiClient.Model,
 		"api_key_env_var": envVar,
+		"insecure":        e.apiClient.Insecure,
 	}
 	if e.apiClient.BaseURL != "" {
 		cfg["base_url"] = e.apiClient.BaseURL
@@ -222,7 +223,7 @@ func (e *HuggingFaceEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMe
 }
 
 // NewHuggingFaceEmbeddingFunctionFromConfig creates a HuggingFace embedding function from a config map.
-// Uses schema-compliant field names: model_name, api_key_env_var, base_url.
+// Uses schema-compliant field names: model_name, api_key_env_var, base_url, insecure.
 func NewHuggingFaceEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*HuggingFaceEmbeddingFunction, error) {
 	opts := make([]Option, 0)
 	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
@@ -233,6 +234,12 @@ func NewHuggingFaceEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionC
 	}
 	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
 		opts = append(opts, WithBaseURL(baseURL))
+	}
+	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
+		opts = append(opts, WithInsecure())
+	} else if embeddings.AllowInsecureFromEnv() {
+		embeddings.LogInsecureEnvVarWarning("HuggingFace")
+		opts = append(opts, WithInsecure())
 	}
 	return NewHuggingFaceEmbeddingFunctionFromOptions(opts...)
 }

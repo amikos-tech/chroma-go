@@ -220,6 +220,7 @@ func (e *JinaEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.defaultModel),
 		"api_key_env_var": envVar,
+		"insecure":        e.insecure,
 	}
 	if e.embeddingEndpoint != "" {
 		cfg["base_url"] = e.embeddingEndpoint
@@ -236,7 +237,7 @@ func (e *JinaEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
 }
 
 // NewJinaEmbeddingFunctionFromConfig creates a Jina embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, base_url.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url, insecure.
 func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*JinaEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -248,6 +249,12 @@ func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) 
 	}
 	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
 		opts = append(opts, WithEmbeddingEndpoint(baseURL))
+	}
+	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
+		opts = append(opts, WithInsecure())
+	} else if embeddings.AllowInsecureFromEnv() {
+		embeddings.LogInsecureEnvVarWarning("Jina")
+		opts = append(opts, WithInsecure())
 	}
 	return NewJinaEmbeddingFunction(opts...)
 }

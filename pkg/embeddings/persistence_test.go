@@ -783,3 +783,130 @@ func TestEFPersistence_FailureRecovery(t *testing.T) {
 	assert.NotNil(t, ef2)
 	assert.Equal(t, "openai", ef2.Name())
 }
+
+// Test insecure flag persistence and env var fallback
+
+func TestInsecureConfigPersistence_OpenAI(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key-123")
+
+	// Create EF with insecure mode and HTTP URL
+	ef, err := openai.NewOpenAIEmbeddingFunction("",
+		openai.WithEnvAPIKey(),
+		openai.WithBaseURL("http://localhost:8080"),
+		openai.WithInsecure(),
+	)
+	require.NoError(t, err)
+
+	// Verify insecure flag is in config
+	config := ef.GetConfig()
+	assert.Equal(t, true, config["insecure"])
+	assert.Equal(t, "http://localhost:8080", config["api_base"])
+
+	// Rebuild from config - should succeed because insecure: true is in config
+	rebuilt, err := embeddings.BuildDense("openai", config)
+	require.NoError(t, err)
+	require.NotNil(t, rebuilt)
+
+	// Verify rebuilt EF preserves insecure flag
+	rebuiltConfig := rebuilt.GetConfig()
+	assert.Equal(t, true, rebuiltConfig["insecure"])
+	assert.Equal(t, "http://localhost:8080", rebuiltConfig["api_base"])
+}
+
+func TestInsecureConfigPersistence_Jina(t *testing.T) {
+	t.Setenv("JINA_API_KEY", "test-key-123")
+
+	ef, err := jina.NewJinaEmbeddingFunction(
+		jina.WithEnvAPIKey(),
+		jina.WithEmbeddingEndpoint("http://localhost:8080"),
+		jina.WithInsecure(),
+	)
+	require.NoError(t, err)
+
+	config := ef.GetConfig()
+	assert.Equal(t, true, config["insecure"])
+	assert.Equal(t, "http://localhost:8080", config["base_url"])
+
+	rebuilt, err := embeddings.BuildDense("jina", config)
+	require.NoError(t, err)
+	require.NotNil(t, rebuilt)
+
+	rebuiltConfig := rebuilt.GetConfig()
+	assert.Equal(t, true, rebuiltConfig["insecure"])
+}
+
+func TestInsecureConfigPersistence_Nomic(t *testing.T) {
+	t.Setenv("NOMIC_API_KEY", "test-key-123")
+
+	ef, err := nomic.NewNomicEmbeddingFunction(
+		nomic.WithEnvAPIKey(),
+		nomic.WithBaseURL("http://localhost:8080"),
+		nomic.WithInsecure(),
+	)
+	require.NoError(t, err)
+
+	config := ef.GetConfig()
+	assert.Equal(t, true, config["insecure"])
+	assert.Equal(t, "http://localhost:8080", config["base_url"])
+
+	rebuilt, err := embeddings.BuildDense("nomic", config)
+	require.NoError(t, err)
+	require.NotNil(t, rebuilt)
+
+	rebuiltConfig := rebuilt.GetConfig()
+	assert.Equal(t, true, rebuiltConfig["insecure"])
+	assert.Equal(t, "http://localhost:8080", rebuiltConfig["base_url"])
+}
+
+func TestInsecureEnvVarFallback_OpenAI(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key-123")
+	t.Setenv(embeddings.AllowInsecureEnvVar, "true")
+
+	// Config with HTTP URL but WITHOUT insecure: true
+	config := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": "OPENAI_API_KEY",
+		"model_name":      "text-embedding-3-small",
+		"api_base":        "http://localhost:8080",
+		// Note: no "insecure": true
+	}
+
+	// Should succeed because env var fallback is enabled
+	ef, err := embeddings.BuildDense("openai", config)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+}
+
+func TestInsecureEnvVarFallback_Disabled(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key-123")
+	t.Setenv(embeddings.AllowInsecureEnvVar, "") // Ensure env var is NOT set
+
+	// Config with HTTP URL but WITHOUT insecure: true
+	config := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": "OPENAI_API_KEY",
+		"model_name":      "text-embedding-3-small",
+		"api_base":        "http://localhost:8080",
+	}
+
+	// Should fail because neither insecure config nor env var is set
+	ef, err := embeddings.BuildDense("openai", config)
+	require.Error(t, err)
+	require.Nil(t, ef)
+	assert.Contains(t, err.Error(), "HTTPS")
+}
+
+func TestInsecureConfigFalse_NotPersisted(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key-123")
+
+	// Create EF without insecure flag (default HTTPS URL)
+	ef, err := openai.NewOpenAIEmbeddingFunction("", openai.WithEnvAPIKey())
+	require.NoError(t, err)
+
+	// insecure should be false in config
+	config := ef.GetConfig()
+	assert.Equal(t, false, config["insecure"])
+
+	// Rebuild should still work (HTTPS URL)
+	rebuilt, err := embeddings.BuildDense("openai", config)
+	require.NoError(t, err)
+	require.NotNil(t, rebuilt)
+}

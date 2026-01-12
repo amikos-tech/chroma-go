@@ -344,6 +344,7 @@ func (e *VoyageAIEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConf
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"api_key_env_var": envVar,
 		"model_name":      string(e.apiClient.DefaultModel),
+		"insecure":        e.apiClient.Insecure,
 	}
 	if e.apiClient.BaseAPI != "" {
 		cfg["base_url"] = e.apiClient.BaseAPI
@@ -360,7 +361,7 @@ func (e *VoyageAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetri
 }
 
 // NewVoyageAIEmbeddingFunctionFromConfig creates a VoyageAI embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, base_url.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url, insecure.
 func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*VoyageAIEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -372,6 +373,12 @@ func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConf
 	}
 	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
 		opts = append(opts, WithBaseURL(baseURL))
+	}
+	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
+		opts = append(opts, WithInsecure())
+	} else if embeddings.AllowInsecureFromEnv() {
+		embeddings.LogInsecureEnvVarWarning("VoyageAI")
+		opts = append(opts, WithInsecure())
 	}
 	return NewVoyageAIEmbeddingFunction(opts...)
 }

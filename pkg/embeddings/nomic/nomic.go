@@ -258,10 +258,15 @@ func (e *NomicEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig 
 	if envVar == "" {
 		envVar = APIKeyEnvVar
 	}
-	return embeddings.EmbeddingFunctionConfig{
+	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.apiClient.DefaultModel),
 		"api_key_env_var": envVar,
+		"insecure":        e.apiClient.Insecure,
 	}
+	if e.apiClient.BaseURL != "" {
+		cfg["base_url"] = e.apiClient.BaseURL
+	}
+	return cfg
 }
 
 func (e *NomicEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
@@ -273,7 +278,7 @@ func (e *NomicEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
 }
 
 // NewNomicEmbeddingFunctionFromConfig creates a Nomic embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url, insecure.
 func NewNomicEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*NomicEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -282,6 +287,15 @@ func NewNomicEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig)
 	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
+		opts = append(opts, WithBaseURL(baseURL))
+	}
+	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
+		opts = append(opts, WithInsecure())
+	} else if embeddings.AllowInsecureFromEnv() {
+		embeddings.LogInsecureEnvVarWarning("Nomic")
+		opts = append(opts, WithInsecure())
 	}
 	return NewNomicEmbeddingFunction(opts...)
 }

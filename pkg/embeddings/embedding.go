@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 
@@ -522,4 +524,23 @@ func ConfigStringSlice(cfg EmbeddingFunctionConfig, key string) ([]string, bool)
 		}
 	}
 	return nil, false
+}
+
+// AllowInsecureEnvVar is the environment variable that allows insecure HTTP connections
+// for embedding functions loaded from config. This is useful for backward compatibility
+// with existing collections that have HTTP base URLs stored in config.
+const AllowInsecureEnvVar = "CHROMAGO_ALLOW_INSECURE_EF"
+
+// AllowInsecureFromEnv checks if insecure mode is allowed via environment variable.
+// When true, embedding functions loaded from config will allow HTTP connections
+// even if the stored config doesn't have insecure: true.
+func AllowInsecureFromEnv() bool {
+	return os.Getenv(AllowInsecureEnvVar) == "true"
+}
+
+// LogInsecureEnvVarWarning logs a warning when the insecure env var is used.
+// This helps users discover they should migrate to config-based insecure setting.
+func LogInsecureEnvVarWarning(providerName string) {
+	log.Printf("WARNING: %s embedding function loaded from config is using HTTP due to %s=true. "+
+		"Consider setting 'insecure: true' in the config instead.", providerName, AllowInsecureEnvVar)
 }
