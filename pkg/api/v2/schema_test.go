@@ -878,3 +878,168 @@ func TestWithFtsIndexCreate_MergesWithExistingSchema(t *testing.T) {
 	require.NotNil(t, documentVT.String.FtsIndex)
 	assert.True(t, documentVT.String.FtsIndex.Enabled)
 }
+
+// Embedding function serialization tests
+// Uses mockEmbeddingFunction from configuration_test.go
+
+func TestVectorIndexConfig_MarshalJSON_WithEmbeddingFunction(t *testing.T) {
+	ef := &mockEmbeddingFunction{
+		name:   "test-ef",
+		config: map[string]interface{}{"api_key_env_var": "TEST_API_KEY"},
+	}
+
+	config := NewVectorIndexConfig(
+		WithSpace(SpaceCosine),
+		WithVectorEmbeddingFunction(ef),
+	)
+
+	data, err := json.Marshal(config)
+	require.NoError(t, err)
+
+	var result map[string]interface{}
+	err = json.Unmarshal(data, &result)
+	require.NoError(t, err)
+
+	// Verify EF info is present in JSON
+	assert.Contains(t, result, "embedding_function")
+	efInfo, ok := result["embedding_function"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "known", efInfo["type"])
+	assert.Equal(t, "test-ef", efInfo["name"])
+	assert.Contains(t, efInfo, "config")
+}
+
+func TestVectorIndexConfig_MarshalJSON_WithoutEmbeddingFunction(t *testing.T) {
+	config := NewVectorIndexConfig(WithSpace(SpaceCosine))
+
+	data, err := json.Marshal(config)
+	require.NoError(t, err)
+
+	var result map[string]interface{}
+	err = json.Unmarshal(data, &result)
+	require.NoError(t, err)
+
+	// EF info should not be present
+	assert.NotContains(t, result, "embedding_function")
+}
+
+func TestVectorIndexConfig_UnmarshalJSON_PreservesConfig(t *testing.T) {
+	data := `{
+		"space": "cosine",
+		"source_key": "my_embedding",
+		"hnsw": {"ef_construction": 100, "max_neighbors": 16}
+	}`
+
+	var config VectorIndexConfig
+	err := json.Unmarshal([]byte(data), &config)
+	require.NoError(t, err)
+
+	assert.Equal(t, SpaceCosine, config.Space)
+	assert.Equal(t, "my_embedding", config.SourceKey)
+	assert.NotNil(t, config.Hnsw)
+	assert.Equal(t, uint(100), config.Hnsw.EfConstruction)
+	assert.Equal(t, uint(16), config.Hnsw.MaxNeighbors)
+	assert.Nil(t, config.EmbeddingFunction) // No registered EF
+}
+
+func TestSchema_SetEmbeddingFunction(t *testing.T) {
+	schema, err := NewSchema()
+	require.NoError(t, err)
+
+	ef := &mockEmbeddingFunction{
+		name:   "test-ef",
+		config: map[string]interface{}{"model": "test-model"},
+	}
+
+	schema.SetEmbeddingFunction(ef)
+
+	// Verify EF was set
+	retrieved := schema.GetEmbeddingFunction()
+	assert.NotNil(t, retrieved)
+	assert.Equal(t, "test-ef", retrieved.Name())
+}
+
+func TestSchema_SetEmbeddingFunction_NilSchema(t *testing.T) {
+	var schema *Schema
+	ef := &mockEmbeddingFunction{name: "test-ef"}
+
+	// Should not panic
+	schema.SetEmbeddingFunction(ef)
+}
+
+func TestSchema_SetEmbeddingFunction_NilEF(t *testing.T) {
+	schema, err := NewSchema()
+	require.NoError(t, err)
+
+	// Should not panic
+	schema.SetEmbeddingFunction(nil)
+
+	// Should return nil
+	assert.Nil(t, schema.GetEmbeddingFunction())
+}
+
+func TestSchema_GetEmbeddingFunction_NoVectorIndex(t *testing.T) {
+	schema, err := NewSchema()
+	require.NoError(t, err)
+
+	// No vector index configured
+	ef := schema.GetEmbeddingFunction()
+	assert.Nil(t, ef)
+}
+
+func TestSchema_GetEmbeddingFunction_FromExistingSchema(t *testing.T) {
+	ef := &mockEmbeddingFunction{
+		name:   "my-ef",
+		config: map[string]interface{}{"key": "value"},
+	}
+
+	schema, err := NewSchema(
+		WithDefaultVectorIndex(NewVectorIndexConfig(
+			WithSpace(SpaceL2),
+			WithVectorEmbeddingFunction(ef),
+		)),
+	)
+	require.NoError(t, err)
+
+	retrieved := schema.GetEmbeddingFunction()
+	assert.NotNil(t, retrieved)
+	assert.Equal(t, "my-ef", retrieved.Name())
+}
+
+func TestSchema_MarshalJSON_WithEmbeddingFunction(t *testing.T) {
+	ef := &mockEmbeddingFunction{
+		name:   "test-ef",
+		config: map[string]interface{}{"api_key_env_var": "MY_API_KEY"},
+	}
+
+	schema, err := NewSchema(
+		WithDefaultVectorIndex(NewVectorIndexConfig(
+			WithSpace(SpaceCosine),
+			WithVectorEmbeddingFunction(ef),
+		)),
+	)
+	require.NoError(t, err)
+
+	data, err := json.Marshal(schema)
+	require.NoError(t, err)
+
+	// Verify the JSON contains EF info
+	var result map[string]interface{}
+	err = json.Unmarshal(data, &result)
+	require.NoError(t, err)
+
+	keys, ok := result["keys"].(map[string]interface{})
+	require.True(t, ok)
+	embeddingKey, ok := keys[EmbeddingKey].(map[string]interface{})
+	require.True(t, ok)
+	floatList, ok := embeddingKey["float_list"].(map[string]interface{})
+	require.True(t, ok)
+	vectorIndex, ok := floatList["vector_index"].(map[string]interface{})
+	require.True(t, ok)
+	config, ok := vectorIndex["config"].(map[string]interface{})
+	require.True(t, ok)
+	efInfo, ok := config["embedding_function"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "known", efInfo["type"])
+	assert.Equal(t, "test-ef", efInfo["name"])
+}

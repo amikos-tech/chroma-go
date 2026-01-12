@@ -421,7 +421,8 @@ func TestAllRegisteredEFsHaveFactories(t *testing.T) {
 		"together_ai",
 		"nomic",
 		"chroma_cloud",
-		"onnx_mini_lm_l6_v2",
+		"default",            // Primary name (matches Python client)
+		"onnx_mini_lm_l6_v2", // Alias for backward compatibility
 	}
 
 	for _, name := range expectedEFs {

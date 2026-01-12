@@ -157,10 +157,37 @@ func (c *CollectionConfigurationImpl) SetEmbeddingFunction(ef embeddings.Embeddi
 	})
 }
 
+// GetSchema extracts the Schema from the configuration if present
+// Returns nil if no schema is found or if unmarshaling fails
+func (c *CollectionConfigurationImpl) GetSchema() *Schema {
+	if c.raw == nil {
+		return nil
+	}
+
+	schemaRaw, ok := c.raw["schema"]
+	if !ok {
+		return nil
+	}
+
+	// Re-marshal and unmarshal to convert map to Schema
+	schemaBytes, err := json.Marshal(schemaRaw)
+	if err != nil {
+		return nil
+	}
+
+	var schema Schema
+	if err := json.Unmarshal(schemaBytes, &schema); err != nil {
+		return nil
+	}
+
+	return &schema
+}
+
 // BuildEmbeddingFunctionFromConfig attempts to reconstruct an embedding function from the configuration.
+// First tries to get EF from configuration.embedding_function, then from schema if present.
 // Returns nil without error if:
 // - Configuration is nil
-// - No embedding_function in config
+// - No embedding_function in config and no schema with EF
 // - Type is not "known"
 // - Name not registered in the dense registry
 // Returns error if the factory fails to build the embedding function.
@@ -169,18 +196,20 @@ func BuildEmbeddingFunctionFromConfig(cfg *CollectionConfigurationImpl) (embeddi
 		return nil, nil
 	}
 
+	// First try to get EF from direct embedding_function config
 	efInfo, ok := cfg.GetEmbeddingFunctionInfo()
-	if !ok || efInfo == nil {
-		return nil, nil
+	if ok && efInfo != nil && efInfo.IsKnown() && embeddings.HasDense(efInfo.Name) {
+		return embeddings.BuildDense(efInfo.Name, efInfo.Config)
 	}
 
-	if !efInfo.IsKnown() {
-		return nil, nil
+	// Try to get EF from schema if present
+	schema := cfg.GetSchema()
+	if schema != nil {
+		ef := schema.GetEmbeddingFunction()
+		if ef != nil {
+			return ef, nil
+		}
 	}
 
-	if !embeddings.HasDense(efInfo.Name) {
-		return nil, nil
-	}
-
-	return embeddings.BuildDense(efInfo.Name, efInfo.Config)
+	return nil, nil
 }

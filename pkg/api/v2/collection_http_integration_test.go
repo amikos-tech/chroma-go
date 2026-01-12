@@ -92,7 +92,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 		if !supportsEFConfig {
 			opts = append(opts, WithDisableEFConfigStorage())
 		}
-		return createCollection(name, opts...)
+		return c.CreateCollection(ctx, name, opts...)
 	}
 
 	t.Cleanup(func() {

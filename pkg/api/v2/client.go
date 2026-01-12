@@ -261,11 +261,18 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 		}
 		op.embeddingFunction = ef
 	}
-	// Inject EF config into Configuration for server-side storage
-	// Skip if:
-	// - EF config storage is explicitly disabled (for older Chroma versions)
-	// - Schema is provided (Chroma doesn't allow both schema and configuration.embedding_function)
-	if !op.disableEFConfigStorage && op.Schema == nil {
+
+	// Skip EF config storage if explicitly disabled (for older Chroma versions)
+	if op.disableEFConfigStorage {
+		return nil
+	}
+
+	// Inject EF config into Schema or Configuration for server-side storage
+	if op.Schema != nil {
+		// Inject EF into the schema's vector index config (#embedding key)
+		op.Schema.SetEmbeddingFunction(op.embeddingFunction)
+	} else {
+		// Inject EF into Configuration
 		if op.Configuration == nil {
 			op.Configuration = NewCollectionConfiguration()
 		}

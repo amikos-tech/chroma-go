@@ -528,3 +528,138 @@ func TestBuildEmbeddingFunctionFromConfig_EmptyConfig(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, ef)
 }
+
+// GetSchema tests
+
+func TestGetSchema_NoSchema(t *testing.T) {
+	config := NewCollectionConfiguration()
+	schema := config.GetSchema()
+	assert.Nil(t, schema)
+}
+
+func TestGetSchema_WithSchema(t *testing.T) {
+	// Create a raw config map with schema data
+	schemaData := map[string]any{
+		"keys": map[string]any{
+			EmbeddingKey: map[string]any{
+				"float_list": map[string]any{
+					"vector_index": map[string]any{
+						"enabled": true,
+						"config": map[string]any{
+							"space": "cosine",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	rawConfig := map[string]any{
+		"schema": schemaData,
+	}
+
+	config := NewCollectionConfigurationFromMap(rawConfig)
+	schema := config.GetSchema()
+	require.NotNil(t, schema)
+
+	// Verify the schema was properly parsed
+	vt, ok := schema.GetKey(EmbeddingKey)
+	assert.True(t, ok)
+	assert.NotNil(t, vt.FloatList)
+	assert.NotNil(t, vt.FloatList.VectorIndex)
+	assert.True(t, vt.FloatList.VectorIndex.Enabled)
+	assert.Equal(t, SpaceCosine, vt.FloatList.VectorIndex.Config.Space)
+}
+
+func TestGetSchema_InvalidSchema(t *testing.T) {
+	// Invalid schema data (not a map)
+	rawConfig := map[string]any{
+		"schema": "not a valid schema",
+	}
+
+	config := NewCollectionConfigurationFromMap(rawConfig)
+	schema := config.GetSchema()
+	assert.Nil(t, schema)
+}
+
+func TestBuildEmbeddingFunctionFromConfig_FromSchema(t *testing.T) {
+	// Create a schema with EmbeddingFunctionInfo
+	// Use consistent_hash which doesn't require API keys
+	schemaData := map[string]any{
+		"keys": map[string]any{
+			EmbeddingKey: map[string]any{
+				"float_list": map[string]any{
+					"vector_index": map[string]any{
+						"enabled": true,
+						"config": map[string]any{
+							"space": "cosine",
+							"embedding_function": map[string]any{
+								"type":   "known",
+								"name":   "consistent_hash",
+								"config": map[string]any{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	rawConfig := map[string]any{
+		"schema": schemaData,
+	}
+
+	config := NewCollectionConfigurationFromMap(rawConfig)
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	assert.NoError(t, err)
+	assert.NotNil(t, ef)
+	assert.Equal(t, "consistent_hash", ef.Name())
+}
+
+func TestBuildEmbeddingFunctionFromConfig_PrefersDirectConfig(t *testing.T) {
+	// When both direct embedding_function and schema have EF,
+	// the direct one should be preferred
+	// Use consistent_hash in schema (since it doesn't require API keys)
+	schemaData := map[string]any{
+		"keys": map[string]any{
+			EmbeddingKey: map[string]any{
+				"float_list": map[string]any{
+					"vector_index": map[string]any{
+						"enabled": true,
+						"config": map[string]any{
+							"embedding_function": map[string]any{
+								"type":   "known",
+								"name":   "consistent_hash",
+								"config": map[string]any{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Set OPENAI_API_KEY so the direct config can be built
+	origValue := os.Getenv("OPENAI_API_KEY")
+	if origValue == "" {
+		_ = os.Setenv("OPENAI_API_KEY", "test-key-for-testing")
+		defer func() { _ = os.Unsetenv("OPENAI_API_KEY") }()
+	}
+
+	config := NewCollectionConfiguration()
+	config.SetRaw("schema", schemaData)
+	// Also set direct embedding_function with openai (higher priority)
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type: "known",
+		Name: "openai",
+		Config: map[string]any{
+			"api_key_env_var": "OPENAI_API_KEY",
+		},
+	})
+
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	assert.NoError(t, err)
+	assert.NotNil(t, ef)
+	// Should prefer the direct config (openai) over schema (consistent_hash)
+	assert.Equal(t, "openai", ef.Name())
+}

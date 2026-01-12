@@ -397,7 +397,7 @@ func (arc *AtomicRefCounter) GetCount() int32 {
 }
 
 func (e *DefaultEmbeddingFunction) Name() string {
-	return "onnx_mini_lm_l6_v2"
+	return "default"
 }
 
 func (e *DefaultEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
@@ -424,9 +424,15 @@ func NewDefaultEmbeddingFunctionFromConfig(_ embeddings.EmbeddingFunctionConfig)
 }
 
 func init() {
-	if err := embeddings.RegisterDense("onnx_mini_lm_l6_v2", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+	factory := func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
 		return NewDefaultEmbeddingFunctionFromConfig(cfg)
-	}); err != nil {
+	}
+	// Register as "default" to match Python client naming
+	if err := embeddings.RegisterDense("default", factory); err != nil {
+		panic(err)
+	}
+	// Register alias for backward compatibility with existing Go-created collections
+	if err := embeddings.RegisterDense("onnx_mini_lm_l6_v2", factory); err != nil {
 		panic(err)
 	}
 }
