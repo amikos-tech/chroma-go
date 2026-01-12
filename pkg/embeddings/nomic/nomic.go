@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -48,6 +49,7 @@ type Client struct {
 	DefaultDimensionality    *int
 	BaseURL                  string
 	EmbeddingsEndpointSuffix string
+	Insecure                 bool
 }
 
 func applyDefaults(c *Client) (err error) {
@@ -80,7 +82,13 @@ func applyDefaults(c *Client) (err error) {
 }
 
 func validate(c *Client) error {
-	return embeddings.NewValidator().Struct(c)
+	if err := embeddings.NewValidator().Struct(c); err != nil {
+		return err
+	}
+	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
+		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
+	}
+	return nil
 }
 
 func NewNomicClient(opts ...Option) (*Client, error) {

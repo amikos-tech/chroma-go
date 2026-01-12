@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -73,6 +74,17 @@ type JinaEmbeddingFunction struct {
 	normalized        bool
 	embeddingType     EmbeddingType
 	task              TaskType
+	insecure          bool
+}
+
+func validate(ef *JinaEmbeddingFunction) error {
+	if err := embeddings.NewValidator().Struct(ef); err != nil {
+		return err
+	}
+	if !ef.insecure && !strings.HasPrefix(ef.embeddingEndpoint, "https://") {
+		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
+	}
+	return nil
 }
 
 func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
@@ -83,7 +95,7 @@ func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
 			return nil, err
 		}
 	}
-	if err := embeddings.NewValidator().Struct(ef); err != nil {
+	if err := validate(ef); err != nil {
 		return nil, errors.Wrap(err, "failed to validate Jina embedding function options")
 	}
 	return ef, nil

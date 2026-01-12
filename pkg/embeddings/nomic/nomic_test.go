@@ -149,4 +149,20 @@ func Test_nomic_embedding_function(t *testing.T) {
 		require.Equal(t, 768, resp.Len())
 		time.Sleep(2 * time.Second)
 	})
+
+	t.Run("Test HTTP URL rejected without WithInsecure", func(t *testing.T) {
+		_, err := NewNomicEmbeddingFunction(WithAPIKey(apiKey), WithBaseURL("http://example.com"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "base URL must use HTTPS")
+	})
+
+	t.Run("Test HTTP URL accepted with WithInsecure", func(t *testing.T) {
+		_, err := NewNomicEmbeddingFunction(WithAPIKey(apiKey), WithBaseURL("http://example.com"), WithInsecure())
+		require.NoError(t, err)
+	})
+
+	t.Run("Test HTTPS URL accepted", func(t *testing.T) {
+		_, err := NewNomicEmbeddingFunction(WithAPIKey(apiKey), WithBaseURL("https://example.com"))
+		require.NoError(t, err)
+	})
 }

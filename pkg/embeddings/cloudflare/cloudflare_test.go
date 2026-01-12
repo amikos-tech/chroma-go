@@ -153,4 +153,20 @@ func Test_cloudflare_embedding_function(t *testing.T) {
 		require.Len(t, resp, 2)
 		require.Len(t, resp[0].ContentAsFloat32(), 768)
 	})
+
+	t.Run("Test HTTP gateway URL rejected without WithInsecure", func(t *testing.T) {
+		_, err := NewCloudflareEmbeddingFunction(WithAPIToken(apiKey), WithGatewayEndpoint("http://example.com"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "base URL must use HTTPS")
+	})
+
+	t.Run("Test HTTP gateway URL accepted with WithInsecure", func(t *testing.T) {
+		_, err := NewCloudflareEmbeddingFunction(WithAPIToken(apiKey), WithGatewayEndpoint("http://example.com"), WithInsecure())
+		require.NoError(t, err)
+	})
+
+	t.Run("Test HTTPS gateway URL accepted", func(t *testing.T) {
+		_, err := NewCloudflareEmbeddingFunction(WithAPIToken(apiKey), WithGatewayEndpoint("https://example.com"))
+		require.NoError(t, err)
+	})
 }

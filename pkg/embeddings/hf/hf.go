@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -26,6 +27,7 @@ type HuggingFaceClient struct {
 	Client         *http.Client
 	DefaultHeaders map[string]string
 	IsHFEIEndpoint bool
+	Insecure       bool
 }
 
 func NewHuggingFaceClient(apiKey string, model string) *HuggingFaceClient {
@@ -52,6 +54,10 @@ func NewHuggingFaceClientFromOptions(opts ...Option) (*HuggingFaceClient, error)
 	// not for self-hosted Text Embedding Inference (TEI) endpoints
 	if !c.IsHFEIEndpoint && c.APIKey.IsEmpty() {
 		return nil, errors.New("API key is required")
+	}
+	// HTTPS validation: only enforce when API key is being transmitted
+	if !c.Insecure && !c.APIKey.IsEmpty() && !strings.HasPrefix(c.BaseURL, "https://") {
+		return nil, errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return c, nil
 }

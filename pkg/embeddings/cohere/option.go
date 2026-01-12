@@ -117,3 +117,11 @@ func WithRetryStrategy(retryStrategy httpc.RetryStrategy) Option {
 		return ccommons.WithRetryStrategy(retryStrategy)
 	}
 }
+
+// WithInsecure allows the client to connect to HTTP endpoints without TLS.
+// This should only be used for local development or testing.
+func WithInsecure() Option {
+	return func(p *CohereEmbeddingFunction) ccommons.Option {
+		return ccommons.WithInsecure()
+	}
+}

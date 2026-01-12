@@ -35,6 +35,7 @@ type CloudflareClient struct {
 	MaxBatchSize   int `validate:"gt=0,lte=100"`
 	DefaultHeaders map[string]string
 	Client         *http.Client
+	Insecure       bool
 }
 
 func applyDefaults(c *CloudflareClient) {
@@ -72,6 +73,9 @@ func validate(c *CloudflareClient) error {
 	}
 	if c.MaxBatchSize > defaultMaxSize {
 		return errors.Errorf("max batch size must be less than %d", defaultMaxSize)
+	}
+	if !c.Insecure && !strings.HasPrefix(c.BaseAPI, "https://") {
+		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return nil
 }

@@ -117,3 +117,12 @@ func WithEnvGatewayEndpoint() Option {
 		return errors.Errorf("CF_GATEWAY_ENDPOINT not set")
 	}
 }
+
+// WithInsecure allows the client to connect to HTTP endpoints without TLS.
+// This should only be used for local development or testing.
+func WithInsecure() Option {
+	return func(p *CloudflareClient) error {
+		p.Insecure = true
+		return nil
+	}
+}

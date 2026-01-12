@@ -108,3 +108,12 @@ func WithBaseURL(baseURL string) Option {
 		return nil
 	}
 }
+
+// WithInsecure allows the client to connect to HTTP endpoints without TLS.
+// This should only be used for local development or testing.
+func WithInsecure() Option {
+	return func(p *VoyageAIClient) error {
+		p.Insecure = true
+		return nil
+	}
+}

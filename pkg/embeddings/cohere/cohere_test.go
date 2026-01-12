@@ -111,4 +111,20 @@ func Test_ef(t *testing.T) {
 		require.NotNil(t, resp.ContentAsFloat32())
 		require.Empty(t, resp.ContentAsInt32())
 	})
+
+	t.Run("Test HTTP URL rejected without WithInsecure", func(t *testing.T) {
+		_, err := NewCohereEmbeddingFunction(WithAPIKey(apiKey), WithBaseURL("http://example.com"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "base URL must use HTTPS")
+	})
+
+	t.Run("Test HTTP URL accepted with WithInsecure", func(t *testing.T) {
+		_, err := NewCohereEmbeddingFunction(WithAPIKey(apiKey), WithBaseURL("http://example.com"), WithInsecure())
+		require.NoError(t, err)
+	})
+
+	t.Run("Test HTTPS URL accepted", func(t *testing.T) {
+		_, err := NewCohereEmbeddingFunction(WithAPIKey(apiKey), WithBaseURL("https://example.com"))
+		require.NoError(t, err)
+	})
 }

@@ -128,4 +128,20 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "'APIKey' failed on the 'required'")
 	})
+
+	t.Run("Test HTTP endpoint rejected without WithInsecure", func(t *testing.T) {
+		_, err := NewJinaEmbeddingFunction(WithAPIKey(apiKey), WithEmbeddingEndpoint("http://example.com"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "base URL must use HTTPS")
+	})
+
+	t.Run("Test HTTP endpoint accepted with WithInsecure", func(t *testing.T) {
+		_, err := NewJinaEmbeddingFunction(WithAPIKey(apiKey), WithEmbeddingEndpoint("http://example.com"), WithInsecure())
+		require.NoError(t, err)
+	})
+
+	t.Run("Test HTTPS endpoint accepted", func(t *testing.T) {
+		_, err := NewJinaEmbeddingFunction(WithAPIKey(apiKey), WithEmbeddingEndpoint("https://example.com"))
+		require.NoError(t, err)
+	})
 }

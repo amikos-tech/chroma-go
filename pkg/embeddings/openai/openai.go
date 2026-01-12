@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/creasty/defaults"
 	"github.com/pkg/errors"
@@ -101,6 +102,17 @@ type OpenAIClient struct {
 	Model        string            `default:"text-embedding-ada-002" json:"model,omitempty"`
 	Dimensions   *int              `json:"dimensions,omitempty"`
 	User         string            `json:"user,omitempty"`
+	Insecure     bool              `json:"insecure,omitempty"`
+}
+
+func validate(c *OpenAIClient) error {
+	if err := embeddings.NewValidator().Struct(c); err != nil {
+		return err
+	}
+	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
+		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
+	}
+	return nil
 }
 
 func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
@@ -121,7 +133,7 @@ func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
 	if client.User == "" {
 		client.User = chttp.ChromaGoClientUserAgent
 	}
-	if err := embeddings.NewValidator().Struct(client); err != nil {
+	if err := validate(client); err != nil {
 		return nil, errors.Wrap(err, "failed to validate OpenAI client options")
 	}
 	return client, nil
