@@ -89,10 +89,12 @@ func TestCreateCollectionProperty(t *testing.T) {
 		func(name string, col CollectionModel) bool {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				respBody := chhttp.ReadRespBody(r.Body)
-				require.JSONEq(t, `{"name":"`+name+`"}`, respBody)
 				var op CreateCollectionOp
 				err := json.Unmarshal([]byte(respBody), &op)
 				require.NoError(t, err)
+				require.Equal(t, name, op.Name)
+				// Configuration is now included with EF info
+				require.NotNil(t, op.Configuration)
 				cm := CollectionModel{
 					ID:       col.ID,
 					Name:     col.Name,
@@ -339,11 +341,12 @@ func TestAPIClient(t *testing.T) {
 			switch {
 			case r.URL.Path == "/api/v2/tenants/default_tenant/databases/default_database/collections" && r.Method == http.MethodPost:
 				w.WriteHeader(http.StatusOK)
-				require.JSONEq(t, `{"name":"test"}`, respBody)
-				values, err := url.ParseQuery(r.URL.RawQuery)
-				require.NoError(t, err)
 				var op CreateCollectionOp
-				err = json.Unmarshal([]byte(respBody), &op)
+				err := json.Unmarshal([]byte(respBody), &op)
+				require.NoError(t, err)
+				require.Equal(t, "test", op.Name)
+				require.NotNil(t, op.Configuration) // Configuration now includes EF info
+				values, err := url.ParseQuery(r.URL.RawQuery)
 				require.NoError(t, err)
 				cm := CollectionModel{
 					ID:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
@@ -375,7 +378,10 @@ func TestAPIClient(t *testing.T) {
 			switch {
 			case r.URL.Path == "/api/v2/tenants/default_tenant/databases/default_database/collections" && r.Method == http.MethodPost:
 				w.WriteHeader(http.StatusOK)
-				require.JSONEq(t, `{"get_or_create":true, "name":"test"}`, respBody)
+				var reqBody map[string]interface{}
+				require.NoError(t, json.Unmarshal([]byte(respBody), &reqBody))
+				require.Equal(t, "test", reqBody["name"])
+				require.Equal(t, true, reqBody["get_or_create"])
 				values, err := url.ParseQuery(r.URL.RawQuery)
 				require.NoError(t, err)
 				var op CreateCollectionOp

@@ -209,9 +209,7 @@ func (op *GetCollectionOp) PrepareAndValidateCollectionRequest() error {
 	if op.name == "" {
 		return errors.New("collection name cannot be empty")
 	}
-	if op.embeddingFunction == nil {
-		return errors.New("embedding function cannot be nil")
-	}
+	// EF validation removed - will be auto-wired from server config or user provides explicitly
 	return nil
 }
 
@@ -261,8 +259,12 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 			return errors.Wrap(err, "error creating default embedding function")
 		}
 		op.embeddingFunction = ef
-		// return fmt.Errorf("embedding function is required when creating a new collection. \nUse WithEmbeddingFunctionCreate to set the embedding function")
 	}
+	// Inject EF config into Configuration for server-side storage
+	if op.Configuration == nil {
+		op.Configuration = NewCollectionConfiguration()
+	}
+	op.Configuration.SetEmbeddingFunction(op.embeddingFunction)
 	return nil
 }
 

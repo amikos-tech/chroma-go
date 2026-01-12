@@ -50,11 +50,12 @@ func WithAPIToken(apiToken string) Option {
 
 func WithEnvAPIToken() Option {
 	return func(p *TogetherAIClient) error {
-		if apiToken := os.Getenv("TOGETHER_API_KEY"); apiToken != "" {
+		if apiToken := os.Getenv(APIKeyEnvVar); apiToken != "" {
 			p.APIToken = embeddings.NewSecret(apiToken)
+			p.APIKeyEnvVar = APIKeyEnvVar
 			return nil
 		}
-		return errors.New("TOGETHER_API_KEY not set")
+		return errors.Errorf("%s not set", APIKeyEnvVar)
 	}
 }
 
@@ -63,6 +64,7 @@ func WithAPITokenFromEnvVar(envVar string) Option {
 	return func(p *TogetherAIClient) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
 			p.APIToken = embeddings.NewSecret(apiKey)
+			p.APIKeyEnvVar = envVar
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

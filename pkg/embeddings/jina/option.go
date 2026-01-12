@@ -19,10 +19,11 @@ func WithAPIKey(apiKey string) Option {
 
 func WithEnvAPIKey() Option {
 	return func(c *JinaEmbeddingFunction) error {
-		if os.Getenv("JINA_API_KEY") == "" {
-			return errors.Errorf("JINA_API_KEY not set")
+		if os.Getenv(APIKeyEnvVar) == "" {
+			return errors.Errorf("%s not set", APIKeyEnvVar)
 		}
-		c.APIKey = embeddings.NewSecret(os.Getenv("JINA_API_KEY"))
+		c.APIKey = embeddings.NewSecret(os.Getenv(APIKeyEnvVar))
+		c.apiKeyEnvVar = APIKeyEnvVar
 		return nil
 	}
 }
@@ -32,6 +33,7 @@ func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *JinaEmbeddingFunction) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
 			p.APIKey = embeddings.NewSecret(apiKey)
+			p.apiKeyEnvVar = envVar
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

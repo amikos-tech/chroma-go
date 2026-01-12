@@ -93,13 +93,14 @@ func (c *CreateEmbeddingResponse) String() string {
 }
 
 type OpenAIClient struct {
-	BaseURL    string            `default:"https://api.openai.com/v1/" json:"base_url,omitempty"`
-	APIKey     embeddings.Secret `json:"-" validate:"required"`
-	OrgID      string            `json:"org_id,omitempty"`
-	Client     *http.Client      `json:"-"`
-	Model      string            `default:"text-embedding-ada-002" json:"model,omitempty"`
-	Dimensions *int              `json:"dimensions,omitempty"`
-	User       string            `json:"user,omitempty"`
+	BaseURL      string            `default:"https://api.openai.com/v1/" json:"base_url,omitempty"`
+	APIKey       embeddings.Secret `json:"-" validate:"required"`
+	APIKeyEnvVar string            `json:"-"`
+	OrgID        string            `json:"org_id,omitempty"`
+	Client       *http.Client      `json:"-"`
+	Model        string            `default:"text-embedding-ada-002" json:"model,omitempty"`
+	Dimensions   *int              `json:"dimensions,omitempty"`
+	User         string            `json:"user,omitempty"`
 }
 
 func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
@@ -260,8 +261,12 @@ func (e *OpenAIEmbeddingFunction) Name() string {
 }
 
 func (e *OpenAIEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := e.apiClient.APIKeyEnvVar
+	if envVar == "" {
+		envVar = APIKeyEnvVar
+	}
 	cfg := embeddings.EmbeddingFunctionConfig{
-		"api_key_env_var": APIKeyEnvVar,
+		"api_key_env_var": envVar,
 		"model_name":      e.apiClient.Model,
 	}
 	if e.apiClient.BaseURL != "" {

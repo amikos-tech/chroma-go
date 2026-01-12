@@ -21,6 +21,7 @@ const (
 type HuggingFaceClient struct {
 	BaseURL        string
 	APIKey         embeddings.Secret `json:"-"`
+	APIKeyEnvVar   string
 	Model          string
 	Client         *http.Client
 	DefaultHeaders map[string]string
@@ -192,9 +193,13 @@ func (e *HuggingFaceEmbeddingFunction) Name() string {
 }
 
 func (e *HuggingFaceEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := e.apiClient.APIKeyEnvVar
+	if envVar == "" {
+		envVar = APIKeyEnvVar
+	}
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      e.apiClient.Model,
-		"api_key_env_var": APIKeyEnvVar,
+		"api_key_env_var": envVar,
 	}
 	if e.apiClient.BaseURL != "" {
 		cfg["base_url"] = e.apiClient.BaseURL

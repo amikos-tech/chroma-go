@@ -18,6 +18,7 @@ const (
 
 type Client struct {
 	APIKey         embeddings.Secret `json:"-" validate:"required"`
+	APIKeyEnvVar   string
 	DefaultModel   embeddings.EmbeddingModel
 	Client         *genai.Client
 	DefaultContext *context.Context
@@ -149,9 +150,13 @@ func (e *GeminiEmbeddingFunction) Name() string {
 }
 
 func (e *GeminiEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := e.apiClient.APIKeyEnvVar
+	if envVar == "" {
+		envVar = APIKeyEnvVar
+	}
 	return embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.apiClient.DefaultModel),
-		"api_key_env_var": APIKeyEnvVar,
+		"api_key_env_var": envVar,
 	}
 }
 

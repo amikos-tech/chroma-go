@@ -320,10 +320,11 @@ func TestClientHTTPIntegration(t *testing.T) {
 		err := c.Reset(ctx)
 		require.NoError(t, err)
 
+		// Create a collection first so we can test getting non-existent ones
+		_, err = c.CreateCollection(ctx, "existing_col", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+
 		_, err = c.GetCollection(ctx, "non_existing_collection")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "embedding function cannot be nil")
-		_, err = c.GetCollection(ctx, "non_existing_collection", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "does not exist")
 
@@ -338,6 +339,79 @@ func TestClientHTTPIntegration(t *testing.T) {
 		_, err = c.GetCollection(ctx, "_1111", WithEmbeddingFunctionGet(embeddings.NewConsistentHashEmbeddingFunction()))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "does not exist")
+	})
+
+	t.Run("auto-wire embedding function on GetCollection", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+
+		// Create collection WITH embedding function
+		ef := embeddings.NewConsistentHashEmbeddingFunction()
+		createdCol, err := c.CreateCollection(ctx, "auto_wire_test", WithEmbeddingFunctionCreate(ef))
+		require.NoError(t, err)
+		require.NotNil(t, createdCol)
+
+		// Get collection WITHOUT specifying embedding function - should auto-wire
+		retrievedCol, err := c.GetCollection(ctx, "auto_wire_test")
+		require.NoError(t, err)
+		require.NotNil(t, retrievedCol)
+
+		// Verify the collection can be used for embedding operations
+		// Add documents using text (requires EF to be wired)
+		err = retrievedCol.Add(ctx, WithIDs("doc1", "doc2"), WithTexts("hello world", "goodbye world"))
+		require.NoError(t, err)
+
+		// Query using text (requires EF to be wired)
+		results, err := retrievedCol.Query(ctx, WithQueryTexts("hello"), WithNResults(1))
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+	})
+
+	t.Run("auto-wire embedding function on ListCollections", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+
+		// Create collection with EF
+		ef := embeddings.NewConsistentHashEmbeddingFunction()
+		_, err = c.CreateCollection(ctx, "list_test_col", WithEmbeddingFunctionCreate(ef))
+		require.NoError(t, err)
+
+		// List collections - should auto-wire EF
+		collections, err := c.ListCollections(ctx)
+		require.NoError(t, err)
+		require.Len(t, collections, 1)
+
+		col := collections[0]
+		require.Equal(t, "list_test_col", col.Name())
+
+		// Verify the collection can be used for embedding operations
+		err = col.Add(ctx, WithIDs("doc1"), WithTexts("test document"))
+		require.NoError(t, err)
+
+		count, err := col.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+	})
+
+	t.Run("explicit EF overrides auto-wire", func(t *testing.T) {
+		err := c.Reset(ctx)
+		require.NoError(t, err)
+
+		// Create collection with one EF
+		ef1 := embeddings.NewConsistentHashEmbeddingFunction()
+		_, err = c.CreateCollection(ctx, "override_test", WithEmbeddingFunctionCreate(ef1))
+		require.NoError(t, err)
+
+		// Get with explicit EF - should use the explicit one
+		ef2 := embeddings.NewConsistentHashEmbeddingFunction()
+		col, err := c.GetCollection(ctx, "override_test", WithEmbeddingFunctionGet(ef2))
+		require.NoError(t, err)
+		require.NotNil(t, col)
+
+		// Verify it works
+		err = col.Add(ctx, WithIDs("doc1"), WithTexts("test"))
+		require.NoError(t, err)
 	})
 
 	t.Run("list collections", func(t *testing.T) {

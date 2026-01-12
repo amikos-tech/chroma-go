@@ -39,6 +39,7 @@ func WithEnvAPIKey() Option {
 	return func(p *Client) error {
 		if apiKey := os.Getenv(APIKeyEnvVar); apiKey != "" {
 			p.APIKey = embeddings.NewSecret(apiKey)
+			p.APIKeyEnvVar = APIKeyEnvVar
 			return nil
 		}
 		return errors.Errorf("%s not set", APIKeyEnvVar)
@@ -50,6 +51,7 @@ func WithAPIKeyFromEnvVar(envVar string) Option {
 	return func(p *Client) error {
 		if apiKey := os.Getenv(envVar); apiKey != "" {
 			p.APIKey = embeddings.NewSecret(apiKey)
+			p.APIKeyEnvVar = envVar
 			return nil
 		}
 		return errors.Errorf("%s not set", envVar)

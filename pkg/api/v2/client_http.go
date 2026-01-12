@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
+	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 type APIClientV2 struct {
@@ -397,16 +398,26 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 	if err != nil {
 		return nil, errors.Wrap(err, "error decoding response")
 	}
+	configuration := NewCollectionConfigurationFromMap(cm.ConfigurationJSON)
+	// Auto-wire EF: explicit option takes priority, otherwise build from server config
+	ef := req.embeddingFunction
+	if ef == nil {
+		autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
+		if buildErr != nil {
+			client.logger.Warn("failed to auto-wire embedding function", logger.ErrorField("error", buildErr))
+		}
+		ef = autoWiredEF
+	}
 	c := &CollectionImpl{
 		name:              cm.Name,
 		id:                cm.ID,
 		tenant:            NewTenant(cm.Tenant),
 		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
 		metadata:          cm.Metadata,
-		configuration:     NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
+		configuration:     configuration,
 		client:            client,
 		dimension:         cm.Dimension,
-		embeddingFunction: req.embeddingFunction,
+		embeddingFunction: ef,
 	}
 	client.addCollectionToCache(c)
 	return c, nil
@@ -476,15 +487,24 @@ func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListColl
 	var apiCollections = make([]Collection, 0)
 	if len(cols) > 0 {
 		for _, cm := range cols {
+			configuration := NewCollectionConfigurationFromMap(cm.ConfigurationJSON)
+			// Auto-wire EF from configuration
+			ef, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
+			if buildErr != nil {
+				client.logger.Warn("failed to auto-wire embedding function for collection",
+					logger.String("collection", cm.Name),
+					logger.ErrorField("error", buildErr))
+			}
 			c := &CollectionImpl{
-				name:          cm.Name,
-				id:            cm.ID,
-				tenant:        NewTenant(cm.Tenant),
-				database:      NewDatabase(cm.Database, NewTenant(cm.Tenant)),
-				metadata:      cm.Metadata,
-				configuration: NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
-				dimension:     cm.Dimension,
-				client:        client,
+				name:              cm.Name,
+				id:                cm.ID,
+				tenant:            NewTenant(cm.Tenant),
+				database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
+				metadata:          cm.Metadata,
+				configuration:     configuration,
+				dimension:         cm.Dimension,
+				client:            client,
+				embeddingFunction: ef,
 			}
 			apiCollections = append(apiCollections, c)
 		}

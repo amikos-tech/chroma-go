@@ -288,8 +288,12 @@ func (c *CohereEmbeddingFunction) Name() string {
 }
 
 func (c *CohereEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	envVar := c.APIKeyEnvVar
+	if envVar == "" {
+		envVar = ccommons.APIKeyEnv
+	}
 	cfg := embeddings.EmbeddingFunctionConfig{
-		"api_key_env_var": ccommons.APIKeyEnv,
+		"api_key_env_var": envVar,
 		"model_name":      string(c.DefaultModel),
 	}
 	return cfg
