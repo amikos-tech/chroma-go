@@ -16,7 +16,7 @@ import (
 
 const (
 	DefaultBaseAPIEndpoint                      = "https://api.jina.ai/v1/rerank"
-	DefaultRerankingModel  types.RerankingModel = "jina-reranker-v1-base-en"
+	DefaultRerankingModel  types.RerankingModel = "jina-reranker-v2-base-multilingual"
 )
 
 type RerankingRequest struct {
