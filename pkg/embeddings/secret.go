@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/pkg/errors"
 )
 
 const redactedText = "****"
@@ -50,8 +51,10 @@ func (s Secret) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (s *Secret) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, &s.value)
+// It returns an error to enforce the use of environment variables for secrets.
+// Secrets should be passed via api_key_env_var configuration, not directly in JSON.
+func (s *Secret) UnmarshalJSON(_ []byte) error {
+	return errors.New("secrets cannot be deserialized from JSON; use environment variables via api_key_env_var config")
 }
 
 // LogValue implements slog.LogValuer for structured logging protection.

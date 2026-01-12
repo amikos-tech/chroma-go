@@ -28,10 +28,10 @@ type CloudflareClient struct {
 	BaseAPI        string
 	endpoint       string
 	APIToken       embeddings.Secret `json:"-" validate:"required"`
-	AccountID      string
+	AccountID      string            `validate:"required_if=IsGateway false"`
 	DefaultModel   embeddings.EmbeddingModel
 	IsGateway      bool
-	MaxBatchSize   int
+	MaxBatchSize   int `validate:"gt=0,lte=100"`
 	DefaultHeaders map[string]string
 	Client         *http.Client
 }
