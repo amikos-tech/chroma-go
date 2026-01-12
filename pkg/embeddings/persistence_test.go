@@ -637,3 +637,148 @@ func TestConfigRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+// Negative tests for EF persistence failure paths
+
+func TestBuildDense_UnknownName(t *testing.T) {
+	config := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": "SOME_API_KEY",
+	}
+
+	ef, err := embeddings.BuildDense("nonexistent_provider_xyz", config)
+	assert.Error(t, err)
+	assert.Nil(t, ef)
+	assert.Contains(t, err.Error(), "unknown")
+}
+
+func TestBuildDense_MissingEnvVar(t *testing.T) {
+	// Ensure the env var is NOT set
+	t.Setenv("OPENAI_API_KEY", "")
+
+	config := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": "OPENAI_API_KEY",
+		"model_name":      "text-embedding-3-small",
+	}
+
+	ef, err := embeddings.BuildDense("openai", config)
+	assert.Error(t, err)
+	assert.Nil(t, ef)
+	assert.Contains(t, err.Error(), "OPENAI_API_KEY")
+}
+
+func TestBuildDense_MissingRequiredConfig(t *testing.T) {
+	// Missing api_key_env_var should cause failure
+	config := embeddings.EmbeddingFunctionConfig{
+		"model_name": "text-embedding-3-small",
+		// Missing api_key_env_var
+	}
+
+	ef, err := embeddings.BuildDense("openai", config)
+	assert.Error(t, err)
+	assert.Nil(t, ef)
+}
+
+func TestBuildDense_EmptyConfig(t *testing.T) {
+	// Empty config for a provider that requires config
+	config := embeddings.EmbeddingFunctionConfig{}
+
+	ef, err := embeddings.BuildDense("openai", config)
+	assert.Error(t, err)
+	assert.Nil(t, ef)
+}
+
+func TestBuildDense_ConsistentHashAlwaysWorks(t *testing.T) {
+	// consistent_hash doesn't require env vars, should always work
+	config := embeddings.EmbeddingFunctionConfig{
+		"dim": float64(128),
+	}
+
+	ef, err := embeddings.BuildDense("consistent_hash", config)
+	assert.NoError(t, err)
+	assert.NotNil(t, ef)
+	assert.Equal(t, "consistent_hash", ef.Name())
+}
+
+func TestBuildDense_NilConfig(t *testing.T) {
+	// nil config for consistent_hash should work (uses defaults)
+	ef, err := embeddings.BuildDense("consistent_hash", nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, ef)
+}
+
+func TestBuildDense_NilConfigForProviderRequiringConfig(t *testing.T) {
+	// nil config for OpenAI should fail
+	ef, err := embeddings.BuildDense("openai", nil)
+	assert.Error(t, err)
+	assert.Nil(t, ef)
+}
+
+func TestBuildDense_WrongEnvVarSet(t *testing.T) {
+	// Set a different env var than what the config expects
+	t.Setenv("DIFFERENT_API_KEY", "some-value")
+	t.Setenv("OPENAI_API_KEY", "") // Ensure target is not set
+
+	config := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": "OPENAI_API_KEY",
+		"model_name":      "text-embedding-3-small",
+	}
+
+	ef, err := embeddings.BuildDense("openai", config)
+	assert.Error(t, err)
+	assert.Nil(t, ef)
+	assert.Contains(t, err.Error(), "OPENAI_API_KEY")
+}
+
+func TestHasDense_UnknownProvider(t *testing.T) {
+	// HasDense should return false for unknown providers
+	assert.False(t, embeddings.HasDense("unknown_provider_xyz"))
+	assert.False(t, embeddings.HasDense(""))
+	assert.False(t, embeddings.HasDense("not_a_real_ef"))
+}
+
+func TestHasDense_KnownProviders(t *testing.T) {
+	// HasDense should return true for known providers
+	knownProviders := []string{
+		"openai",
+		"cohere",
+		"jina",
+		"mistral",
+		"google_genai",
+		"voyageai",
+		"huggingface",
+		"cloudflare_workers_ai",
+		"together_ai",
+		"nomic",
+		"chroma_cloud",
+		"ollama",
+		"consistent_hash",
+	}
+
+	for _, provider := range knownProviders {
+		assert.True(t, embeddings.HasDense(provider), "Provider %s should be registered", provider)
+	}
+}
+
+func TestEFPersistence_FailureRecovery(t *testing.T) {
+	// Test that after a failure, we can still create EFs with correct config
+	t.Setenv("OPENAI_API_KEY", "") // Start with no key
+
+	config := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": "OPENAI_API_KEY",
+		"model_name":      "text-embedding-3-small",
+	}
+
+	// First attempt should fail
+	ef1, err := embeddings.BuildDense("openai", config)
+	assert.Error(t, err)
+	assert.Nil(t, ef1)
+
+	// Now set the key
+	t.Setenv("OPENAI_API_KEY", "now-valid-key")
+
+	// Second attempt should succeed
+	ef2, err := embeddings.BuildDense("openai", config)
+	assert.NoError(t, err)
+	assert.NotNil(t, ef2)
+	assert.Equal(t, "openai", ef2.Name())
+}

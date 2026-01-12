@@ -3,12 +3,16 @@ package v2
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+
+	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/cohere"
+	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
 )
 
 func TestNewCollectionConfiguration(t *testing.T) {
@@ -374,4 +378,153 @@ func TestCollectionConfiguration_EFConfigFromServerResponse(t *testing.T) {
 	assert.Equal(t, "known", info.Type)
 	assert.Equal(t, "default", info.Name)
 	assert.True(t, info.IsKnown())
+}
+
+// Negative tests for BuildEmbeddingFunctionFromConfig failure paths
+
+func TestBuildEmbeddingFunctionFromConfig_MissingEnvVar(t *testing.T) {
+	// Save and unset the env var
+	origValue := os.Getenv("OPENAI_API_KEY")
+	_ = os.Unsetenv("OPENAI_API_KEY")
+	defer func() {
+		if origValue != "" {
+			_ = os.Setenv("OPENAI_API_KEY", origValue)
+		}
+	}()
+
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type: "known",
+		Name: "openai",
+		Config: map[string]any{
+			"api_key_env_var": "OPENAI_API_KEY",
+			"model_name":      "text-embedding-3-small",
+		},
+	})
+
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	// BuildDense should fail when env var is not set
+	assert.Error(t, err)
+	assert.Nil(t, ef)
+	assert.Contains(t, err.Error(), "OPENAI_API_KEY")
+}
+
+func TestBuildEmbeddingFunctionFromConfig_MissingRequiredConfig(t *testing.T) {
+	// Unset the env var to ensure it fails
+	origValue := os.Getenv("COHERE_API_KEY")
+	_ = os.Unsetenv("COHERE_API_KEY")
+	defer func() {
+		if origValue != "" {
+			_ = os.Setenv("COHERE_API_KEY", origValue)
+		}
+	}()
+
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type:   "known",
+		Name:   "cohere",
+		Config: map[string]any{
+			// Missing api_key_env_var - should fail
+		},
+	})
+
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	// BuildDense should fail when required config is missing
+	assert.Error(t, err)
+	assert.Nil(t, ef)
+}
+
+func TestBuildEmbeddingFunctionFromConfig_InvalidEnvVarName(t *testing.T) {
+	// Ensure the nonexistent env var is definitely not set
+	_ = os.Unsetenv("NONEXISTENT_ENV_VAR_12345")
+
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type: "known",
+		Name: "openai",
+		Config: map[string]any{
+			"api_key_env_var": "NONEXISTENT_ENV_VAR_12345",
+			"model_name":      "text-embedding-3-small",
+		},
+	})
+
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	assert.Error(t, err)
+	assert.Nil(t, ef)
+	assert.Contains(t, err.Error(), "NONEXISTENT_ENV_VAR_12345")
+}
+
+func TestBuildEmbeddingFunctionFromConfig_SuccessWithValidEnvVar(t *testing.T) {
+	// Test successful reconstruction when env var is set
+	t.Setenv("OPENAI_API_KEY", "test-api-key-123")
+
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type: "known",
+		Name: "openai",
+		Config: map[string]any{
+			"api_key_env_var": "OPENAI_API_KEY",
+			"model_name":      "text-embedding-3-small",
+		},
+	})
+
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	assert.NoError(t, err)
+	assert.NotNil(t, ef)
+	assert.Equal(t, "openai", ef.Name())
+}
+
+func TestBuildEmbeddingFunctionFromConfig_ConsistentHashNoEnvVar(t *testing.T) {
+	// consistent_hash doesn't require env vars - should always work
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type: "known",
+		Name: "consistent_hash",
+		Config: map[string]any{
+			"dim": float64(128),
+		},
+	})
+
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	assert.NoError(t, err)
+	assert.NotNil(t, ef)
+	assert.Equal(t, "consistent_hash", ef.Name())
+}
+
+func TestBuildEmbeddingFunctionFromConfig_LegacyType(t *testing.T) {
+	// "legacy" or other non-"known" types should return nil without error
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type:   "legacy",
+		Name:   "some_old_ef",
+		Config: map[string]any{},
+	})
+
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	assert.NoError(t, err)
+	assert.Nil(t, ef)
+}
+
+func TestBuildEmbeddingFunctionFromConfig_EmptyConfig(t *testing.T) {
+	// Empty config map should cause BuildDense to fail for providers requiring config
+	// Unset the env var to ensure failure
+	origValue := os.Getenv("OPENAI_API_KEY")
+	_ = os.Unsetenv("OPENAI_API_KEY")
+	defer func() {
+		if origValue != "" {
+			_ = os.Setenv("OPENAI_API_KEY", origValue)
+		}
+	}()
+
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type:   "known",
+		Name:   "openai",
+		Config: map[string]any{},
+	})
+
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	// Should fail because api_key_env_var is missing
+	assert.Error(t, err)
+	assert.Nil(t, ef)
 }
