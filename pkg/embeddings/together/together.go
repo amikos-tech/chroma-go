@@ -237,10 +237,11 @@ func (e *TogetherEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetri
 // NewTogetherEmbeddingFunctionFromConfig creates a Together embedding function from a config map.
 // Uses schema-compliant field names: api_key_env_var, model_name.
 func NewTogetherEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*TogetherEmbeddingFunction, error) {
-	opts := make([]Option, 0)
-	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		opts = append(opts, WithAPITokenFromEnvVar(envVar))
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
 	}
+	opts := []Option{WithAPITokenFromEnvVar(envVar)}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
 	}

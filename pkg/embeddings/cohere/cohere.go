@@ -306,10 +306,11 @@ func (c *CohereEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric 
 // NewCohereEmbeddingFunctionFromConfig creates a Cohere embedding function from a config map.
 // Uses schema-compliant field names: api_key_env_var, model_name.
 func NewCohereEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*CohereEmbeddingFunction, error) {
-	opts := make([]Option, 0)
-	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
 	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
 	}

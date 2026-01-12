@@ -191,6 +191,9 @@ func (e *CloudflareEmbeddingFunction) EmbedQuery(ctx context.Context, document s
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
+	if len(response.Result.Data) == 0 {
+		return nil, errors.New("no embedding returned from Cloudflare API")
+	}
 	return embeddings.NewEmbeddingFromFloat32(response.Result.Data[0]), nil
 }
 
@@ -223,10 +226,11 @@ func (e *CloudflareEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMet
 // NewCloudflareEmbeddingFunctionFromConfig creates a Cloudflare embedding function from a config map.
 // Uses schema-compliant field names: api_key_env_var, model_name, account_id, is_gateway, gateway_endpoint.
 func NewCloudflareEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*CloudflareEmbeddingFunction, error) {
-	opts := make([]Option, 0)
-	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
 	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
 	if isGateway, ok := cfg["is_gateway"].(bool); ok && isGateway {
 		if gatewayEndpoint, ok := cfg["gateway_endpoint"].(string); ok && gatewayEndpoint != "" {
 			opts = append(opts, WithGatewayEndpoint(gatewayEndpoint))

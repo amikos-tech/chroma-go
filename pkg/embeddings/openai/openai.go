@@ -248,7 +248,11 @@ func (e *OpenAIEmbeddingFunction) EmbedQuery(ctx context.Context, document strin
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
-	return embeddings.NewEmbeddingFromFloat32(ConvertToMatrix(response)[0]), nil
+	matrix := ConvertToMatrix(response)
+	if len(matrix) == 0 {
+		return nil, errors.New("no embedding returned from OpenAI API")
+	}
+	return embeddings.NewEmbeddingFromFloat32(matrix[0]), nil
 }
 
 func (e *OpenAIEmbeddingFunction) Name() string {
@@ -283,10 +287,11 @@ func (e *OpenAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric 
 // NewOpenAIEmbeddingFunctionFromConfig creates an OpenAI embedding function from a config map.
 // Uses schema-compliant field names: api_key_env_var, model_name, api_base, organization_id, dimensions.
 func NewOpenAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*OpenAIEmbeddingFunction, error) {
-	opts := make([]Option, 0)
-	if envVar, ok := cfg["api_key_env_var"].(string); ok && envVar != "" {
-		opts = append(opts, WithAPIKeyFromEnvVar(envVar))
+	envVar, ok := cfg["api_key_env_var"].(string)
+	if !ok || envVar == "" {
+		return nil, errors.New("api_key_env_var is required in config")
 	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
 	if baseURL, ok := cfg["api_base"].(string); ok && baseURL != "" {
 		opts = append(opts, WithBaseURL(baseURL))
 	}
