@@ -4,6 +4,7 @@ package hf
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -112,9 +113,17 @@ func Test_Huggingface_client_with_options(t *testing.T) {
 	})
 
 	t.Run("Test with huggingface embedding inference", func(t *testing.T) {
+		teiVersion := "1.8.3"
+		teiImage := "ghcr.io/huggingface/text-embeddings-inference"
+		if v := os.Getenv("TEI_VERSION"); v != "" {
+			teiVersion = v
+		}
+		if img := os.Getenv("TEI_IMAGE"); img != "" {
+			teiImage = img
+		}
 		ctx := context.Background()
 		req := testcontainers.ContainerRequest{
-			Image:         "ghcr.io/huggingface/text-embeddings-inference:cpu-latest",
+			Image:         fmt.Sprintf("%s:cpu-%s", teiImage, teiVersion),
 			ExposedPorts:  []string{"80/tcp"},
 			WaitingFor:    wait.ForLog("Ready"),
 			ImagePlatform: "linux/amd64",

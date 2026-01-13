@@ -22,6 +22,18 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
 )
 
+func getTEIImage() string {
+	teiVersion := "1.8.3"
+	teiImage := "ghcr.io/huggingface/text-embeddings-inference"
+	if v := os.Getenv("TEI_VERSION"); v != "" {
+		teiVersion = v
+	}
+	if img := os.Getenv("TEI_IMAGE"); img != "" {
+		teiImage = img
+	}
+	return fmt.Sprintf("%s:cpu-%s", teiImage, teiVersion)
+}
+
 func TestRerankHFEI(t *testing.T) {
 	apiKey := os.Getenv("HF_API_KEY")
 	if apiKey == "" {
@@ -34,7 +46,7 @@ func TestRerankHFEI(t *testing.T) {
 
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
-		Image:         "ghcr.io/huggingface/text-embeddings-inference:cpu-latest",
+		Image:         getTEIImage(),
 		ExposedPorts:  []string{"80/tcp"},
 		WaitingFor:    wait.ForHTTP("/health").WithPort("80/tcp").WithStartupTimeout(5 * time.Minute),
 		ImagePlatform: "linux/amd64",
@@ -148,7 +160,7 @@ func TestRerankChromaResults(t *testing.T) {
 
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
-		Image:         "ghcr.io/huggingface/text-embeddings-inference:cpu-latest",
+		Image:         getTEIImage(),
 		ExposedPorts:  []string{"80/tcp"},
 		WaitingFor:    wait.ForHTTP("/health").WithPort("80/tcp").WithStartupTimeout(5 * time.Minute),
 		ImagePlatform: "linux/amd64",
