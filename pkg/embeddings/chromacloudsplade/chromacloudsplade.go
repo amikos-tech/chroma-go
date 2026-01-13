@@ -189,12 +189,12 @@ func (e *EmbeddingFunction) EmbedQuerySparse(ctx context.Context, query string) 
 }
 
 func (e *EmbeddingFunction) Name() string {
-	return "chroma_splade"
+	return "chroma-cloud-splade"
 }
 
 func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 	cfg := embeddings.EmbeddingFunctionConfig{
-		"model_name":      string(e.client.Model),
+		"model":           string(e.client.Model),
 		"api_key_env_var": APIKeyEnvVar,
 	}
 	if e.client.Insecure {
@@ -207,14 +207,14 @@ func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 }
 
 // NewEmbeddingFunctionFromConfig creates a ChromaCloud Splade embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, base_url, insecure.
+// Uses schema-compliant field names: api_key_env_var, model, base_url, insecure.
 func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*EmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
 		return nil, errors.New("api_key_env_var is required in config")
 	}
 	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
-	if model, ok := cfg["model_name"].(string); ok && model != "" {
+	if model, ok := cfg["model"].(string); ok && model != "" {
 		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
 	}
 	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
@@ -230,7 +230,7 @@ func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*Em
 }
 
 func init() {
-	if err := embeddings.RegisterSparse("chroma_splade", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
+	if err := embeddings.RegisterSparse("chroma-cloud-splade", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
 		return NewEmbeddingFunctionFromConfig(cfg)
 	}); err != nil {
 		panic(err)

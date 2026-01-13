@@ -23,6 +23,7 @@ type CollectionModel struct {
 	Database          string                 `json:"database,omitempty"`
 	Version           int                    `json:"version,omitempty"`
 	LogPosition       int                    `json:"log_position,omitempty"`
+	Schema            *Schema                `json:"schema,omitempty"`
 }
 
 func (op *CollectionModel) MarshalJSON() ([]byte, error) {
@@ -367,6 +368,7 @@ func (c *CollectionImpl) Fork(ctx context.Context, newName string) (Collection, 
 		tenant:            NewTenant(cm.Tenant),
 		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
 		metadata:          cm.Metadata,
+		schema:            cm.Schema,
 		client:            c.client,
 		dimension:         cm.Dimension,
 		embeddingFunction: c.embeddingFunction,

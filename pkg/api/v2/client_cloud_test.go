@@ -15,6 +15,7 @@ import (
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloud"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloudsplade"
 )
 
 func TestCloudClientHTTPIntegration(t *testing.T) {
@@ -793,6 +794,48 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 	// Chroma Cloud doesn't currently persist client-side EF configurations.
 	// Cloud stores embedding_function as {type: "unknown"} in schema responses.
 	// This feature works with self-hosted Chroma 1.0.0+.
+
+	t.Run("auto-wire sparse embedding function from schema", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_sparse_ef_autowire-" + uuid.New().String()
+
+		// Create collection WITH sparse EF in schema using Chroma Cloud Splade
+		sparseEF, err := chromacloudsplade.NewEmbeddingFunction(chromacloudsplade.WithEnvAPIKey())
+		require.NoError(t, err)
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+			WithSparseVectorIndex("sparse_embedding", NewSparseVectorIndexConfig(
+				WithSparseEmbeddingFunction(sparseEF),
+				WithSparseSourceKey("#document"),
+			)),
+		)
+		require.NoError(t, err)
+
+		createdCol, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, createdCol)
+
+		// Get collection - sparse EF should be auto-wired from schema
+		retrievedCol, err := client.GetCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedCol)
+
+		// Verify schema contains the sparse EF
+		retrievedSchema := retrievedCol.Schema()
+		require.NotNil(t, retrievedSchema, "Schema should be present")
+
+		// Get the sparse EF from schema
+		key, sparseEFRetrieved := retrievedSchema.GetAnySparseEmbeddingFunction()
+		require.NotEmpty(t, key, "Should find a sparse EF key")
+		require.NotNil(t, sparseEFRetrieved, "Sparse EF should be auto-wired from Cloud schema")
+		require.Equal(t, "chroma-cloud-splade", sparseEFRetrieved.Name())
+
+		// Also test getting by specific key
+		sparseEFByKey := retrievedSchema.GetSparseEmbeddingFunction("sparse_embedding")
+		require.NotNil(t, sparseEFByKey, "Should find sparse EF by key")
+		require.Equal(t, "chroma-cloud-splade", sparseEFByKey.Name())
+	})
 
 	t.Cleanup(func() {
 		collections, err := client.ListCollections(context.Background())

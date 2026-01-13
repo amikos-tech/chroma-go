@@ -205,13 +205,15 @@ func TestBuildSparseFromJSON(t *testing.T) {
 	testCases := []struct {
 		name           string
 		efName         string
+		expectedName   string // Name() may differ from registration name (aliases)
 		jsonConfig     string
 		requiresAPIKey bool
 		envVar         string
 	}{
 		{
-			name:   "BM25",
-			efName: "bm25",
+			name:         "BM25",
+			efName:       "chroma_bm25",
+			expectedName: "chroma_bm25",
 			jsonConfig: `{
 				"k": 1.2,
 				"b": 0.75,
@@ -223,11 +225,22 @@ func TestBuildSparseFromJSON(t *testing.T) {
 			requiresAPIKey: false,
 		},
 		{
-			name:   "ChromaCloudSplade",
-			efName: "chroma_splade",
+			name:         "BM25_alias",
+			efName:       "bm25",
+			expectedName: "chroma_bm25",
+			jsonConfig: `{
+				"k": 1.2,
+				"b": 0.75
+			}`,
+			requiresAPIKey: false,
+		},
+		{
+			name:         "ChromaCloudSplade",
+			efName:       "chroma-cloud-splade",
+			expectedName: "chroma-cloud-splade",
 			jsonConfig: `{
 				"api_key_env_var": "CHROMA_API_KEY",
-				"model_name": "prithivida/Splade_PP_en_v1"
+				"model": "prithivida/Splade_PP_en_v1"
 			}`,
 			requiresAPIKey: true,
 			envVar:         "CHROMA_API_KEY",
@@ -259,7 +272,7 @@ func TestBuildSparseFromJSON(t *testing.T) {
 				ef, err := embeddings.BuildSparse(tc.efName, cfg)
 				require.NoError(t, err, "Should succeed with API key set")
 				require.NotNil(t, ef)
-				assert.Equal(t, tc.efName, ef.Name())
+				assert.Equal(t, tc.expectedName, ef.Name())
 
 				// Restore original env var value
 				if originalValue != "" {
@@ -272,7 +285,7 @@ func TestBuildSparseFromJSON(t *testing.T) {
 				ef, err := embeddings.BuildSparse(tc.efName, cfg)
 				require.NoError(t, err, "Should succeed without API key")
 				require.NotNil(t, ef)
-				assert.Equal(t, tc.efName, ef.Name())
+				assert.Equal(t, tc.expectedName, ef.Name())
 			}
 		})
 	}
@@ -338,8 +351,9 @@ func TestAllRegisteredProvidersHaveFactories(t *testing.T) {
 	}
 
 	expectedSparse := []string{
-		"bm25",
-		"chroma_splade",
+		"chroma_bm25",         // Primary name (matches Python client)
+		"bm25",                // Alias for backward compatibility
+		"chroma-cloud-splade",
 	}
 
 	registeredDense := embeddings.ListDense()

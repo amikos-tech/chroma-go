@@ -187,7 +187,7 @@ func (e *EmbeddingFunction) EmbedQuerySparse(_ context.Context, text string) (*e
 var _ embeddings.SparseEmbeddingFunction = (*EmbeddingFunction)(nil)
 
 func (e *EmbeddingFunction) Name() string {
-	return "bm25"
+	return "chroma_bm25"
 }
 
 func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
@@ -230,9 +230,15 @@ func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*Em
 }
 
 func init() {
-	if err := embeddings.RegisterSparse("bm25", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
+	factory := func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.SparseEmbeddingFunction, error) {
 		return NewEmbeddingFunctionFromConfig(cfg)
-	}); err != nil {
+	}
+	// Register primary name (matches Python client)
+	if err := embeddings.RegisterSparse("chroma_bm25", factory); err != nil {
+		panic(err)
+	}
+	// Register alias for backward compatibility
+	if err := embeddings.RegisterSparse("bm25", factory); err != nil {
 		panic(err)
 	}
 }
