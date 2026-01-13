@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -82,7 +83,11 @@ func validate(c *VoyageAIClient) error {
 	if c.MaxBatchSize > defaultMaxSize {
 		return errors.Errorf("max batch size must be less than %d", defaultMaxSize)
 	}
-	if !c.Insecure && !strings.HasPrefix(c.BaseAPI, "https://") {
+	parsed, err := url.Parse(c.BaseAPI)
+	if err != nil {
+		return errors.Wrap(err, "invalid base URL")
+	}
+	if !c.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
 		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return nil
@@ -344,7 +349,9 @@ func (e *VoyageAIEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConf
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"api_key_env_var": envVar,
 		"model_name":      string(e.apiClient.DefaultModel),
-		"insecure":        e.apiClient.Insecure,
+	}
+	if e.apiClient.Insecure {
+		cfg["insecure"] = true
 	}
 	if e.apiClient.BaseAPI != "" {
 		cfg["base_url"] = e.apiClient.BaseAPI

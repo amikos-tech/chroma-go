@@ -59,7 +59,11 @@ func NewCohereClient(opts ...Option) (*CohereClient, error) {
 	if err := embeddings.NewValidator().Struct(client); err != nil {
 		return nil, errors.Wrap(err, "failed to validate Cohere client options")
 	}
-	if !client.Insecure && !strings.HasPrefix(client.BaseURL, "https://") {
+	parsed, err := url.Parse(client.BaseURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid base URL")
+	}
+	if !client.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
 		return nil, errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	if client.RetryStrategy == nil {

@@ -85,7 +85,11 @@ func validate(c *Client) error {
 	if err := embeddings.NewValidator().Struct(c); err != nil {
 		return err
 	}
-	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
+	parsed, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return errors.Wrap(err, "invalid base URL")
+	}
+	if !c.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
 		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return nil
@@ -261,7 +265,9 @@ func (e *NomicEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig 
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.apiClient.DefaultModel),
 		"api_key_env_var": envVar,
-		"insecure":        e.apiClient.Insecure,
+	}
+	if e.apiClient.Insecure {
+		cfg["insecure"] = true
 	}
 	if e.apiClient.BaseURL != "" {
 		cfg["base_url"] = e.apiClient.BaseURL

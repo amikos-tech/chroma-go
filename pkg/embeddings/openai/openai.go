@@ -109,7 +109,11 @@ func validate(c *OpenAIClient) error {
 	if err := embeddings.NewValidator().Struct(c); err != nil {
 		return err
 	}
-	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
+	parsed, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return errors.Wrap(err, "invalid base URL")
+	}
+	if !c.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
 		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return nil
@@ -280,7 +284,9 @@ func (e *OpenAIEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"api_key_env_var": envVar,
 		"model_name":      e.apiClient.Model,
-		"insecure":        e.apiClient.Insecure,
+	}
+	if e.apiClient.Insecure {
+		cfg["insecure"] = true
 	}
 	if e.apiClient.BaseURL != "" {
 		cfg["api_base"] = e.apiClient.BaseURL

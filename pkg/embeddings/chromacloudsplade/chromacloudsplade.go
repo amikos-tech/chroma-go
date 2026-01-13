@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -62,7 +63,11 @@ func validate(c *Client) error {
 	if c.APIKey.IsEmpty() {
 		return errors.New("API key is required")
 	}
-	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
+	parsed, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return errors.Wrap(err, "invalid base URL")
+	}
+	if !c.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
 		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return nil
@@ -191,7 +196,9 @@ func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.client.Model),
 		"api_key_env_var": APIKeyEnvVar,
-		"insecure":        e.client.Insecure,
+	}
+	if e.client.Insecure {
+		cfg["insecure"] = true
 	}
 	if e.client.BaseURL != "" {
 		cfg["base_url"] = e.client.BaseURL

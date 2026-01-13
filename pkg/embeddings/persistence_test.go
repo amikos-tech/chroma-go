@@ -901,9 +901,10 @@ func TestInsecureConfigFalse_NotPersisted(t *testing.T) {
 	ef, err := openai.NewOpenAIEmbeddingFunction("", openai.WithEnvAPIKey())
 	require.NoError(t, err)
 
-	// insecure should be false in config
+	// insecure should NOT be present in config when false (Go zero value)
 	config := ef.GetConfig()
-	assert.Equal(t, false, config["insecure"])
+	_, hasInsecure := config["insecure"]
+	assert.False(t, hasInsecure, "insecure key should not be present when false")
 
 	// Rebuild should still work (HTTPS URL)
 	rebuilt, err := embeddings.BuildDense("openai", config)

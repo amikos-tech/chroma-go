@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -81,7 +82,11 @@ func validate(ef *JinaEmbeddingFunction) error {
 	if err := embeddings.NewValidator().Struct(ef); err != nil {
 		return err
 	}
-	if !ef.insecure && !strings.HasPrefix(ef.embeddingEndpoint, "https://") {
+	parsed, err := url.Parse(ef.embeddingEndpoint)
+	if err != nil {
+		return errors.Wrap(err, "invalid base URL")
+	}
+	if !ef.insecure && !strings.EqualFold(parsed.Scheme, "https") {
 		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return nil
@@ -220,7 +225,9 @@ func (e *JinaEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      string(e.defaultModel),
 		"api_key_env_var": envVar,
-		"insecure":        e.insecure,
+	}
+	if e.insecure {
+		cfg["insecure"] = true
 	}
 	if e.embeddingEndpoint != "" {
 		cfg["base_url"] = e.embeddingEndpoint

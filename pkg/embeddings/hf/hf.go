@@ -56,7 +56,11 @@ func NewHuggingFaceClientFromOptions(opts ...Option) (*HuggingFaceClient, error)
 		return nil, errors.New("API key is required")
 	}
 	// HTTPS validation: only enforce when API key is being transmitted
-	if !c.Insecure && !c.APIKey.IsEmpty() && !strings.HasPrefix(c.BaseURL, "https://") {
+	parsed, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid base URL")
+	}
+	if !c.Insecure && !c.APIKey.IsEmpty() && !strings.EqualFold(parsed.Scheme, "https") {
 		return nil, errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return c, nil
@@ -206,7 +210,9 @@ func (e *HuggingFaceEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionC
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"model_name":      e.apiClient.Model,
 		"api_key_env_var": envVar,
-		"insecure":        e.apiClient.Insecure,
+	}
+	if e.apiClient.Insecure {
+		cfg["insecure"] = true
 	}
 	if e.apiClient.BaseURL != "" {
 		cfg["base_url"] = e.apiClient.BaseURL

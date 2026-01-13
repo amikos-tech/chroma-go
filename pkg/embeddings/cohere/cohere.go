@@ -295,7 +295,9 @@ func (c *CohereEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"api_key_env_var": envVar,
 		"model_name":      string(c.DefaultModel),
-		"insecure":        c.Insecure,
+	}
+	if c.Insecure {
+		cfg["insecure"] = true
 	}
 	return cfg
 }
