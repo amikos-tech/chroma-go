@@ -440,6 +440,55 @@ type SparseVectorIndexConfig struct {
 	BM25              bool                               `json:"bm25,omitempty"`
 }
 
+// sparseVectorIndexConfigJSON is the JSON representation of SparseVectorIndexConfig
+type sparseVectorIndexConfigJSON struct {
+	EmbeddingFunction *EmbeddingFunctionInfo `json:"embedding_function,omitempty"`
+	SourceKey         string                 `json:"source_key,omitempty"`
+	BM25              bool                   `json:"bm25,omitempty"`
+}
+
+// MarshalJSON serializes SparseVectorIndexConfig to JSON, including EmbeddingFunction as EmbeddingFunctionInfo
+func (s *SparseVectorIndexConfig) MarshalJSON() ([]byte, error) {
+	j := sparseVectorIndexConfigJSON{
+		SourceKey: s.SourceKey,
+		BM25:      s.BM25,
+	}
+
+	if s.EmbeddingFunction != nil {
+		j.EmbeddingFunction = &EmbeddingFunctionInfo{
+			Type:   efTypeKnown,
+			Name:   s.EmbeddingFunction.Name(),
+			Config: s.EmbeddingFunction.GetConfig(),
+		}
+	}
+
+	return json.Marshal(j)
+}
+
+// UnmarshalJSON deserializes SparseVectorIndexConfig from JSON, optionally reconstructing EmbeddingFunction
+func (s *SparseVectorIndexConfig) UnmarshalJSON(data []byte) error {
+	var j sparseVectorIndexConfigJSON
+	if err := json.Unmarshal(data, &j); err != nil {
+		return errors.Wrap(err, "failed to unmarshal sparse vector index config")
+	}
+
+	s.SourceKey = j.SourceKey
+	s.BM25 = j.BM25
+
+	// Try to reconstruct SparseEmbeddingFunction from EmbeddingFunctionInfo
+	if j.EmbeddingFunction != nil && j.EmbeddingFunction.IsKnown() {
+		if embeddings.HasSparse(j.EmbeddingFunction.Name) {
+			ef, err := embeddings.BuildSparse(j.EmbeddingFunction.Name, j.EmbeddingFunction.Config)
+			if err == nil {
+				s.EmbeddingFunction = ef
+			}
+			// Silently ignore build errors - EF will be nil
+		}
+	}
+
+	return nil
+}
+
 // SparseVectorIndexOption configures a SparseVectorIndexConfig
 type SparseVectorIndexOption func(*SparseVectorIndexConfig)
 
@@ -1124,4 +1173,72 @@ func (s *Schema) SetEmbeddingFunction(ef embeddings.EmbeddingFunction) {
 
 	// Set the EmbeddingFunction
 	s.keys[EmbeddingKey].FloatList.VectorIndex.Config.EmbeddingFunction = ef
+}
+
+// GetSparseEmbeddingFunction returns the SparseEmbeddingFunction from a specific key
+// Returns nil if no sparse vector index is configured at that key or if the EmbeddingFunction couldn't be reconstructed
+func (s *Schema) GetSparseEmbeddingFunction(key string) embeddings.SparseEmbeddingFunction {
+	if s == nil || s.keys == nil {
+		return nil
+	}
+
+	if vt, ok := s.keys[key]; ok && vt != nil {
+		if vt.SparseVector != nil && vt.SparseVector.SparseVectorIndex != nil && vt.SparseVector.SparseVectorIndex.Config != nil {
+			return vt.SparseVector.SparseVectorIndex.Config.EmbeddingFunction
+		}
+	}
+
+	return nil
+}
+
+// GetAllSparseEmbeddingFunctions returns all sparse embedding functions with their keys
+// Returns a map of key name to embedding function, or nil if schema is nil
+func (s *Schema) GetAllSparseEmbeddingFunctions() map[string]embeddings.SparseEmbeddingFunction {
+	if s == nil || s.keys == nil {
+		return nil
+	}
+
+	result := make(map[string]embeddings.SparseEmbeddingFunction)
+	for key, vt := range s.keys {
+		if vt != nil && vt.SparseVector != nil && vt.SparseVector.SparseVectorIndex != nil && vt.SparseVector.SparseVectorIndex.Config != nil {
+			if ef := vt.SparseVector.SparseVectorIndex.Config.EmbeddingFunction; ef != nil {
+				result[key] = ef
+			}
+		}
+	}
+
+	return result
+}
+
+// SetSparseEmbeddingFunction sets the SparseEmbeddingFunction on a specific key
+// Creates the necessary structure if it doesn't exist
+func (s *Schema) SetSparseEmbeddingFunction(key string, ef embeddings.SparseEmbeddingFunction) {
+	if s == nil || ef == nil || key == "" {
+		return
+	}
+
+	if s.keys == nil {
+		s.keys = make(map[string]*ValueTypes)
+	}
+
+	if s.keys[key] == nil {
+		s.keys[key] = &ValueTypes{}
+	}
+
+	if s.keys[key].SparseVector == nil {
+		s.keys[key].SparseVector = &SparseVectorValueType{}
+	}
+
+	if s.keys[key].SparseVector.SparseVectorIndex == nil {
+		s.keys[key].SparseVector.SparseVectorIndex = &SparseVectorIndexType{
+			Enabled: true,
+			Config:  &SparseVectorIndexConfig{},
+		}
+	}
+
+	if s.keys[key].SparseVector.SparseVectorIndex.Config == nil {
+		s.keys[key].SparseVector.SparseVectorIndex.Config = &SparseVectorIndexConfig{}
+	}
+
+	s.keys[key].SparseVector.SparseVectorIndex.Config.EmbeddingFunction = ef
 }

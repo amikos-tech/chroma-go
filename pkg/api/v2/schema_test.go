@@ -1,11 +1,16 @@
 package v2
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+
+	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/bm25"
 )
 
 func TestNewSchema(t *testing.T) {
@@ -1042,4 +1047,340 @@ func TestSchema_MarshalJSON_WithEmbeddingFunction(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "known", efInfo["type"])
 	assert.Equal(t, "test-ef", efInfo["name"])
+}
+
+// mockSparseEmbeddingFunction is a minimal mock for testing sparse EF serialization
+type mockSparseEmbeddingFunction struct {
+	name   string
+	config map[string]interface{}
+}
+
+func (m *mockSparseEmbeddingFunction) EmbedDocumentsSparse(_ context.Context, _ []string) ([]*embeddings.SparseVector, error) {
+	return nil, nil
+}
+
+func (m *mockSparseEmbeddingFunction) EmbedQuerySparse(_ context.Context, _ string) (*embeddings.SparseVector, error) {
+	return nil, nil
+}
+
+func (m *mockSparseEmbeddingFunction) Name() string {
+	return m.name
+}
+
+func (m *mockSparseEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
+	return m.config
+}
+
+func TestSparseVectorIndexConfig_MarshalJSON_WithEmbeddingFunction(t *testing.T) {
+	ef := &mockSparseEmbeddingFunction{
+		name:   "test-sparse-ef",
+		config: map[string]interface{}{"api_key_env_var": "TEST_API_KEY", "model": "test-model"},
+	}
+
+	config := NewSparseVectorIndexConfig(
+		WithSparseEmbeddingFunction(ef),
+		WithSparseSourceKey("#document"),
+	)
+
+	data, err := json.Marshal(config)
+	require.NoError(t, err)
+
+	var result map[string]interface{}
+	err = json.Unmarshal(data, &result)
+	require.NoError(t, err)
+
+	// Verify EF info is present in JSON
+	assert.Contains(t, result, "embedding_function")
+	efInfo, ok := result["embedding_function"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "known", efInfo["type"])
+	assert.Equal(t, "test-sparse-ef", efInfo["name"])
+	assert.Contains(t, efInfo, "config")
+	assert.Equal(t, "#document", result["source_key"])
+}
+
+func TestSparseVectorIndexConfig_MarshalJSON_WithoutEmbeddingFunction(t *testing.T) {
+	config := NewSparseVectorIndexConfig(
+		WithSparseSourceKey("#document"),
+		WithBM25(true),
+	)
+
+	data, err := json.Marshal(config)
+	require.NoError(t, err)
+
+	var result map[string]interface{}
+	err = json.Unmarshal(data, &result)
+	require.NoError(t, err)
+
+	// EF info should not be present
+	assert.NotContains(t, result, "embedding_function")
+	assert.Equal(t, "#document", result["source_key"])
+	assert.Equal(t, true, result["bm25"])
+}
+
+func TestSparseVectorIndexConfig_UnmarshalJSON_PreservesConfig(t *testing.T) {
+	data := `{
+		"source_key": "my_sparse_embedding",
+		"bm25": true
+	}`
+
+	var config SparseVectorIndexConfig
+	err := json.Unmarshal([]byte(data), &config)
+	require.NoError(t, err)
+
+	assert.Equal(t, "my_sparse_embedding", config.SourceKey)
+	assert.True(t, config.BM25)
+	assert.Nil(t, config.EmbeddingFunction) // No registered EF
+}
+
+func TestSparseVectorIndexConfig_UnmarshalJSON_WithUnknownEF(t *testing.T) {
+	// Cloud returns "type": "unknown" for unrecognized EFs
+	data := `{
+		"embedding_function": {"type": "unknown"},
+		"source_key": "#document",
+		"bm25": false
+	}`
+
+	var config SparseVectorIndexConfig
+	err := json.Unmarshal([]byte(data), &config)
+	require.NoError(t, err)
+
+	assert.Equal(t, "#document", config.SourceKey)
+	assert.False(t, config.BM25)
+	assert.Nil(t, config.EmbeddingFunction) // Should not reconstruct unknown EF
+}
+
+func TestSchema_SetSparseEmbeddingFunction(t *testing.T) {
+	schema, err := NewSchema()
+	require.NoError(t, err)
+
+	ef := &mockSparseEmbeddingFunction{
+		name:   "test-sparse-ef",
+		config: map[string]interface{}{"model": "test-model"},
+	}
+
+	schema.SetSparseEmbeddingFunction("sparse_embedding", ef)
+
+	// Verify EF was set
+	retrieved := schema.GetSparseEmbeddingFunction("sparse_embedding")
+	assert.NotNil(t, retrieved)
+	assert.Equal(t, "test-sparse-ef", retrieved.Name())
+}
+
+func TestSchema_SetSparseEmbeddingFunction_NilSchema(t *testing.T) {
+	var schema *Schema
+	ef := &mockSparseEmbeddingFunction{name: "test-sparse-ef"}
+
+	// Should not panic
+	schema.SetSparseEmbeddingFunction("sparse_embedding", ef)
+}
+
+func TestSchema_SetSparseEmbeddingFunction_NilEF(t *testing.T) {
+	schema, err := NewSchema()
+	require.NoError(t, err)
+
+	// Should not panic
+	schema.SetSparseEmbeddingFunction("sparse_embedding", nil)
+
+	// Should return nil
+	assert.Nil(t, schema.GetSparseEmbeddingFunction("sparse_embedding"))
+}
+
+func TestSchema_SetSparseEmbeddingFunction_EmptyKey(t *testing.T) {
+	schema, err := NewSchema()
+	require.NoError(t, err)
+
+	ef := &mockSparseEmbeddingFunction{name: "test-sparse-ef"}
+
+	// Should not panic or create anything with empty key
+	schema.SetSparseEmbeddingFunction("", ef)
+}
+
+func TestSchema_GetSparseEmbeddingFunction_NoIndex(t *testing.T) {
+	schema, err := NewSchema()
+	require.NoError(t, err)
+
+	// No sparse vector index configured
+	ef := schema.GetSparseEmbeddingFunction("sparse_embedding")
+	assert.Nil(t, ef)
+}
+
+func TestSchema_GetAllSparseEmbeddingFunctions(t *testing.T) {
+	schema, err := NewSchema()
+	require.NoError(t, err)
+
+	ef1 := &mockSparseEmbeddingFunction{
+		name:   "sparse-ef-1",
+		config: map[string]interface{}{"key": "value1"},
+	}
+	ef2 := &mockSparseEmbeddingFunction{
+		name:   "sparse-ef-2",
+		config: map[string]interface{}{"key": "value2"},
+	}
+
+	schema.SetSparseEmbeddingFunction("sparse_key_1", ef1)
+	schema.SetSparseEmbeddingFunction("sparse_key_2", ef2)
+
+	all := schema.GetAllSparseEmbeddingFunctions()
+	assert.Len(t, all, 2)
+	assert.Equal(t, "sparse-ef-1", all["sparse_key_1"].Name())
+	assert.Equal(t, "sparse-ef-2", all["sparse_key_2"].Name())
+}
+
+func TestSchema_GetAllSparseEmbeddingFunctions_NoSparse(t *testing.T) {
+	schema, err := NewSchema()
+	require.NoError(t, err)
+
+	all := schema.GetAllSparseEmbeddingFunctions()
+	assert.Empty(t, all)
+}
+
+func TestSchema_MarshalJSON_WithSparseEmbeddingFunction(t *testing.T) {
+	ef := &mockSparseEmbeddingFunction{
+		name:   "test-sparse-ef",
+		config: map[string]interface{}{"api_key_env_var": "MY_API_KEY"},
+	}
+
+	schema, err := NewSchema(
+		WithSparseVectorIndex("sparse_embedding", NewSparseVectorIndexConfig(
+			WithSparseEmbeddingFunction(ef),
+			WithSparseSourceKey("#document"),
+		)),
+	)
+	require.NoError(t, err)
+
+	data, err := json.Marshal(schema)
+	require.NoError(t, err)
+
+	// Verify sparse EF info is serialized correctly
+	var result map[string]interface{}
+	err = json.Unmarshal(data, &result)
+	require.NoError(t, err)
+
+	keys, ok := result["keys"].(map[string]interface{})
+	require.True(t, ok)
+	sparseKey, ok := keys["sparse_embedding"].(map[string]interface{})
+	require.True(t, ok)
+	sparseVector, ok := sparseKey["sparse_vector"].(map[string]interface{})
+	require.True(t, ok)
+	sparseVectorIndex, ok := sparseVector["sparse_vector_index"].(map[string]interface{})
+	require.True(t, ok)
+	config, ok := sparseVectorIndex["config"].(map[string]interface{})
+	require.True(t, ok)
+	efInfo, ok := config["embedding_function"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "known", efInfo["type"])
+	assert.Equal(t, "test-sparse-ef", efInfo["name"])
+}
+
+func TestSparseVectorIndexConfig_Roundtrip_WithRegisteredEF(t *testing.T) {
+	// Use BM25 which is a registered sparse EF that doesn't require API keys
+	bm25EF, err := embeddings.BuildSparse("bm25", embeddings.EmbeddingFunctionConfig{
+		"k":       1.2,
+		"b":       0.75,
+		"avg_len": 256.0,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, bm25EF)
+
+	// Create config with the real EF
+	config := NewSparseVectorIndexConfig(
+		WithSparseEmbeddingFunction(bm25EF),
+		WithSparseSourceKey("#document"),
+	)
+
+	// Serialize
+	data, err := json.Marshal(config)
+	require.NoError(t, err)
+
+	// Deserialize into new config
+	var reconstructed SparseVectorIndexConfig
+	err = json.Unmarshal(data, &reconstructed)
+	require.NoError(t, err)
+
+	// Verify the EF was reconstructed
+	assert.NotNil(t, reconstructed.EmbeddingFunction, "EF should be reconstructed from registry")
+	assert.Equal(t, "chroma_bm25", reconstructed.EmbeddingFunction.Name())
+	assert.Equal(t, "#document", reconstructed.SourceKey)
+}
+
+func TestSchema_Roundtrip_WithSparseEmbeddingFunction(t *testing.T) {
+	// Use BM25 which is a registered sparse EF
+	bm25EF, err := embeddings.BuildSparse("bm25", embeddings.EmbeddingFunctionConfig{
+		"k": 1.5,
+		"b": 0.8,
+	})
+	require.NoError(t, err)
+
+	// Create schema with sparse EF
+	schema, err := NewSchema(
+		WithSparseVectorIndex("sparse_embedding", NewSparseVectorIndexConfig(
+			WithSparseEmbeddingFunction(bm25EF),
+			WithSparseSourceKey("#document"),
+		)),
+	)
+	require.NoError(t, err)
+
+	// Serialize schema
+	data, err := json.Marshal(schema)
+	require.NoError(t, err)
+
+	// Deserialize into new schema
+	var reconstructed Schema
+	err = json.Unmarshal(data, &reconstructed)
+	require.NoError(t, err)
+
+	// Verify sparse EF was reconstructed
+	ef := reconstructed.GetSparseEmbeddingFunction("sparse_embedding")
+	require.NotNil(t, ef, "Sparse EF should be auto-wired from registry")
+	assert.Equal(t, "chroma_bm25", ef.Name())
+
+	// Also test GetAllSparseEmbeddingFunctions
+	allSparse := reconstructed.GetAllSparseEmbeddingFunctions()
+	assert.Len(t, allSparse, 1)
+	assert.NotNil(t, allSparse["sparse_embedding"])
+	assert.Equal(t, "chroma_bm25", allSparse["sparse_embedding"].Name())
+}
+
+func TestSchema_Roundtrip_SimulatesCloudResponse(t *testing.T) {
+	// Simulate the JSON that would come back from Chroma Cloud
+	// This is the key test - proving auto-wiring works with real Cloud response format
+	cloudJSON := `{
+		"keys": {
+			"sparse_embedding": {
+				"sparse_vector": {
+					"sparse_vector_index": {
+						"enabled": true,
+						"config": {
+							"embedding_function": {
+								"type": "known",
+								"name": "chroma_bm25",
+								"config": {
+									"k": 1.2,
+									"b": 0.75,
+									"avg_len": 256.0
+								}
+							},
+							"source_key": "#document"
+						}
+					}
+				}
+			}
+		}
+	}`
+
+	var schema Schema
+	err := json.Unmarshal([]byte(cloudJSON), &schema)
+	require.NoError(t, err)
+
+	// Verify sparse EF was auto-wired
+	ef := schema.GetSparseEmbeddingFunction("sparse_embedding")
+	require.NotNil(t, ef, "Sparse EF should be auto-wired from Cloud response")
+	assert.Equal(t, "chroma_bm25", ef.Name())
+
+	// Verify config was passed through
+	config := ef.GetConfig()
+	k, ok := embeddings.ConfigFloat64(config, "k")
+	assert.True(t, ok)
+	assert.Equal(t, 1.2, k)
 }
