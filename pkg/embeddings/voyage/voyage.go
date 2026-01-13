@@ -9,6 +9,8 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -47,6 +49,7 @@ type VoyageAIClient struct {
 	DefaultTruncation     *bool
 	DefaultEncodingFormat *EncodingFormat
 	Client                *http.Client
+	Insecure              bool
 }
 
 func applyDefaults(c *VoyageAIClient) {
@@ -79,6 +82,13 @@ func validate(c *VoyageAIClient) error {
 	}
 	if c.MaxBatchSize > defaultMaxSize {
 		return errors.Errorf("max batch size must be less than %d", defaultMaxSize)
+	}
+	parsed, err := url.Parse(c.BaseAPI)
+	if err != nil {
+		return errors.Wrap(err, "invalid base URL")
+	}
+	if !c.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
+		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return nil
 }
@@ -340,6 +350,9 @@ func (e *VoyageAIEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConf
 		"api_key_env_var": envVar,
 		"model_name":      string(e.apiClient.DefaultModel),
 	}
+	if e.apiClient.Insecure {
+		cfg["insecure"] = true
+	}
 	if e.apiClient.BaseAPI != "" {
 		cfg["base_url"] = e.apiClient.BaseAPI
 	}
@@ -355,7 +368,7 @@ func (e *VoyageAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetri
 }
 
 // NewVoyageAIEmbeddingFunctionFromConfig creates a VoyageAI embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, base_url.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url, insecure.
 func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*VoyageAIEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -367,6 +380,12 @@ func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConf
 	}
 	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
 		opts = append(opts, WithBaseURL(baseURL))
+	}
+	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
+		opts = append(opts, WithInsecure())
+	} else if embeddings.AllowInsecureFromEnv() {
+		embeddings.LogInsecureEnvVarWarning("VoyageAI")
+		opts = append(opts, WithInsecure())
 	}
 	return NewVoyageAIEmbeddingFunction(opts...)
 }

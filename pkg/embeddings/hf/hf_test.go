@@ -143,4 +143,26 @@ func Test_Huggingface_client_with_options(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 	})
+
+	t.Run("Test HTTP URL rejected with API key", func(t *testing.T) {
+		_, err := NewHuggingFaceEmbeddingFunctionFromOptions(WithAPIKey(apiKey), WithBaseURL("http://example.com"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "base URL must use HTTPS")
+	})
+
+	t.Run("Test HTTP URL accepted with WithInsecure", func(t *testing.T) {
+		_, err := NewHuggingFaceEmbeddingFunctionFromOptions(WithAPIKey(apiKey), WithBaseURL("http://example.com"), WithInsecure())
+		require.NoError(t, err)
+	})
+
+	t.Run("Test HTTPS URL accepted", func(t *testing.T) {
+		_, err := NewHuggingFaceEmbeddingFunctionFromOptions(WithAPIKey(apiKey), WithBaseURL("https://example.com"))
+		require.NoError(t, err)
+	})
+
+	t.Run("Test HTTP URL allowed for TEI endpoint without API key", func(t *testing.T) {
+		// TEI endpoints without API key should allow HTTP since there's no secret to protect
+		_, err := NewHuggingFaceEmbeddingInferenceFunction("http://localhost:8080")
+		require.NoError(t, err)
+	})
 }

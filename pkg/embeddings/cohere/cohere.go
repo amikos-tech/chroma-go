@@ -296,6 +296,9 @@ func (c *CohereEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig
 		"api_key_env_var": envVar,
 		"model_name":      string(c.DefaultModel),
 	}
+	if c.Insecure {
+		cfg["insecure"] = true
+	}
 	return cfg
 }
 
@@ -308,7 +311,7 @@ func (c *CohereEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric 
 }
 
 // NewCohereEmbeddingFunctionFromConfig creates a Cohere embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name.
+// Uses schema-compliant field names: api_key_env_var, model_name, insecure.
 func NewCohereEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*CohereEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -317,6 +320,12 @@ func NewCohereEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig
 	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithModel(embeddings.EmbeddingModel(model)))
+	}
+	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
+		opts = append(opts, WithInsecure())
+	} else if embeddings.AllowInsecureFromEnv() {
+		embeddings.LogInsecureEnvVarWarning("Cohere")
+		opts = append(opts, WithInsecure())
 	}
 	return NewCohereEmbeddingFunction(opts...)
 }

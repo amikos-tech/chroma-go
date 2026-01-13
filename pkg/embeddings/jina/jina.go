@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -73,6 +75,21 @@ type JinaEmbeddingFunction struct {
 	normalized        bool
 	embeddingType     EmbeddingType
 	task              TaskType
+	insecure          bool
+}
+
+func validate(ef *JinaEmbeddingFunction) error {
+	if err := embeddings.NewValidator().Struct(ef); err != nil {
+		return err
+	}
+	parsed, err := url.Parse(ef.embeddingEndpoint)
+	if err != nil {
+		return errors.Wrap(err, "invalid base URL")
+	}
+	if !ef.insecure && !strings.EqualFold(parsed.Scheme, "https") {
+		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
+	}
+	return nil
 }
 
 func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
@@ -83,7 +100,7 @@ func NewJinaEmbeddingFunction(opts ...Option) (*JinaEmbeddingFunction, error) {
 			return nil, err
 		}
 	}
-	if err := embeddings.NewValidator().Struct(ef); err != nil {
+	if err := validate(ef); err != nil {
 		return nil, errors.Wrap(err, "failed to validate Jina embedding function options")
 	}
 	return ef, nil
@@ -209,6 +226,9 @@ func (e *JinaEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 		"model_name":      string(e.defaultModel),
 		"api_key_env_var": envVar,
 	}
+	if e.insecure {
+		cfg["insecure"] = true
+	}
 	if e.embeddingEndpoint != "" {
 		cfg["base_url"] = e.embeddingEndpoint
 	}
@@ -224,7 +244,7 @@ func (e *JinaEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
 }
 
 // NewJinaEmbeddingFunctionFromConfig creates a Jina embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, base_url.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url, insecure.
 func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*JinaEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -236,6 +256,12 @@ func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) 
 	}
 	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
 		opts = append(opts, WithEmbeddingEndpoint(baseURL))
+	}
+	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
+		opts = append(opts, WithInsecure())
+	} else if embeddings.AllowInsecureFromEnv() {
+		embeddings.LogInsecureEnvVarWarning("Jina")
+		opts = append(opts, WithInsecure())
 	}
 	return NewJinaEmbeddingFunction(opts...)
 }

@@ -91,3 +91,12 @@ func WithTask(task TaskType) Option {
 		return nil
 	}
 }
+
+// WithInsecure allows the client to connect to HTTP endpoints without TLS.
+// This should only be used for local development or testing.
+func WithInsecure() Option {
+	return func(c *JinaEmbeddingFunction) error {
+		c.insecure = true
+		return nil
+	}
+}

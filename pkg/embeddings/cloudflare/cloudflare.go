@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -35,6 +36,7 @@ type CloudflareClient struct {
 	MaxBatchSize   int `validate:"gt=0,lte=100"`
 	DefaultHeaders map[string]string
 	Client         *http.Client
+	Insecure       bool
 }
 
 func applyDefaults(c *CloudflareClient) {
@@ -72,6 +74,13 @@ func validate(c *CloudflareClient) error {
 	}
 	if c.MaxBatchSize > defaultMaxSize {
 		return errors.Errorf("max batch size must be less than %d", defaultMaxSize)
+	}
+	parsed, err := url.Parse(c.BaseAPI)
+	if err != nil {
+		return errors.Wrap(err, "invalid base URL")
+	}
+	if !c.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
+		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return nil
 }
@@ -211,6 +220,9 @@ func (e *CloudflareEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionCo
 		"model_name":      string(e.apiClient.DefaultModel),
 		"api_key_env_var": envVar,
 	}
+	if e.apiClient.Insecure {
+		cfg["insecure"] = true
+	}
 	if e.apiClient.IsGateway {
 		cfg["is_gateway"] = true
 		cfg["gateway_endpoint"] = e.apiClient.BaseAPI
@@ -229,7 +241,7 @@ func (e *CloudflareEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMet
 }
 
 // NewCloudflareEmbeddingFunctionFromConfig creates a Cloudflare embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, account_id, is_gateway, gateway_endpoint.
+// Uses schema-compliant field names: api_key_env_var, model_name, account_id, is_gateway, gateway_endpoint, insecure.
 func NewCloudflareEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*CloudflareEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -245,6 +257,12 @@ func NewCloudflareEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionCo
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
+	}
+	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
+		opts = append(opts, WithInsecure())
+	} else if embeddings.AllowInsecureFromEnv() {
+		embeddings.LogInsecureEnvVarWarning("Cloudflare")
+		opts = append(opts, WithInsecure())
 	}
 	return NewCloudflareEmbeddingFunction(opts...)
 }

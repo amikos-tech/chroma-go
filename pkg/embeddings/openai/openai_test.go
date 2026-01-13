@@ -117,16 +117,32 @@ func Test_openai_client(t *testing.T) {
 			if err != nil {
 				return
 			}
-			//require.Equal(t, r.Header.Get("Authorization"), "Bearer my-custom-token")
 		}))
 		defer server.Close()
-		ef, err := NewOpenAIEmbeddingFunction(apiKey, WithBaseURL(server.URL))
+		// httptest.NewServer creates HTTP URLs, so we need WithInsecure()
+		ef, err := NewOpenAIEmbeddingFunction(apiKey, WithBaseURL(server.URL), WithInsecure())
 		require.NoError(t, err)
 		documents := []string{
 			"Document 1 content here",
 		}
 		_, err = ef.EmbedDocuments(context.Background(), documents)
 		require.Nil(t, err)
+	})
+
+	t.Run("Test HTTP URL rejected without WithInsecure", func(t *testing.T) {
+		_, err := NewOpenAIEmbeddingFunction(apiKey, WithBaseURL("http://example.com"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "base URL must use HTTPS")
+	})
+
+	t.Run("Test HTTP URL accepted with WithInsecure", func(t *testing.T) {
+		_, err := NewOpenAIEmbeddingFunction(apiKey, WithBaseURL("http://example.com"), WithInsecure())
+		require.NoError(t, err)
+	})
+
+	t.Run("Test HTTPS URL accepted", func(t *testing.T) {
+		_, err := NewOpenAIEmbeddingFunction(apiKey, WithBaseURL("https://example.com"))
+		require.NoError(t, err)
 	})
 
 	t.Run("Test Embed query With Model text-embedding-3-large", func(t *testing.T) {

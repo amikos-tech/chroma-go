@@ -93,3 +93,12 @@ func WithAPIKeyFromEnvVar(envVar string) Option {
 		return errors.Errorf("%s not set", envVar)
 	}
 }
+
+// WithInsecure allows the client to connect to HTTP endpoints without TLS.
+// This should only be used for local development or testing.
+func WithInsecure() Option {
+	return func(c *OpenAIClient) error {
+		c.Insecure = true
+		return nil
+	}
+}

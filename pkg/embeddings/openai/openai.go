@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/creasty/defaults"
 	"github.com/pkg/errors"
@@ -101,6 +102,21 @@ type OpenAIClient struct {
 	Model        string            `default:"text-embedding-ada-002" json:"model,omitempty"`
 	Dimensions   *int              `json:"dimensions,omitempty"`
 	User         string            `json:"user,omitempty"`
+	Insecure     bool              `json:"insecure,omitempty"`
+}
+
+func validate(c *OpenAIClient) error {
+	if err := embeddings.NewValidator().Struct(c); err != nil {
+		return err
+	}
+	parsed, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return errors.Wrap(err, "invalid base URL")
+	}
+	if !c.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
+		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
+	}
+	return nil
 }
 
 func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
@@ -121,7 +137,7 @@ func NewOpenAIClient(apiKey string, opts ...Option) (*OpenAIClient, error) {
 	if client.User == "" {
 		client.User = chttp.ChromaGoClientUserAgent
 	}
-	if err := embeddings.NewValidator().Struct(client); err != nil {
+	if err := validate(client); err != nil {
 		return nil, errors.Wrap(err, "failed to validate OpenAI client options")
 	}
 	return client, nil
@@ -269,6 +285,9 @@ func (e *OpenAIEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig
 		"api_key_env_var": envVar,
 		"model_name":      e.apiClient.Model,
 	}
+	if e.apiClient.Insecure {
+		cfg["insecure"] = true
+	}
 	if e.apiClient.BaseURL != "" {
 		cfg["api_base"] = e.apiClient.BaseURL
 	}
@@ -290,7 +309,7 @@ func (e *OpenAIEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric 
 }
 
 // NewOpenAIEmbeddingFunctionFromConfig creates an OpenAI embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, api_base, organization_id, dimensions.
+// Uses schema-compliant field names: api_key_env_var, model_name, api_base, organization_id, dimensions, insecure.
 func NewOpenAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*OpenAIEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -308,6 +327,12 @@ func NewOpenAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig
 	}
 	if orgID, ok := cfg["organization_id"].(string); ok && orgID != "" {
 		opts = append(opts, WithOpenAIOrganizationID(orgID))
+	}
+	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
+		opts = append(opts, WithInsecure())
+	} else if embeddings.AllowInsecureFromEnv() {
+		embeddings.LogInsecureEnvVarWarning("OpenAI")
+		opts = append(opts, WithInsecure())
 	}
 	return NewOpenAIEmbeddingFunction("", opts...)
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -62,7 +63,11 @@ func validate(c *Client) error {
 	if c.APIKey.IsEmpty() {
 		return errors.New("API key is required")
 	}
-	if !c.Insecure && !strings.HasPrefix(c.BaseURL, "https://") {
+	parsed, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return errors.Wrap(err, "invalid base URL")
+	}
+	if !c.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
 		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	return nil
@@ -192,6 +197,9 @@ func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 		"model_name":      string(e.client.Model),
 		"api_key_env_var": APIKeyEnvVar,
 	}
+	if e.client.Insecure {
+		cfg["insecure"] = true
+	}
 	if e.client.BaseURL != "" {
 		cfg["base_url"] = e.client.BaseURL
 	}
@@ -199,7 +207,7 @@ func (e *EmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 }
 
 // NewEmbeddingFunctionFromConfig creates a ChromaCloud Splade embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, base_url.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url, insecure.
 func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*EmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -211,6 +219,12 @@ func NewEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*Em
 	}
 	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
 		opts = append(opts, WithBaseURL(baseURL))
+	}
+	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
+		opts = append(opts, WithInsecure())
+	} else if embeddings.AllowInsecureFromEnv() {
+		embeddings.LogInsecureEnvVarWarning("ChromaCloudSplade")
+		opts = append(opts, WithInsecure())
 	}
 	return NewEmbeddingFunction(opts...)
 }

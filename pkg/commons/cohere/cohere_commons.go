@@ -40,6 +40,7 @@ type CohereClient struct {
 	Client        *http.Client
 	DefaultModel  embeddings.EmbeddingModel `validate:"required"`
 	RetryStrategy httpc.RetryStrategy
+	Insecure      bool
 }
 
 func NewCohereClient(opts ...Option) (*CohereClient, error) {
@@ -57,6 +58,13 @@ func NewCohereClient(opts ...Option) (*CohereClient, error) {
 	}
 	if err := embeddings.NewValidator().Struct(client); err != nil {
 		return nil, errors.Wrap(err, "failed to validate Cohere client options")
+	}
+	parsed, err := url.Parse(client.BaseURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid base URL")
+	}
+	if !client.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
+		return nil, errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
 	}
 	if client.RetryStrategy == nil {
 		var err error
@@ -187,6 +195,15 @@ func WithRetryStrategy(retryStrategy httpc.RetryStrategy) Option {
 			return errors.New("retry strategy cannot be nil")
 		}
 		p.RetryStrategy = retryStrategy
+		return nil
+	}
+}
+
+// WithInsecure allows the client to connect to HTTP endpoints without TLS.
+// This should only be used for local development or testing.
+func WithInsecure() Option {
+	return func(p *CohereClient) error {
+		p.Insecure = true
 		return nil
 	}
 }
