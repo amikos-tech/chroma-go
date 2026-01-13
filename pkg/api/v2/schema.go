@@ -1191,22 +1191,23 @@ func (s *Schema) GetSparseEmbeddingFunction(key string) embeddings.SparseEmbeddi
 	return nil
 }
 
-// GetAnySparseEmbeddingFunction searches all keys and returns the first SparseEmbeddingFunction found
-// Returns the key name and the embedding function, or empty string and nil if none found
-func (s *Schema) GetAnySparseEmbeddingFunction() (string, embeddings.SparseEmbeddingFunction) {
+// GetAllSparseEmbeddingFunctions returns all sparse embedding functions with their keys
+// Returns a map of key name to embedding function, or nil if schema is nil
+func (s *Schema) GetAllSparseEmbeddingFunctions() map[string]embeddings.SparseEmbeddingFunction {
 	if s == nil || s.keys == nil {
-		return "", nil
+		return nil
 	}
 
+	result := make(map[string]embeddings.SparseEmbeddingFunction)
 	for key, vt := range s.keys {
 		if vt != nil && vt.SparseVector != nil && vt.SparseVector.SparseVectorIndex != nil && vt.SparseVector.SparseVectorIndex.Config != nil {
 			if ef := vt.SparseVector.SparseVectorIndex.Config.EmbeddingFunction; ef != nil {
-				return key, ef
+				result[key] = ef
 			}
 		}
 	}
 
-	return "", nil
+	return result
 }
 
 // SetSparseEmbeddingFunction sets the SparseEmbeddingFunction on a specific key

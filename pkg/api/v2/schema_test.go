@@ -1205,30 +1205,34 @@ func TestSchema_GetSparseEmbeddingFunction_NoIndex(t *testing.T) {
 	assert.Nil(t, ef)
 }
 
-func TestSchema_GetAnySparseEmbeddingFunction(t *testing.T) {
+func TestSchema_GetAllSparseEmbeddingFunctions(t *testing.T) {
 	schema, err := NewSchema()
 	require.NoError(t, err)
 
-	ef := &mockSparseEmbeddingFunction{
-		name:   "my-sparse-ef",
-		config: map[string]interface{}{"key": "value"},
+	ef1 := &mockSparseEmbeddingFunction{
+		name:   "sparse-ef-1",
+		config: map[string]interface{}{"key": "value1"},
+	}
+	ef2 := &mockSparseEmbeddingFunction{
+		name:   "sparse-ef-2",
+		config: map[string]interface{}{"key": "value2"},
 	}
 
-	schema.SetSparseEmbeddingFunction("my_sparse_key", ef)
+	schema.SetSparseEmbeddingFunction("sparse_key_1", ef1)
+	schema.SetSparseEmbeddingFunction("sparse_key_2", ef2)
 
-	key, retrieved := schema.GetAnySparseEmbeddingFunction()
-	assert.Equal(t, "my_sparse_key", key)
-	assert.NotNil(t, retrieved)
-	assert.Equal(t, "my-sparse-ef", retrieved.Name())
+	all := schema.GetAllSparseEmbeddingFunctions()
+	assert.Len(t, all, 2)
+	assert.Equal(t, "sparse-ef-1", all["sparse_key_1"].Name())
+	assert.Equal(t, "sparse-ef-2", all["sparse_key_2"].Name())
 }
 
-func TestSchema_GetAnySparseEmbeddingFunction_NoSparse(t *testing.T) {
+func TestSchema_GetAllSparseEmbeddingFunctions_NoSparse(t *testing.T) {
 	schema, err := NewSchema()
 	require.NoError(t, err)
 
-	key, ef := schema.GetAnySparseEmbeddingFunction()
-	assert.Empty(t, key)
-	assert.Nil(t, ef)
+	all := schema.GetAllSparseEmbeddingFunctions()
+	assert.Empty(t, all)
 }
 
 func TestSchema_MarshalJSON_WithSparseEmbeddingFunction(t *testing.T) {
@@ -1331,11 +1335,11 @@ func TestSchema_Roundtrip_WithSparseEmbeddingFunction(t *testing.T) {
 	require.NotNil(t, ef, "Sparse EF should be auto-wired from registry")
 	assert.Equal(t, "chroma_bm25", ef.Name())
 
-	// Also test GetAnySparseEmbeddingFunction
-	key, anyEF := reconstructed.GetAnySparseEmbeddingFunction()
-	assert.Equal(t, "sparse_embedding", key)
-	assert.NotNil(t, anyEF)
-	assert.Equal(t, "chroma_bm25", anyEF.Name())
+	// Also test GetAllSparseEmbeddingFunctions
+	allSparse := reconstructed.GetAllSparseEmbeddingFunctions()
+	assert.Len(t, allSparse, 1)
+	assert.NotNil(t, allSparse["sparse_embedding"])
+	assert.Equal(t, "chroma_bm25", allSparse["sparse_embedding"].Name())
 }
 
 func TestSchema_Roundtrip_SimulatesCloudResponse(t *testing.T) {

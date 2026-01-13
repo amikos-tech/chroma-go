@@ -825,11 +825,11 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		retrievedSchema := retrievedCol.Schema()
 		require.NotNil(t, retrievedSchema, "Schema should be present")
 
-		// Get the sparse EF from schema
-		key, sparseEFRetrieved := retrievedSchema.GetAnySparseEmbeddingFunction()
-		require.NotEmpty(t, key, "Should find a sparse EF key")
-		require.NotNil(t, sparseEFRetrieved, "Sparse EF should be auto-wired from Cloud schema")
-		require.Equal(t, "chroma-cloud-splade", sparseEFRetrieved.Name())
+		// Get all sparse EFs from schema
+		allSparseEFs := retrievedSchema.GetAllSparseEmbeddingFunctions()
+		require.Len(t, allSparseEFs, 1, "Should have exactly one sparse EF")
+		require.NotNil(t, allSparseEFs["sparse_embedding"], "Sparse EF should be auto-wired from Cloud schema")
+		require.Equal(t, "chroma-cloud-splade", allSparseEFs["sparse_embedding"].Name())
 
 		// Also test getting by specific key
 		sparseEFByKey := retrievedSchema.GetSparseEmbeddingFunction("sparse_embedding")
