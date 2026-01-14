@@ -774,7 +774,7 @@ func DocumentContains(text string) WhereClause {
 	return &WhereClauseString{
 		WhereClauseBase: WhereClauseBase{
 			operator: ContainsWhereOperator,
-			key:      "#document",
+			key:      KDocument,
 		},
 		operand: text,
 	}
@@ -790,7 +790,7 @@ func DocumentNotContains(text string) WhereClause {
 	return &WhereClauseString{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotContainsWhereOperator,
-			key:      "#document",
+			key:      KDocument,
 		},
 		operand: text,
 	}
