@@ -20,6 +20,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+
 	// Import embedding providers to register them for auto-wiring
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
 )
@@ -28,7 +29,7 @@ func init() {
 	_ = godotenv.Load("../../.env")
 	// Python chromadb uses CHROMA_OPENAI_API_KEY, ensure it's set from OPENAI_API_KEY
 	if os.Getenv("CHROMA_OPENAI_API_KEY") == "" && os.Getenv("OPENAI_API_KEY") != "" {
-		os.Setenv("CHROMA_OPENAI_API_KEY", os.Getenv("OPENAI_API_KEY"))
+		_ = os.Setenv("CHROMA_OPENAI_API_KEY", os.Getenv("OPENAI_API_KEY"))
 	}
 }
 
@@ -118,7 +119,10 @@ func runPythonHarness(t *testing.T, endpoint, efType, collectionPrefix string) *
 		pythonExec = venvPython
 	}
 
-	cmd := exec.Command(pythonExec, scriptPath,
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, pythonExec, scriptPath,
 		"--endpoint", endpoint,
 		"--ef-type", efType,
 		"--collection-prefix", collectionPrefix,
@@ -294,7 +298,10 @@ func runPythonHarnessCloud(t *testing.T, efType, collectionPrefix string) *Pytho
 		pythonExec = venvPython
 	}
 
-	cmd := exec.Command(pythonExec, scriptPath,
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, pythonExec, scriptPath,
 		"--cloud",
 		"--ef-type", efType,
 		"--collection-prefix", collectionPrefix,
