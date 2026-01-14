@@ -210,6 +210,28 @@ func TestWhere(t *testing.T) {
 			}(),
 			expected: `{"$and":[{"category":{"$eq":"tech"}},{"#id":{"$nin":["seen1","seen2"]}}]}`,
 		},
+		//--- Document content filters
+		{
+			name: "DocumentContains",
+			clause: func() WhereClause {
+				return DocumentContains("search text")
+			}(),
+			expected: `{"#document":{"$contains":"search text"}}`,
+		},
+		{
+			name: "DocumentNotContains",
+			clause: func() WhereClause {
+				return DocumentNotContains("excluded text")
+			}(),
+			expected: `{"#document":{"$not_contains":"excluded text"}}`,
+		},
+		{
+			name: "DocumentContains combined with metadata filter",
+			clause: func() WhereClause {
+				return And(EqString("category", "tech"), DocumentContains("AI"))
+			}(),
+			expected: `{"$and":[{"category":{"$eq":"tech"}},{"#document":{"$contains":"AI"}}]}`,
+		},
 		//---
 		{
 			name: "And",

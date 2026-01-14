@@ -19,6 +19,8 @@ const (
 	NotInOperator              WhereFilterOperator = "$nin"
 	AndOperator                WhereFilterOperator = "$and"
 	OrOperator                 WhereFilterOperator = "$or"
+	ContainsWhereOperator      WhereFilterOperator = "$contains"
+	NotContainsWhereOperator   WhereFilterOperator = "$not_contains"
 )
 
 type WhereClause interface {
@@ -729,4 +731,36 @@ func IDNotIn(ids ...DocumentID) WhereClause {
 		strIDs[i] = string(id)
 	}
 	return NinString("#id", strIDs...)
+}
+
+// DocumentContains creates a where clause that filters documents containing the specified text.
+// Use this with Search API to filter by document content.
+//
+// Example:
+//
+//	WithFilter(DocumentContains("machine learning"))
+func DocumentContains(text string) WhereClause {
+	return &WhereClauseString{
+		WhereClauseBase: WhereClauseBase{
+			operator: ContainsWhereOperator,
+			key:      "#document",
+		},
+		operand: text,
+	}
+}
+
+// DocumentNotContains creates a where clause that filters out documents containing the specified text.
+// Use this with Search API to exclude documents with certain content.
+//
+// Example:
+//
+//	WithFilter(DocumentNotContains("deprecated"))
+func DocumentNotContains(text string) WhereClause {
+	return &WhereClauseString{
+		WhereClauseBase: WhereClauseBase{
+			operator: NotContainsWhereOperator,
+			key:      "#document",
+		},
+		operand: text,
+	}
 }

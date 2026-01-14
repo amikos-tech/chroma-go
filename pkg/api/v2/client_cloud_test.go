@@ -503,6 +503,80 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("Search with DocumentContains filter", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_search_doc_contains-" + uuid.New().String()
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		// Add test data with distinct content
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts(
+				"cats are fluffy pets that purr",
+				"dogs are loyal companions that bark",
+				"lions are big wild cats in Africa",
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Search with DocumentContains filter - should only return docs with "fluffy"
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("pets"), WithKnnLimit(10)),
+				WithFilter(DocumentContains("fluffy")),
+				WithPage(WithLimit(5)),
+				WithSelect(KID, KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		sr := results.(*SearchResultImpl)
+		require.NotEmpty(t, sr.IDs)
+		require.Len(t, sr.IDs[0], 1, "Should only return 1 document containing 'fluffy'")
+		require.Equal(t, DocumentID("1"), sr.IDs[0][0])
+	})
+
+	t.Run("Search with DocumentNotContains filter", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_search_doc_not_contains-" + uuid.New().String()
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		// Add test data with distinct content
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts(
+				"cats are fluffy pets that purr",
+				"dogs are loyal companions that bark",
+				"lions are big wild cats in Africa",
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Search with DocumentNotContains filter - should exclude docs with "cats"
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("animals"), WithKnnLimit(10)),
+				WithFilter(DocumentNotContains("cats")),
+				WithPage(WithLimit(5)),
+				WithSelect(KID, KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		sr := results.(*SearchResultImpl)
+		require.NotEmpty(t, sr.IDs)
+		require.Len(t, sr.IDs[0], 1, "Should only return 1 document not containing 'cats'")
+		require.Equal(t, DocumentID("2"), sr.IDs[0][0])
+	})
+
 	// Schema Integration Tests
 
 	t.Run("Schema: Create collection with default schema", func(t *testing.T) {
