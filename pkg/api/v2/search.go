@@ -37,26 +37,43 @@ const (
 )
 
 // SearchFilter specifies which documents to include in search results.
+// The filter serializes directly as a where clause (not wrapped in a "where" object).
+// Note: For document content filtering, use WithFilter with document-related Where clauses.
 type SearchFilter struct {
-	IDs           []DocumentID        `json:"ids,omitempty"`
-	Where         WhereClause         `json:"where,omitempty"`
-	WhereDocument WhereDocumentFilter `json:"where_document,omitempty"`
+	IDs   []DocumentID `json:"-"` // Converted to #id $in clause
+	Where WhereClause  `json:"-"` // Serialized directly as the filter
 }
 
 func (f *SearchFilter) MarshalJSON() ([]byte, error) {
-	result := make(map[string]interface{})
+	var clauses []WhereClause
+
+	// Convert IDs to #id $in clause
 	if len(f.IDs) > 0 {
-		result["ids"] = f.IDs
+		clauses = append(clauses, IDIn(f.IDs...))
 	}
+
+	// Add where clause
 	if f.Where != nil {
-		result["where"] = f.Where
+		clauses = append(clauses, f.Where)
 	}
-	if f.WhereDocument != nil {
-		result["where_document"] = f.WhereDocument
+
+	if len(clauses) == 0 {
+		return []byte("{}"), nil
 	}
-	if len(result) == 0 {
-		return nil, nil
+
+	// If single clause, serialize directly; otherwise combine with $and
+	var result WhereClause
+	if len(clauses) == 1 {
+		result = clauses[0]
+	} else {
+		result = And(clauses...)
 	}
+
+	// Validate the composed filter before serializing
+	if err := result.Validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid search filter")
+	}
+
 	return json.Marshal(result)
 }
 
@@ -166,17 +183,6 @@ func WithFilterIDs(ids ...DocumentID) SearchOption {
 			req.Filter = &SearchFilter{}
 		}
 		req.Filter.IDs = ids
-		return nil
-	}
-}
-
-// WithFilterDocument adds a document content filter to the search.
-func WithFilterDocument(whereDoc WhereDocumentFilter) SearchOption {
-	return func(req *SearchRequest) error {
-		if req.Filter == nil {
-			req.Filter = &SearchFilter{}
-		}
-		req.Filter.WhereDocument = whereDoc
 		return nil
 	}
 }

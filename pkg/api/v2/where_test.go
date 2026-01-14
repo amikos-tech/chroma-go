@@ -188,6 +188,50 @@ func TestWhere(t *testing.T) {
 			}(),
 			expected: `{"name":{"$nin":[true,false]}}`,
 		},
+		//--- ID filters
+		{
+			name: "IDIn",
+			clause: func() WhereClause {
+				return IDIn("doc1", "doc2", "doc3")
+			}(),
+			expected: `{"#id":{"$in":["doc1","doc2","doc3"]}}`,
+		},
+		{
+			name: "IDNotIn",
+			clause: func() WhereClause {
+				return IDNotIn("seen1", "seen2")
+			}(),
+			expected: `{"#id":{"$nin":["seen1","seen2"]}}`,
+		},
+		{
+			name: "IDNotIn combined with And",
+			clause: func() WhereClause {
+				return And(EqString("category", "tech"), IDNotIn("seen1", "seen2"))
+			}(),
+			expected: `{"$and":[{"category":{"$eq":"tech"}},{"#id":{"$nin":["seen1","seen2"]}}]}`,
+		},
+		//--- Document content filters
+		{
+			name: "DocumentContains",
+			clause: func() WhereClause {
+				return DocumentContains("search text")
+			}(),
+			expected: `{"#document":{"$contains":"search text"}}`,
+		},
+		{
+			name: "DocumentNotContains",
+			clause: func() WhereClause {
+				return DocumentNotContains("excluded text")
+			}(),
+			expected: `{"#document":{"$not_contains":"excluded text"}}`,
+		},
+		{
+			name: "DocumentContains combined with metadata filter",
+			clause: func() WhereClause {
+				return And(EqString("category", "tech"), DocumentContains("AI"))
+			}(),
+			expected: `{"$and":[{"category":{"$eq":"tech"}},{"#document":{"$contains":"AI"}}]}`,
+		},
 		//---
 		{
 			name: "And",
@@ -229,6 +273,82 @@ func TestWhere(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.JSONEq(t, tt.expected, string(json))
+		})
+	}
+}
+
+func TestWhereClauseEmptyOperandValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		clause      WhereClause
+		expectedErr string
+	}{
+		{
+			name:        "IDIn with no arguments",
+			clause:      IDIn(),
+			expectedErr: "invalid operand for $in on key \"#id\", expected at least one value",
+		},
+		{
+			name:        "IDNotIn with no arguments",
+			clause:      IDNotIn(),
+			expectedErr: "invalid operand for $nin on key \"#id\", expected at least one value",
+		},
+		{
+			name:        "InString with no values",
+			clause:      InString("field"),
+			expectedErr: "invalid operand for $in on key \"field\", expected at least one value",
+		},
+		{
+			name:        "NinString with no values",
+			clause:      NinString("field"),
+			expectedErr: "invalid operand for $nin on key \"field\", expected at least one value",
+		},
+		{
+			name:        "Empty IDIn nested in And",
+			clause:      And(EqString("status", "active"), IDIn()),
+			expectedErr: "invalid operand for $in on key \"#id\", expected at least one value",
+		},
+		{
+			name:        "DocumentContains with empty string",
+			clause:      DocumentContains(""),
+			expectedErr: "invalid operand for $contains on key \"#document\", expected non-empty string",
+		},
+		{
+			name:        "DocumentNotContains with empty string",
+			clause:      DocumentNotContains(""),
+			expectedErr: "invalid operand for $not_contains on key \"#document\", expected non-empty string",
+		},
+		{
+			name:        "Empty DocumentContains nested in And",
+			clause:      And(EqString("category", "tech"), DocumentContains("")),
+			expectedErr: "invalid operand for $contains on key \"#document\", expected non-empty string",
+		},
+		{
+			name:        "Nil clause in And",
+			clause:      And(EqString("status", "active"), nil),
+			expectedErr: "nil clause in $and expression",
+		},
+		{
+			name:        "Nil clause in Or",
+			clause:      Or(nil, EqString("status", "active")),
+			expectedErr: "nil clause in $or expression",
+		},
+		{
+			name:        "Nil clause in nested compound",
+			clause:      And(EqString("a", "b"), Or(EqString("c", "d"), nil)),
+			expectedErr: "nil clause in $or expression",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Construction should succeed (lazy validation)
+			require.NotNil(t, tt.clause)
+
+			// Validation should fail
+			err := tt.clause.Validate()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.expectedErr)
 		})
 	}
 }

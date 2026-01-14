@@ -19,6 +19,8 @@ const (
 	NotInOperator              WhereFilterOperator = "$nin"
 	AndOperator                WhereFilterOperator = "$and"
 	OrOperator                 WhereFilterOperator = "$or"
+	ContainsWhereOperator      WhereFilterOperator = "$contains"
+	NotContainsWhereOperator   WhereFilterOperator = "$not_contains"
 )
 
 type WhereClause interface {
@@ -62,6 +64,16 @@ func (w *WhereClauseString) Operand() interface{} {
 func (w *WhereClauseString) Validate() error {
 	if w.key == "" {
 		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
+	switch w.operator {
+	case EqualOperator, NotEqualOperator, ContainsWhereOperator, NotContainsWhereOperator:
+		// Valid operators for string
+	default:
+		return errors.Errorf("invalid operator %s for string clause", w.operator)
+	}
+	// $contains and $not_contains require non-empty operand
+	if (w.operator == ContainsWhereOperator || w.operator == NotContainsWhereOperator) && w.operand == "" {
+		return errors.Errorf("invalid operand for %s on key %q, expected non-empty string", w.operator, w.key)
 	}
 	return nil
 }
@@ -108,6 +120,9 @@ func (w *WhereClauseStrings) Validate() error {
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
+	if len(w.operand) == 0 {
+		return errors.Errorf("invalid operand for %s on key %q, expected at least one value", w.operator, w.key)
+	}
 	return nil
 }
 
@@ -151,6 +166,12 @@ func (w *WhereClauseInt) Operand() interface{} {
 func (w *WhereClauseInt) Validate() error {
 	if w.key == "" {
 		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
+	switch w.operator {
+	case EqualOperator, NotEqualOperator, GreaterThanOperator, GreaterThanOrEqualOperator, LessThanOperator, LessThanOrEqualOperator:
+		// Valid operators for int
+	default:
+		return errors.Errorf("invalid operator %s for int clause", w.operator)
 	}
 	return nil
 }
@@ -197,6 +218,9 @@ func (w *WhereClauseInts) Validate() error {
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
+	if len(w.operand) == 0 {
+		return errors.Errorf("invalid operand for %s on key %q, expected at least one value", w.operator, w.key)
+	}
 	return nil
 }
 
@@ -240,6 +264,12 @@ func (w *WhereClauseFloat) Operand() interface{} {
 func (w *WhereClauseFloat) Validate() error {
 	if w.key == "" {
 		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
+	switch w.operator {
+	case EqualOperator, NotEqualOperator, GreaterThanOperator, GreaterThanOrEqualOperator, LessThanOperator, LessThanOrEqualOperator:
+		// Valid operators for float
+	default:
+		return errors.Errorf("invalid operator %s for float clause", w.operator)
 	}
 	return nil
 }
@@ -286,6 +316,9 @@ func (w *WhereClauseFloats) Validate() error {
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
+	if len(w.operand) == 0 {
+		return errors.Errorf("invalid operand for %s on key %q, expected at least one value", w.operator, w.key)
+	}
 	return nil
 }
 
@@ -329,6 +362,12 @@ func (w *WhereClauseBool) Operand() interface{} {
 func (w *WhereClauseBool) Validate() error {
 	if w.key == "" {
 		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
+	switch w.operator {
+	case EqualOperator, NotEqualOperator:
+		// Valid operators for bool
+	default:
+		return errors.Errorf("invalid operator %s for bool clause", w.operator)
 	}
 	return nil
 }
@@ -375,6 +414,9 @@ func (w *WhereClauseBools) Validate() error {
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
+	if len(w.operand) == 0 {
+		return errors.Errorf("invalid operand for %s on key %q, expected at least one value", w.operator, w.key)
+	}
 	return nil
 }
 
@@ -415,7 +457,18 @@ func (w *WhereClauseWhereClauses) Operand() interface{} {
 
 func (w *WhereClauseWhereClauses) Validate() error {
 	if w.operator != OrOperator && w.operator != AndOperator {
-		return errors.New("invalid operator, expected in or nin")
+		return errors.New("invalid operator, expected $and or $or")
+	}
+	if len(w.operand) == 0 {
+		return errors.Errorf("invalid operand for %s, expected at least one clause", w.operator)
+	}
+	for _, clause := range w.operand {
+		if clause == nil {
+			return errors.Errorf("nil clause in %s expression", w.operator)
+		}
+		if err := clause.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -680,5 +733,65 @@ func And(clauses ...WhereClause) WhereClause {
 			operator: AndOperator,
 		},
 		operand: clauses,
+	}
+}
+
+// IDIn creates a where clause that matches documents with any of the specified IDs.
+// Use this in combination with other where clauses via And() or Or().
+//
+// Example:
+//
+//	WithFilter(And(EqString("status", "published"), IDIn("doc1", "doc2", "doc3")))
+func IDIn(ids ...DocumentID) WhereClause {
+	strIDs := make([]string, len(ids))
+	for i, id := range ids {
+		strIDs[i] = string(id)
+	}
+	return InString("#id", strIDs...)
+}
+
+// IDNotIn creates a where clause that excludes documents with any of the specified IDs.
+// Use this to filter out already-seen or unwanted documents from search results.
+//
+// Example:
+//
+//	WithFilter(IDNotIn("seen1", "seen2", "seen3"))
+func IDNotIn(ids ...DocumentID) WhereClause {
+	strIDs := make([]string, len(ids))
+	for i, id := range ids {
+		strIDs[i] = string(id)
+	}
+	return NinString("#id", strIDs...)
+}
+
+// DocumentContains creates a where clause that filters documents containing the specified text.
+// Use this with Search API to filter by document content.
+//
+// Example:
+//
+//	WithFilter(DocumentContains("machine learning"))
+func DocumentContains(text string) WhereClause {
+	return &WhereClauseString{
+		WhereClauseBase: WhereClauseBase{
+			operator: ContainsWhereOperator,
+			key:      "#document",
+		},
+		operand: text,
+	}
+}
+
+// DocumentNotContains creates a where clause that filters out documents containing the specified text.
+// Use this with Search API to exclude documents with certain content.
+//
+// Example:
+//
+//	WithFilter(DocumentNotContains("deprecated"))
+func DocumentNotContains(text string) WhereClause {
+	return &WhereClauseString{
+		WhereClauseBase: WhereClauseBase{
+			operator: NotContainsWhereOperator,
+			key:      "#document",
+		},
+		operand: text,
 	}
 }
