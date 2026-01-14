@@ -18,28 +18,28 @@ func TestWhere(t *testing.T) {
 		{
 			name: "eq string",
 			clause: func() WhereClause {
-				return EqString("name", "value")
+				return EqString(K("name"), "value")
 			}(),
 			expected: `{"name":{"$eq":"value"}}`,
 		},
 		{
 			name: "eq int",
 			clause: func() WhereClause {
-				return EqInt("name", 42)
+				return EqInt(K("name"), 42)
 			}(),
 			expected: `{"name":{"$eq":42}}`,
 		},
 		{
 			name: "eq float",
 			clause: func() WhereClause {
-				return EqFloat("name", 42.42)
+				return EqFloat(K("name"), 42.42)
 			}(),
 			expected: `{"name":{"$eq":42.42}}`,
 		},
 		{
 			name: "eq bool",
 			clause: func() WhereClause {
-				return EqBool("name", true)
+				return EqBool(K("name"), true)
 			}(),
 			expected: `{"name":{"$eq":true}}`,
 		},
@@ -47,56 +47,56 @@ func TestWhere(t *testing.T) {
 		{
 			name: "Ne string",
 			clause: func() WhereClause {
-				return NotEqString("name", "value")
+				return NotEqString(K("name"), "value")
 			}(),
 			expected: `{"name":{"$ne":"value"}}`,
 		},
 		{
 			name: "Ne int",
 			clause: func() WhereClause {
-				return NotEqInt("name", 42)
+				return NotEqInt(K("name"), 42)
 			}(),
 			expected: `{"name":{"$ne":42}}`,
 		},
 		{
 			name: "Ne float",
 			clause: func() WhereClause {
-				return NotEqFloat("name", 42.42)
+				return NotEqFloat(K("name"), 42.42)
 			}(),
 			expected: `{"name":{"$ne":42.42}}`,
 		},
 		{
 			name: "Ne bool",
 			clause: func() WhereClause {
-				return NotEqBool("name", false)
+				return NotEqBool(K("name"), false)
 			}(),
 			expected: `{"name":{"$ne":false}}`,
 		},
 		{
 			name: "Gt int",
 			clause: func() WhereClause {
-				return GtInt("name", 42)
+				return GtInt(K("name"), 42)
 			}(),
 			expected: `{"name":{"$gt":42}}`,
 		},
 		{
 			name: "Gte int",
 			clause: func() WhereClause {
-				return GteInt("name", 42)
+				return GteInt(K("name"), 42)
 			}(),
 			expected: `{"name":{"$gte":42}}`,
 		},
 		{
 			name: "Gt float",
 			clause: func() WhereClause {
-				return GtFloat("name", 42.42)
+				return GtFloat(K("name"), 42.42)
 			}(),
 			expected: `{"name":{"$gt":42.42}}`,
 		},
 		{
 			name: "Gte float",
 			clause: func() WhereClause {
-				return GteFloat("name", 42.42)
+				return GteFloat(K("name"), 42.42)
 			}(),
 			expected: `{"name":{"$gte":42.42}}`,
 		},
@@ -105,28 +105,28 @@ func TestWhere(t *testing.T) {
 		{
 			name: "Lt int",
 			clause: func() WhereClause {
-				return LtInt("name", 42)
+				return LtInt(K("name"), 42)
 			}(),
 			expected: `{"name":{"$lt":42}}`,
 		},
 		{
 			name: "Lte int",
 			clause: func() WhereClause {
-				return LteInt("name", 42)
+				return LteInt(K("name"), 42)
 			}(),
 			expected: `{"name":{"$lte":42}}`,
 		},
 		{
 			name: "Lt float",
 			clause: func() WhereClause {
-				return LtFloat("name", 42.42)
+				return LtFloat(K("name"), 42.42)
 			}(),
 			expected: `{"name":{"$lt":42.42}}`,
 		},
 		{
 			name: "Lte float",
 			clause: func() WhereClause {
-				return LteFloat("name", 42.42)
+				return LteFloat(K("name"), 42.42)
 			}(),
 			expected: `{"name":{"$lte":42.42}}`,
 		},
@@ -134,28 +134,28 @@ func TestWhere(t *testing.T) {
 		{
 			name: "In int",
 			clause: func() WhereClause {
-				return InInt("name", 42, 43)
+				return InInt(K("name"), 42, 43)
 			}(),
 			expected: `{"name":{"$in":[42,43]}}`,
 		},
 		{
 			name: "In float",
 			clause: func() WhereClause {
-				return InFloat("name", 42.42, 43.43)
+				return InFloat(K("name"), 42.42, 43.43)
 			}(),
 			expected: `{"name":{"$in":[42.42, 43.43]}}`,
 		},
 		{
 			name: "In string",
 			clause: func() WhereClause {
-				return InString("name", "ok", "ko")
+				return InString(K("name"), "ok", "ko")
 			}(),
 			expected: `{"name":{"$in":["ok","ko"]}}`,
 		},
 		{
 			name: "In bool",
 			clause: func() WhereClause {
-				return InBool("name", true, false)
+				return InBool(K("name"), true, false)
 			}(),
 			expected: `{"name":{"$in":[true,false]}}`,
 		},
@@ -163,28 +163,28 @@ func TestWhere(t *testing.T) {
 		{
 			name: "Nin int",
 			clause: func() WhereClause {
-				return NinInt("name", 42, 43)
+				return NinInt(K("name"), 42, 43)
 			}(),
 			expected: `{"name":{"$nin":[42,43]}}`,
 		},
 		{
 			name: "Nin float",
 			clause: func() WhereClause {
-				return NinFloat("name", 42.42, 43.43)
+				return NinFloat(K("name"), 42.42, 43.43)
 			}(),
 			expected: `{"name":{"$nin":[42.42, 43.43]}}`,
 		},
 		{
 			name: "Nin string",
 			clause: func() WhereClause {
-				return NinString("name", "ok", "ko")
+				return NinString(K("name"), "ok", "ko")
 			}(),
 			expected: `{"name":{"$nin":["ok","ko"]}}`,
 		},
 		{
 			name: "Nin bool",
 			clause: func() WhereClause {
-				return NinBool("name", true, false)
+				return NinBool(K("name"), true, false)
 			}(),
 			expected: `{"name":{"$nin":[true,false]}}`,
 		},
@@ -206,7 +206,7 @@ func TestWhere(t *testing.T) {
 		{
 			name: "IDNotIn combined with And",
 			clause: func() WhereClause {
-				return And(EqString("category", "tech"), IDNotIn("seen1", "seen2"))
+				return And(EqString(K("category"), "tech"), IDNotIn("seen1", "seen2"))
 			}(),
 			expected: `{"$and":[{"category":{"$eq":"tech"}},{"#id":{"$nin":["seen1","seen2"]}}]}`,
 		},
@@ -228,7 +228,7 @@ func TestWhere(t *testing.T) {
 		{
 			name: "DocumentContains combined with metadata filter",
 			clause: func() WhereClause {
-				return And(EqString("category", "tech"), DocumentContains("AI"))
+				return And(EqString(K("category"), "tech"), DocumentContains("AI"))
 			}(),
 			expected: `{"$and":[{"category":{"$eq":"tech"}},{"#document":{"$contains":"AI"}}]}`,
 		},
@@ -236,14 +236,14 @@ func TestWhere(t *testing.T) {
 		{
 			name: "And",
 			clause: func() WhereClause {
-				return And(EqString("name", "value"), EqInt("age", 42))
+				return And(EqString(K("name"), "value"), EqInt(K("age"), 42))
 			}(),
 			expected: `{"$and":[{"name":{"$eq":"value"}},{"age":{"$eq":42}}]}`,
 		},
 		{
 			name: "Or",
 			clause: func() WhereClause {
-				return Or(EqString("name", "value"), EqInt("age", 42))
+				return Or(EqString(K("name"), "value"), EqInt(K("age"), 42))
 			}(),
 			expected: `{"$or":[{"name":{"$eq":"value"}},{"age":{"$eq":42}}]}`,
 		},
@@ -251,14 +251,14 @@ func TestWhere(t *testing.T) {
 		{
 			name: "And Or",
 			clause: func() WhereClause {
-				return Or(EqString("name", "value"), EqInt("age", 42), Or(EqString("name", "value"), EqInt("age", 42)))
+				return Or(EqString(K("name"), "value"), EqInt(K("age"), 42), Or(EqString(K("name"), "value"), EqInt(K("age"), 42)))
 			}(),
 			expected: `{"$or":[{"name":{"$eq":"value"}},{"age":{"$eq":42}},{"$or":[{"name":{"$eq":"value"}},{"age":{"$eq":42}}]}]}`,
 		},
 		{
 			name: "And Or And",
 			clause: func() WhereClause {
-				return Or(EqString("name", "value"), EqInt("age", 42), And(EqString("name", "value"), EqInt("age", 42)))
+				return Or(EqString(K("name"), "value"), EqInt(K("age"), 42), And(EqString(K("name"), "value"), EqInt(K("age"), 42)))
 			}(),
 			expected: `{"$or":[{"name":{"$eq":"value"}},{"age":{"$eq":42}},{"$and":[{"name":{"$eq":"value"}},{"age":{"$eq":42}}]}]}`,
 		},
@@ -295,17 +295,17 @@ func TestWhereClauseEmptyOperandValidation(t *testing.T) {
 		},
 		{
 			name:        "InString with no values",
-			clause:      InString("field"),
+			clause:      InString(K("field")),
 			expectedErr: "invalid operand for $in on key \"field\", expected at least one value",
 		},
 		{
 			name:        "NinString with no values",
-			clause:      NinString("field"),
+			clause:      NinString(K("field")),
 			expectedErr: "invalid operand for $nin on key \"field\", expected at least one value",
 		},
 		{
 			name:        "Empty IDIn nested in And",
-			clause:      And(EqString("status", "active"), IDIn()),
+			clause:      And(EqString(K("status"), "active"), IDIn()),
 			expectedErr: "invalid operand for $in on key \"#id\", expected at least one value",
 		},
 		{
@@ -320,22 +320,22 @@ func TestWhereClauseEmptyOperandValidation(t *testing.T) {
 		},
 		{
 			name:        "Empty DocumentContains nested in And",
-			clause:      And(EqString("category", "tech"), DocumentContains("")),
+			clause:      And(EqString(K("category"), "tech"), DocumentContains("")),
 			expectedErr: "invalid operand for $contains on key \"#document\", expected non-empty string",
 		},
 		{
 			name:        "Nil clause in And",
-			clause:      And(EqString("status", "active"), nil),
+			clause:      And(EqString(K("status"), "active"), nil),
 			expectedErr: "nil clause in $and expression",
 		},
 		{
 			name:        "Nil clause in Or",
-			clause:      Or(nil, EqString("status", "active")),
+			clause:      Or(nil, EqString(K("status"), "active")),
 			expectedErr: "nil clause in $or expression",
 		},
 		{
 			name:        "Nil clause in nested compound",
-			clause:      And(EqString("a", "b"), Or(EqString("c", "d"), nil)),
+			clause:      And(EqString(K("a"), "b"), Or(EqString(K("c"), "d"), nil)),
 			expectedErr: "nil clause in $or expression",
 		},
 	}

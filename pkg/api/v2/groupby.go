@@ -8,7 +8,7 @@ import (
 
 // GroupBy groups search results by metadata keys and aggregates within groups.
 type GroupBy struct {
-	Keys      []ProjectionKey
+	Keys      []Key
 	Aggregate Aggregate
 }
 
@@ -23,7 +23,7 @@ type GroupBy struct {
 //	        WithPage(WithLimit(30)),
 //	    ),
 //	)
-func NewGroupBy(aggregate Aggregate, keys ...ProjectionKey) *GroupBy {
+func NewGroupBy(aggregate Aggregate, keys ...Key) *GroupBy {
 	return &GroupBy{Keys: keys, Aggregate: aggregate}
 }
 

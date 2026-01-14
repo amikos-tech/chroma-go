@@ -114,7 +114,7 @@ func TestSearchSelect(t *testing.T) {
 func TestSearchFilter(t *testing.T) {
 	t.Run("with where clause", func(t *testing.T) {
 		req := &SearchRequest{}
-		err := WithFilter(EqString("status", "active"))(req)
+		err := WithFilter(EqString(K("status"), "active"))(req)
 		require.NoError(t, err)
 		require.NotNil(t, req.Filter)
 		require.NotNil(t, req.Filter.Where)
@@ -130,7 +130,7 @@ func TestSearchFilter(t *testing.T) {
 
 	t.Run("combine filter and ids", func(t *testing.T) {
 		req := &SearchRequest{}
-		_ = WithFilter(EqString("type", "document"))(req)
+		_ = WithFilter(EqString(K("type"), "document"))(req)
 		_ = WithFilterIDs("doc1", "doc2")(req)
 		require.NotNil(t, req.Filter.Where)
 		require.Len(t, req.Filter.IDs, 2)
@@ -160,7 +160,7 @@ func TestSearchRequestJSON(t *testing.T) {
 
 	t.Run("request with filter", func(t *testing.T) {
 		req := &SearchRequest{}
-		_ = WithFilter(EqString("category", "tech"))(req)
+		_ = WithFilter(EqString(K("category"), "tech"))(req)
 		_ = WithPage(WithLimit(20))(req)
 
 		data, err := req.MarshalJSON()
@@ -255,7 +255,7 @@ func TestWithKnnRank(t *testing.T) {
 		require.Equal(t, 100, knn.Limit)
 		require.NotNil(t, knn.DefaultScore)
 		require.Equal(t, 10.0, *knn.DefaultScore)
-		require.Equal(t, ProjectionKey("custom_field"), knn.Key)
+		require.Equal(t, Key("custom_field"), knn.Key)
 	})
 }
 
@@ -302,25 +302,25 @@ func TestWithRffRank(t *testing.T) {
 	})
 }
 
-func TestProjectionKey(t *testing.T) {
+func TestKey(t *testing.T) {
 	t.Run("standard keys", func(t *testing.T) {
-		require.Equal(t, ProjectionKey("#document"), KDocument)
-		require.Equal(t, ProjectionKey("#embedding"), KEmbedding)
-		require.Equal(t, ProjectionKey("#score"), KScore)
-		require.Equal(t, ProjectionKey("#metadata"), KMetadata)
-		require.Equal(t, ProjectionKey("#id"), KID)
+		require.Equal(t, Key("#document"), KDocument)
+		require.Equal(t, Key("#embedding"), KEmbedding)
+		require.Equal(t, Key("#score"), KScore)
+		require.Equal(t, Key("#metadata"), KMetadata)
+		require.Equal(t, Key("#id"), KID)
 	})
 
 	t.Run("custom key", func(t *testing.T) {
 		key := K("my_custom_field")
-		require.Equal(t, ProjectionKey("my_custom_field"), key)
+		require.Equal(t, Key("my_custom_field"), key)
 	})
 }
 
 func TestSearchFilterJSON(t *testing.T) {
 	t.Run("filter with where", func(t *testing.T) {
 		filter := &SearchFilter{
-			Where: EqString("status", "active"),
+			Where: EqString(K("status"), "active"),
 		}
 
 		data, err := filter.MarshalJSON()
@@ -359,7 +359,7 @@ func TestSearchFilterJSON(t *testing.T) {
 	t.Run("filter with ids and where combined", func(t *testing.T) {
 		filter := &SearchFilter{
 			IDs:   []DocumentID{"id1", "id2"},
-			Where: EqString("status", "active"),
+			Where: EqString(K("status"), "active"),
 		}
 
 		data, err := filter.MarshalJSON()
@@ -399,7 +399,7 @@ func TestSearchFilterJSON(t *testing.T) {
 
 	t.Run("filter with nested empty IDIn fails on marshal", func(t *testing.T) {
 		filter := &SearchFilter{
-			Where: And(EqString("status", "active"), IDIn()),
+			Where: And(EqString(K("status"), "active"), IDIn()),
 		}
 
 		_, err := filter.MarshalJSON()
@@ -415,8 +415,8 @@ func TestCompleteSearchScenario(t *testing.T) {
 		opt := NewSearchRequest(
 			WithFilter(
 				And(
-					EqString("status", "published"),
-					GtInt("views", 100),
+					EqString(K("status"), "published"),
+					GtInt(K("views"), 100),
 				),
 			),
 			WithKnnRank(
@@ -448,7 +448,7 @@ func TestCompleteSearchScenario(t *testing.T) {
 		sq := &SearchQuery{}
 
 		opt := NewSearchRequest(
-			WithFilter(EqString("status", "published")),
+			WithFilter(EqString(K("status"), "published")),
 			WithKnnRank(
 				KnnQueryText("machine learning"),
 				WithKnnLimit(100),

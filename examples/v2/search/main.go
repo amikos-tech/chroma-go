@@ -152,8 +152,8 @@ func searchWithFilter(ctx context.Context, col chroma.Collection) {
 			),
 			chroma.WithFilter(
 				chroma.And(
-					chroma.EqString("category", "ml"),
-					chroma.GteInt("year", 2023),
+					chroma.EqString(chroma.K("category"), "ml"),
+					chroma.GteInt(chroma.K("year"), 2023),
 				),
 			),
 			chroma.WithPage(chroma.WithLimit(5)),

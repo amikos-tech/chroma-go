@@ -14,26 +14,31 @@ type SearchQuery struct {
 // SearchResult represents the result of a search operation.
 type SearchResult interface{}
 
-// ProjectionKey identifies a field to include in search results.
-// Use standard keys ([KDocument], [KEmbedding], etc.) or create custom ones with [K].
-type ProjectionKey string
+// Key identifies a metadata field for filtering or projection.
+// Key is a type alias for string, so raw strings work directly for backward compatibility.
+// Use [K] to clearly mark field names in filter expressions:
+//
+//	EqString(K("status"), "active")  // K() marks the field clearly
+//	EqString("status", "active")     // Raw string also works
+type Key = string
 
-// K creates a projection key for a custom metadata field.
+// K creates a Key for a metadata field name.
+// Use this in filter functions to clearly mark field names:
 //
-// Example:
-//
-//	WithSelect(KDocument, KScore, K("title"), K("author"))
-func K(key string) ProjectionKey {
-	return ProjectionKey(key)
+//	EqString(K("status"), "active")
+//	GtInt(K("price"), 100)
+//	WithSelect(K("title"), K("author"), KDocument)
+func K(key string) Key {
+	return key
 }
 
-// Standard projection keys for search result fields.
+// Standard keys for document fields.
 const (
-	KDocument  ProjectionKey = "#document"  // The document text
-	KEmbedding ProjectionKey = "#embedding" // The vector embedding
-	KScore     ProjectionKey = "#score"     // The ranking score
-	KMetadata  ProjectionKey = "#metadata"  // All metadata fields
-	KID        ProjectionKey = "#id"        // The document ID
+	KDocument  Key = "#document"  // The document text
+	KEmbedding Key = "#embedding" // The vector embedding
+	KScore     Key = "#score"     // The ranking score
+	KMetadata  Key = "#metadata"  // All metadata fields
+	KID        Key = "#id"        // The document ID
 )
 
 // SearchFilter specifies which documents to include in search results.
@@ -79,7 +84,7 @@ func (f *SearchFilter) MarshalJSON() ([]byte, error) {
 
 // SearchSelect specifies which fields to include in search results.
 type SearchSelect struct {
-	Keys []ProjectionKey `json:"keys,omitempty"`
+	Keys []Key `json:"keys,omitempty"`
 }
 
 // SearchRequest represents a single search operation with filter, ranking, pagination, and projection.
@@ -162,10 +167,11 @@ func WithSearchFilter(filter *SearchFilter) SearchOption {
 }
 
 // WithFilter adds a metadata filter to the search.
+// Use [K] to clearly mark field names in filter expressions.
 //
 // Example:
 //
-//	WithFilter(And(EqString("status", "published"), GtInt("views", 100)))
+//	WithFilter(And(EqString(K("status"), "published"), GtInt(K("views"), 100)))
 func WithFilter(where WhereClause) SearchOption {
 	return func(req *SearchRequest) error {
 		if req.Filter == nil {
@@ -241,7 +247,7 @@ func WithPage(pageOpts ...PageOpts) SearchOption {
 // Example:
 //
 //	WithSelect(KDocument, KScore, K("title"), K("author"))
-func WithSelect(projectionKeys ...ProjectionKey) SearchOption {
+func WithSelect(projectionKeys ...Key) SearchOption {
 	return func(req *SearchRequest) error {
 		if req.Select == nil {
 			req.Select = &SearchSelect{}
@@ -255,7 +261,7 @@ func WithSelect(projectionKeys ...ProjectionKey) SearchOption {
 func WithSelectAll() SearchOption {
 	return func(req *SearchRequest) error {
 		req.Select = &SearchSelect{
-			Keys: []ProjectionKey{KID, KDocument, KEmbedding, KMetadata, KScore},
+			Keys: []Key{KID, KDocument, KEmbedding, KMetadata, KScore},
 		}
 		return nil
 	}
@@ -314,7 +320,7 @@ func WithGroupBy(groupBy *GroupBy) SearchOption {
 //	result, err := collection.Search(ctx,
 //	    NewSearchRequest(
 //	        WithKnnRank(KnnQueryText("machine learning"), WithKnnLimit(50)),
-//	        WithFilter(EqString("status", "published")),
+//	        WithFilter(EqString(K("status"), "published")),
 //	        WithPage(WithLimit(10)),
 //	        WithSelect(KDocument, KScore),
 //	    ),

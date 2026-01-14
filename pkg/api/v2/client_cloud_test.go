@@ -483,7 +483,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
 				WithFilter(And(
-					EqString("category", "wildlife"),
+					EqString(K("category"), "wildlife"),
 					IDNotIn("3"),
 				)),
 				WithPage(WithLimit(5)),
@@ -829,7 +829,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err := collection.Query(ctx,
 			WithQueryTexts("animals"),
 			WithNResults(10),
-			WithWhereQuery(EqString("category", "pets")),
+			WithWhereQuery(EqString(K("category"), "pets")),
 		)
 		require.NoError(t, err)
 		require.LessOrEqual(t, len(results.GetDocumentsGroups()[0]), 2)
