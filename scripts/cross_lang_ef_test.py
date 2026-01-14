@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 import chromadb
-from chromadb.config import Settings
 
 load_dotenv()
 
