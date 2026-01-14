@@ -87,6 +87,26 @@ test-ef-cloud: gotestsum-bin
 		-coverprofile=coverage-ef-cloud.out \
 		-timeout=30m
 
+.PHONY: test-crosslang
+test-crosslang: gotestsum-bin setup-python-venv
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=1 \
+		--packages="./..." \
+		--junitfile unit-crosslang.xml \
+		-- \
+		-v \
+		-tags=crosslang \
+		-coverprofile=coverage-crosslang.out \
+		-timeout=30m
+
+.PHONY: setup-python-venv
+setup-python-venv:
+	@if [ ! -d ".venv" ]; then \
+		python3 -m venv .venv; \
+	fi
+	.venv/bin/pip install -r requirements-test.txt
+
 .PHONY: lint
 lint:
 	golangci-lint run

@@ -31,3 +31,5 @@ _testmain.go
 unit*.xml
 *.log
 ISSUE_CONTEXT.md
+.venv/
+__pycache__/
