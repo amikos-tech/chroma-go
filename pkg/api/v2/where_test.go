@@ -308,6 +308,21 @@ func TestWhereClauseEmptyOperandValidation(t *testing.T) {
 			clause:      And(EqString("status", "active"), IDIn()),
 			expectedErr: "invalid operand for $in on key \"#id\", expected at least one value",
 		},
+		{
+			name:        "DocumentContains with empty string",
+			clause:      DocumentContains(""),
+			expectedErr: "invalid operand for $contains on key \"#document\", expected non-empty string",
+		},
+		{
+			name:        "DocumentNotContains with empty string",
+			clause:      DocumentNotContains(""),
+			expectedErr: "invalid operand for $not_contains on key \"#document\", expected non-empty string",
+		},
+		{
+			name:        "Empty DocumentContains nested in And",
+			clause:      And(EqString("category", "tech"), DocumentContains("")),
+			expectedErr: "invalid operand for $contains on key \"#document\", expected non-empty string",
+		},
 	}
 
 	for _, tt := range tests {

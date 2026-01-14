@@ -65,6 +65,16 @@ func (w *WhereClauseString) Validate() error {
 	if w.key == "" {
 		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
 	}
+	switch w.operator {
+	case EqualOperator, NotEqualOperator, ContainsWhereOperator, NotContainsWhereOperator:
+		// Valid operators for string
+	default:
+		return errors.Errorf("invalid operator %s for string clause", w.operator)
+	}
+	// $contains and $not_contains require non-empty operand
+	if (w.operator == ContainsWhereOperator || w.operator == NotContainsWhereOperator) && w.operand == "" {
+		return errors.Errorf("invalid operand for %s on key %q, expected non-empty string", w.operator, w.key)
+	}
 	return nil
 }
 
@@ -156,6 +166,12 @@ func (w *WhereClauseInt) Operand() interface{} {
 func (w *WhereClauseInt) Validate() error {
 	if w.key == "" {
 		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
+	switch w.operator {
+	case EqualOperator, NotEqualOperator, GreaterThanOperator, GreaterThanOrEqualOperator, LessThanOperator, LessThanOrEqualOperator:
+		// Valid operators for int
+	default:
+		return errors.Errorf("invalid operator %s for int clause", w.operator)
 	}
 	return nil
 }
@@ -249,6 +265,12 @@ func (w *WhereClauseFloat) Validate() error {
 	if w.key == "" {
 		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
 	}
+	switch w.operator {
+	case EqualOperator, NotEqualOperator, GreaterThanOperator, GreaterThanOrEqualOperator, LessThanOperator, LessThanOrEqualOperator:
+		// Valid operators for float
+	default:
+		return errors.Errorf("invalid operator %s for float clause", w.operator)
+	}
 	return nil
 }
 
@@ -340,6 +362,12 @@ func (w *WhereClauseBool) Operand() interface{} {
 func (w *WhereClauseBool) Validate() error {
 	if w.key == "" {
 		return errors.Errorf("invalid key for %s, expected non-empty", w.operator)
+	}
+	switch w.operator {
+	case EqualOperator, NotEqualOperator:
+		// Valid operators for bool
+	default:
+		return errors.Errorf("invalid operator %s for bool clause", w.operator)
 	}
 	return nil
 }
