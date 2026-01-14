@@ -639,4 +639,111 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.Equal(t, 3, len(res.GetDocumentsGroups()[0]))
 		require.Equal(t, 0, len(res.GetDistancesGroups()))
 	})
+
+	t.Run("search with IDIn filter", func(t *testing.T) {
+		// Search API is Cloud-only - skip for local Chroma
+		t.Skip("Search API with ID filtering is Cloud-only")
+		err = c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		err = collection.Add(ctx, WithIDs("1", "2", "3", "4", "5"), WithTexts("cats are fluffy", "dogs are loyal", "lions are big cats", "tigers are striped", "birds can fly"))
+		require.NoError(t, err)
+
+		// Search with IDIn - only include specific IDs
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
+				WithFilter(IDIn("1", "3")),
+				WithPage(WithLimit(5)),
+				WithSelect(KID, KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		searchResult, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, searchResult.IDs)
+		// Should only return docs with ID 1 or 3
+		require.LessOrEqual(t, len(searchResult.IDs[0]), 2)
+		for _, id := range searchResult.IDs[0] {
+			require.True(t, id == "1" || id == "3", "expected ID 1 or 3, got %s", id)
+		}
+	})
+
+	t.Run("search with IDNotIn filter", func(t *testing.T) {
+		// Search API is Cloud-only - skip for local Chroma
+		t.Skip("Search API with ID filtering is Cloud-only")
+		err = c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		err = collection.Add(ctx, WithIDs("1", "2", "3", "4", "5"), WithTexts("cats are fluffy", "dogs are loyal", "lions are big cats", "tigers are striped", "birds can fly"))
+		require.NoError(t, err)
+
+		// Search with IDNotIn - exclude specific IDs
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
+				WithFilter(IDNotIn("1", "3")),
+				WithPage(WithLimit(5)),
+				WithSelect(KID, KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		searchResult, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, searchResult.IDs)
+		// Should NOT return docs with ID 1 or 3
+		for _, id := range searchResult.IDs[0] {
+			require.True(t, id != "1" && id != "3", "expected ID to not be 1 or 3, got %s", id)
+		}
+	})
+
+	t.Run("search with IDNotIn combined with metadata filter", func(t *testing.T) {
+		// Search API is Cloud-only - skip for local Chroma
+		t.Skip("Search API with ID filtering is Cloud-only")
+		err = c.Reset(ctx)
+		require.NoError(t, err)
+		collection, err := createCollection("test_collection", WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()))
+		require.NoError(t, err)
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3", "4", "5"),
+			WithTexts("cats are fluffy pets", "dogs are loyal companions", "lions are big cats", "tigers are striped cats", "birds can fly high"),
+			WithMetadatas(
+				NewDocumentMetadata(NewStringAttribute("category", "pets")),
+				NewDocumentMetadata(NewStringAttribute("category", "pets")),
+				NewDocumentMetadata(NewStringAttribute("category", "wildlife")),
+				NewDocumentMetadata(NewStringAttribute("category", "wildlife")),
+				NewDocumentMetadata(NewStringAttribute("category", "wildlife")),
+			),
+		)
+		require.NoError(t, err)
+
+		// Search with combined filters: exclude seen IDs AND filter by category
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
+				WithFilter(And(
+					EqString("category", "wildlife"),
+					IDNotIn("3"), // Exclude lions
+				)),
+				WithPage(WithLimit(5)),
+				WithSelect(KID, KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		searchResult, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, searchResult.IDs)
+		// Should only return wildlife docs (4, 5) but not ID 3
+		for _, id := range searchResult.IDs[0] {
+			require.True(t, id == "4" || id == "5", "expected ID 4 or 5, got %s", id)
+		}
+	})
 }

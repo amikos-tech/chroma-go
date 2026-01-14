@@ -241,20 +241,28 @@ chroma.WithFilter(
 
 ### Document ID Filter
 
-Restrict search to specific document IDs:
+Restrict search to specific document IDs using `WithFilterIDs`:
 
 ```go
 chroma.WithFilterIDs("doc1", "doc2", "doc3")
 ```
 
-### Document Content Filter
+For more flexible ID filtering that can be combined with other where clauses, use `IDIn` and `IDNotIn`:
 
-Filter by document text content:
+> **Note:** `IDIn` and `IDNotIn` are **Cloud-only** features. These functions follow the Python SDK pattern (`K.ID.is_in()`, `K.ID.not_in()`).
 
 ```go
-chroma.WithFilterDocument(
-    chroma.Contains("machine learning"),
-)
+// Include only specific IDs (equivalent to Python's K.ID.is_in())
+chroma.WithFilter(chroma.IDIn("doc1", "doc2", "doc3"))
+
+// Exclude specific IDs (equivalent to Python's K.ID.not_in())
+chroma.WithFilter(chroma.IDNotIn("seen1", "seen2", "seen3"))
+
+// Combine with other filters - useful for excluding already-seen content
+chroma.WithFilter(chroma.And(
+    chroma.EqString("category", "tech"),
+    chroma.IDNotIn("already_read_1", "already_read_2"),
+))
 ```
 
 ### Combining Filters
@@ -454,7 +462,6 @@ if err != nil {
 | `WithRffRank(opts...)` | Add RRF ranking to request |
 | `WithFilter(where)` | Add metadata filter |
 | `WithFilterIDs(ids...)` | Filter by document IDs |
-| `WithFilterDocument(where)` | Filter by document content |
 | `WithPage(opts...)` | Add pagination |
 | `WithSelect(keys...)` | Select fields to return |
 | `WithSelectAll()` | Select all standard fields |
@@ -478,3 +485,10 @@ if err != nil {
 | `WithRffRanks(ranks...)` | Add weighted ranks |
 | `WithRffK(k)` | Set smoothing constant |
 | `WithRffNormalize()` | Normalize weights |
+
+### ID Filter Operators (Cloud-only)
+
+| Function | Description |
+|----------|-------------|
+| `IDIn(ids...)` | Match documents with any of the specified IDs |
+| `IDNotIn(ids...)` | Exclude documents with any of the specified IDs |

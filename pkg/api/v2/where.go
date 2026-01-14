@@ -682,3 +682,31 @@ func And(clauses ...WhereClause) WhereClause {
 		operand: clauses,
 	}
 }
+
+// IDIn creates a where clause that matches documents with any of the specified IDs.
+// Use this in combination with other where clauses via And() or Or().
+//
+// Example:
+//
+//	WithFilter(And(EqString("status", "published"), IDIn("doc1", "doc2", "doc3")))
+func IDIn(ids ...DocumentID) WhereClause {
+	strIDs := make([]string, len(ids))
+	for i, id := range ids {
+		strIDs[i] = string(id)
+	}
+	return InString("#id", strIDs...)
+}
+
+// IDNotIn creates a where clause that excludes documents with any of the specified IDs.
+// Use this to filter out already-seen or unwanted documents from search results.
+//
+// Example:
+//
+//	WithFilter(IDNotIn("seen1", "seen2", "seen3"))
+func IDNotIn(ids ...DocumentID) WhereClause {
+	strIDs := make([]string, len(ids))
+	for i, id := range ids {
+		strIDs[i] = string(id)
+	}
+	return NinString("#id", strIDs...)
+}

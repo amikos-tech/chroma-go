@@ -327,10 +327,11 @@ func TestSearchFilterJSON(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, data)
 
+		// New format: where clause is serialized directly as the filter
 		var result map[string]interface{}
 		err = json.Unmarshal(data, &result)
 		require.NoError(t, err)
-		require.Contains(t, result, "where")
+		require.Contains(t, result, "status") // Key is at top level
 	})
 
 	t.Run("filter with ids", func(t *testing.T) {
@@ -341,17 +342,34 @@ func TestSearchFilterJSON(t *testing.T) {
 		data, err := filter.MarshalJSON()
 		require.NoError(t, err)
 
+		// New format: IDs are converted to #id $in clause
 		var result map[string]interface{}
 		err = json.Unmarshal(data, &result)
 		require.NoError(t, err)
-		require.Contains(t, result, "ids")
+		require.Contains(t, result, "#id") // Converted to #id
 	})
 
-	t.Run("empty filter returns nil", func(t *testing.T) {
+	t.Run("empty filter returns empty object", func(t *testing.T) {
 		filter := &SearchFilter{}
 		data, err := filter.MarshalJSON()
 		require.NoError(t, err)
-		require.Nil(t, data)
+		require.Equal(t, "{}", string(data))
+	})
+
+	t.Run("filter with ids and where combined", func(t *testing.T) {
+		filter := &SearchFilter{
+			IDs:   []DocumentID{"id1", "id2"},
+			Where: EqString("status", "active"),
+		}
+
+		data, err := filter.MarshalJSON()
+		require.NoError(t, err)
+
+		// Combined filters use $and
+		var result map[string]interface{}
+		err = json.Unmarshal(data, &result)
+		require.NoError(t, err)
+		require.Contains(t, result, "$and")
 	})
 }
 

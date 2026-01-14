@@ -188,6 +188,28 @@ func TestWhere(t *testing.T) {
 			}(),
 			expected: `{"name":{"$nin":[true,false]}}`,
 		},
+		//--- ID filters
+		{
+			name: "IDIn",
+			clause: func() WhereClause {
+				return IDIn("doc1", "doc2", "doc3")
+			}(),
+			expected: `{"#id":{"$in":["doc1","doc2","doc3"]}}`,
+		},
+		{
+			name: "IDNotIn",
+			clause: func() WhereClause {
+				return IDNotIn("seen1", "seen2")
+			}(),
+			expected: `{"#id":{"$nin":["seen1","seen2"]}}`,
+		},
+		{
+			name: "IDNotIn combined with And",
+			clause: func() WhereClause {
+				return And(EqString("category", "tech"), IDNotIn("seen1", "seen2"))
+			}(),
+			expected: `{"$and":[{"category":{"$eq":"tech"}},{"#id":{"$nin":["seen1","seen2"]}}]}`,
+		},
 		//---
 		{
 			name: "And",
