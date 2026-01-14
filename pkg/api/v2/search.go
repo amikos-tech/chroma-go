@@ -320,7 +320,7 @@ func WithGroupBy(groupBy *GroupBy) SearchOption {
 //	result, err := collection.Search(ctx,
 //	    NewSearchRequest(
 //	        WithKnnRank(KnnQueryText("machine learning"), WithKnnLimit(50)),
-//	        WithFilter(EqString("status", "published")),
+//	        WithFilter(EqString(K("status"), "published")),
 //	        WithPage(WithLimit(10)),
 //	        WithSelect(KDocument, KScore),
 //	    ),
