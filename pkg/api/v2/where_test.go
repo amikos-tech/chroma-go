@@ -323,6 +323,21 @@ func TestWhereClauseEmptyOperandValidation(t *testing.T) {
 			clause:      And(EqString("category", "tech"), DocumentContains("")),
 			expectedErr: "invalid operand for $contains on key \"#document\", expected non-empty string",
 		},
+		{
+			name:        "Nil clause in And",
+			clause:      And(EqString("status", "active"), nil),
+			expectedErr: "nil clause in $and expression",
+		},
+		{
+			name:        "Nil clause in Or",
+			clause:      Or(nil, EqString("status", "active")),
+			expectedErr: "nil clause in $or expression",
+		},
+		{
+			name:        "Nil clause in nested compound",
+			clause:      And(EqString("a", "b"), Or(EqString("c", "d"), nil)),
+			expectedErr: "nil clause in $or expression",
+		},
 	}
 
 	for _, tt := range tests {
