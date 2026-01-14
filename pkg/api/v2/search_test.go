@@ -371,6 +371,41 @@ func TestSearchFilterJSON(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, result, "$and")
 	})
+
+	t.Run("filter with empty IDIn fails on marshal", func(t *testing.T) {
+		filter := &SearchFilter{
+			Where: IDIn(), // Empty IDIn - lazy validation
+		}
+
+		// Construction is fine (lazy)
+		require.NotNil(t, filter)
+
+		// MarshalJSON should fail due to validation
+		_, err := filter.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid search filter")
+		require.Contains(t, err.Error(), "expected at least one value")
+	})
+
+	t.Run("filter with empty IDNotIn fails on marshal", func(t *testing.T) {
+		filter := &SearchFilter{
+			Where: IDNotIn(), // Empty IDNotIn - lazy validation
+		}
+
+		_, err := filter.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid search filter")
+	})
+
+	t.Run("filter with nested empty IDIn fails on marshal", func(t *testing.T) {
+		filter := &SearchFilter{
+			Where: And(EqString("status", "active"), IDIn()),
+		}
+
+		_, err := filter.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid search filter")
+	})
 }
 
 func TestCompleteSearchScenario(t *testing.T) {

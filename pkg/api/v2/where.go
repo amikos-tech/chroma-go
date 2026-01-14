@@ -108,6 +108,9 @@ func (w *WhereClauseStrings) Validate() error {
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
+	if len(w.operand) == 0 {
+		return errors.Errorf("invalid operand for %s on key %q, expected at least one value", w.operator, w.key)
+	}
 	return nil
 }
 
@@ -196,6 +199,9 @@ func (w *WhereClauseInts) Validate() error {
 	}
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
+	}
+	if len(w.operand) == 0 {
+		return errors.Errorf("invalid operand for %s on key %q, expected at least one value", w.operator, w.key)
 	}
 	return nil
 }
@@ -286,6 +292,9 @@ func (w *WhereClauseFloats) Validate() error {
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
+	if len(w.operand) == 0 {
+		return errors.Errorf("invalid operand for %s on key %q, expected at least one value", w.operator, w.key)
+	}
 	return nil
 }
 
@@ -375,6 +384,9 @@ func (w *WhereClauseBools) Validate() error {
 	if w.operator != InOperator && w.operator != NotInOperator {
 		return errors.New("invalid operator, expected in or nin")
 	}
+	if len(w.operand) == 0 {
+		return errors.Errorf("invalid operand for %s on key %q, expected at least one value", w.operator, w.key)
+	}
 	return nil
 }
 
@@ -415,7 +427,15 @@ func (w *WhereClauseWhereClauses) Operand() interface{} {
 
 func (w *WhereClauseWhereClauses) Validate() error {
 	if w.operator != OrOperator && w.operator != AndOperator {
-		return errors.New("invalid operator, expected in or nin")
+		return errors.New("invalid operator, expected $and or $or")
+	}
+	if len(w.operand) == 0 {
+		return errors.Errorf("invalid operand for %s, expected at least one clause", w.operator)
+	}
+	for _, clause := range w.operand {
+		if err := clause.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

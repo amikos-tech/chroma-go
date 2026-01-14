@@ -254,3 +254,49 @@ func TestWhere(t *testing.T) {
 		})
 	}
 }
+
+func TestWhereClauseEmptyOperandValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		clause      WhereClause
+		expectedErr string
+	}{
+		{
+			name:        "IDIn with no arguments",
+			clause:      IDIn(),
+			expectedErr: "invalid operand for $in on key \"#id\", expected at least one value",
+		},
+		{
+			name:        "IDNotIn with no arguments",
+			clause:      IDNotIn(),
+			expectedErr: "invalid operand for $nin on key \"#id\", expected at least one value",
+		},
+		{
+			name:        "InString with no values",
+			clause:      InString("field"),
+			expectedErr: "invalid operand for $in on key \"field\", expected at least one value",
+		},
+		{
+			name:        "NinString with no values",
+			clause:      NinString("field"),
+			expectedErr: "invalid operand for $nin on key \"field\", expected at least one value",
+		},
+		{
+			name:        "Empty IDIn nested in And",
+			clause:      And(EqString("status", "active"), IDIn()),
+			expectedErr: "invalid operand for $in on key \"#id\", expected at least one value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Construction should succeed (lazy validation)
+			require.NotNil(t, tt.clause)
+
+			// Validation should fail
+			err := tt.clause.Validate()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.expectedErr)
+		})
+	}
+}

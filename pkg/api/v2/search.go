@@ -69,6 +69,11 @@ func (f *SearchFilter) MarshalJSON() ([]byte, error) {
 		result = And(clauses...)
 	}
 
+	// Validate the composed filter before serializing
+	if err := result.Validate(); err != nil {
+		return nil, errors.Wrap(err, "invalid search filter")
+	}
+
 	return json.Marshal(result)
 }
 
