@@ -15,7 +15,7 @@ type Aggregate interface {
 // MinK selects k records with the smallest values (ascending order).
 // Use when lower values are better (e.g., distance scores, prices).
 type MinK struct {
-	Keys []ProjectionKey
+	Keys []Key
 	K    int
 }
 
@@ -25,7 +25,7 @@ type MinK struct {
 //
 //	NewMinK(3, KScore)                 // Top 3 lowest scores
 //	NewMinK(2, K("priority"), KScore)  // With tiebreaker
-func NewMinK(k int, keys ...ProjectionKey) *MinK {
+func NewMinK(k int, keys ...Key) *MinK {
 	return &MinK{Keys: keys, K: k}
 }
 
@@ -55,7 +55,7 @@ func (m *MinK) MarshalJSON() ([]byte, error) {
 // MaxK selects k records with the largest values (descending order).
 // Use when higher values are better (e.g., ratings, relevance scores).
 type MaxK struct {
-	Keys []ProjectionKey
+	Keys []Key
 	K    int
 }
 
@@ -65,7 +65,7 @@ type MaxK struct {
 //
 //	NewMaxK(3, K("rating"))            // Top 3 highest ratings
 //	NewMaxK(2, K("year"), K("rating")) // With tiebreaker
-func NewMaxK(k int, keys ...ProjectionKey) *MaxK {
+func NewMaxK(k int, keys ...Key) *MaxK {
 	return &MaxK{Keys: keys, K: k}
 }
 

@@ -840,7 +840,7 @@ func WithKnnLimit(limit int) KnnOption {
 // Example:
 //
 //	rank := NewKnnRank(query, WithKnnKey(K("sparse_embedding")))
-func WithKnnKey(key ProjectionKey) KnnOption {
+func WithKnnKey(key Key) KnnOption {
 	return func(req *KnnRank) error {
 		req.Key = key
 		return nil
@@ -889,7 +889,7 @@ func WithKnnReturnRank() KnnOption {
 //	combined := rank1.Multiply(FloatOperand(0.7)).Add(rank2.Multiply(FloatOperand(0.3)))
 type KnnRank struct {
 	Query        interface{}
-	Key          ProjectionKey
+	Key          Key
 	Limit        int
 	DefaultScore *float64
 	ReturnRank   bool

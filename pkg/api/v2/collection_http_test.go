@@ -405,7 +405,7 @@ func TestCollectionDelete(t *testing.T) {
 				require.Equal(t, map[string]any{"test": map[string]any{"$eq": "test"}}, req.Where)
 			},
 			deleteOptions: []CollectionDeleteOption{
-				WithWhereDelete(EqString("test", "test")),
+				WithWhereDelete(EqString(K("test"), "test")),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -432,7 +432,7 @@ func TestCollectionDelete(t *testing.T) {
 				require.Equal(t, map[string]any{"$contains": "test"}, req.WhereDoc)
 			},
 			deleteOptions: []CollectionDeleteOption{
-				WithWhereDelete(EqString("test", "test")),
+				WithWhereDelete(EqString(K("test"), "test")),
 				WithWhereDocumentDelete(Contains("test")),
 			},
 			limits: `{"max_batch_size":100}`,
@@ -583,7 +583,7 @@ func TestCollectionQuery(t *testing.T) {
 	}
 
 	require.NotNil(t, collection)
-	r, err := collection.Query(context.Background(), WithQueryTexts("doc1", "doc2", "doc3"), WithWhereQuery(Or(EqString("test", "test"))))
+	r, err := collection.Query(context.Background(), WithQueryTexts("doc1", "doc2", "doc3"), WithWhereQuery(Or(EqString(K("test"), "test"))))
 	require.NoError(t, err)
 	require.NotNil(t, r)
 }
@@ -744,7 +744,7 @@ func TestCollectionGet(t *testing.T) {
 				require.Equal(t, map[string]any{"test": map[string]any{"$eq": "test"}}, req.Where)
 			},
 			getOptions: []CollectionGetOption{
-				WithWhereGet(EqString("test", "test")),
+				WithWhereGet(EqString(K("test"), "test")),
 			},
 			limits: `{"max_batch_size":100}`,
 		},

@@ -229,7 +229,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 			),
 		)
 		require.NoError(t, err)
-		res, err := collection.Get(ctx, WithWhereGet(EqString("test_key", "doc1")))
+		res, err := collection.Get(ctx, WithWhereGet(EqString(K("test_key"), "doc1")))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(res.GetIDs()))
 		require.Equal(t, "test_document_1", res.GetDocuments()[0].ContentString())
@@ -410,7 +410,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 			),
 		)
 		require.NoError(t, err)
-		res, err := collection.Query(ctx, WithQueryTexts("test_document_1"), WithWhereQuery(EqString("test_key", "doc1")))
+		res, err := collection.Query(ctx, WithQueryTexts("test_document_1"), WithWhereQuery(EqString(K("test_key"), "doc1")))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(res.GetIDGroups()))
 		require.Equal(t, 1, len(res.GetIDGroups()[0]))
@@ -551,7 +551,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 		require.Contains(t, err.Error(), "at least one id is required")
 
 		// empty where
-		_, err = collection.Query(ctx, WithWhereQuery(EqString("", "")), WithQueryTexts("test"))
+		_, err = collection.Query(ctx, WithWhereQuery(EqString(K(""), "")), WithQueryTexts("test"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid key for $eq, expected non-empty")
 	})
@@ -728,7 +728,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
 				WithFilter(And(
-					EqString("category", "wildlife"),
+					EqString(K("category"), "wildlife"),
 					IDNotIn("3"), // Exclude lions
 				)),
 				WithPage(WithLimit(5)),

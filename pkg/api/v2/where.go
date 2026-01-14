@@ -501,7 +501,7 @@ type WhereFilter interface {
 	UnmarshalJSON(b []byte) error
 }
 
-func EqString(field, value string) WhereClause {
+func EqString(field Key, value string) WhereClause {
 	return &WhereClauseString{
 		WhereClauseBase: WhereClauseBase{
 			operator: EqualOperator,
@@ -511,7 +511,7 @@ func EqString(field, value string) WhereClause {
 	}
 }
 
-func EqInt(field string, value int) WhereClause {
+func EqInt(field Key, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
 			operator: EqualOperator,
@@ -520,7 +520,7 @@ func EqInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
-func EqFloat(field string, value float32) WhereClause {
+func EqFloat(field Key, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
 			operator: EqualOperator,
@@ -529,7 +529,7 @@ func EqFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
-func EqBool(field string, value bool) WhereClause {
+func EqBool(field Key, value bool) WhereClause {
 	return &WhereClauseBool{
 		WhereClauseBase: WhereClauseBase{
 			operator: EqualOperator,
@@ -539,7 +539,7 @@ func EqBool(field string, value bool) WhereClause {
 	}
 }
 
-func NotEqString(field, value string) WhereClause {
+func NotEqString(field Key, value string) WhereClause {
 	return &WhereClauseString{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotEqualOperator,
@@ -548,7 +548,7 @@ func NotEqString(field, value string) WhereClause {
 		operand: value,
 	}
 }
-func NotEqInt(field string, value int) WhereClause {
+func NotEqInt(field Key, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotEqualOperator,
@@ -557,7 +557,7 @@ func NotEqInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
-func NotEqFloat(field string, value float32) WhereClause {
+func NotEqFloat(field Key, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotEqualOperator,
@@ -566,7 +566,7 @@ func NotEqFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
-func NotEqBool(field string, value bool) WhereClause {
+func NotEqBool(field Key, value bool) WhereClause {
 	return &WhereClauseBool{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotEqualOperator,
@@ -575,7 +575,7 @@ func NotEqBool(field string, value bool) WhereClause {
 		operand: value,
 	}
 }
-func GtInt(field string, value int) WhereClause {
+func GtInt(field Key, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
 			operator: GreaterThanOperator,
@@ -584,7 +584,7 @@ func GtInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
-func GtFloat(field string, value float32) WhereClause {
+func GtFloat(field Key, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
 			operator: GreaterThanOperator,
@@ -593,7 +593,7 @@ func GtFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
-func LtInt(field string, value int) WhereClause {
+func LtInt(field Key, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
 			operator: LessThanOperator,
@@ -602,7 +602,7 @@ func LtInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
-func LtFloat(field string, value float32) WhereClause {
+func LtFloat(field Key, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
 			operator: LessThanOperator,
@@ -611,7 +611,7 @@ func LtFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
-func GteInt(field string, value int) WhereClause {
+func GteInt(field Key, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
 			operator: GreaterThanOrEqualOperator,
@@ -620,7 +620,7 @@ func GteInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
-func GteFloat(field string, value float32) WhereClause {
+func GteFloat(field Key, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
 			operator: GreaterThanOrEqualOperator,
@@ -629,7 +629,7 @@ func GteFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
-func LteInt(field string, value int) WhereClause {
+func LteInt(field Key, value int) WhereClause {
 	return &WhereClauseInt{
 		WhereClauseBase: WhereClauseBase{
 			operator: LessThanOrEqualOperator,
@@ -638,7 +638,7 @@ func LteInt(field string, value int) WhereClause {
 		operand: value,
 	}
 }
-func LteFloat(field string, value float32) WhereClause {
+func LteFloat(field Key, value float32) WhereClause {
 	return &WhereClauseFloat{
 		WhereClauseBase: WhereClauseBase{
 			operator: LessThanOrEqualOperator,
@@ -647,7 +647,7 @@ func LteFloat(field string, value float32) WhereClause {
 		operand: value,
 	}
 }
-func InString(field string, values ...string) WhereClause {
+func InString(field Key, values ...string) WhereClause {
 	return &WhereClauseStrings{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -656,7 +656,7 @@ func InString(field string, values ...string) WhereClause {
 		operand: values,
 	}
 }
-func InInt(field string, values ...int) WhereClause {
+func InInt(field Key, values ...int) WhereClause {
 	return &WhereClauseInts{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -665,7 +665,7 @@ func InInt(field string, values ...int) WhereClause {
 		operand: values,
 	}
 }
-func InFloat(field string, values ...float32) WhereClause {
+func InFloat(field Key, values ...float32) WhereClause {
 	return &WhereClauseFloats{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -674,7 +674,7 @@ func InFloat(field string, values ...float32) WhereClause {
 		operand: values,
 	}
 }
-func InBool(field string, values ...bool) WhereClause {
+func InBool(field Key, values ...bool) WhereClause {
 	return &WhereClauseBools{
 		WhereClauseBase: WhereClauseBase{
 			operator: InOperator,
@@ -683,7 +683,7 @@ func InBool(field string, values ...bool) WhereClause {
 		operand: values,
 	}
 }
-func NinString(field string, values ...string) WhereClause {
+func NinString(field Key, values ...string) WhereClause {
 	return &WhereClauseStrings{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,
@@ -692,7 +692,7 @@ func NinString(field string, values ...string) WhereClause {
 		operand: values,
 	}
 }
-func NinInt(field string, values ...int) WhereClause {
+func NinInt(field Key, values ...int) WhereClause {
 	return &WhereClauseInts{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,
@@ -701,7 +701,7 @@ func NinInt(field string, values ...int) WhereClause {
 		operand: values,
 	}
 }
-func NinFloat(field string, values ...float32) WhereClause {
+func NinFloat(field Key, values ...float32) WhereClause {
 	return &WhereClauseFloats{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,
@@ -710,7 +710,7 @@ func NinFloat(field string, values ...float32) WhereClause {
 		operand: values,
 	}
 }
-func NinBool(field string, values ...bool) WhereClause {
+func NinBool(field Key, values ...bool) WhereClause {
 	return &WhereClauseBools{
 		WhereClauseBase: WhereClauseBase{
 			operator: NotInOperator,
@@ -741,13 +741,13 @@ func And(clauses ...WhereClause) WhereClause {
 //
 // Example:
 //
-//	WithFilter(And(EqString("status", "published"), IDIn("doc1", "doc2", "doc3")))
+//	WithFilter(And(EqString(K("status"), "published"), IDIn("doc1", "doc2", "doc3")))
 func IDIn(ids ...DocumentID) WhereClause {
 	strIDs := make([]string, len(ids))
 	for i, id := range ids {
 		strIDs[i] = string(id)
 	}
-	return InString("#id", strIDs...)
+	return InString(KID, strIDs...)
 }
 
 // IDNotIn creates a where clause that excludes documents with any of the specified IDs.
@@ -761,7 +761,7 @@ func IDNotIn(ids ...DocumentID) WhereClause {
 	for i, id := range ids {
 		strIDs[i] = string(id)
 	}
-	return NinString("#id", strIDs...)
+	return NinString(KID, strIDs...)
 }
 
 // DocumentContains creates a where clause that filters documents containing the specified text.
