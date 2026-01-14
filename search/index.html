@@ -631,17 +631,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#document-content-filter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Document Content Filter
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#combining-filters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -790,6 +779,17 @@
     <span class="md-ellipsis">
       
         RRF Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#id-filter-operators-cloud-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ID Filter Operators (Cloud-only)
       
     </span>
   </a>
@@ -955,17 +955,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#document-content-filter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Document Content Filter
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#combining-filters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1114,6 +1103,17 @@
     <span class="md-ellipsis">
       
         RRF Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#id-filter-operators-cloud-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ID Filter Operators (Cloud-only)
       
     </span>
   </a>
@@ -1508,14 +1508,24 @@
 </tbody>
 </table>
 <h3 id="document-id-filter">Document ID Filter<a class="headerlink" href="#document-id-filter" title="Permanent link">&para;</a></h3>
-<p>Restrict search to specific document IDs:</p>
+<p>Restrict search to specific document IDs using <code>WithFilterIDs</code>:</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilterIDs</span><span class="p">(</span><span class="s">&quot;doc1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc2&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc3&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="document-content-filter">Document Content Filter<a class="headerlink" href="#document-content-filter" title="Permanent link">&para;</a></h3>
-<p>Filter by document text content:</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilterDocument</span><span class="p">(</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">Contains</span><span class="p">(</span><span class="s">&quot;machine learning&quot;</span><span class="p">),</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="p">)</span>
+<p>For more flexible ID filtering that can be combined with other where clauses, use <code>IDIn</code> and <code>IDNotIn</code>:</p>
+<blockquote>
+<p><strong>Note:</strong> <code>IDIn</code> and <code>IDNotIn</code> are <strong>Cloud-only</strong> features. These functions follow the Python SDK pattern (<code>K.ID.is_in()</code>, <code>K.ID.not_in()</code>).</p>
+</blockquote>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// Include only specific IDs (equivalent to Python&#39;s K.ID.is_in())</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilter</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">IDIn</span><span class="p">(</span><span class="s">&quot;doc1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc2&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc3&quot;</span><span class="p">))</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1">// Exclude specific IDs (equivalent to Python&#39;s K.ID.not_in())</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilter</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">IDNotIn</span><span class="p">(</span><span class="s">&quot;seen1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;seen2&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;seen3&quot;</span><span class="p">))</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1">// Combine with other filters - useful for excluding already-seen content</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilter</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">And</span><span class="p">(</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">EqString</span><span class="p">(</span><span class="s">&quot;category&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;tech&quot;</span><span class="p">),</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">IDNotIn</span><span class="p">(</span><span class="s">&quot;already_read_1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;already_read_2&quot;</span><span class="p">),</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="p">))</span>
 </span></code></pre></div>
 <h3 id="combining-filters">Combining Filters<a class="headerlink" href="#combining-filters" title="Permanent link">&para;</a></h3>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
@@ -1724,10 +1734,6 @@
 <td>Filter by document IDs</td>
 </tr>
 <tr>
-<td><code>WithFilterDocument(where)</code></td>
-<td>Filter by document content</td>
-</tr>
-<tr>
 <td><code>WithPage(opts...)</code></td>
 <td>Add pagination</td>
 </tr>
@@ -1800,6 +1806,25 @@
 <tr>
 <td><code>WithRffNormalize()</code></td>
 <td>Normalize weights</td>
+</tr>
+</tbody>
+</table>
+<h3 id="id-filter-operators-cloud-only">ID Filter Operators (Cloud-only)<a class="headerlink" href="#id-filter-operators-cloud-only" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IDIn(ids...)</code></td>
+<td>Match documents with any of the specified IDs</td>
+</tr>
+<tr>
+<td><code>IDNotIn(ids...)</code></td>
+<td>Exclude documents with any of the specified IDs</td>
 </tr>
 </tbody>
 </table>
