@@ -152,22 +152,27 @@ func NewMorphEmbeddingFunction(opts ...Option) (*MorphEmbeddingFunction, error) 
 	return &MorphEmbeddingFunction{apiClient: apiClient}, nil
 }
 
-func convertToMatrix(response *CreateEmbeddingResponse) [][]float32 {
-	matrix := make([][]float32, len(response.Data))
-	for i, embeddingData := range response.Data {
-		matrix[i] = embeddingData.Embedding
-	}
-	return matrix
-}
-
 func (e *MorphEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
+	if len(documents) == 0 {
+		return embeddings.NewEmptyEmbeddings(), nil
+	}
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Input: documents,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed documents")
 	}
-	return embeddings.NewEmbeddingsFromFloat32(convertToMatrix(response))
+	if len(response.Data) != len(documents) {
+		return nil, errors.Errorf("embedding count mismatch: got %d, expected %d", len(response.Data), len(documents))
+	}
+	embs := make([]embeddings.Embedding, len(documents))
+	for _, data := range response.Data {
+		if data.Index < 0 || data.Index >= len(documents) {
+			return nil, errors.Errorf("invalid embedding index %d for %d documents", data.Index, len(documents))
+		}
+		embs[data.Index] = embeddings.NewEmbeddingFromFloat32(data.Embedding)
+	}
+	return embs, nil
 }
 
 func (e *MorphEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
@@ -177,11 +182,10 @@ func (e *MorphEmbeddingFunction) EmbedQuery(ctx context.Context, document string
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
-	matrix := convertToMatrix(response)
-	if len(matrix) == 0 {
+	if len(response.Data) == 0 {
 		return nil, errors.New("no embedding returned from Morph API")
 	}
-	return embeddings.NewEmbeddingFromFloat32(matrix[0]), nil
+	return embeddings.NewEmbeddingFromFloat32(response.Data[0].Embedding), nil
 }
 
 func (e *MorphEmbeddingFunction) Name() string {

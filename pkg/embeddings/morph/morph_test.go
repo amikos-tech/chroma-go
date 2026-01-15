@@ -81,6 +81,18 @@ func TestMorphEmbeddingFunction_RequiresAPIKey(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestMorphEmbeddingFunction_EmptyDocuments(t *testing.T) {
+	t.Setenv("MORPH_API_KEY", "test-key")
+
+	ef, err := NewMorphEmbeddingFunction(WithEnvAPIKey())
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := ef.EmbedDocuments(ctx, []string{})
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
 func TestMorphEmbeddingFunction_LiveAPI(t *testing.T) {
 	apiKey := os.Getenv("MORPH_API_KEY")
 	if apiKey == "" {
