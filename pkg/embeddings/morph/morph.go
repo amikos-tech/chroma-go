@@ -172,6 +172,11 @@ func (e *MorphEmbeddingFunction) EmbedDocuments(ctx context.Context, documents [
 		}
 		embs[data.Index] = embeddings.NewEmbeddingFromFloat32(data.Embedding)
 	}
+	for i, emb := range embs {
+		if emb == nil {
+			return nil, errors.Errorf("missing embedding at index %d (duplicate or missing index in response)", i)
+		}
+	}
 	return embs, nil
 }
 
