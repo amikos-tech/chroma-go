@@ -155,6 +155,12 @@ func (c CohereRerankingFunction) ID() string {
 }
 
 func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryTexts []string, queryResults *chromago.QueryResultImpl) (*rerankings.RerankedChromaResults, error) {
+	if len(queryTexts) != len(queryResults.IDLists) {
+		return nil, fmt.Errorf("queryTexts length (%d) does not match IDLists length (%d)", len(queryTexts), len(queryResults.IDLists))
+	}
+	if len(queryResults.DocumentsLists) != len(queryResults.IDLists) {
+		return nil, fmt.Errorf("DocumentsLists length (%d) does not match IDLists length (%d)", len(queryResults.DocumentsLists), len(queryResults.IDLists))
+	}
 	rerankedResults := &rerankings.RerankedChromaResults{
 		QueryResultImpl: queryResults,
 		QueryTexts:      queryTexts,

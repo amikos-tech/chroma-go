@@ -74,6 +74,7 @@ func (client *APIClientV2) PreFlight(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	var preflightLimits map[string]interface{}
 	if json.NewDecoder(resp.Body).Decode(&preflightLimits) != nil {
 		return errors.New("error decoding preflight response")
@@ -320,6 +321,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 	if err != nil {
 		return nil, errors.Wrap(err, "error sending request")
 	}
+	defer resp.Body.Close()
 	var cm CollectionModel
 	if err := json.NewDecoder(resp.Body).Decode(&cm); err != nil {
 		return nil, errors.Wrap(err, "error decoding response")
@@ -600,6 +602,7 @@ func (client *APIClientV2) GetIdentity(ctx context.Context) (Identity, error) {
 	if err != nil {
 		return identity, errors.Wrap(err, "error sending request")
 	}
+	defer resp.Body.Close()
 	if err := json.NewDecoder(resp.Body).Decode(&identity); err != nil {
 		return identity, errors.Wrap(err, "error decoding response")
 	}
