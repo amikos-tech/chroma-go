@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	chromago "github.com/amikos-tech/chroma-go"
+	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
 	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
 )
@@ -139,21 +139,24 @@ func (r *HFRerankingFunction) ID() string {
 	return "hfei"
 }
 
-func (r *HFRerankingFunction) RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (*rerankings.RerankedChromaResults, error) {
+func (r *HFRerankingFunction) RerankResults(ctx context.Context, queryTexts []string, queryResults *chromago.QueryResultImpl) (*rerankings.RerankedChromaResults, error) {
 	rerankedResults := &rerankings.RerankedChromaResults{
-		QueryResults: *queryResults,
-		Ranks:        map[string][][]float32{r.ID(): make([][]float32, len(queryResults.Ids))},
+		QueryResultImpl: queryResults,
+		QueryTexts:      queryTexts,
+		Ranks:           map[string][][]float32{r.ID(): make([][]float32, len(queryResults.IDLists))},
 	}
-	for i, rs := range queryResults.Ids {
+	for i, rs := range queryResults.IDLists {
 		if len(rs) == 0 {
 			return nil, fmt.Errorf("no results to rerank")
 		}
 		docs := make([]string, 0)
-		docs = append(docs, queryResults.Documents[i]...)
+		for _, doc := range queryResults.DocumentsLists[i] {
+			docs = append(docs, doc.ContentString())
+		}
 		req := &RerankingRequest{
 			Model: (*string)(r.defaultModel),
 			Texts: docs,
-			Query: queryResults.QueryTexts[i],
+			Query: queryTexts[i],
 		}
 		rerankResp, err := r.sendRequest(ctx, req)
 		if err != nil {

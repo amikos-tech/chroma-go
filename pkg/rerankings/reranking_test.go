@@ -10,7 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	chromago "github.com/amikos-tech/chroma-go"
+	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 type DummyRerankingFunction struct {
@@ -42,15 +43,16 @@ func (d *DummyRerankingFunction) Rerank(_ context.Context, _ string, results []R
 	return map[string][]RankedResult{d.ID(): rerankedResults}, nil
 }
 
-func (d *DummyRerankingFunction) RerankResults(_ context.Context, queryResults *chromago.QueryResults) (*RerankedChromaResults, error) {
-	if len(queryResults.Ids) == 0 {
+func (d *DummyRerankingFunction) RerankResults(_ context.Context, queryTexts []string, queryResults *chromago.QueryResultImpl) (*RerankedChromaResults, error) {
+	if len(queryResults.IDLists) == 0 {
 		return nil, fmt.Errorf("no results to rerank")
 	}
 	results := &RerankedChromaResults{
-		QueryResults: *queryResults,
-		Ranks:        map[string][][]float32{d.ID(): make([][]float32, len(queryResults.Ids))},
+		QueryResultImpl: queryResults,
+		QueryTexts:      queryTexts,
+		Ranks:           map[string][][]float32{d.ID(): make([][]float32, len(queryResults.IDLists))},
 	}
-	for i, qr := range queryResults.Ids {
+	for i, qr := range queryResults.IDLists {
 		results.Ranks[d.ID()][i] = make([]float32, len(qr))
 		for j := range qr {
 			results.Ranks[d.ID()][i][j] = rand.Float32()
@@ -76,19 +78,19 @@ func Test_reranking_function(t *testing.T) {
 
 	t.Run("Rerank chroma results", func(t *testing.T) {
 		query := "hello world"
-		results := &chromago.QueryResults{
-			Ids:        [][]string{{"1"}, {"2"}},
-			Documents:  [][]string{{"hello"}, {"world"}},
-			Distances:  [][]float32{{0.1}, {0.2}},
-			QueryTexts: []string{query},
+		queryTexts := []string{query}
+		results := &chromago.QueryResultImpl{
+			IDLists:        []chromago.DocumentIDs{{"1"}, {"2"}},
+			DocumentsLists: []chromago.Documents{{chromago.NewTextDocument("hello")}, {chromago.NewTextDocument("world")}},
+			DistancesLists: []embeddings.Distances{{0.1}, {0.2}},
 		}
-		rerankedResults, err := rerankingFunction.RerankResults(context.Background(), results)
+		rerankedResults, err := rerankingFunction.RerankResults(context.Background(), queryTexts, results)
 		require.NoError(t, err)
 		require.NotNil(t, rerankedResults)
 		require.Contains(t, rerankedResults.Ranks, rerankingFunction.ID())
-		require.Equal(t, len(results.Ids), len(rerankedResults.Ids))
-		require.Equal(t, results.Ids, rerankedResults.Ids)
-		require.Equal(t, results.Documents, rerankedResults.Documents)
-		require.Equal(t, results.QueryTexts, rerankedResults.QueryTexts)
+		require.Equal(t, len(results.IDLists), len(rerankedResults.IDLists))
+		require.Equal(t, results.IDLists, rerankedResults.IDLists)
+		require.Equal(t, results.DocumentsLists, rerankedResults.DocumentsLists)
+		require.Equal(t, queryTexts, rerankedResults.QueryTexts)
 	})
 }

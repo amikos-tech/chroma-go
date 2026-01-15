@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	chromago "github.com/amikos-tech/chroma-go"
+	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
 	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
 )
@@ -151,22 +151,23 @@ func (c CohereRerankingFunction) ID() string {
 	return fmt.Sprintf("cohere-%s", c.DefaultModel)
 }
 
-func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (*rerankings.RerankedChromaResults, error) {
+func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryTexts []string, queryResults *chromago.QueryResultImpl) (*rerankings.RerankedChromaResults, error) {
 	rerankedResults := &rerankings.RerankedChromaResults{
-		QueryResults: *queryResults,
-		Ranks:        map[string][][]float32{c.ID(): make([][]float32, len(queryResults.Ids))},
+		QueryResultImpl: queryResults,
+		QueryTexts:      queryTexts,
+		Ranks:           map[string][][]float32{c.ID(): make([][]float32, len(queryResults.IDLists))},
 	}
-	for i, r := range queryResults.Ids {
+	for i, r := range queryResults.IDLists {
 		if len(r) == 0 {
 			return nil, fmt.Errorf("no results to rerank")
 		}
 		docs := make([]any, 0)
-		for _, result := range queryResults.Documents[i] {
-			docs = append(docs, result)
+		for _, doc := range queryResults.DocumentsLists[i] {
+			docs = append(docs, doc.ContentString())
 		}
 		req := &RerankRequest{
 			Model:           string(c.DefaultModel),
-			Query:           queryResults.QueryTexts[i],
+			Query:           queryTexts[i],
 			Documents:       docs,
 			TopN:            c.TopN,
 			RerankFields:    c.RerankFields,

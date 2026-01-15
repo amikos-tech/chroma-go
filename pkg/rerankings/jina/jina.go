@@ -8,15 +8,14 @@ import (
 	"io"
 	"net/http"
 
-	chromago "github.com/amikos-tech/chroma-go"
+	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
 	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
-	"github.com/amikos-tech/chroma-go/types"
 )
 
 const (
-	DefaultBaseAPIEndpoint                      = "https://api.jina.ai/v1/rerank"
-	DefaultRerankingModel  types.RerankingModel = "jina-reranker-v2-base-multilingual"
+	DefaultBaseAPIEndpoint                           = "https://api.jina.ai/v1/rerank"
+	DefaultRerankingModel  rerankings.RerankingModel = "jina-reranker-v2-base-multilingual"
 )
 
 type RerankingRequest struct {
@@ -57,7 +56,7 @@ func getDefaults() *JinaRerankingFunction {
 type JinaRerankingFunction struct {
 	httpClient        *http.Client
 	apiKey            string
-	defaultModel      types.RerankingModel
+	defaultModel      rerankings.RerankingModel
 	rerankingEndpoint string
 	returnDocuments   *bool
 	topN              *int
@@ -159,26 +158,29 @@ func (r *JinaRerankingFunction) Rerank(ctx context.Context, query string, result
 	return rankedResults, nil
 }
 
-// ID returns the of the reranking function. We use `cohere-` prefix with the default model
+// ID returns the of the reranking function. We use `jinaai-` prefix with the default model
 func (r *JinaRerankingFunction) ID() string {
 	return fmt.Sprintf("jinaai-%s", r.defaultModel)
 }
 
-func (r *JinaRerankingFunction) RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (*rerankings.RerankedChromaResults, error) {
+func (r *JinaRerankingFunction) RerankResults(ctx context.Context, queryTexts []string, queryResults *chromago.QueryResultImpl) (*rerankings.RerankedChromaResults, error) {
 	rerankedResults := &rerankings.RerankedChromaResults{
-		QueryResults: *queryResults,
-		Ranks:        map[string][][]float32{r.ID(): make([][]float32, len(queryResults.Ids))},
+		QueryResultImpl: queryResults,
+		QueryTexts:      queryTexts,
+		Ranks:           map[string][][]float32{r.ID(): make([][]float32, len(queryResults.IDLists))},
 	}
-	for i, rs := range queryResults.Ids {
+	for i, rs := range queryResults.IDLists {
 		if len(rs) == 0 {
 			return nil, fmt.Errorf("no results to rerank")
 		}
 		docs := make([]string, 0)
-		docs = append(docs, queryResults.Documents[i]...)
+		for _, doc := range queryResults.DocumentsLists[i] {
+			docs = append(docs, doc.ContentString())
+		}
 		req := &RerankingRequest{
 			Model:     string(r.defaultModel),
 			Documents: docs,
-			Query:     queryResults.QueryTexts[i],
+			Query:     queryTexts[i],
 			TopN:      r.topN,
 		}
 		rerankResp, err := r.sendRequest(ctx, req)

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	chromago "github.com/amikos-tech/chroma-go"
+	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
 )
 
@@ -190,7 +190,8 @@ func TestRerankChromaResults(t *testing.T) {
 	tests := []struct {
 		name                 string
 		rankingFunction      func() *JinaRerankingFunction
-		results              *chromago.QueryResults
+		queryTexts           []string
+		results              *chromago.QueryResultImpl
 		resultsType          string
 		validate             func(t *testing.T, rf *JinaRerankingFunction, results *rerankings.RerankedChromaResults)
 		expectedErrorStrings []string
@@ -203,20 +204,20 @@ func TestRerankChromaResults(t *testing.T) {
 				require.NoError(t, err, "Failed to create JinaRerankingFunction")
 				return rf
 			},
-			results: &chromago.QueryResults{
-				Ids: [][]string{
+			queryTexts: []string{"What is the capital of the United States?"},
+			results: &chromago.QueryResultImpl{
+				IDLists: []chromago.DocumentIDs{
 					{"1", "2", "3", "4", "5"},
 				},
-				Documents: [][]string{
+				DocumentsLists: []chromago.Documents{
 					{
-						"Carson City is the capital city of the American state of Nevada.",
-						"The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan.",
-						"Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas.",
-						"Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States.",
-						"Capital punishment (the death penalty) has existed in the United States since before the United States was a country.",
+						chromago.NewTextDocument("Carson City is the capital city of the American state of Nevada."),
+						chromago.NewTextDocument("The Commonwealth of the Northern Mariana Islands is a group of islands in the Pacific Ocean that are a political division controlled by the United States. Its capital is Saipan."),
+						chromago.NewTextDocument("Charlotte Amalie is the capital and largest city of the United States Virgin Islands. It has about 20,000 people. The city is on the island of Saint Thomas."),
+						chromago.NewTextDocument("Washington, D.C. (also known as simply Washington or D.C., and officially as the District of Columbia) is the capital of the United States."),
+						chromago.NewTextDocument("Capital punishment (the death penalty) has existed in the United States since before the United States was a country."),
 					},
 				},
-				QueryTexts: []string{"What is the capital of the United States?"},
 			},
 			resultsType: "text",
 			validate: func(t *testing.T, rf *JinaRerankingFunction, results *rerankings.RerankedChromaResults) {
@@ -227,7 +228,7 @@ func TestRerankChromaResults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rf := tt.rankingFunction()
-			res, err := rf.RerankResults(context.Background(), tt.results)
+			res, err := rf.RerankResults(context.Background(), tt.queryTexts, tt.results)
 			if len(tt.expectedErrorStrings) > 0 {
 				for _, expectedErrorString := range tt.expectedErrorStrings {
 					require.Error(t, err, "Expected error but got nil")
