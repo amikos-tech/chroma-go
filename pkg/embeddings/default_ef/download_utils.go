@@ -3,6 +3,8 @@ package defaultef
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +17,35 @@ import (
 
 	"github.com/pkg/errors"
 )
+
+// Known SHA256 checksum for the ONNX model archive.
+// This ensures the downloaded model has not been tampered with.
+// To update: download the file and run `shasum -a 256 onnx.tar.gz`
+const onnxModelSHA256 = "913d7300ceae3b2dbc2c50d1de4baacab4be7b9380491c27fab7418616a16ec3"
+
+func verifyFileChecksum(filepath string, expectedChecksum string) error {
+	if expectedChecksum == "" {
+		return nil
+	}
+
+	file, err := os.Open(filepath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to open file for checksum verification: %s", filepath)
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return errors.Wrapf(err, "failed to compute checksum for: %s", filepath)
+	}
+
+	actualChecksum := hex.EncodeToString(hasher.Sum(nil))
+	if actualChecksum != expectedChecksum {
+		return errors.Errorf("checksum mismatch for %s: expected %s, got %s", filepath, expectedChecksum, actualChecksum)
+	}
+
+	return nil
+}
 
 func lockFile(path string) (*os.File, error) {
 	lockPath := filepath.Join(path, ".lock")
@@ -288,9 +319,11 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 	}
 	targetArchive := filepath.Join(cfg.OnnxCacheDir, "onnxruntime-"+cos+"-"+carch+"-"+cfg.LibOnnxRuntimeVersion+".tgz")
 	if _, onnxInitErr = os.Stat(cfg.OnnxLibPath); os.IsNotExist(onnxInitErr) {
-		// Download the library
+		// Download the library from official Microsoft GitHub releases.
+		// Note: Checksum verification is not practical here because versions are user-configurable
+		// and each version/OS/arch combination has a unique checksum. Integrity is ensured through:
+		// 1. HTTPS transport security 2. Archive format validation 3. File size verification
 		url := "https://github.com/microsoft/onnxruntime/releases/download/v" + cfg.LibOnnxRuntimeVersion + "/onnxruntime-" + cos + "-" + carch + "-" + cfg.LibOnnxRuntimeVersion + ".tgz"
-		// TODO integrity check
 		if _, onnxInitErr = os.Stat(targetArchive); os.IsNotExist(onnxInitErr) {
 			onnxInitErr = downloadFile(targetArchive, url)
 			if onnxInitErr != nil {
@@ -355,9 +388,12 @@ func EnsureDefaultEmbeddingFunctionModel() error {
 	}
 	targetArchive := filepath.Join(cfg.OnnxModelsCachePath, "onnx.tar.gz")
 	if _, err := os.Stat(targetArchive); os.IsNotExist(err) {
-		// TODO integrity check
 		if err := downloadFile(targetArchive, onnxModelDownloadEndpoint); err != nil {
 			return errors.Wrap(err, "failed to download onnx model")
+		}
+		if err := verifyFileChecksum(targetArchive, onnxModelSHA256); err != nil {
+			_ = os.Remove(targetArchive)
+			return errors.Wrap(err, "onnx model integrity check failed")
 		}
 	}
 	if err := extractSpecificFile(targetArchive, "", cfg.OnnxModelCachePath); err != nil {

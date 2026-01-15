@@ -1,8 +1,10 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -31,8 +33,15 @@ func ChromaErrorFromHTTPResponse(resp *http.Response, err error) *ChromaError {
 		return chromaAPIError
 	}
 	chromaAPIError.ErrorCode = resp.StatusCode
-	if err := json.NewDecoder(resp.Body).Decode(chromaAPIError); err != nil {
-		chromaAPIError.Message = ReadRespBody(resp.Body)
+
+	// Read body into buffer first to allow fallback if JSON decode fails
+	bodyBytes, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return chromaAPIError
+	}
+
+	if err := json.NewDecoder(bytes.NewReader(bodyBytes)).Decode(chromaAPIError); err != nil {
+		chromaAPIError.Message = string(bodyBytes)
 	}
 	return chromaAPIError
 }

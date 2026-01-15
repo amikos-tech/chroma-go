@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"slices"
 	"time"
 )
 
@@ -76,21 +77,23 @@ func (r *SimpleRetryStrategy) DoWithRetry(client *http.Client, req *http.Request
 			break
 		}
 		if r.isRetryable(resp.StatusCode) {
+			// Close the response body before retrying to prevent connection leaks
+			if resp.Body != nil {
+				resp.Body.Close()
+			}
 			if r.ExponentialBackOff {
 				time.Sleep(r.FixedDelay * time.Duration(math.Pow(2, float64(i))))
 			} else {
 				time.Sleep(r.FixedDelay)
 			}
+		} else {
+			// Non-retryable error status, exit loop
+			break
 		}
 	}
 	return resp, err
 }
 
 func (r *SimpleRetryStrategy) isRetryable(code int) bool {
-	for _, retryableCode := range r.RetryableStatusCodes {
-		if code == retryableCode {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(r.RetryableStatusCodes, code)
 }
