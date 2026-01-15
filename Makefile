@@ -59,6 +59,19 @@ test-ef-cloud: gotestsum-bin
 		-coverprofile=coverage-ef-cloud.out \
 		-timeout=30m
 
+.PHONY: test-rf
+test-rf: gotestsum-bin
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=1 \
+		--packages="./..." \
+		--junitfile unit-rf.xml \
+		-- \
+		-v \
+		-tags=rf \
+		-coverprofile=coverage-rf.out \
+		-timeout=30m
+
 .PHONY: test-crosslang
 test-crosslang: gotestsum-bin setup-python-venv
 	gotestsum \
