@@ -367,7 +367,7 @@ func (client *APIClientV2) DeleteCollection(ctx context.Context, name string, op
 	if err != nil {
 		return errors.Wrap(err, "delete request error")
 	}
-	delete(client.collectionCache, name)
+	client.deleteCollectionFromCache(name)
 	return nil
 }
 
@@ -556,15 +556,31 @@ func (client *APIClientV2) Satisfies(resourceOperation ResourceOperation, metric
 		return nil
 	}
 
-	switch metric.(type) {
-	case int, int32:
-		if m.(int) <= metric.(int) {
-			return errors.Errorf("%s count limit exceeded for %s %s. Expected less than or equal %v but got %v", metricName, string(resourceOperation.Resource()), string(resourceOperation.Operation()), m, metric)
-		}
-	case float64, float32:
-		if m.(float64) <= metric.(float64) {
-			return errors.Errorf("%s count limit exceeded for %s %s. Expected less than or equal %v but got %v", metricName, string(resourceOperation.Resource()), string(resourceOperation.Operation()), m, metric)
-		}
+	// preflightLimits always stores int values, use comma-ok idiom to avoid panics
+	limit, ok := m.(int)
+	if !ok {
+		return nil
+	}
+
+	// Convert metric to int for comparison
+	var metricVal int
+	switch v := metric.(type) {
+	case int:
+		metricVal = v
+	case int32:
+		metricVal = int(v)
+	case int64:
+		metricVal = int(v)
+	case float64:
+		metricVal = int(v)
+	case float32:
+		metricVal = int(v)
+	default:
+		return nil
+	}
+
+	if limit <= metricVal {
+		return errors.Errorf("%s count limit exceeded for %s %s. Expected less than or equal %v but got %v", metricName, string(resourceOperation.Resource()), string(resourceOperation.Operation()), limit, metricVal)
 	}
 
 	return nil
@@ -595,12 +611,18 @@ func (client *APIClientV2) Close() error {
 		client.httpClient.CloseIdleConnections()
 	}
 	var errs []error
-	if len(client.collectionCache) > 0 {
-		for _, c := range client.collectionCache {
-			err := c.Close()
-			if err != nil {
-				errs = append(errs, err)
-			}
+	// Copy collections while holding lock to avoid race conditions
+	client.collectionMu.RLock()
+	collections := make([]Collection, 0, len(client.collectionCache))
+	for _, c := range client.collectionCache {
+		collections = append(collections, c)
+	}
+	client.collectionMu.RUnlock()
+	// Close collections without holding the lock to avoid deadlocks
+	for _, c := range collections {
+		err := c.Close()
+		if err != nil {
+			errs = append(errs, err)
 		}
 	}
 	// Sync the logger to flush any buffered log entries
@@ -626,4 +648,10 @@ func (client *APIClientV2) addCollectionToCache(c Collection) {
 	client.collectionMu.Lock()
 	defer client.collectionMu.Unlock()
 	client.collectionCache[c.Name()] = c
+}
+
+func (client *APIClientV2) deleteCollectionFromCache(name string) {
+	client.collectionMu.Lock()
+	defer client.collectionMu.Unlock()
+	delete(client.collectionCache, name)
 }

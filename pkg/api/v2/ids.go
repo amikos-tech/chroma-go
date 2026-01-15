@@ -73,7 +73,23 @@ func (s *SHA256Generator) Generate(opts ...IDGeneratorOption) string {
 		opt(&op)
 	}
 	if op.Document == "" {
-		op.Document = uuid.New().String()
+		// Generate random input for hashing with panic recovery
+		op.Document = func() (doc string) {
+			defer func() {
+				if r := recover(); r != nil {
+					// Fall back to crypto/rand if uuid.New() panics
+					randomBytes := make([]byte, 16)
+					if _, err := io.ReadFull(crand.Reader, randomBytes); err != nil {
+						// Last resort: use timestamp
+						doc = time.Now().Format(time.RFC3339Nano)
+					} else {
+						doc = hex.EncodeToString(randomBytes)
+					}
+				}
+			}()
+			doc = uuid.New().String()
+			return doc
+		}()
 	}
 	hasher := sha256.New()
 	hasher.Write([]byte(op.Document))

@@ -373,7 +373,7 @@ func (c *CollectionImpl) Fork(ctx context.Context, newName string) (Collection, 
 		dimension:         cm.Dimension,
 		embeddingFunction: c.embeddingFunction,
 	}
-	c.client.collectionCache[forkedCollection.name] = forkedCollection
+	c.client.addCollectionToCache(forkedCollection)
 	return forkedCollection, nil
 }
 func (c *CollectionImpl) Search(ctx context.Context, opts ...SearchCollectionOption) (SearchResult, error) {
