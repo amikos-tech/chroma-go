@@ -9,6 +9,16 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
+// ResultRow represents a single result item with all associated data.
+// Use this with Rows() or At() for ergonomic iteration over results.
+type ResultRow struct {
+	ID        DocumentID
+	Document  string           // Empty if not included in results
+	Metadata  DocumentMetadata // nil if not included in results
+	Embedding []float32        // nil if not included in results
+	Score     float64          // Search: relevance score (higher=better); Query: distance (lower=better); Get: 0
+}
+
 type GetResult interface {
 	// GetIDs returns the IDs of the documents in the result.
 	GetIDs() DocumentIDs
@@ -155,6 +165,44 @@ func (r *GetResultImpl) String() string {
 		return ""
 	}
 	return string(b)
+}
+
+// Rows returns all results as ResultRow slice for easy iteration.
+func (r *GetResultImpl) Rows() []ResultRow {
+	count := len(r.Ids)
+	if count == 0 {
+		return nil
+	}
+	rows := make([]ResultRow, count)
+	for i := 0; i < count; i++ {
+		rows[i] = r.buildRow(i)
+	}
+	return rows
+}
+
+// At returns the result at the given index with bounds checking.
+// Returns false if index is out of bounds.
+func (r *GetResultImpl) At(index int) (ResultRow, bool) {
+	if index < 0 || index >= len(r.Ids) {
+		return ResultRow{}, false
+	}
+	return r.buildRow(index), true
+}
+
+func (r *GetResultImpl) buildRow(i int) ResultRow {
+	row := ResultRow{
+		ID: r.Ids[i],
+	}
+	if i < len(r.Documents) && r.Documents[i] != nil {
+		row.Document = r.Documents[i].ContentString()
+	}
+	if i < len(r.Metadatas) {
+		row.Metadata = r.Metadatas[i]
+	}
+	if i < len(r.Embeddings) && r.Embeddings[i] != nil {
+		row.Embedding = r.Embeddings[i].ContentAsFloat32()
+	}
+	return row
 }
 
 type QueryResult interface {
@@ -360,4 +408,69 @@ func (r *QueryResultImpl) String() string {
 		return ""
 	}
 	return string(b)
+}
+
+// Rows returns the first query group's results for easy iteration.
+// For multiple query groups, use RowGroups().
+func (r *QueryResultImpl) Rows() []ResultRow {
+	if len(r.IDLists) == 0 {
+		return nil
+	}
+	return r.buildGroupRows(0)
+}
+
+// RowGroups returns all query groups as [][]ResultRow.
+func (r *QueryResultImpl) RowGroups() [][]ResultRow {
+	if len(r.IDLists) == 0 {
+		return nil
+	}
+	groups := make([][]ResultRow, len(r.IDLists))
+	for g := range r.IDLists {
+		groups[g] = r.buildGroupRows(g)
+	}
+	return groups
+}
+
+// At returns the result at the given group and index with bounds checking.
+// Returns false if either index is out of bounds.
+func (r *QueryResultImpl) At(group, index int) (ResultRow, bool) {
+	if group < 0 || group >= len(r.IDLists) {
+		return ResultRow{}, false
+	}
+	ids := r.IDLists[group]
+	if index < 0 || index >= len(ids) {
+		return ResultRow{}, false
+	}
+	return r.buildRow(group, index), true
+}
+
+func (r *QueryResultImpl) buildGroupRows(g int) []ResultRow {
+	ids := r.IDLists[g]
+	if len(ids) == 0 {
+		return nil
+	}
+	rows := make([]ResultRow, len(ids))
+	for i := range ids {
+		rows[i] = r.buildRow(g, i)
+	}
+	return rows
+}
+
+func (r *QueryResultImpl) buildRow(g, i int) ResultRow {
+	row := ResultRow{
+		ID: r.IDLists[g][i],
+	}
+	if g < len(r.DocumentsLists) && i < len(r.DocumentsLists[g]) && r.DocumentsLists[g][i] != nil {
+		row.Document = r.DocumentsLists[g][i].ContentString()
+	}
+	if g < len(r.MetadatasLists) && i < len(r.MetadatasLists[g]) {
+		row.Metadata = r.MetadatasLists[g][i]
+	}
+	if g < len(r.EmbeddingsLists) && i < len(r.EmbeddingsLists[g]) && r.EmbeddingsLists[g][i] != nil {
+		row.Embedding = r.EmbeddingsLists[g][i].ContentAsFloat32()
+	}
+	if g < len(r.DistancesLists) && i < len(r.DistancesLists[g]) {
+		row.Score = float64(r.DistancesLists[g][i])
+	}
+	return row
 }

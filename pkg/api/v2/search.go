@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"bytes"
 	"encoding/json"
 
 	"github.com/pkg/errors"
@@ -340,19 +341,21 @@ func NewSearchRequest(opts ...SearchOption) SearchCollectionOption {
 
 // SearchResultImpl holds the results of a search operation.
 type SearchResultImpl struct {
-	IDs        [][]DocumentID         `json:"ids,omitempty"`
-	Documents  [][]string             `json:"documents,omitempty"`
-	Metadatas  [][]CollectionMetadata `json:"metadatas,omitempty"`
-	Embeddings [][][]float32          `json:"embeddings,omitempty"`
-	Scores     [][]float64            `json:"scores,omitempty"`
+	IDs        [][]DocumentID       `json:"ids,omitempty"`
+	Documents  [][]string           `json:"documents,omitempty"`
+	Metadatas  [][]DocumentMetadata `json:"metadatas,omitempty"`
+	Embeddings [][][]float32        `json:"embeddings,omitempty"`
+	Scores     [][]float64          `json:"scores,omitempty"`
 }
 
 // UnmarshalJSON implements custom JSON unmarshalling for SearchResultImpl.
-// This is necessary because CollectionMetadata is an interface type that
+// This is necessary because DocumentMetadata is an interface type that
 // cannot be directly unmarshalled by the standard JSON decoder.
 func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 	var temp map[string]interface{}
-	if err := json.Unmarshal(data, &temp); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&temp); err != nil {
 		return errors.Wrap(err, "failed to unmarshal SearchResult")
 	}
 
@@ -403,21 +406,25 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 	// Parse Metadatas - needs special handling for interface type
 	if metasRaw, ok := temp["metadatas"]; ok && metasRaw != nil {
 		if metasList, ok := metasRaw.([]interface{}); ok {
-			r.Metadatas = make([][]CollectionMetadata, 0, len(metasList))
+			r.Metadatas = make([][]DocumentMetadata, 0, len(metasList))
 			for _, metasGroup := range metasList {
 				if metasGroup == nil {
 					r.Metadatas = append(r.Metadatas, nil)
 					continue
 				}
 				if group, ok := metasGroup.([]interface{}); ok {
-					metas := make([]CollectionMetadata, 0, len(group))
+					metas := make([]DocumentMetadata, 0, len(group))
 					for _, meta := range group {
 						if meta == nil {
 							metas = append(metas, nil)
 							continue
 						}
 						if metaMap, ok := meta.(map[string]interface{}); ok {
-							metas = append(metas, NewMetadataFromMap(metaMap))
+							docMeta, err := NewDocumentMetadataFromMap(metaMap)
+							if err != nil {
+								return errors.Wrap(err, "failed to parse document metadata")
+							}
+							metas = append(metas, docMeta)
 						}
 					}
 					r.Metadatas = append(r.Metadatas, metas)
@@ -445,8 +452,15 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 						if embArr, ok := emb.([]interface{}); ok {
 							floats := make([]float32, 0, len(embArr))
 							for _, f := range embArr {
-								if fVal, ok := f.(float64); ok {
+								switch fVal := f.(type) {
+								case float64:
 									floats = append(floats, float32(fVal))
+								case json.Number:
+									v, err := fVal.Float64()
+									if err != nil {
+										return errors.Wrapf(err, "invalid embedding value: %v", fVal)
+									}
+									floats = append(floats, float32(v))
 								}
 							}
 							embs = append(embs, floats)
@@ -470,8 +484,15 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 				if group, ok := scoresGroup.([]interface{}); ok {
 					scores := make([]float64, 0, len(group))
 					for _, score := range group {
-						if scoreVal, ok := score.(float64); ok {
+						switch scoreVal := score.(type) {
+						case float64:
 							scores = append(scores, scoreVal)
+						case json.Number:
+							v, err := scoreVal.Float64()
+							if err != nil {
+								return errors.Wrapf(err, "invalid score value: %v", scoreVal)
+							}
+							scores = append(scores, v)
 						}
 					}
 					r.Scores = append(r.Scores, scores)
@@ -481,4 +502,69 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// Rows returns the first search group's results for easy iteration.
+// For multiple search requests, use RowGroups().
+func (r *SearchResultImpl) Rows() []ResultRow {
+	if len(r.IDs) == 0 {
+		return nil
+	}
+	return r.buildGroupRows(0)
+}
+
+// RowGroups returns all search groups as [][]ResultRow.
+func (r *SearchResultImpl) RowGroups() [][]ResultRow {
+	if len(r.IDs) == 0 {
+		return nil
+	}
+	groups := make([][]ResultRow, len(r.IDs))
+	for g := range r.IDs {
+		groups[g] = r.buildGroupRows(g)
+	}
+	return groups
+}
+
+// At returns the result at the given group and index with bounds checking.
+// Returns false if either index is out of bounds.
+func (r *SearchResultImpl) At(group, index int) (ResultRow, bool) {
+	if group < 0 || group >= len(r.IDs) {
+		return ResultRow{}, false
+	}
+	ids := r.IDs[group]
+	if index < 0 || index >= len(ids) {
+		return ResultRow{}, false
+	}
+	return r.buildRow(group, index), true
+}
+
+func (r *SearchResultImpl) buildGroupRows(g int) []ResultRow {
+	ids := r.IDs[g]
+	if len(ids) == 0 {
+		return nil
+	}
+	rows := make([]ResultRow, len(ids))
+	for i := range ids {
+		rows[i] = r.buildRow(g, i)
+	}
+	return rows
+}
+
+func (r *SearchResultImpl) buildRow(g, i int) ResultRow {
+	row := ResultRow{
+		ID: r.IDs[g][i],
+	}
+	if g < len(r.Documents) && i < len(r.Documents[g]) {
+		row.Document = r.Documents[g][i]
+	}
+	if g < len(r.Metadatas) && i < len(r.Metadatas[g]) {
+		row.Metadata = r.Metadatas[g][i]
+	}
+	if g < len(r.Embeddings) && i < len(r.Embeddings[g]) {
+		row.Embedding = r.Embeddings[g][i]
+	}
+	if g < len(r.Scores) && i < len(r.Scores[g]) {
+		row.Score = r.Scores[g][i]
+	}
+	return row
 }

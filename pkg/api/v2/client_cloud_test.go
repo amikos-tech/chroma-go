@@ -988,6 +988,93 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 	// Cloud stores embedding_function as {type: "unknown"} in schema responses.
 	// This feature works with self-hosted Chroma 1.0.0+.
 
+	t.Run("Search with metadata projection and Rows iteration", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_search_metadata_rows-" + uuid.New().String()
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		// Add documents with metadata
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("cats are fluffy pets", "dogs are loyal companions", "lions are big cats"),
+			WithMetadatas(
+				NewDocumentMetadata(
+					NewStringAttribute("category", "pets"),
+					NewIntAttribute("year", 2020),
+					NewFloatAttribute("rating", 4.5),
+				),
+				NewDocumentMetadata(
+					NewStringAttribute("category", "pets"),
+					NewIntAttribute("year", 2021),
+					NewFloatAttribute("rating", 4.8),
+				),
+				NewDocumentMetadata(
+					NewStringAttribute("category", "wildlife"),
+					NewIntAttribute("year", 2019),
+					NewFloatAttribute("rating", 4.2),
+				),
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Search with metadata projection
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
+				WithPage(WithLimit(3)),
+				WithSelect(KID, KDocument, KScore, KMetadata),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		sr, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+		require.NotEmpty(t, sr.Metadatas)
+		require.NotNil(t, sr.Metadatas[0], "First group of metadatas should not be nil")
+
+		// Verify using Rows() method
+		rows := sr.Rows()
+		require.NotEmpty(t, rows, "Rows should not be empty")
+
+		for _, row := range rows {
+			require.NotEmpty(t, row.ID, "Row ID should not be empty")
+			require.NotEmpty(t, row.Document, "Row Document should not be empty")
+			require.NotNil(t, row.Metadata, "Row Metadata should not be nil")
+
+			// Verify metadata fields are accessible
+			category, ok := row.Metadata.GetString("category")
+			require.True(t, ok, "Should be able to get category")
+			require.NotEmpty(t, category)
+
+			year, ok := row.Metadata.GetInt("year")
+			require.True(t, ok, "Should be able to get year")
+			require.Greater(t, year, int64(2000))
+
+			rating, ok := row.Metadata.GetFloat("rating")
+			require.True(t, ok, "Should be able to get rating")
+			require.Greater(t, rating, float64(0))
+
+			require.NotZero(t, row.Score, "Score should not be zero")
+		}
+
+		// Verify using At() method for safe indexed access
+		row, ok := sr.At(0, 0)
+		require.True(t, ok, "At(0, 0) should succeed")
+		require.NotEmpty(t, row.ID)
+		require.NotNil(t, row.Metadata)
+
+		// Verify out of bounds returns false
+		_, ok = sr.At(0, 100)
+		require.False(t, ok, "At(0, 100) should return false")
+		_, ok = sr.At(100, 0)
+		require.False(t, ok, "At(100, 0) should return false")
+	})
+
 	t.Run("auto-wire sparse embedding function from schema", func(t *testing.T) {
 		ctx := context.Background()
 		collectionName := "test_sparse_ef_autowire-" + uuid.New().String()
