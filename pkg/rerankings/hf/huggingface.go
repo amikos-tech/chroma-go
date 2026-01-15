@@ -61,7 +61,7 @@ func (r *HFRerankingFunction) sendRequest(ctx context.Context, req *RerankingReq
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequest("POST", r.rerankingEndpoint, bytes.NewBuffer(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", r.rerankingEndpoint, bytes.NewBuffer(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +117,9 @@ func (r *HFRerankingFunction) Rerank(ctx context.Context, query string, results 
 
 	rankedResults := map[string][]rerankings.RankedResult{r.ID(): make([]rerankings.RankedResult, len(*rerankResp))}
 	for i, rr := range *rerankResp {
+		if rr.Index < 0 || rr.Index >= len(results) {
+			return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(results)-1)
+		}
 		originalDoc, err := results[rr.Index].ToText()
 		if err != nil {
 			return nil, err
@@ -164,6 +167,9 @@ func (r *HFRerankingFunction) RerankResults(ctx context.Context, queryTexts []st
 		}
 		rerankedResults.Ranks[r.ID()][i] = make([]float32, len(*rerankResp))
 		for _, rr := range *rerankResp {
+			if rr.Index < 0 || rr.Index >= len(rerankedResults.Ranks[r.ID()][i]) {
+				return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(rerankedResults.Ranks[r.ID()][i])-1)
+			}
 			rerankedResults.Ranks[r.ID()][i][rr.Index] = rr.Score
 		}
 	}

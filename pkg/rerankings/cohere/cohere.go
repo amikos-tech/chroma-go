@@ -129,6 +129,9 @@ func (c CohereRerankingFunction) Rerank(ctx context.Context, query string, resul
 	}
 	rankedResults := map[string][]rerankings.RankedResult{c.ID(): make([]rerankings.RankedResult, len(rerankResp.Results))}
 	for i, rr := range rerankResp.Results {
+		if rr.Index < 0 || rr.Index >= len(results) {
+			return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(results)-1)
+		}
 		originalDoc, err := results[rr.Index].ToText()
 		if err != nil {
 			return nil, err
@@ -201,19 +204,17 @@ func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryTexts [
 
 			return nil, fmt.Errorf("rerank failed with status code: %d, %v, %s", resp.StatusCode, bodyOrError, all)
 		}
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-				fmt.Printf("Error closing body: %v\n", err)
-			}
-		}(resp.Body)
 		var rerankResp RerankResponse
 		err = json.NewDecoder(resp.Body).Decode(&rerankResp)
+		resp.Body.Close()
 		if err != nil {
 			return nil, err
 		}
 		rerankedResults.Ranks[c.ID()][i] = make([]float32, len(rerankResp.Results))
 		for _, rr := range rerankResp.Results {
+			if rr.Index < 0 || rr.Index >= len(rerankedResults.Ranks[c.ID()][i]) {
+				return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(rerankedResults.Ranks[c.ID()][i])-1)
+			}
 			rerankedResults.Ranks[c.ID()][i][rr.Index] = rr.RelevanceScore
 		}
 	}

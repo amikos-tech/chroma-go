@@ -139,6 +139,9 @@ func (r *TogetherRerankingFunction) Rerank(ctx context.Context, query string, re
 
 	rankedResults := map[string][]rerankings.RankedResult{r.ID(): make([]rerankings.RankedResult, len(rerankResp.Results))}
 	for i, rr := range rerankResp.Results {
+		if rr.Index < 0 || rr.Index >= len(results) {
+			return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(results)-1)
+		}
 		originalDoc, err := results[rr.Index].ToText()
 		if err != nil {
 			return nil, err
@@ -185,6 +188,9 @@ func (r *TogetherRerankingFunction) RerankResults(ctx context.Context, queryText
 		}
 		rerankedResults.Ranks[r.ID()][i] = make([]float32, len(queryResults.DocumentsLists[i]))
 		for _, rr := range rerankResp.Results {
+			if rr.Index < 0 || rr.Index >= len(rerankedResults.Ranks[r.ID()][i]) {
+				return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(rerankedResults.Ranks[r.ID()][i])-1)
+			}
 			rerankedResults.Ranks[r.ID()][i][rr.Index] = rr.RelevanceScore
 		}
 	}

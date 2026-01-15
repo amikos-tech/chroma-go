@@ -86,7 +86,7 @@ func (r *JinaRerankingFunction) sendRequest(ctx context.Context, req *RerankingR
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequest("POST", r.rerankingEndpoint, bytes.NewBuffer(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", r.rerankingEndpoint, bytes.NewBuffer(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +142,9 @@ func (r *JinaRerankingFunction) Rerank(ctx context.Context, query string, result
 
 	rankedResults := map[string][]rerankings.RankedResult{r.ID(): make([]rerankings.RankedResult, len(rerankResp.Results))}
 	for i, rr := range rerankResp.Results {
+		if rr.Index < 0 || rr.Index >= len(results) {
+			return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(results)-1)
+		}
 		originalDoc, err := results[rr.Index].ToText()
 		if err != nil {
 			return nil, err
@@ -189,6 +192,9 @@ func (r *JinaRerankingFunction) RerankResults(ctx context.Context, queryTexts []
 		}
 		rerankedResults.Ranks[r.ID()][i] = make([]float32, len(rerankResp.Results))
 		for _, rr := range rerankResp.Results {
+			if rr.Index < 0 || rr.Index >= len(rerankedResults.Ranks[r.ID()][i]) {
+				return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(rerankedResults.Ranks[r.ID()][i])-1)
+			}
 			rerankedResults.Ranks[r.ID()][i][rr.Index] = rr.RelevanceScore
 		}
 	}
