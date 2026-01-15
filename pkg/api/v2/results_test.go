@@ -116,3 +116,128 @@ func TestQueryResultDeserialization(t *testing.T) {
 	require.Len(t, result.GetDistancesGroups()[0], 1)
 	require.Equal(t, embeddings.Distance(0.1), result.GetDistancesGroups()[0][0])
 }
+
+func TestGetResultImpl_Rows(t *testing.T) {
+	result := &GetResultImpl{
+		Ids:       []DocumentID{"id1", "id2", "id3"},
+		Documents: Documents{NewTextDocument("doc1"), NewTextDocument("doc2"), NewTextDocument("doc3")},
+		Metadatas: DocumentMetadatas{
+			NewDocumentMetadata(NewStringAttribute("key", "val1")),
+			NewDocumentMetadata(NewStringAttribute("key", "val2")),
+			nil,
+		},
+		Embeddings: embeddings.Embeddings{
+			embeddings.NewEmbeddingFromFloat32([]float32{0.1, 0.2}),
+			embeddings.NewEmbeddingFromFloat32([]float32{0.3, 0.4}),
+			embeddings.NewEmbeddingFromFloat32([]float32{0.5, 0.6}),
+		},
+	}
+
+	rows := result.Rows()
+	require.Len(t, rows, 3)
+
+	require.Equal(t, DocumentID("id1"), rows[0].ID)
+	require.Equal(t, "doc1", rows[0].Document)
+	require.Equal(t, []float32{0.1, 0.2}, rows[0].Embedding)
+	val, ok := rows[0].Metadata.GetString("key")
+	require.True(t, ok)
+	require.Equal(t, "val1", val)
+	require.Equal(t, float64(0), rows[0].Score)
+
+	require.Equal(t, DocumentID("id2"), rows[1].ID)
+	require.Equal(t, DocumentID("id3"), rows[2].ID)
+	require.Nil(t, rows[2].Metadata)
+}
+
+func TestGetResultImpl_Rows_Empty(t *testing.T) {
+	result := &GetResultImpl{}
+	rows := result.Rows()
+	require.Nil(t, rows)
+}
+
+func TestGetResultImpl_At(t *testing.T) {
+	result := &GetResultImpl{
+		Ids:       []DocumentID{"id1", "id2"},
+		Documents: Documents{NewTextDocument("doc1"), NewTextDocument("doc2")},
+	}
+
+	row, ok := result.At(0)
+	require.True(t, ok)
+	require.Equal(t, DocumentID("id1"), row.ID)
+	require.Equal(t, "doc1", row.Document)
+
+	row, ok = result.At(1)
+	require.True(t, ok)
+	require.Equal(t, DocumentID("id2"), row.ID)
+
+	_, ok = result.At(-1)
+	require.False(t, ok)
+
+	_, ok = result.At(2)
+	require.False(t, ok)
+}
+
+func TestQueryResultImpl_Rows(t *testing.T) {
+	result := &QueryResultImpl{
+		IDLists:        []DocumentIDs{{"id1", "id2"}, {"id3"}},
+		DocumentsLists: []Documents{{NewTextDocument("doc1"), NewTextDocument("doc2")}, {NewTextDocument("doc3")}},
+		DistancesLists: []embeddings.Distances{{0.1, 0.2}, {0.3}},
+	}
+
+	rows := result.Rows()
+	require.Len(t, rows, 2)
+	require.Equal(t, DocumentID("id1"), rows[0].ID)
+	require.Equal(t, "doc1", rows[0].Document)
+	require.InDelta(t, 0.1, rows[0].Score, 0.0001)
+	require.Equal(t, DocumentID("id2"), rows[1].ID)
+	require.InDelta(t, 0.2, rows[1].Score, 0.0001)
+}
+
+func TestQueryResultImpl_RowGroups(t *testing.T) {
+	result := &QueryResultImpl{
+		IDLists:        []DocumentIDs{{"id1", "id2"}, {"id3"}},
+		DocumentsLists: []Documents{{NewTextDocument("doc1"), NewTextDocument("doc2")}, {NewTextDocument("doc3")}},
+		DistancesLists: []embeddings.Distances{{0.1, 0.2}, {0.3}},
+	}
+
+	groups := result.RowGroups()
+	require.Len(t, groups, 2)
+	require.Len(t, groups[0], 2)
+	require.Len(t, groups[1], 1)
+
+	require.Equal(t, DocumentID("id1"), groups[0][0].ID)
+	require.Equal(t, DocumentID("id2"), groups[0][1].ID)
+	require.Equal(t, DocumentID("id3"), groups[1][0].ID)
+	require.InDelta(t, 0.3, groups[1][0].Score, 0.0001)
+}
+
+func TestQueryResultImpl_At(t *testing.T) {
+	result := &QueryResultImpl{
+		IDLists:        []DocumentIDs{{"id1", "id2"}, {"id3"}},
+		DocumentsLists: []Documents{{NewTextDocument("doc1"), NewTextDocument("doc2")}, {NewTextDocument("doc3")}},
+	}
+
+	row, ok := result.At(0, 0)
+	require.True(t, ok)
+	require.Equal(t, DocumentID("id1"), row.ID)
+
+	row, ok = result.At(0, 1)
+	require.True(t, ok)
+	require.Equal(t, DocumentID("id2"), row.ID)
+
+	row, ok = result.At(1, 0)
+	require.True(t, ok)
+	require.Equal(t, DocumentID("id3"), row.ID)
+
+	_, ok = result.At(-1, 0)
+	require.False(t, ok)
+
+	_, ok = result.At(0, -1)
+	require.False(t, ok)
+
+	_, ok = result.At(2, 0)
+	require.False(t, ok)
+
+	_, ok = result.At(0, 2)
+	require.False(t, ok)
+}

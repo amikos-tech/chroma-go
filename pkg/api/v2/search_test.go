@@ -630,3 +630,86 @@ func TestSearchResultUnmarshal(t *testing.T) {
 		require.Empty(t, result.Scores)
 	})
 }
+
+func TestSearchResultImpl_Rows(t *testing.T) {
+	result := &SearchResultImpl{
+		IDs:       [][]DocumentID{{"id1", "id2"}, {"id3"}},
+		Documents: [][]string{{"doc1", "doc2"}, {"doc3"}},
+		Metadatas: [][]CollectionMetadata{{NewMetadata(NewStringAttribute("k", "v1")), nil}, {nil}},
+		Scores:    [][]float64{{0.9, 0.8}, {0.7}},
+	}
+
+	rows := result.Rows()
+	require.Len(t, rows, 2)
+
+	require.Equal(t, DocumentID("id1"), rows[0].ID)
+	require.Equal(t, "doc1", rows[0].Document)
+	require.Equal(t, 0.9, rows[0].Score)
+	val, ok := rows[0].Metadata.GetString("k")
+	require.True(t, ok)
+	require.Equal(t, "v1", val)
+
+	require.Equal(t, DocumentID("id2"), rows[1].ID)
+	require.Equal(t, "doc2", rows[1].Document)
+	require.Equal(t, 0.8, rows[1].Score)
+	require.Nil(t, rows[1].Metadata)
+}
+
+func TestSearchResultImpl_Rows_Empty(t *testing.T) {
+	result := &SearchResultImpl{}
+	rows := result.Rows()
+	require.Nil(t, rows)
+}
+
+func TestSearchResultImpl_RowGroups(t *testing.T) {
+	result := &SearchResultImpl{
+		IDs:       [][]DocumentID{{"id1", "id2"}, {"id3"}},
+		Documents: [][]string{{"doc1", "doc2"}, {"doc3"}},
+		Scores:    [][]float64{{0.9, 0.8}, {0.7}},
+	}
+
+	groups := result.RowGroups()
+	require.Len(t, groups, 2)
+	require.Len(t, groups[0], 2)
+	require.Len(t, groups[1], 1)
+
+	require.Equal(t, DocumentID("id1"), groups[0][0].ID)
+	require.Equal(t, DocumentID("id2"), groups[0][1].ID)
+	require.Equal(t, DocumentID("id3"), groups[1][0].ID)
+	require.Equal(t, 0.7, groups[1][0].Score)
+}
+
+func TestSearchResultImpl_At(t *testing.T) {
+	result := &SearchResultImpl{
+		IDs:       [][]DocumentID{{"id1", "id2"}, {"id3"}},
+		Documents: [][]string{{"doc1", "doc2"}, {"doc3"}},
+		Scores:    [][]float64{{0.9, 0.8}, {0.7}},
+	}
+
+	row, ok := result.At(0, 0)
+	require.True(t, ok)
+	require.Equal(t, DocumentID("id1"), row.ID)
+	require.Equal(t, "doc1", row.Document)
+	require.Equal(t, 0.9, row.Score)
+
+	row, ok = result.At(0, 1)
+	require.True(t, ok)
+	require.Equal(t, DocumentID("id2"), row.ID)
+
+	row, ok = result.At(1, 0)
+	require.True(t, ok)
+	require.Equal(t, DocumentID("id3"), row.ID)
+	require.Equal(t, 0.7, row.Score)
+
+	_, ok = result.At(-1, 0)
+	require.False(t, ok)
+
+	_, ok = result.At(0, -1)
+	require.False(t, ok)
+
+	_, ok = result.At(2, 0)
+	require.False(t, ok)
+
+	_, ok = result.At(0, 2)
+	require.False(t, ok)
+}

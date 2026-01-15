@@ -482,3 +482,70 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+
+// Rows returns the first search group's results for easy iteration.
+// For multiple search requests, use RowGroups().
+func (r *SearchResultImpl) Rows() []ResultRow {
+	if len(r.IDs) == 0 {
+		return nil
+	}
+	return r.buildGroupRows(0)
+}
+
+// RowGroups returns all search groups as [][]ResultRow.
+func (r *SearchResultImpl) RowGroups() [][]ResultRow {
+	if len(r.IDs) == 0 {
+		return nil
+	}
+	groups := make([][]ResultRow, len(r.IDs))
+	for g := range r.IDs {
+		groups[g] = r.buildGroupRows(g)
+	}
+	return groups
+}
+
+// At returns the result at the given group and index with bounds checking.
+// Returns false if either index is out of bounds.
+func (r *SearchResultImpl) At(group, index int) (ResultRow, bool) {
+	if group < 0 || group >= len(r.IDs) {
+		return ResultRow{}, false
+	}
+	ids := r.IDs[group]
+	if index < 0 || index >= len(ids) {
+		return ResultRow{}, false
+	}
+	return r.buildRow(group, index), true
+}
+
+func (r *SearchResultImpl) buildGroupRows(g int) []ResultRow {
+	ids := r.IDs[g]
+	if len(ids) == 0 {
+		return nil
+	}
+	rows := make([]ResultRow, len(ids))
+	for i := range ids {
+		rows[i] = r.buildRow(g, i)
+	}
+	return rows
+}
+
+func (r *SearchResultImpl) buildRow(g, i int) ResultRow {
+	row := ResultRow{
+		ID: r.IDs[g][i],
+	}
+	if g < len(r.Documents) && i < len(r.Documents[g]) {
+		row.Document = r.Documents[g][i]
+	}
+	if g < len(r.Metadatas) && i < len(r.Metadatas[g]) && r.Metadatas[g][i] != nil {
+		if dm, ok := r.Metadatas[g][i].(DocumentMetadata); ok {
+			row.Metadata = dm
+		}
+	}
+	if g < len(r.Embeddings) && i < len(r.Embeddings[g]) {
+		row.Embedding = r.Embeddings[g][i]
+	}
+	if g < len(r.Scores) && i < len(r.Scores[g]) {
+		row.Score = r.Scores[g][i]
+	}
+	return row
+}
