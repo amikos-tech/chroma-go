@@ -23,6 +23,7 @@ import (
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/hf"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/jina"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/mistral"
+	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/morph"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/nomic"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/ollama"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
@@ -91,6 +92,16 @@ func TestBuildDenseFromJSON(t *testing.T) {
 			}`,
 			requiresAPIKey: true,
 			envVar:         "MISTRAL_API_KEY",
+		},
+		{
+			name:   "Morph",
+			efName: "morph",
+			jsonConfig: `{
+				"api_key_env_var": "MORPH_API_KEY",
+				"model_name": "morph-embedding-v2"
+			}`,
+			requiresAPIKey: true,
+			envVar:         "MORPH_API_KEY",
 		},
 		{
 			name:   "Nomic",
@@ -339,6 +350,7 @@ func TestAllRegisteredProvidersHaveFactories(t *testing.T) {
 		"jina",
 		"voyageai",
 		"mistral",
+		"morph",
 		"nomic",
 		"together_ai",
 		"huggingface",

@@ -20,6 +20,7 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/cohere"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/jina"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/mistral"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings/morph"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/nomic"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/ollama"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
@@ -313,6 +314,41 @@ func TestEFPersistence_Mistral_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	collectionName := "test_mistral_persistence"
+	_, err = client.CreateCollection(ctx, collectionName, v2.WithEmbeddingFunctionCreate(ef))
+	require.NoError(t, err)
+
+	retrievedCol, err := client.GetCollection(ctx, collectionName)
+	require.NoError(t, err)
+
+	err = retrievedCol.Add(ctx, v2.WithIDs("doc1"), v2.WithTexts("hello world"))
+	require.NoError(t, err)
+
+	results, err := retrievedCol.Query(ctx, v2.WithQueryTexts("hello"), v2.WithNResults(1))
+	require.NoError(t, err)
+	require.NotEmpty(t, results.GetDocumentsGroups())
+}
+
+// TestEFPersistence_Morph_Integration tests Morph EF persistence
+func TestEFPersistence_Morph_Integration(t *testing.T) {
+	if os.Getenv("MORPH_API_KEY") == "" {
+		t.Skip("MORPH_API_KEY not set, skipping Morph integration test")
+	}
+
+	baseURL, cleanup := setupChromaContainer(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	client, err := v2.NewHTTPClient(
+		v2.WithBaseURL(baseURL),
+		v2.WithDatabaseAndTenant(v2.DefaultDatabase, v2.DefaultTenant),
+	)
+	require.NoError(t, err)
+	defer client.Close()
+
+	ef, err := morph.NewMorphEmbeddingFunction(morph.WithEnvAPIKey())
+	require.NoError(t, err)
+
+	collectionName := "test_morph_persistence"
 	_, err = client.CreateCollection(ctx, collectionName, v2.WithEmbeddingFunctionCreate(ef))
 	require.NoError(t, err)
 
