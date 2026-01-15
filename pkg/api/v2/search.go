@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"bytes"
 	"encoding/json"
 
 	"github.com/pkg/errors"
@@ -352,7 +353,9 @@ type SearchResultImpl struct {
 // cannot be directly unmarshalled by the standard JSON decoder.
 func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 	var temp map[string]interface{}
-	if err := json.Unmarshal(data, &temp); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&temp); err != nil {
 		return errors.Wrap(err, "failed to unmarshal SearchResult")
 	}
 
@@ -449,8 +452,13 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 						if embArr, ok := emb.([]interface{}); ok {
 							floats := make([]float32, 0, len(embArr))
 							for _, f := range embArr {
-								if fVal, ok := f.(float64); ok {
+								switch fVal := f.(type) {
+								case float64:
 									floats = append(floats, float32(fVal))
+								case json.Number:
+									if v, err := fVal.Float64(); err == nil {
+										floats = append(floats, float32(v))
+									}
 								}
 							}
 							embs = append(embs, floats)
@@ -474,8 +482,13 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 				if group, ok := scoresGroup.([]interface{}); ok {
 					scores := make([]float64, 0, len(group))
 					for _, score := range group {
-						if scoreVal, ok := score.(float64); ok {
+						switch scoreVal := score.(type) {
+						case float64:
 							scores = append(scores, scoreVal)
+						case json.Number:
+							if v, err := scoreVal.Float64(); err == nil {
+								scores = append(scores, v)
+							}
 						}
 					}
 					r.Scores = append(r.Scores, scores)

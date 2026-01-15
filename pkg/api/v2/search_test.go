@@ -611,9 +611,9 @@ func TestSearchResultUnmarshal(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, "AI", cat)
 
-		year, ok := result.Metadatas[0][0].GetFloat("year")
+		year, ok := result.Metadatas[0][0].GetInt("year")
 		require.True(t, ok)
-		require.Equal(t, float64(2023), year)
+		require.Equal(t, int64(2023), year)
 	})
 
 	t.Run("unmarshal empty result", func(t *testing.T) {
