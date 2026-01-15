@@ -635,7 +635,7 @@ func TestSearchResultImpl_Rows(t *testing.T) {
 	result := &SearchResultImpl{
 		IDs:       [][]DocumentID{{"id1", "id2"}, {"id3"}},
 		Documents: [][]string{{"doc1", "doc2"}, {"doc3"}},
-		Metadatas: [][]CollectionMetadata{{NewMetadata(NewStringAttribute("k", "v1")), nil}, {nil}},
+		Metadatas: [][]DocumentMetadata{{NewDocumentMetadata(NewStringAttribute("k", "v1")), nil}, {nil}},
 		Scores:    [][]float64{{0.9, 0.8}, {0.7}},
 	}
 

@@ -340,15 +340,15 @@ func NewSearchRequest(opts ...SearchOption) SearchCollectionOption {
 
 // SearchResultImpl holds the results of a search operation.
 type SearchResultImpl struct {
-	IDs        [][]DocumentID         `json:"ids,omitempty"`
-	Documents  [][]string             `json:"documents,omitempty"`
-	Metadatas  [][]CollectionMetadata `json:"metadatas,omitempty"`
-	Embeddings [][][]float32          `json:"embeddings,omitempty"`
-	Scores     [][]float64            `json:"scores,omitempty"`
+	IDs        [][]DocumentID       `json:"ids,omitempty"`
+	Documents  [][]string           `json:"documents,omitempty"`
+	Metadatas  [][]DocumentMetadata `json:"metadatas,omitempty"`
+	Embeddings [][][]float32        `json:"embeddings,omitempty"`
+	Scores     [][]float64          `json:"scores,omitempty"`
 }
 
 // UnmarshalJSON implements custom JSON unmarshalling for SearchResultImpl.
-// This is necessary because CollectionMetadata is an interface type that
+// This is necessary because DocumentMetadata is an interface type that
 // cannot be directly unmarshalled by the standard JSON decoder.
 func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 	var temp map[string]interface{}
@@ -403,21 +403,25 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 	// Parse Metadatas - needs special handling for interface type
 	if metasRaw, ok := temp["metadatas"]; ok && metasRaw != nil {
 		if metasList, ok := metasRaw.([]interface{}); ok {
-			r.Metadatas = make([][]CollectionMetadata, 0, len(metasList))
+			r.Metadatas = make([][]DocumentMetadata, 0, len(metasList))
 			for _, metasGroup := range metasList {
 				if metasGroup == nil {
 					r.Metadatas = append(r.Metadatas, nil)
 					continue
 				}
 				if group, ok := metasGroup.([]interface{}); ok {
-					metas := make([]CollectionMetadata, 0, len(group))
+					metas := make([]DocumentMetadata, 0, len(group))
 					for _, meta := range group {
 						if meta == nil {
 							metas = append(metas, nil)
 							continue
 						}
 						if metaMap, ok := meta.(map[string]interface{}); ok {
-							metas = append(metas, NewMetadataFromMap(metaMap))
+							docMeta, err := NewDocumentMetadataFromMap(metaMap)
+							if err != nil {
+								return errors.Wrap(err, "failed to parse document metadata")
+							}
+							metas = append(metas, docMeta)
 						}
 					}
 					r.Metadatas = append(r.Metadatas, metas)
@@ -536,10 +540,8 @@ func (r *SearchResultImpl) buildRow(g, i int) ResultRow {
 	if g < len(r.Documents) && i < len(r.Documents[g]) {
 		row.Document = r.Documents[g][i]
 	}
-	if g < len(r.Metadatas) && i < len(r.Metadatas[g]) && r.Metadatas[g][i] != nil {
-		if dm, ok := r.Metadatas[g][i].(DocumentMetadata); ok {
-			row.Metadata = dm
-		}
+	if g < len(r.Metadatas) && i < len(r.Metadatas[g]) {
+		row.Metadata = r.Metadatas[g][i]
 	}
 	if g < len(r.Embeddings) && i < len(r.Embeddings[g]) {
 		row.Embedding = r.Embeddings[g][i]
