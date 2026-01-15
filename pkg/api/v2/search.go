@@ -456,9 +456,11 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 								case float64:
 									floats = append(floats, float32(fVal))
 								case json.Number:
-									if v, err := fVal.Float64(); err == nil {
-										floats = append(floats, float32(v))
+									v, err := fVal.Float64()
+									if err != nil {
+										return errors.Wrapf(err, "invalid embedding value: %v", fVal)
 									}
+									floats = append(floats, float32(v))
 								}
 							}
 							embs = append(embs, floats)
@@ -486,9 +488,11 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 						case float64:
 							scores = append(scores, scoreVal)
 						case json.Number:
-							if v, err := scoreVal.Float64(); err == nil {
-								scores = append(scores, v)
+							v, err := scoreVal.Float64()
+							if err != nil {
+								return errors.Wrapf(err, "invalid score value: %v", scoreVal)
 							}
+							scores = append(scores, v)
 						}
 					}
 					r.Scores = append(r.Scores, scores)

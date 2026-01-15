@@ -16,7 +16,7 @@ type ResultRow struct {
 	Document  string           // Empty if not included in results
 	Metadata  DocumentMetadata // nil if not included in results
 	Embedding []float32        // nil if not included in results
-	Score     float64          // Relevance score (Search) or distance (Query); 0 for Get
+	Score     float64          // Search: relevance score (higher=better); Query: distance (lower=better); Get: 0
 }
 
 type GetResult interface {
