@@ -54,18 +54,6 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
-            basev1:
-              - 'pkg/commons/**'
-              - 'internal/**'
-              - 'metadata/**'
-              - 'types/**'
-              - 'collection/**'
-              - 'test/**'
-              - 'where/**'
-              - 'where_document/**'
-              - 'chroma.go'
-              - 'go.mod'
-              - 'go.sum'
             basev2:
               - 'pkg/api/v2/**'
               - 'pkg/commons/**'
@@ -99,42 +87,6 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1
-  apiv1:
-    name: Test Chroma API V1
-    runs-on: ubuntu-latest
-    if: inputs.run_apiv1 || needs.paths-filter.outputs.basev1 == 'true'
-    needs: [lint,paths-filter]
-    strategy:
-      matrix:
-        chroma-version: ["0.4.8", "0.4.24","0.5.5", "0.5.17","0.6.2"]
-    environment: Test
-    steps:
-    - uses: actions/checkout@v4
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version-file: 'go.mod'
-    - name: Build
-      run: make build
-    - name: Test
-      run: make test
-      env:
-        CHROMA_VERSION: ${{ matrix.chroma-version }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Upload Test Results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: v1-test-results-${{ matrix.chroma-version }}
-        path: |
-          coverage-v1.out
-          unit-v1.xml
   apiv2:
     name: Test Chroma API V2
     runs-on: ubuntu-latest
@@ -234,6 +186,7 @@ jobs:
           NOMIC_API_KEY: ${{ secrets.NOMIC_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
