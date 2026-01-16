@@ -906,6 +906,9 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 			}
 		}
 		chErr := chhttp.ChromaErrorFromHTTPResponse(resp, err)
+		if resp.Body != nil {
+			resp.Body.Close()
+		}
 		return nil, errors.Wrap(chErr, "error sending request")
 	}
 	if bc.logger.IsDebugEnabled() {
@@ -970,9 +973,16 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
 	} else if resp.StatusCode >= 400 && resp.StatusCode < 599 {
 		chErr := chhttp.ChromaErrorFromHTTPResponse(resp, err)
+		if resp.Body != nil {
+			resp.Body.Close()
+		}
 		return nil, errors.Wrap(chErr, "error sending request")
 	}
-
+	defer func() {
+		if resp.Body != nil {
+			resp.Body.Close()
+		}
+	}()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	return []byte(respBody), nil
 }

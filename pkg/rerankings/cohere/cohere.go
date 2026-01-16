@@ -106,15 +106,12 @@ func (c CohereRerankingFunction) Rerank(ctx context.Context, query string, resul
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		var bodyOrError string
 		all, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		if err != nil {
-			bodyOrError = err.Error()
-		} else {
-			bodyOrError = string(all)
+			return nil, fmt.Errorf("rerank failed with status code: %d, failed to read response: %v", resp.StatusCode, err)
 		}
-
-		return nil, fmt.Errorf("rerank failed with status code: %d, %v, %s", resp.StatusCode, bodyOrError, all)
+		return nil, fmt.Errorf("rerank failed with status code: %d, response: %s", resp.StatusCode, string(all))
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -200,15 +197,12 @@ func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryTexts [
 			return nil, err
 		}
 		if resp.StatusCode != 200 {
-			var bodyOrError string
 			all, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			if err != nil {
-				bodyOrError = err.Error()
-			} else {
-				bodyOrError = string(all)
+				return nil, fmt.Errorf("rerank failed with status code: %d, failed to read response: %v", resp.StatusCode, err)
 			}
-
-			return nil, fmt.Errorf("rerank failed with status code: %d, %v, %s", resp.StatusCode, bodyOrError, all)
+			return nil, fmt.Errorf("rerank failed with status code: %d, response: %s", resp.StatusCode, string(all))
 		}
 		var rerankResp RerankResponse
 		err = json.NewDecoder(resp.Body).Decode(&rerankResp)

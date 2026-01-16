@@ -70,7 +70,7 @@ func lockFile(path string) (*os.File, error) {
 
 		// Check if the process holding the lock is still alive
 		if isLockStale(lockPath) {
-			os.Remove(lockPath) // Remove stale lock
+			_ = os.Remove(lockPath) // Best-effort removal of stale lock, ignore errors (TOCTOU is acceptable)
 			continue
 		}
 
