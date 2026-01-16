@@ -126,13 +126,13 @@ func WithDatabaseList(database Database) ListCollectionsOption {
 
 func (op *ListCollectionOp) PrepareAndValidateCollectionRequest() error {
 	if op.limit < 1 {
-		return fmt.Errorf("limit cannot be less than 1")
+		return errors.New("limit cannot be less than 1")
 	}
 	if op.offset < 0 {
-		return fmt.Errorf("offset cannot be negative")
+		return errors.New("offset cannot be negative")
 	}
 	if op.Database == nil {
-		return fmt.Errorf("database cannot be nil")
+		return errors.New("database cannot be nil")
 	}
 	err := op.Database.Validate()
 	if err != nil {
@@ -252,7 +252,7 @@ func NewCreateCollectionOp(name string, opts ...CreateCollectionOption) (*Create
 
 func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 	if op.Name == "" {
-		return fmt.Errorf("collection name cannot be empty")
+		return errors.New("collection name cannot be empty")
 	}
 	if op.embeddingFunction == nil {
 		ef, _, err := defaultef.NewDefaultEmbeddingFunction()
@@ -345,7 +345,7 @@ func WithHNSWBatchSizeCreate(batchSize int) CreateCollectionOption {
 			op.Metadata = NewMetadata()
 		}
 		if batchSize < 1 {
-			return fmt.Errorf("batch size must be greater than 0")
+			return errors.New("batch size must be greater than 0")
 		}
 		op.Metadata.SetInt(HNSWBatchSize, int64(batchSize))
 		return nil
@@ -358,7 +358,7 @@ func WithHNSWSyncThresholdCreate(syncThreshold int) CreateCollectionOption {
 			op.Metadata = NewMetadata()
 		}
 		if syncThreshold < 1 {
-			return fmt.Errorf("sync threshold must be greater than 0")
+			return errors.New("sync threshold must be greater than 0")
 		}
 		op.Metadata.SetInt(HNSWSyncThreshold, int64(syncThreshold))
 		return nil
@@ -371,7 +371,7 @@ func WithHNSWMCreate(m int) CreateCollectionOption {
 			op.Metadata = NewMetadata()
 		}
 		if m < 1 {
-			return fmt.Errorf("m must be greater than 0")
+			return errors.New("m must be greater than 0")
 		}
 		op.Metadata.SetInt(HNSWM, int64(m))
 		return nil
@@ -384,7 +384,7 @@ func WithHNSWConstructionEfCreate(efConstruction int) CreateCollectionOption {
 			op.Metadata = NewMetadata()
 		}
 		if efConstruction < 1 {
-			return fmt.Errorf("efConstruction must be greater than 0")
+			return errors.New("efConstruction must be greater than 0")
 		}
 		op.Metadata.SetInt(HNSWConstructionEF, int64(efConstruction))
 		return nil
@@ -554,7 +554,7 @@ func (op *DeleteCollectionOp) Operation() OperationType {
 
 func (op *DeleteCollectionOp) PrepareAndValidateCollectionRequest() error {
 	if op.Database == nil {
-		return fmt.Errorf("database cannot be nil")
+		return errors.New("database cannot be nil")
 	}
 	err := op.Database.Validate()
 	if err != nil {
@@ -604,7 +604,7 @@ func (op *CountCollectionsOp) Operation() OperationType {
 
 func (op *CountCollectionsOp) PrepareAndValidateCollectionRequest() error {
 	if op.Database == nil {
-		return fmt.Errorf("database cannot be nil")
+		return errors.New("database cannot be nil")
 	}
 	err := op.Database.Validate()
 	if err != nil {
@@ -906,9 +906,6 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 			}
 		}
 		chErr := chhttp.ChromaErrorFromHTTPResponse(resp, err)
-		if resp.Body != nil {
-			resp.Body.Close()
-		}
 		return nil, errors.Wrap(chErr, "error sending request")
 	}
 	if bc.logger.IsDebugEnabled() {
@@ -963,26 +960,20 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 		}
 	}
 	resp, err := bc.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
+	}
 	if bc.logger.IsDebugEnabled() {
-		dump, err := httputil.DumpResponse(resp, true)
-		if err == nil {
+		dump, dumpErr := httputil.DumpResponse(resp, true)
+		if dumpErr == nil {
 			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))
 		}
 	}
-	if err != nil {
-		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
-	} else if resp.StatusCode >= 400 && resp.StatusCode < 599 {
+	if resp.StatusCode >= 400 && resp.StatusCode < 599 {
 		chErr := chhttp.ChromaErrorFromHTTPResponse(resp, err)
-		if resp.Body != nil {
-			resp.Body.Close()
-		}
 		return nil, errors.Wrap(chErr, "error sending request")
 	}
-	defer func() {
-		if resp.Body != nil {
-			resp.Body.Close()
-		}
-	}()
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	return []byte(respBody), nil
 }

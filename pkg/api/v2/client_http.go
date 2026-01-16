@@ -74,7 +74,7 @@ func (client *APIClientV2) PreFlight(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var preflightLimits map[string]interface{}
 	if json.NewDecoder(resp.Body).Decode(&preflightLimits) != nil {
 		return errors.New("error decoding preflight response")
@@ -106,6 +106,7 @@ func (client *APIClientV2) GetVersion(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	version := strings.ReplaceAll(respBody, `"`, "")
 	return version, nil
@@ -124,6 +125,7 @@ func (client *APIClientV2) Heartbeat(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	if strings.Contains(respBody, "nanosecond heartbeat") {
 		return nil
@@ -149,6 +151,7 @@ func (client *APIClientV2) GetTenant(ctx context.Context, tenant Tenant) (Tenant
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	return NewTenantFromJSON(respBody)
 }
@@ -194,6 +197,7 @@ func (client *APIClientV2) ListDatabases(ctx context.Context, tenant Tenant) ([]
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	var dbs []map[string]interface{}
 	if err := json.Unmarshal([]byte(respBody), &dbs); err != nil {
@@ -227,6 +231,7 @@ func (client *APIClientV2) GetDatabase(ctx context.Context, db Database) (Databa
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	newDB, err := NewDatabaseFromJSON(respBody)
 	if err != nil {
@@ -321,7 +326,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 	if err != nil {
 		return nil, errors.Wrap(err, "error sending request")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var cm CollectionModel
 	if err := json.NewDecoder(resp.Body).Decode(&cm); err != nil {
 		return nil, errors.Wrap(err, "error decoding response")
@@ -395,6 +400,7 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 	if err != nil {
 		return nil, errors.Wrap(err, "error sending request")
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	var cm CollectionModel
 	err = json.Unmarshal([]byte(respBody), &cm)
@@ -449,6 +455,7 @@ func (client *APIClientV2) CountCollections(ctx context.Context, opts ...CountCo
 	if err != nil {
 		return 0, errors.Wrap(err, "error sending request")
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	count, err := strconv.Atoi(respBody)
 	if err != nil {
@@ -602,7 +609,7 @@ func (client *APIClientV2) GetIdentity(ctx context.Context) (Identity, error) {
 	if err != nil {
 		return identity, errors.Wrap(err, "error sending request")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if err := json.NewDecoder(resp.Body).Decode(&identity); err != nil {
 		return identity, errors.Wrap(err, "error decoding response")
 	}

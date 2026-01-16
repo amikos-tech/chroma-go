@@ -1,11 +1,12 @@
 package http
 
 import (
-	"fmt"
 	"math"
 	"net/http"
 	"slices"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 type Option func(*SimpleRetryStrategy) error
@@ -13,7 +14,7 @@ type Option func(*SimpleRetryStrategy) error
 func WithMaxRetries(retries int) Option {
 	return func(r *SimpleRetryStrategy) error {
 		if retries <= 0 {
-			return fmt.Errorf("retries must be a positive integer")
+			return errors.New("retries must be a positive integer")
 		}
 		r.MaxRetries = retries
 		return nil
@@ -23,7 +24,7 @@ func WithMaxRetries(retries int) Option {
 func WithFixedDelay(delay time.Duration) Option {
 	return func(r *SimpleRetryStrategy) error {
 		if delay <= 0 {
-			return fmt.Errorf("delay must be a positive integer")
+			return errors.New("delay must be a positive integer")
 		}
 		r.FixedDelay = delay
 		return nil

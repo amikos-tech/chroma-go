@@ -32,6 +32,7 @@ func ChromaErrorFromHTTPResponse(resp *http.Response, err error) *ChromaError {
 	if resp == nil {
 		return chromaAPIError
 	}
+	defer func() { _ = resp.Body.Close() }()
 	chromaAPIError.ErrorCode = resp.StatusCode
 
 	// Read body into buffer first to allow fallback if JSON decode fails
