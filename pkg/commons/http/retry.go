@@ -1,12 +1,13 @@
 package http
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"math"
 	"net/http"
 	"slices"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 type Option func(*SimpleRetryStrategy) error
@@ -67,9 +68,26 @@ func NewSimpleRetryStrategy(opts ...Option) (*SimpleRetryStrategy, error) {
 }
 
 func (r *SimpleRetryStrategy) DoWithRetry(client *http.Client, req *http.Request) (*http.Response, error) {
+	var bodyBytes []byte
+	if req.Body != nil {
+		var readErr error
+		bodyBytes, readErr = io.ReadAll(req.Body)
+		closeErr := req.Body.Close()
+		if err := errors.Join(readErr, closeErr); err != nil {
+			return nil, err
+		}
+		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		req.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(bodyBytes)), nil
+		}
+	}
+
 	var resp *http.Response
 	var err error
 	for i := 0; i < r.MaxRetries; i++ {
+		if i > 0 && bodyBytes != nil {
+			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
 		resp, err = client.Do(req)
 		if err != nil {
 			break
@@ -78,9 +96,8 @@ func (r *SimpleRetryStrategy) DoWithRetry(client *http.Client, req *http.Request
 			break
 		}
 		if r.isRetryable(resp.StatusCode) {
-			// Close the response body before retrying to prevent connection leaks
 			if resp.Body != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 			if r.ExponentialBackOff {
 				time.Sleep(r.FixedDelay * time.Duration(math.Pow(2, float64(i))))
@@ -88,7 +105,6 @@ func (r *SimpleRetryStrategy) DoWithRetry(client *http.Client, req *http.Request
 				time.Sleep(r.FixedDelay)
 			}
 		} else {
-			// Non-retryable error status, exit loop
 			break
 		}
 	}

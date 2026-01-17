@@ -1,7 +1,9 @@
 package huggingface
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
@@ -36,6 +38,16 @@ func WithModel(model rerankings.RerankingModel) Option {
 func WithRerankingEndpoint(endpoint string) Option {
 	return func(c *HFRerankingFunction) error {
 		c.rerankingEndpoint = endpoint
+		return nil
+	}
+}
+
+func WithHTTPClient(client *http.Client) Option {
+	return func(c *HFRerankingFunction) error {
+		if client == nil {
+			return errors.New("HTTP client cannot be nil")
+		}
+		c.httpClient = client
 		return nil
 	}
 }

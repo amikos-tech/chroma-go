@@ -1,7 +1,9 @@
 package together
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
@@ -53,6 +55,16 @@ func WithTopN(topN int) Option {
 func WithReturnDocuments(returnDocuments bool) Option {
 	return func(c *TogetherRerankingFunction) error {
 		c.returnDocuments = &returnDocuments
+		return nil
+	}
+}
+
+func WithHTTPClient(client *http.Client) Option {
+	return func(c *TogetherRerankingFunction) error {
+		if client == nil {
+			return errors.New("HTTP client cannot be nil")
+		}
+		c.httpClient = client
 		return nil
 	}
 }
