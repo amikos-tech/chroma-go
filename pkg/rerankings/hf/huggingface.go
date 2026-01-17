@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	chromago "github.com/amikos-tech/chroma-go"
+	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
 	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
 )
@@ -61,7 +61,7 @@ func (r *HFRerankingFunction) sendRequest(ctx context.Context, req *RerankingReq
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequest("POST", r.rerankingEndpoint, bytes.NewBuffer(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", r.rerankingEndpoint, bytes.NewBuffer(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +117,9 @@ func (r *HFRerankingFunction) Rerank(ctx context.Context, query string, results 
 
 	rankedResults := map[string][]rerankings.RankedResult{r.ID(): make([]rerankings.RankedResult, len(*rerankResp))}
 	for i, rr := range *rerankResp {
+		if rr.Index < 0 || rr.Index >= len(results) {
+			return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(results)-1)
+		}
 		originalDoc, err := results[rr.Index].ToText()
 		if err != nil {
 			return nil, err
@@ -139,21 +142,30 @@ func (r *HFRerankingFunction) ID() string {
 	return "hfei"
 }
 
-func (r *HFRerankingFunction) RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (*rerankings.RerankedChromaResults, error) {
-	rerankedResults := &rerankings.RerankedChromaResults{
-		QueryResults: *queryResults,
-		Ranks:        map[string][][]float32{r.ID(): make([][]float32, len(queryResults.Ids))},
+func (r *HFRerankingFunction) RerankResults(ctx context.Context, queryTexts []string, queryResults *chromago.QueryResultImpl) (*rerankings.RerankedChromaResults, error) {
+	if len(queryTexts) != len(queryResults.IDLists) {
+		return nil, fmt.Errorf("queryTexts length (%d) does not match IDLists length (%d)", len(queryTexts), len(queryResults.IDLists))
 	}
-	for i, rs := range queryResults.Ids {
+	if len(queryResults.DocumentsLists) != len(queryResults.IDLists) {
+		return nil, fmt.Errorf("DocumentsLists length (%d) does not match IDLists length (%d)", len(queryResults.DocumentsLists), len(queryResults.IDLists))
+	}
+	rerankedResults := &rerankings.RerankedChromaResults{
+		QueryResultImpl: queryResults,
+		QueryTexts:      queryTexts,
+		Ranks:           map[string][][]float32{r.ID(): make([][]float32, len(queryResults.IDLists))},
+	}
+	for i, rs := range queryResults.IDLists {
 		if len(rs) == 0 {
 			return nil, fmt.Errorf("no results to rerank")
 		}
 		docs := make([]string, 0)
-		docs = append(docs, queryResults.Documents[i]...)
+		for _, doc := range queryResults.DocumentsLists[i] {
+			docs = append(docs, doc.ContentString())
+		}
 		req := &RerankingRequest{
 			Model: (*string)(r.defaultModel),
 			Texts: docs,
-			Query: queryResults.QueryTexts[i],
+			Query: queryTexts[i],
 		}
 		rerankResp, err := r.sendRequest(ctx, req)
 		if err != nil {
@@ -161,6 +173,9 @@ func (r *HFRerankingFunction) RerankResults(ctx context.Context, queryResults *c
 		}
 		rerankedResults.Ranks[r.ID()][i] = make([]float32, len(*rerankResp))
 		for _, rr := range *rerankResp {
+			if rr.Index < 0 || rr.Index >= len(rerankedResults.Ranks[r.ID()][i]) {
+				return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(rerankedResults.Ranks[r.ID()][i])-1)
+			}
 			rerankedResults.Ranks[r.ID()][i][rr.Index] = rr.Score
 		}
 	}

@@ -1,5 +1,13 @@
 # Filtering
 
+!!! warning "V1 API Deprecation Notice"
+
+    The examples on this page use the **V1 API**, which has been removed in version `v0.3.0` and later. To use these examples, pin your dependency to `v0.2.5` or earlier:
+    ```bash
+    go get github.com/amikos-tech/chroma-go@v0.2.5
+    ```
+    For V2 API filtering, see the [Search API documentation](search.md).
+
 Chroma offers two types of filters:
 
 - Metadata - filtering based on metadata attribute values

@@ -5,13 +5,8 @@ on:
     branches: [ "main" , "**" ]
   workflow_dispatch:
     inputs:
-      run_apiv1:
-        description: 'Run API V1 tests'
-        required: false
-        type: boolean
-        default: false
-      run_apiv2:
-        description: 'Run API V2 tests'
+      run_api:
+        description: 'Run API tests'
         required: false
         type: boolean
         default: false
@@ -45,8 +40,7 @@ jobs:
       rerankings: ${{ steps.changes.outputs.rerankings }}
       crosslang: ${{ steps.changes.outputs.crosslang }}
       docs: ${{ steps.changes.outputs.docs }}
-      basev1: ${{ steps.changes.outputs.basev1 }}
-      basev2: ${{ steps.changes.outputs.basev2 }}
+      base: ${{ steps.changes.outputs.base }}
     steps:
       - name: Get changed paths
         id: changes
@@ -54,19 +48,7 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
-            basev1:
-              - 'pkg/commons/**'
-              - 'internal/**'
-              - 'metadata/**'
-              - 'types/**'
-              - 'collection/**'
-              - 'test/**'
-              - 'where/**'
-              - 'where_document/**'
-              - 'chroma.go'
-              - 'go.mod'
-              - 'go.sum'
-            basev2:
+            base:
               - 'pkg/api/v2/**'
               - 'pkg/commons/**'
               - 'pkg/logger/**'
@@ -99,47 +81,11 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1
-  apiv1:
-    name: Test Chroma API V1
-    runs-on: ubuntu-latest
-    if: inputs.run_apiv1 || needs.paths-filter.outputs.basev1 == 'true'
-    needs: [lint,paths-filter]
-    strategy:
-      matrix:
-        chroma-version: ["0.4.8", "0.4.24","0.5.5", "0.5.17","0.6.2"]
-    environment: Test
-    steps:
-    - uses: actions/checkout@v4
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version-file: 'go.mod'
-    - name: Build
-      run: make build
-    - name: Test
-      run: make test
-      env:
-        CHROMA_VERSION: ${{ matrix.chroma-version }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Upload Test Results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: v1-test-results-${{ matrix.chroma-version }}
-        path: |
-          coverage-v1.out
-          unit-v1.xml
-  apiv2:
-    name: Test Chroma API V2
+  api:
+    name: Test Chroma API
     runs-on: ubuntu-latest
     needs: [lint,paths-filter]
-    if: inputs.run_apiv2 || needs.paths-filter.outputs.basev2 == 'true'
+    if: inputs.run_api || needs.paths-filter.outputs.base == 'true'
     strategy:
       matrix:
         chroma-version: ["0.6.3","1.1.0","1.4.0"]
@@ -159,22 +105,22 @@ jobs:
       - name: Build
         run: make build
       - name: Test
-        run: make test-v2
+        run: make test
         env:
           CHROMA_VERSION: ${{ matrix.chroma-version }}
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v2-test-results-${{ matrix.chroma-version }}
+          name: test-results-${{ matrix.chroma-version }}
           path: |
-            coverage-v2.out
-            unit-v2.xml
+            coverage.out
+            unit.xml
   cloud:
     name: Test Chroma Cloud
     runs-on: ubuntu-latest
     needs: [ lint,paths-filter ]
-    if: inputs.run_cloud || needs.paths-filter.outputs.basev2 == 'true'
+    if: inputs.run_cloud || needs.paths-filter.outputs.base == 'true'
     environment: Test
     steps:
       - uses: actions/checkout@v4
@@ -194,7 +140,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v2-test-results-cloud
+          name: test-results-cloud
           path: |
             coverage-cloud.out
             unit-cloud.xml
@@ -234,6 +180,7 @@ jobs:
           NOMIC_API_KEY: ${{ secrets.NOMIC_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()

@@ -1,6 +1,3 @@
-generate:
-	echo "This is deprecated. 0.2.x or later does not use generated client."
-	sh ./gen_api_v3.sh
 
 build:
 	go build -v ./...
@@ -12,27 +9,14 @@ gotestsum-bin:
 .PHONY: test
 test: gotestsum-bin
 	gotestsum \
-		--format short-verbose \
-		--rerun-fails=1 \
-		--packages="./..." \
-		--junitfile unit-v1.xml \
-		-- \
-		-v \
-		-tags=basic \
-		-coverprofile=coverage-v1.out \
-		-timeout=30m
-
-.PHONY: test-v2
-test-v2: gotestsum-bin
-	gotestsum \
         --format short-verbose \
         --rerun-fails=1 \
         --packages="./..." \
-        --junitfile unit-v2.xml \
+        --junitfile unit.xml \
         -- \
         -v \
         -tags=basicv2 \
-        -coverprofile=coverage-v2.out \
+        -coverprofile=coverage.out \
         -timeout=30m
 
 .PHONY: test-cloud
@@ -48,18 +32,6 @@ test-cloud: gotestsum-bin
         -tags=basicv2,cloud \
         -coverprofile=coverage-cloud.out \
         -timeout=30m
-.PHONY: test-rf
-test-rf: gotestsum-bin
-	gotestsum \
-		--format short-verbose \
-		--rerun-fails=1 \
-		--packages="./..." \
-		--junitfile unit-rf.xml \
-		-- \
-		-v \
-		-tags=rf \
-		-coverprofile=coverage-rf.out \
-		-timeout=30m
 
 .PHONY: test-ef
 test-ef: gotestsum-bin
@@ -85,6 +57,19 @@ test-ef-cloud: gotestsum-bin
 		-v \
 		-tags=ef,cloud \
 		-coverprofile=coverage-ef-cloud.out \
+		-timeout=30m
+
+.PHONY: test-rf
+test-rf: gotestsum-bin
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=1 \
+		--packages="./..." \
+		--junitfile unit-rf.xml \
+		-- \
+		-v \
+		-tags=rf \
+		-coverprofile=coverage-rf.out \
 		-timeout=30m
 
 .PHONY: test-crosslang

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	chromago "github.com/amikos-tech/chroma-go"
+	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
 	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
 )
@@ -106,15 +106,12 @@ func (c CohereRerankingFunction) Rerank(ctx context.Context, query string, resul
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		var bodyOrError string
 		all, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		if err != nil {
-			bodyOrError = err.Error()
-		} else {
-			bodyOrError = string(all)
+			return nil, fmt.Errorf("rerank failed with status code: %d, failed to read response: %v", resp.StatusCode, err)
 		}
-
-		return nil, fmt.Errorf("rerank failed with status code: %d, %v, %s", resp.StatusCode, bodyOrError, all)
+		return nil, fmt.Errorf("rerank failed with status code: %d, response: %s", resp.StatusCode, string(all))
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -129,6 +126,9 @@ func (c CohereRerankingFunction) Rerank(ctx context.Context, query string, resul
 	}
 	rankedResults := map[string][]rerankings.RankedResult{c.ID(): make([]rerankings.RankedResult, len(rerankResp.Results))}
 	for i, rr := range rerankResp.Results {
+		if rr.Index < 0 || rr.Index >= len(results) {
+			return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(results)-1)
+		}
 		originalDoc, err := results[rr.Index].ToText()
 		if err != nil {
 			return nil, err
@@ -151,22 +151,29 @@ func (c CohereRerankingFunction) ID() string {
 	return fmt.Sprintf("cohere-%s", c.DefaultModel)
 }
 
-func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (*rerankings.RerankedChromaResults, error) {
-	rerankedResults := &rerankings.RerankedChromaResults{
-		QueryResults: *queryResults,
-		Ranks:        map[string][][]float32{c.ID(): make([][]float32, len(queryResults.Ids))},
+func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryTexts []string, queryResults *chromago.QueryResultImpl) (*rerankings.RerankedChromaResults, error) {
+	if len(queryTexts) != len(queryResults.IDLists) {
+		return nil, fmt.Errorf("queryTexts length (%d) does not match IDLists length (%d)", len(queryTexts), len(queryResults.IDLists))
 	}
-	for i, r := range queryResults.Ids {
+	if len(queryResults.DocumentsLists) != len(queryResults.IDLists) {
+		return nil, fmt.Errorf("DocumentsLists length (%d) does not match IDLists length (%d)", len(queryResults.DocumentsLists), len(queryResults.IDLists))
+	}
+	rerankedResults := &rerankings.RerankedChromaResults{
+		QueryResultImpl: queryResults,
+		QueryTexts:      queryTexts,
+		Ranks:           map[string][][]float32{c.ID(): make([][]float32, len(queryResults.IDLists))},
+	}
+	for i, r := range queryResults.IDLists {
 		if len(r) == 0 {
 			return nil, fmt.Errorf("no results to rerank")
 		}
 		docs := make([]any, 0)
-		for _, result := range queryResults.Documents[i] {
-			docs = append(docs, result)
+		for _, doc := range queryResults.DocumentsLists[i] {
+			docs = append(docs, doc.ContentString())
 		}
 		req := &RerankRequest{
 			Model:           string(c.DefaultModel),
-			Query:           queryResults.QueryTexts[i],
+			Query:           queryTexts[i],
 			Documents:       docs,
 			TopN:            c.TopN,
 			RerankFields:    c.RerankFields,
@@ -190,29 +197,24 @@ func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryResults
 			return nil, err
 		}
 		if resp.StatusCode != 200 {
-			var bodyOrError string
 			all, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			if err != nil {
-				bodyOrError = err.Error()
-			} else {
-				bodyOrError = string(all)
+				return nil, fmt.Errorf("rerank failed with status code: %d, failed to read response: %v", resp.StatusCode, err)
 			}
-
-			return nil, fmt.Errorf("rerank failed with status code: %d, %v, %s", resp.StatusCode, bodyOrError, all)
+			return nil, fmt.Errorf("rerank failed with status code: %d, response: %s", resp.StatusCode, string(all))
 		}
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-				fmt.Printf("Error closing body: %v\n", err)
-			}
-		}(resp.Body)
 		var rerankResp RerankResponse
 		err = json.NewDecoder(resp.Body).Decode(&rerankResp)
+		resp.Body.Close()
 		if err != nil {
 			return nil, err
 		}
 		rerankedResults.Ranks[c.ID()][i] = make([]float32, len(rerankResp.Results))
 		for _, rr := range rerankResp.Results {
+			if rr.Index < 0 || rr.Index >= len(rerankedResults.Ranks[c.ID()][i]) {
+				return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(rerankedResults.Ranks[c.ID()][i])-1)
+			}
 			rerankedResults.Ranks[c.ID()][i][rr.Index] = rr.RelevanceScore
 		}
 	}

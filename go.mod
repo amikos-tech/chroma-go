@@ -16,11 +16,11 @@ require (
 	github.com/leanovate/gopter v0.2.11
 	github.com/oklog/ulid v1.3.1
 	github.com/pkg/errors v0.9.1
-	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.36.0
 	github.com/testcontainers/testcontainers-go/modules/chroma v0.36.0
 	github.com/testcontainers/testcontainers-go/modules/ollama v0.36.0
+	github.com/twmb/murmur3 v1.1.8
 	github.com/yalue/onnxruntime_go v1.22.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/api v0.186.0

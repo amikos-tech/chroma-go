@@ -4,7 +4,6 @@ import (
 	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,35 +29,13 @@ type IDGenerator interface {
 type UUIDGenerator struct{}
 
 func (u *UUIDGenerator) Generate(opts ...IDGeneratorOption) string {
-	// uuid.New() uses uuid.Must(uuid.NewRandom()) internally which could panic
-	// if the random number generator fails. Add defensive programming.
-
-	// Wrap in a function to handle panics
-	generateID := func() (id string) {
-		defer func() {
-			if r := recover(); r != nil {
-				// Fall back to a cryptographically secure random ID if UUID generation fails
-				// This is extremely unlikely but ensures the library never panics
-				h := sha256.New()
-				h.Write([]byte(time.Now().String()))
-				// Use crypto/rand for secure random bytes
-				randomBytes := make([]byte, 16)
-				if _, err := io.ReadFull(crand.Reader, randomBytes); err != nil {
-					// If even crypto/rand fails, use timestamp with process info as last resort
-					h.Write([]byte(time.Now().Format(time.RFC3339Nano)))
-				} else {
-					h.Write(randomBytes)
-				}
-				id = hex.EncodeToString(h.Sum(nil))
-			}
-		}()
-
-		uuidV4 := uuid.New()
-		id = uuidV4.String()
-		return id
+	// Use NewRandom instead of New to avoid panic from Must wrapper
+	uuidV4, err := uuid.NewRandom()
+	if err != nil {
+		// fallback to empty string and let Chroma reject it
+		return ""
 	}
-
-	return generateID()
+	return uuidV4.String()
 }
 
 func NewUUIDGenerator() *UUIDGenerator {
@@ -73,7 +50,13 @@ func (s *SHA256Generator) Generate(opts ...IDGeneratorOption) string {
 		opt(&op)
 	}
 	if op.Document == "" {
-		op.Document = uuid.New().String()
+		// Use NewRandom instead of New to avoid panic from Must wrapper
+		uuidV4, err := uuid.NewRandom()
+		if err != nil {
+			// fallback to empty string and let Chroma reject it
+			return ""
+		}
+		op.Document = uuidV4.String()
 	}
 	hasher := sha256.New()
 	hasher.Write([]byte(op.Document))
@@ -92,9 +75,8 @@ func (u *ULIDGenerator) Generate(opts ...IDGeneratorOption) string {
 	generateID := func() (id string) {
 		defer func() {
 			if r := recover(); r != nil {
-				// If ULID generation fails, fall back to UUID
-				// This ensures the function never panics
-				id = uuid.New().String()
+				// fallback to empty string and let Chroma reject it
+				id = ""
 			}
 		}()
 
@@ -102,12 +84,10 @@ func (u *ULIDGenerator) Generate(opts ...IDGeneratorOption) string {
 		// Use crypto/rand for secure entropy
 		entropy := ulid.Monotonic(crand.Reader, 0)
 
-		// Try using ulid.New() first for safer operation
 		docULID, err := ulid.New(ulid.Timestamp(t), entropy)
 		if err != nil {
-			// Fall back to UUID if ULID generation fails
-			id = uuid.New().String()
-			return id
+			// fallback to empty string and let Chroma reject it
+			return ""
 		}
 		id = docULID.String()
 		return id

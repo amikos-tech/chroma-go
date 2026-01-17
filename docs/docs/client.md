@@ -95,6 +95,13 @@ func main() {
 
 ## Client version v0.1.4 or lower
 
+!!! warning "V1 API Deprecation Notice"
+
+    The V1 API has been removed in version `v0.3.0` and later. To use the examples below, pin your dependency to `v0.2.5` or earlier:
+    ```bash
+    go get github.com/amikos-tech/chroma-go@v0.2.5
+    ```
+
 Options:
 
 | Options           | Usage                                   | Description                                                                             | Value                      | Required                              |

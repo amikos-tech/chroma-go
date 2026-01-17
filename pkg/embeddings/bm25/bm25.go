@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/spaolacci/murmur3"
+	"github.com/twmb/murmur3"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )

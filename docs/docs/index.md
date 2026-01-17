@@ -12,6 +12,16 @@ go get github.com/amikos-tech/chroma-go
 
 ## Getting Started
 
+!!! warning "V1 API Deprecation Notice"
+
+    The examples on this page use the **V1 API**, which has been removed in version `v0.3.0` and later.
+
+    - For **new projects**, use the [V2 API](client.md) (`github.com/amikos-tech/chroma-go/pkg/api/v2`)
+    - To use V1 examples below, pin your dependency to `v0.2.5` or earlier:
+      ```bash
+      go get github.com/amikos-tech/chroma-go@v0.2.5
+      ```
+
 Concepts:
 
 - [Client Options](client.md) - How to configure chroma go client

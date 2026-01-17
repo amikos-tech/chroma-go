@@ -74,6 +74,7 @@ func (client *APIClientV2) PreFlight(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	var preflightLimits map[string]interface{}
 	if json.NewDecoder(resp.Body).Decode(&preflightLimits) != nil {
 		return errors.New("error decoding preflight response")
@@ -105,6 +106,7 @@ func (client *APIClientV2) GetVersion(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	version := strings.ReplaceAll(respBody, `"`, "")
 	return version, nil
@@ -123,6 +125,7 @@ func (client *APIClientV2) Heartbeat(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	if strings.Contains(respBody, "nanosecond heartbeat") {
 		return nil
@@ -148,6 +151,7 @@ func (client *APIClientV2) GetTenant(ctx context.Context, tenant Tenant) (Tenant
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	return NewTenantFromJSON(respBody)
 }
@@ -169,10 +173,11 @@ func (client *APIClientV2) CreateTenant(ctx context.Context, tenant Tenant) (Ten
 	if err != nil {
 		return nil, err
 	}
-	_, err = client.SendRequest(httpReq)
+	resp, err := client.SendRequest(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "error creating tenant %s", tenant.Name())
 	}
+	defer func() { _ = resp.Body.Close() }()
 	return tenant, nil
 }
 
@@ -193,6 +198,7 @@ func (client *APIClientV2) ListDatabases(ctx context.Context, tenant Tenant) ([]
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	var dbs []map[string]interface{}
 	if err := json.Unmarshal([]byte(respBody), &dbs); err != nil {
@@ -226,6 +232,7 @@ func (client *APIClientV2) GetDatabase(ctx context.Context, db Database) (Databa
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	newDB, err := NewDatabaseFromJSON(respBody)
 	if err != nil {
@@ -251,10 +258,11 @@ func (client *APIClientV2) CreateDatabase(ctx context.Context, db Database) (Dat
 	if err != nil {
 		return nil, err
 	}
-	_, err = client.SendRequest(httpReq)
+	resp, err := client.SendRequest(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "error creating database %s", db.Name())
 	}
+	defer func() { _ = resp.Body.Close() }()
 	return db, nil
 }
 
@@ -271,10 +279,11 @@ func (client *APIClientV2) DeleteDatabase(ctx context.Context, db Database) erro
 	if err != nil {
 		return err
 	}
-	_, err = client.SendRequest(httpReq)
+	resp, err := client.SendRequest(httpReq)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error deleting database %s", db.Name())
 	}
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 
@@ -287,10 +296,11 @@ func (client *APIClientV2) Reset(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = client.SendRequest(httpReq)
+	resp, err := client.SendRequest(httpReq)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error resetting server")
 	}
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 
@@ -320,6 +330,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 	if err != nil {
 		return nil, errors.Wrap(err, "error sending request")
 	}
+	defer func() { _ = resp.Body.Close() }()
 	var cm CollectionModel
 	if err := json.NewDecoder(resp.Body).Decode(&cm); err != nil {
 		return nil, errors.Wrap(err, "error decoding response")
@@ -363,11 +374,12 @@ func (client *APIClientV2) DeleteCollection(ctx context.Context, name string, op
 	if err != nil {
 		return errors.Wrap(err, "error creating HTTP request")
 	}
-	_, err = client.SendRequest(httpReq)
+	resp, err := client.SendRequest(httpReq)
 	if err != nil {
 		return errors.Wrap(err, "delete request error")
 	}
-	delete(client.collectionCache, name)
+	defer func() { _ = resp.Body.Close() }()
+	client.deleteCollectionFromCache(name)
 	return nil
 }
 
@@ -393,6 +405,7 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 	if err != nil {
 		return nil, errors.Wrap(err, "error sending request")
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	var cm CollectionModel
 	err = json.Unmarshal([]byte(respBody), &cm)
@@ -447,6 +460,7 @@ func (client *APIClientV2) CountCollections(ctx context.Context, opts ...CountCo
 	if err != nil {
 		return 0, errors.Wrap(err, "error sending request")
 	}
+	defer func() { _ = resp.Body.Close() }()
 	respBody := chhttp.ReadRespBody(resp.Body)
 	count, err := strconv.Atoi(respBody)
 	if err != nil {
@@ -531,7 +545,7 @@ func (client *APIClientV2) UseDatabase(ctx context.Context, database Database) e
 	}
 	d, err := client.GetDatabase(ctx, database)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error getting database")
 	}
 	client.SetDatabase(d)
 	client.SetTenant(d.Tenant())
@@ -556,15 +570,31 @@ func (client *APIClientV2) Satisfies(resourceOperation ResourceOperation, metric
 		return nil
 	}
 
-	switch metric.(type) {
-	case int, int32:
-		if m.(int) <= metric.(int) {
-			return errors.Errorf("%s count limit exceeded for %s %s. Expected less than or equal %v but got %v", metricName, string(resourceOperation.Resource()), string(resourceOperation.Operation()), m, metric)
-		}
-	case float64, float32:
-		if m.(float64) <= metric.(float64) {
-			return errors.Errorf("%s count limit exceeded for %s %s. Expected less than or equal %v but got %v", metricName, string(resourceOperation.Resource()), string(resourceOperation.Operation()), m, metric)
-		}
+	// preflightLimits always stores int values, use comma-ok idiom to avoid panics
+	limit, ok := m.(int)
+	if !ok {
+		return nil
+	}
+
+	// Convert metric to int for comparison
+	var metricVal int
+	switch v := metric.(type) {
+	case int:
+		metricVal = v
+	case int32:
+		metricVal = int(v)
+	case int64:
+		metricVal = int(v)
+	case float64:
+		metricVal = int(v)
+	case float32:
+		metricVal = int(v)
+	default:
+		return nil
+	}
+
+	if limit <= metricVal {
+		return errors.Errorf("%s count limit exceeded for %s %s. Expected less than or equal %v but got %v", metricName, string(resourceOperation.Resource()), string(resourceOperation.Operation()), limit, metricVal)
 	}
 
 	return nil
@@ -584,6 +614,7 @@ func (client *APIClientV2) GetIdentity(ctx context.Context) (Identity, error) {
 	if err != nil {
 		return identity, errors.Wrap(err, "error sending request")
 	}
+	defer func() { _ = resp.Body.Close() }()
 	if err := json.NewDecoder(resp.Body).Decode(&identity); err != nil {
 		return identity, errors.Wrap(err, "error decoding response")
 	}
@@ -595,12 +626,18 @@ func (client *APIClientV2) Close() error {
 		client.httpClient.CloseIdleConnections()
 	}
 	var errs []error
-	if len(client.collectionCache) > 0 {
-		for _, c := range client.collectionCache {
-			err := c.Close()
-			if err != nil {
-				errs = append(errs, err)
-			}
+	// Copy collections while holding lock to avoid race conditions
+	client.collectionMu.RLock()
+	collections := make([]Collection, 0, len(client.collectionCache))
+	for _, c := range client.collectionCache {
+		collections = append(collections, c)
+	}
+	client.collectionMu.RUnlock()
+	// Close collections without holding the lock to avoid deadlocks
+	for _, c := range collections {
+		err := c.Close()
+		if err != nil {
+			errs = append(errs, err)
 		}
 	}
 	// Sync the logger to flush any buffered log entries
@@ -626,4 +663,10 @@ func (client *APIClientV2) addCollectionToCache(c Collection) {
 	client.collectionMu.Lock()
 	defer client.collectionMu.Unlock()
 	client.collectionCache[c.Name()] = c
+}
+
+func (client *APIClientV2) deleteCollectionFromCache(name string) {
+	client.collectionMu.Lock()
+	defer client.collectionMu.Unlock()
+	delete(client.collectionCache, name)
 }

@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	chromago "github.com/amikos-tech/chroma-go"
+	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
 )
 
+// RerankingModel represents the model identifier for a reranking function
 type RerankingModel string
 
 type RankedResult struct {
@@ -16,9 +17,11 @@ type RankedResult struct {
 	Rank   float32
 }
 
+// RerankedChromaResults wraps query results with ranking information
 type RerankedChromaResults struct {
-	chromago.QueryResults
-	Ranks map[string][][]float32 // each reranker adds a rank for each result
+	*chromago.QueryResultImpl
+	QueryTexts []string               // Query texts used for reranking (not in V2 QueryResultImpl)
+	Ranks      map[string][][]float32 // each reranker adds a rank for each result
 }
 
 type Result struct {
@@ -78,5 +81,5 @@ func (r *Result) IsObject() bool {
 type RerankingFunction interface {
 	ID() string
 	Rerank(ctx context.Context, query string, results []Result) (map[string][]RankedResult, error)
-	RerankResults(ctx context.Context, queryResults *chromago.QueryResults) (*RerankedChromaResults, error)
+	RerankResults(ctx context.Context, queryTexts []string, queryResults *chromago.QueryResultImpl) (*RerankedChromaResults, error)
 }

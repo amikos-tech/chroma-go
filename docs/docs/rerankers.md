@@ -1,5 +1,12 @@
 # Reranking Functions
 
+!!! note "V2 API Support"
+
+    The reranking functions work with both V1 and V2 APIs. The `Rerank` method accepts plain text and works universally. The `RerankResults` method interface shown below references V1 types (`chromago.QueryResults`). For V1-specific usage, pin your dependency to `v0.2.5` or earlier:
+    ```bash
+    go get github.com/amikos-tech/chroma-go@v0.2.5
+    ```
+
 Reranking functions allow users to feed Chroma results into a reranking model such
 as `cross-encoder/ms-marco-MiniLM-L-6-v2` to improve the quality of the search results.
 
