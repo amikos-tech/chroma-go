@@ -173,10 +173,11 @@ func (client *APIClientV2) CreateTenant(ctx context.Context, tenant Tenant) (Ten
 	if err != nil {
 		return nil, err
 	}
-	_, err = client.SendRequest(httpReq)
+	resp, err := client.SendRequest(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "error creating tenant %s", tenant.Name())
 	}
+	defer func() { _ = resp.Body.Close() }()
 	return tenant, nil
 }
 
@@ -257,10 +258,11 @@ func (client *APIClientV2) CreateDatabase(ctx context.Context, db Database) (Dat
 	if err != nil {
 		return nil, err
 	}
-	_, err = client.SendRequest(httpReq)
+	resp, err := client.SendRequest(httpReq)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "error creating database %s", db.Name())
 	}
+	defer func() { _ = resp.Body.Close() }()
 	return db, nil
 }
 
@@ -277,10 +279,11 @@ func (client *APIClientV2) DeleteDatabase(ctx context.Context, db Database) erro
 	if err != nil {
 		return err
 	}
-	_, err = client.SendRequest(httpReq)
+	resp, err := client.SendRequest(httpReq)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error deleting database %s", db.Name())
 	}
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 
@@ -293,10 +296,11 @@ func (client *APIClientV2) Reset(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = client.SendRequest(httpReq)
+	resp, err := client.SendRequest(httpReq)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error resetting server")
 	}
+	defer func() { _ = resp.Body.Close() }()
 	return nil
 }
 
@@ -370,10 +374,11 @@ func (client *APIClientV2) DeleteCollection(ctx context.Context, name string, op
 	if err != nil {
 		return errors.Wrap(err, "error creating HTTP request")
 	}
-	_, err = client.SendRequest(httpReq)
+	resp, err := client.SendRequest(httpReq)
 	if err != nil {
 		return errors.Wrap(err, "delete request error")
 	}
+	defer func() { _ = resp.Body.Close() }()
 	client.deleteCollectionFromCache(name)
 	return nil
 }
@@ -540,7 +545,7 @@ func (client *APIClientV2) UseDatabase(ctx context.Context, database Database) e
 	}
 	d, err := client.GetDatabase(ctx, database)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error getting database")
 	}
 	client.SetDatabase(d)
 	client.SetTenant(d.Tenant())

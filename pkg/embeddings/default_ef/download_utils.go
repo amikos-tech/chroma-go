@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -195,6 +196,17 @@ func getOSAndArch() (string, string) {
 	return runtime.GOOS, runtime.GOARCH
 }
 
+// safePath validates that joining destPath with filename results in a path
+// within destPath, preventing path traversal attacks from malicious tar entries.
+func safePath(destPath, filename string) (string, error) {
+	destPath = filepath.Clean(destPath)
+	targetPath := filepath.Join(destPath, filepath.Base(filename))
+	if !strings.HasPrefix(targetPath, destPath+string(os.PathSeparator)) && targetPath != destPath {
+		return "", errors.Errorf("invalid path: %q escapes destination directory", filename)
+	}
+	return targetPath, nil
+}
+
 func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 	// Open the .tar.gz file
 	f, err := os.Open(tarGzPath)
@@ -227,35 +239,38 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 
 		// Check if this is the file we're looking for
 		if header.Name == targetFile {
-			// Create the destination file
-			outFile, err := os.Create(filepath.Join(destPath, filepath.Base(targetFile)))
+			outPath, err := safePath(destPath, targetFile)
 			if err != nil {
-				return errors.Wrapf(err, "could not create output file: %s", filepath.Join(destPath, filepath.Base(targetFile)))
+				return err
+			}
+			outFile, err := os.Create(outPath)
+			if err != nil {
+				return errors.Wrapf(err, "could not create output file: %s", outPath)
 			}
 			defer outFile.Close()
-			// Copy the file data from the tar archive to the destination file
 			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return errors.Wrapf(err, "could not copy file data to output file: %s", filepath.Join(destPath, filepath.Base(targetFile)))
+				return errors.Wrapf(err, "could not copy file data to output file: %s", outPath)
 			}
 			if err := outFile.Sync(); err != nil {
-				return errors.Wrapf(err, "could not sync output file to disk: %s", filepath.Join(destPath, filepath.Base(targetFile)))
+				return errors.Wrapf(err, "could not sync output file to disk: %s", outPath)
 			}
 			return nil // Successfully extracted the file
 		}
 		if targetFile == "" {
-			// Create the destination file
-			outFile, err := os.Create(filepath.Join(destPath, filepath.Base(header.Name)))
+			outPath, err := safePath(destPath, header.Name)
 			if err != nil {
-				return errors.Wrapf(err, "could not create output file: %s", filepath.Join(destPath, filepath.Base(header.Name)))
+				return err
+			}
+			outFile, err := os.Create(outPath)
+			if err != nil {
+				return errors.Wrapf(err, "could not create output file: %s", outPath)
 			}
 			defer outFile.Close()
-
-			// Copy the file data from the tar archive to the destination file
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				return errors.Wrap(err, "could not copy file data")
 			}
 			if err := outFile.Sync(); err != nil {
-				return errors.Wrapf(err, "could not sync output file to disk: %s", filepath.Join(destPath, filepath.Base(targetFile)))
+				return errors.Wrapf(err, "could not sync output file to disk: %s", outPath)
 			}
 		}
 	}
