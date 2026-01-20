@@ -171,10 +171,13 @@ func (r *SearchRequest) MarshalJSON() ([]byte, error) {
 type SearchCollectionOption func(update *SearchQuery) error
 
 // WithReadLevel sets the read level for the search query.
-// Use ReadLevelIndexOnly for faster searches that may not include recent uncommitted writes.
+// Use ReadLevelIndexOnly for faster searches that may not include recent writes that haven't been compacted.
 // Default is ReadLevelIndexAndWAL which includes all committed writes.
 func WithReadLevel(level ReadLevel) SearchCollectionOption {
 	return func(query *SearchQuery) error {
+		if level != ReadLevelIndexAndWAL && level != ReadLevelIndexOnly {
+			return errors.Errorf("invalid read level: %q (expected %q or %q)", level, ReadLevelIndexAndWAL, ReadLevelIndexOnly)
+		}
 		query.ReadLevel = level
 		return nil
 	}

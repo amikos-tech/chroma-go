@@ -779,4 +779,11 @@ func TestWithReadLevel(t *testing.T) {
 		require.Equal(t, "index_only", result["read_level"])
 		require.Contains(t, result, "searches")
 	})
+
+	t.Run("invalid read level returns error", func(t *testing.T) {
+		sq := &SearchQuery{}
+		err := WithReadLevel(ReadLevel("invalid"))(sq)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid read level")
+	})
 }
