@@ -1195,7 +1195,8 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 
 		sr, ok := results.(*SearchResultImpl)
 		require.True(t, ok)
-		// Flaky?
+		require.NotEmpty(t, sr.IDs)
+		// Flaky - TOCTOU acceptable as eventual consistency
 		require.Len(t, sr.IDs[0], 0, "ReadLevelIndexOnly should return 0 documents if index not yet compacted")
 	})
 
