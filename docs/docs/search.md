@@ -428,6 +428,39 @@ result, err := col.Search(ctx,
 
 ---
 
+## Read Level
+
+Control whether searches read from the write-ahead log (WAL) or only the compacted index:
+
+| Level | Description |
+|-------|-------------|
+| `ReadLevelIndexAndWAL` | Read from both index and WAL (default). All committed writes visible. |
+| `ReadLevelIndexOnly` | Read only from compacted index. Faster, but recent writes may not be visible. |
+
+```go
+// Default behavior - reads from both index and WAL
+result, err := col.Search(ctx,
+    chroma.NewSearchRequest(
+        chroma.WithKnnRank(chroma.KnnQueryText("query")),
+    ),
+    chroma.WithReadLevel(chroma.ReadLevelIndexAndWAL),
+)
+
+// Faster search - only reads from compacted index
+result, err := col.Search(ctx,
+    chroma.NewSearchRequest(
+        chroma.WithKnnRank(chroma.KnnQueryText("query")),
+    ),
+    chroma.WithReadLevel(chroma.ReadLevelIndexOnly),
+)
+```
+
+!!! note "Index-Only Reads"
+
+    `ReadLevelIndexOnly` provides faster searches but documents added recently that haven't been compacted into the index may not appear in results.
+
+---
+
 ## Error Handling
 
 Both `NewKnnRank` and `NewRrfRank` return errors that should be checked:
@@ -465,6 +498,7 @@ if err != nil {
 | `WithPage(opts...)` | Add pagination |
 | `WithSelect(keys...)` | Select fields to return |
 | `WithSelectAll()` | Select all standard fields |
+| `WithReadLevel(level)` | Set read level (`ReadLevelIndexAndWAL` or `ReadLevelIndexOnly`) |
 
 ### KNN Options
 

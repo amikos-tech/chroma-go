@@ -266,6 +266,76 @@ func main() {
 {% /codetab %}
 {% /codetabs %}
 
+## Read Level
+
+Control whether searches read from the write-ahead log (WAL) or only the compacted index:
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+	client, err := v2.NewCloudClient(
+		v2.WithCloudAPIKey("your-api-key"),
+		v2.WithDatabaseAndTenant("database", "tenant"),
+	)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	collection, err := client.GetCollection(ctx, "my_collection")
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	// Default: ReadLevelIndexAndWAL - reads from both index and WAL
+	// All committed writes will be visible
+	result, err := collection.Search(ctx,
+		v2.NewSearchRequest(
+			v2.WithKnnRank(v2.KnnQueryText("machine learning")),
+			v2.WithPage(v2.WithLimit(10)),
+		),
+		v2.WithReadLevel(v2.ReadLevelIndexAndWAL),
+	)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	// ReadLevelIndexOnly - reads only from compacted index
+	// Faster, but recent writes that haven't been compacted may not be visible
+	fastResult, err := collection.Search(ctx,
+		v2.NewSearchRequest(
+			v2.WithKnnRank(v2.KnnQueryText("machine learning")),
+			v2.WithPage(v2.WithLimit(10)),
+		),
+		v2.WithReadLevel(v2.ReadLevelIndexOnly),
+	)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	log.Printf("Default result: %v", result)
+	log.Printf("Fast result: %v", fastResult)
+}
+```
+{% /codetab %}
+{% /codetabs %}
+
+| Read Level | Go Constant | Description |
+|------------|-------------|-------------|
+| Index + WAL | `v2.ReadLevelIndexAndWAL` | Reads from both index and WAL (default). All committed writes visible. |
+| Index Only | `v2.ReadLevelIndexOnly` | Reads only from compacted index. Faster, but recent writes may not be visible. |
+
 ## Search Components
 
 | Component | Go Function | Description |
@@ -277,6 +347,7 @@ func main() {
 | Page | `WithPage()` | Pagination with limit/offset |
 | Select | `WithSelect()` | Choose which fields to return |
 | Group By | `WithGroupBy()` | Group results by metadata |
+| Read Level | `WithReadLevel()` | Control WAL vs index-only reads |
 
 ## Projection Keys
 
