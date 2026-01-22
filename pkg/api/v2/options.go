@@ -194,13 +194,16 @@ type idsOption struct {
 //	    WithIDs("doc1", "doc2"),
 //	    WithTexts("First document", "Second document"),
 //	)
+//
+// Note: Calling WithIDs multiple times will append IDs, not overwrite them.
+// At least one ID must be provided.
 func WithIDs(ids ...DocumentID) *idsOption {
 	return &idsOption{ids: ids}
 }
 
 func (o *idsOption) ApplyToGet(op *CollectionGetOp) error {
 	if len(o.ids) == 0 {
-		return nil
+		return errors.New("at least one id is required")
 	}
 	op.Ids = append(op.Ids, o.ids...)
 	return nil

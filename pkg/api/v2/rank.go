@@ -1244,8 +1244,8 @@ func operandToRank(operand Operand) Rank {
 //
 // knnRankOption implements KNN ranking for Search operations.
 type knnRankOption struct {
-	query      KnnQueryOption
-	knnOptions []KnnOption
+	knn *KnnRank
+	err error
 }
 
 // Example:
@@ -1255,21 +1255,25 @@ type knnRankOption struct {
 //	    WithPage(PageLimit(10)),
 //	)
 func WithKnnRank(query KnnQueryOption, knnOptions ...KnnOption) *knnRankOption {
-	return &knnRankOption{query: query, knnOptions: knnOptions}
+	knn, err := NewKnnRank(query, knnOptions...)
+	if err != nil {
+		return &knnRankOption{err: err}
+	}
+	return &knnRankOption{knn: knn}
 }
 
 func (o *knnRankOption) ApplyToSearchRequest(req *SearchRequest) error {
-	knn, err := NewKnnRank(o.query, o.knnOptions...)
-	if err != nil {
-		return err
+	if o.err != nil {
+		return o.err
 	}
-	req.Rank = knn
+	req.Rank = o.knn
 	return nil
 }
 
 // rffRankOption implements RRF ranking for Search operations.
 type rffRankOption struct {
-	opts []RffOption
+	rrf *RrfRank
+	err error
 }
 
 // WithRffRank adds an RRF ranking expression to a search request.
@@ -1285,14 +1289,17 @@ type rffRankOption struct {
 //	    ),
 //	)
 func WithRffRank(opts ...RffOption) *rffRankOption {
-	return &rffRankOption{opts: opts}
+	rrf, err := NewRrfRank(opts...)
+	if err != nil {
+		return &rffRankOption{err: err}
+	}
+	return &rffRankOption{rrf: rrf}
 }
 
 func (o *rffRankOption) ApplyToSearchRequest(req *SearchRequest) error {
-	rrf, err := NewRrfRank(o.opts...)
-	if err != nil {
-		return err
+	if o.err != nil {
+		return o.err
 	}
-	req.Rank = rrf
+	req.Rank = o.rrf
 	return nil
 }
