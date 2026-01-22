@@ -102,8 +102,9 @@ The V2 API uses a unified options pattern where common options work across multi
 | `WithWhere` | ✓ | ✓ | ✓ | | | |
 | `WithWhereDocument` | ✓ | ✓ | ✓ | | | |
 | `WithInclude` | ✓ | ✓ | | | | |
-| `WithLimit` | ✓ | | | | | |
-| `WithOffset` | ✓ | | | | | |
+| `WithLimit` | ✓ | | | | | ✓ |
+| `WithOffset` | ✓ | | | | | ✓ |
+| `NewPage` | ✓ | | | | | ✓ |
 | `WithNResults` | | ✓ | | | | |
 | `WithQueryTexts` | | ✓ | | | | |
 | `WithTexts` | | | | ✓ | ✓ | |
@@ -294,7 +295,7 @@ results, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithKnnRank(chroma.KnnQueryText("machine learning")),
         chroma.WithFilter(chroma.EqString(chroma.K("status"), "published")),
-        chroma.WithPage(chroma.PageLimit(10), chroma.PageOffset(0)),
+        chroma.NewPage(chroma.Limit(10)),
         chroma.WithSelect(chroma.KDocument, chroma.KScore, chroma.K("author")),
     ),
 )

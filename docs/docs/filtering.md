@@ -222,7 +222,7 @@ results, err := col.Search(ctx,
                 chroma.EqString(chroma.K("venue"), "ICML"),
             ),
         )),
-        chroma.WithPage(chroma.PageLimit(20)),
+        chroma.NewPage(chroma.Limit(20)),
     ),
 )
 
@@ -259,3 +259,6 @@ The following operation-specific functions are deprecated. Use the unified optio
 | `WithMetadatasUpdate` | `WithMetadatas` |
 | `WithEmbeddingsUpdate` | `WithEmbeddings` |
 | `WithFilterIDs` | `WithIDs` |
+| `WithPage` | `NewPage` |
+| `PageLimit` | `Limit` |
+| `PageOffset` | `Offset` |

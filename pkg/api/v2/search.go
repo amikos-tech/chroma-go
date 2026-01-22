@@ -18,7 +18,7 @@ control over ranking, filtering, pagination, and field selection.
 	result, err := collection.Search(ctx,
 	    NewSearchRequest(
 	        WithKnnRank(KnnQueryText("machine learning")),
-	        WithPage(PageLimit(10)),
+	        WithLimit(10),
 	    ),
 	)
 
@@ -49,12 +49,13 @@ Use [WithSelect] to control which fields are returned:
 
 # Pagination
 
-Use [WithPage] for pagination:
+Use [WithLimit] and [WithOffset] for pagination:
 
 	result, err := collection.Search(ctx,
 	    NewSearchRequest(
 	        WithKnnRank(KnnQueryText("query")),
-	        WithPage(PageLimit(20), PageOffset(40)),  // Page 3
+	        WithLimit(20),
+	        WithOffset(40),  // Page 3
 	    ),
 	)
 
@@ -424,13 +425,13 @@ func WithFilterIDs(ids ...DocumentID) SearchRequestOption {
 	return WithIDs(ids...)
 }
 
-// Deprecated: Use [PageLimit] instead.
+// Deprecated: Use [NewPage] with [Limit] instead.
 // SearchWithLimit is kept for backward compatibility.
 func SearchWithLimit(limit int) PageOpts {
 	return PageLimit(limit)
 }
 
-// Deprecated: Use [PageOffset] instead.
+// Deprecated: Use [NewPage] with [Offset] instead.
 // SearchWithOffset is kept for backward compatibility.
 func SearchWithOffset(offset int) PageOpts {
 	return PageOffset(offset)
@@ -438,9 +439,7 @@ func SearchWithOffset(offset int) PageOpts {
 
 // SearchPage specifies pagination for search results.
 //
-// Use [WithPage] with [PageLimit] and [PageOffset] to configure pagination:
-//
-//	WithPage(PageLimit(20), PageOffset(40))  // Page 3 of 20 results per page
+// Deprecated: Use [NewPage] with [Limit] and [Offset] instead.
 type SearchPage struct {
 	// Limit is the maximum number of results to return.
 	Limit int `json:"limit,omitempty"`
@@ -450,15 +449,12 @@ type SearchPage struct {
 }
 
 // PageOpts configures pagination options for [WithPage].
+//
+// Deprecated: Use [NewPage] with [Limit] and [Offset] instead.
 type PageOpts func(page *SearchPage) error
 
+// Deprecated: Use [NewPage] with [Limit] instead.
 // PageLimit sets the maximum number of results to return.
-//
-// The limit must be >= 1.
-//
-// # Example
-//
-//	WithPage(PageLimit(20))  // Return up to 20 results
 func PageLimit(limit int) PageOpts {
 	return func(page *SearchPage) error {
 		if limit < 1 {
@@ -469,15 +465,8 @@ func PageLimit(limit int) PageOpts {
 	}
 }
 
+// Deprecated: Use [NewPage] with [Offset] instead.
 // PageOffset sets the number of results to skip.
-//
-// The offset must be >= 0. Use with [PageLimit] for pagination.
-//
-// # Example
-//
-//	pageSize := 20
-//	pageNum := 3  // 0-indexed
-//	WithPage(PageLimit(pageSize), PageOffset(pageNum * pageSize))
 func PageOffset(offset int) PageOpts {
 	return func(page *SearchPage) error {
 		if offset < 0 {
@@ -489,23 +478,27 @@ func PageOffset(offset int) PageOpts {
 }
 
 // pageOption implements pagination for Search operations.
-// Use [WithPage] to create this option.
 type pageOption struct {
 	page *SearchPage
 	err  error
 }
 
-// WithPage adds pagination to the search request.
+// Deprecated: Use [NewPage] with [Limit] and [Offset] instead.
 //
-// Combine [PageLimit] and [PageOffset] to control result pagination.
+// # Migration Example
 //
-// # Example
+// Before:
 //
-//	// Get first 20 results
-//	WithPage(PageLimit(20))
+//	NewSearchRequest(WithPage(PageLimit(20), PageOffset(40)))
 //
-//	// Get page 3 (results 40-59)
-//	WithPage(PageLimit(20), PageOffset(40))
+// After (using Page):
+//
+//	page, _ := NewPage(Limit(20), Offset(40))
+//	NewSearchRequest(page)
+//
+// Or (using WithLimit/WithOffset directly):
+//
+//	NewSearchRequest(WithLimit(20), WithOffset(40))
 func WithPage(pageOpts ...PageOpts) *pageOption {
 	page := &SearchPage{}
 	for _, opt := range pageOpts {

@@ -127,7 +127,7 @@ func basicSearch(ctx context.Context, col chroma.Collection) {
 				chroma.KnnQueryText("neural networks and deep learning"),
 				chroma.WithKnnLimit(50),
 			),
-			chroma.WithPage(chroma.WithLimit(5)),
+			chroma.WithLimit(5),
 			chroma.WithSelect(chroma.KDocument, chroma.KScore),
 		),
 	)
@@ -156,7 +156,7 @@ func searchWithFilter(ctx context.Context, col chroma.Collection) {
 					chroma.GteInt(chroma.K("year"), 2023),
 				),
 			),
-			chroma.WithPage(chroma.WithLimit(5)),
+			chroma.WithLimit(5),
 			chroma.WithSelect(chroma.KDocument, chroma.KScore, chroma.K("category"), chroma.K("year")),
 		),
 	)
@@ -201,7 +201,7 @@ func weightedSearch(ctx context.Context, col chroma.Collection) {
 	result, err := col.Search(ctx,
 		chroma.NewSearchRequest(
 			chroma.WithRank(combined),
-			chroma.WithPage(chroma.WithLimit(5)),
+			chroma.WithLimit(5),
 			chroma.WithSelect(chroma.KDocument, chroma.KScore),
 		),
 	)
@@ -239,11 +239,11 @@ func rrfSearch(ctx context.Context, col chroma.Collection) {
 	}
 
 	rrf, err := chroma.NewRrfRank(
-		chroma.WithRffRanks(
+		chroma.WithRrfRanks(
 			knn1.WithWeight(0.6),
 			knn2.WithWeight(0.4),
 		),
-		chroma.WithRffK(60),
+		chroma.WithRrfK(60),
 	)
 	if err != nil {
 		log.Printf("Error creating RRF: %v", err)
@@ -253,7 +253,7 @@ func rrfSearch(ctx context.Context, col chroma.Collection) {
 	result, err := col.Search(ctx,
 		chroma.NewSearchRequest(
 			chroma.WithRank(rrf),
-			chroma.WithPage(chroma.WithLimit(5)),
+			chroma.WithLimit(5),
 			chroma.WithSelect(chroma.KDocument, chroma.KScore),
 		),
 	)
@@ -265,13 +265,16 @@ func rrfSearch(ctx context.Context, col chroma.Collection) {
 	printResults(result)
 }
 
-// paginatedSearch demonstrates pagination through results
+// paginatedSearch demonstrates pagination through results using Page
 func paginatedSearch(ctx context.Context, col chroma.Collection) {
 	fmt.Println("\n=== Paginated Search ===")
 
-	pageSize := 3
-	for page := 0; page < 3; page++ {
-		fmt.Printf("\n--- Page %d ---\n", page+1)
+	// Create a page with custom size - Page eliminates off-by-one errors
+	// NewPage uses deferred validation for ergonomic inline usage
+	page := chroma.NewPage(chroma.Limit(3))
+
+	for i := 0; i < 3; i++ {
+		fmt.Printf("\n--- Page %d (offset: %d) ---\n", page.Number()+1, page.GetOffset())
 
 		result, err := col.Search(ctx,
 			chroma.NewSearchRequest(
@@ -279,10 +282,7 @@ func paginatedSearch(ctx context.Context, col chroma.Collection) {
 					chroma.KnnQueryText("learning"),
 					chroma.WithKnnLimit(50),
 				),
-				chroma.WithPage(
-					chroma.WithLimit(pageSize),
-					chroma.WithOffset(page*pageSize),
-				),
+				page, // Page implements SearchRequestOption
 				chroma.WithSelect(chroma.KDocument, chroma.KScore),
 			),
 		)
@@ -292,6 +292,9 @@ func paginatedSearch(ctx context.Context, col chroma.Collection) {
 		}
 
 		printResults(result)
+
+		// Move to next page - immutable, returns new Page
+		page = page.Next()
 	}
 }
 

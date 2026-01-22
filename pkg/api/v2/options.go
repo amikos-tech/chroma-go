@@ -22,8 +22,9 @@ The following table shows which options work with which operations:
 	WithWhere           |  ✓  |   ✓   |   ✓    |     |        |
 	WithWhereDocument   |  ✓  |   ✓   |   ✓    |     |        |
 	WithInclude         |  ✓  |   ✓   |        |     |        |
-	WithLimit           |  ✓  |       |        |     |        |
-	WithOffset          |  ✓  |       |        |     |        |
+	WithLimit           |  ✓  |       |        |     |        |   ✓
+	WithOffset          |  ✓  |       |        |     |        |   ✓
+	Page (NewPage)      |  ✓  |       |        |     |        |   ✓
 	WithNResults        |     |   ✓   |        |     |        |
 	WithQueryTexts      |     |   ✓   |        |     |        |
 	WithQueryEmbeddings |     |   ✓   |        |     |        |
@@ -33,7 +34,7 @@ The following table shows which options work with which operations:
 	WithIDGenerator     |     |       |        |  ✓  |        |
 	WithSearchWhere     |     |       |        |     |        |   ✓
 	WithFilter          |     |       |        |     |        |   ✓
-	WithPage            |     |       |        |     |        |   ✓
+	WithPage            |     |       |        |     |        |   ✓  (deprecated)
 	WithSelect          |     |       |        |     |        |   ✓
 	WithRank            |     |       |        |     |        |   ✓
 	WithGroupBy         |     |       |        |     |        |   ✓
@@ -67,7 +68,7 @@ The following table shows which options work with which operations:
 	    NewSearchRequest(
 	        WithKnnRank(KnnQueryText("query")),
 	        WithFilter(EqString(K("category"), "tech")),
-	        WithPage(PageLimit(20)),
+	        WithLimit(20),
 	    ),
 	)
 */
@@ -515,23 +516,32 @@ func (o *includeOption) ApplyToQuery(op *CollectionQueryOp) error {
 	return nil
 }
 
-// limitOption implements limit for Get operations.
+// limitOption implements limit for Get and Search operations.
 // Use [WithLimit] to create this option.
 type limitOption struct {
 	limit int
 }
 
-// WithLimit sets the maximum number of documents to return from [Collection.Get].
+// WithLimit sets the maximum number of results to return.
 //
-// Use this with [WithOffset] for pagination. The limit must be greater than 0.
+// Works with both [Collection.Get] and [Collection.Search]. Use with [WithOffset]
+// for pagination. The limit must be greater than 0.
 //
 // For [Collection.Query], use [WithNResults] instead.
-// For [Collection.Search], use [WithPage] with [PageLimit] instead.
 //
-// # Example
+// # Get Example
 //
-//	// Get first 100 documents
 //	results, err := collection.Get(ctx, WithLimit(100))
+//
+// # Search Example
+//
+//	result, err := collection.Search(ctx,
+//	    NewSearchRequest(
+//	        WithKnnRank(KnnQueryText("query")),
+//	        WithLimit(10),
+//	        WithOffset(20),
+//	    ),
+//	)
 //
 // # Pagination Example
 //
@@ -552,19 +562,29 @@ func (o *limitOption) ApplyToGet(op *CollectionGetOp) error {
 	return nil
 }
 
-// offsetOption implements offset for Get operations.
+func (o *limitOption) ApplyToSearchRequest(req *SearchRequest) error {
+	if o.limit <= 0 {
+		return ErrInvalidLimit
+	}
+	if req.Limit == nil {
+		req.Limit = &SearchPage{}
+	}
+	req.Limit.Limit = o.limit
+	return nil
+}
+
+// offsetOption implements offset for Get and Search operations.
 // Use [WithOffset] to create this option.
 type offsetOption struct {
 	offset int
 }
 
-// WithOffset sets the number of documents to skip in [Collection.Get] results.
+// WithOffset sets the number of results to skip.
 //
-// Use this with [WithLimit] for pagination. The offset must be >= 0.
+// Works with both [Collection.Get] and [Collection.Search]. Use with [WithLimit]
+// for pagination. The offset must be >= 0.
 //
-// For [Collection.Search], use [WithPage] with [PageOffset] instead.
-//
-// # Pagination Example
+// # Get Pagination Example
 //
 //	pageSize := 25
 //	pageNum := 3 // 0-indexed
@@ -572,6 +592,16 @@ type offsetOption struct {
 //	results, err := collection.Get(ctx,
 //	    WithLimit(pageSize),
 //	    WithOffset(pageNum * pageSize),
+//	)
+//
+// # Search Pagination Example
+//
+//	result, err := collection.Search(ctx,
+//	    NewSearchRequest(
+//	        WithKnnRank(KnnQueryText("query")),
+//	        WithLimit(20),
+//	        WithOffset(40), // Page 3
+//	    ),
 //	)
 func WithOffset(offset int) *offsetOption {
 	return &offsetOption{offset: offset}
@@ -582,6 +612,17 @@ func (o *offsetOption) ApplyToGet(op *CollectionGetOp) error {
 		return ErrInvalidOffset
 	}
 	op.Offset = o.offset
+	return nil
+}
+
+func (o *offsetOption) ApplyToSearchRequest(req *SearchRequest) error {
+	if o.offset < 0 {
+		return ErrInvalidOffset
+	}
+	if req.Limit == nil {
+		req.Limit = &SearchPage{}
+	}
+	req.Limit.Offset = o.offset
 	return nil
 }
 
@@ -814,25 +855,20 @@ func (o *searchWhereOption) ApplyToSearchRequest(req *SearchRequest) error {
 // These errors are returned when option validation fails during operation construction.
 var (
 	// ErrInvalidLimit is returned when [WithLimit] receives a value <= 0.
-	ErrInvalidLimit = errorString("limit must be greater than 0")
+	ErrInvalidLimit = errors.New("limit must be greater than 0")
 
 	// ErrInvalidOffset is returned when [WithOffset] receives a negative value.
-	ErrInvalidOffset = errorString("offset must be greater than or equal to 0")
+	ErrInvalidOffset = errors.New("offset must be greater than or equal to 0")
 
 	// ErrInvalidNResults is returned when [WithNResults] receives a value <= 0.
-	ErrInvalidNResults = errorString("nResults must be greater than 0")
+	ErrInvalidNResults = errors.New("nResults must be greater than 0")
 
 	// ErrNoQueryTexts is returned when [WithQueryTexts] is called with no texts.
-	ErrNoQueryTexts = errorString("at least one query text is required")
+	ErrNoQueryTexts = errors.New("at least one query text is required")
 
 	// ErrNoTexts is returned when [WithTexts] is called with no texts.
-	ErrNoTexts = errorString("at least one text is required")
+	ErrNoTexts = errors.New("at least one text is required")
 
 	// ErrNoMetadatas is returned when [WithMetadatas] is called with no metadatas.
-	ErrNoMetadatas = errorString("at least one metadata is required")
+	ErrNoMetadatas = errors.New("at least one metadata is required")
 )
-
-// errorString is a simple error type for constant errors.
-type errorString string
-
-func (e errorString) Error() string { return string(e) }

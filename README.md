@@ -234,7 +234,7 @@ results, _ := col.Search(ctx,
 chroma.NewSearchRequest(
 chroma.WithKnnRank(chroma.KnnQueryText("query")),
 chroma.WithFilter(chroma.EqString(chroma.K("category"), "tech")),
-chroma.WithPage(chroma.PageLimit(20)),
+chroma.NewPage(chroma.Limit(20)),
 chroma.WithSelect(chroma.KDocument, chroma.KScore),
 ),
 )
