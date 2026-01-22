@@ -272,12 +272,12 @@ func getRecommendations(
 
 	// Build search
 	searchOpts := []v2.SearchOption{
-		v2.WithRffRank(
-			v2.WithRffRanks(
+		v2.WithRrfRank(
+			v2.WithRrfRanks(
 				interestKnn.WithWeight(0.6),
 				topicsKnn.WithWeight(0.4),
 			),
-			v2.WithRffK(60),
+			v2.WithRrfK(60),
 		),
 		v2.WithPage(v2.PageLimit(numRecommendations)),
 		v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title"), v2.K("category"), v2.K("author"), v2.K("rating")),

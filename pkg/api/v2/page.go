@@ -1,6 +1,9 @@
 package v2
 
-import "errors"
+import (
+	"errors"
+	"math"
+)
 
 /*
 Page provides fluent pagination for Get and Search operations.
@@ -113,15 +116,16 @@ func NewPage(opts ...PageOption) *Page {
 // Returns an error if limit <= 0 or offset < 0.
 func (p *Page) Validate() error {
 	if p.limit <= 0 {
-		return errors.New("limit must be > 0")
+		return errors.New("limit must be greater than 0")
 	}
 	if p.offset < 0 {
-		return errors.New("offset must be >= 0")
+		return errors.New("offset must be greater than or equal to 0")
 	}
 	return nil
 }
 
 // Next returns a new Page for the next set of results.
+// If the next offset would overflow, returns a Page at maximum offset.
 //
 // Example:
 //
@@ -132,6 +136,9 @@ func (p *Page) Validate() error {
 //	page = page.Next()
 //	// page.GetOffset() == 40
 func (p *Page) Next() *Page {
+	if p.offset > math.MaxInt-p.limit {
+		return &Page{limit: p.limit, offset: math.MaxInt}
+	}
 	return &Page{limit: p.limit, offset: p.offset + p.limit}
 }
 

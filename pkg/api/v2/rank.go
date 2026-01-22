@@ -999,30 +999,33 @@ func (k *KnnRank) UnmarshalJSON(b []byte) error {
 	return errors.New("json: cannot unmarshal KnnRank JSON object")
 }
 
-// RffOption configures [RrfRank] parameters.
-type RffOption func(req *RrfRank) error
+// RrfOption configures [RrfRank] parameters.
+type RrfOption func(req *RrfRank) error
 
-// WithRffRanks adds weighted ranking expressions to RRF.
+// Deprecated: Use [RrfOption] instead.
+type RffOption = RrfOption
+
+// WithRrfRanks adds weighted ranking expressions to RRF.
 // Each rank should use [WithKnnReturnRank] to return rank positions instead of distances.
 //
 // Example:
 //
 //	rrf, _ := NewRrfRank(
-//	    WithRffRanks(
+//	    WithRrfRanks(
 //	        NewKnnRank(KnnQueryText("query1"), WithKnnReturnRank()).WithWeight(0.5),
 //	        NewKnnRank(KnnQueryText("query2"), WithKnnReturnRank()).WithWeight(0.5),
 //	    ),
 //	)
-func WithRffRanks(ranks ...RankWithWeight) RffOption {
+func WithRrfRanks(ranks ...RankWithWeight) RrfOption {
 	return func(req *RrfRank) error {
 		req.Ranks = append(req.Ranks, ranks...)
 		return nil
 	}
 }
 
-// WithRffK sets the smoothing constant for RRF. Default is 60.
+// WithRrfK sets the smoothing constant for RRF. Default is 60.
 // Higher values reduce the impact of rank differences.
-func WithRffK(k int) RffOption {
+func WithRrfK(k int) RrfOption {
 	return func(req *RrfRank) error {
 		if k < 1 {
 			return errors.New("rrf k must be >= 1")
@@ -1032,8 +1035,8 @@ func WithRffK(k int) RffOption {
 	}
 }
 
-// WithRffNormalize enables weight normalization so weights sum to 1.0.
-func WithRffNormalize() RffOption {
+// WithRrfNormalize enables weight normalization so weights sum to 1.0.
+func WithRrfNormalize() RrfOption {
 	return func(req *RrfRank) error {
 		req.Normalize = true
 		return nil
@@ -1051,11 +1054,11 @@ func WithRffNormalize() RffOption {
 // Example:
 //
 //	rrf, err := NewRrfRank(
-//	    WithRffRanks(
+//	    WithRrfRanks(
 //	        NewKnnRank(KnnQueryText("AI"), WithKnnReturnRank()).WithWeight(1.0),
 //	        NewKnnRank(KnnQueryText("ML"), WithKnnReturnRank()).WithWeight(1.0),
 //	    ),
-//	    WithRffK(60),
+//	    WithRrfK(60),
 //	)
 type RrfRank struct {
 	Ranks     []RankWithWeight
@@ -1068,11 +1071,11 @@ type RrfRank struct {
 // Example:
 //
 //	rrf, err := NewRrfRank(
-//	    WithRffRanks(
+//	    WithRrfRanks(
 //	        NewKnnRank(KnnQueryText("query"), WithKnnReturnRank()).WithWeight(1.0),
 //	    ),
-//	    WithRffK(60),
-//	    WithRffNormalize(),
+//	    WithRrfK(60),
+//	    WithRrfNormalize(),
 //	)
 //
 // MaxRrfRanks is the maximum number of ranks allowed in RRF to prevent excessive memory allocation.
@@ -1084,7 +1087,7 @@ const MaxExpressionTerms = 1000
 // MaxExpressionDepth is the maximum nesting depth for rank expressions to prevent stack overflow.
 const MaxExpressionDepth = 100
 
-func NewRrfRank(opts ...RffOption) (*RrfRank, error) {
+func NewRrfRank(opts ...RrfOption) (*RrfRank, error) {
 	rrf := &RrfRank{
 		K: 60,
 	}
@@ -1270,36 +1273,48 @@ func (o *knnRankOption) ApplyToSearchRequest(req *SearchRequest) error {
 	return nil
 }
 
-// rffRankOption implements RRF ranking for Search operations.
-type rffRankOption struct {
+// rrfRankOption implements RRF ranking for Search operations.
+type rrfRankOption struct {
 	rrf *RrfRank
 	err error
 }
 
-// WithRffRank adds an RRF ranking expression to a search request.
+// WithRrfRank adds an RRF ranking expression to a search request.
 //
 // Example:
 //
 //	search := NewSearchRequest(
-//	    WithRffRank(
-//	        WithRffRanks(
+//	    WithRrfRank(
+//	        WithRrfRanks(
 //	            NewKnnRank(KnnQueryText("q1"), WithKnnReturnRank()).WithWeight(0.5),
 //	            NewKnnRank(KnnQueryText("q2"), WithKnnReturnRank()).WithWeight(0.5),
 //	        ),
 //	    ),
 //	)
-func WithRffRank(opts ...RffOption) *rffRankOption {
+func WithRrfRank(opts ...RrfOption) *rrfRankOption {
 	rrf, err := NewRrfRank(opts...)
 	if err != nil {
-		return &rffRankOption{err: err}
+		return &rrfRankOption{err: err}
 	}
-	return &rffRankOption{rrf: rrf}
+	return &rrfRankOption{rrf: rrf}
 }
 
-func (o *rffRankOption) ApplyToSearchRequest(req *SearchRequest) error {
+func (o *rrfRankOption) ApplyToSearchRequest(req *SearchRequest) error {
 	if o.err != nil {
 		return o.err
 	}
 	req.Rank = o.rrf
 	return nil
 }
+
+// Deprecated: Use [WithRrfRanks] instead.
+func WithRffRanks(ranks ...RankWithWeight) RrfOption { return WithRrfRanks(ranks...) }
+
+// Deprecated: Use [WithRrfK] instead.
+func WithRffK(k int) RrfOption { return WithRrfK(k) }
+
+// Deprecated: Use [WithRrfNormalize] instead.
+func WithRffNormalize() RrfOption { return WithRrfNormalize() }
+
+// Deprecated: Use [WithRrfRank] instead.
+func WithRffRank(opts ...RrfOption) *rrfRankOption { return WithRrfRank(opts...) }

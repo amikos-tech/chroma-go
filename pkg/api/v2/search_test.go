@@ -100,6 +100,48 @@ func TestWithPageErrorPropagation(t *testing.T) {
 	})
 }
 
+func TestUnifiedLimitOffsetForSearch(t *testing.T) {
+	t.Run("WithLimit sets search limit", func(t *testing.T) {
+		req := &SearchRequest{}
+		err := WithLimit(25).ApplyToSearchRequest(req)
+		require.NoError(t, err)
+		require.NotNil(t, req.Limit)
+		require.Equal(t, 25, req.Limit.Limit)
+	})
+
+	t.Run("WithOffset sets search offset", func(t *testing.T) {
+		req := &SearchRequest{}
+		err := WithOffset(50).ApplyToSearchRequest(req)
+		require.NoError(t, err)
+		require.NotNil(t, req.Limit)
+		require.Equal(t, 50, req.Limit.Offset)
+	})
+
+	t.Run("WithLimit and WithOffset together", func(t *testing.T) {
+		req := &SearchRequest{}
+		err := WithLimit(20).ApplyToSearchRequest(req)
+		require.NoError(t, err)
+		err = WithOffset(40).ApplyToSearchRequest(req)
+		require.NoError(t, err)
+		require.Equal(t, 20, req.Limit.Limit)
+		require.Equal(t, 40, req.Limit.Offset)
+	})
+
+	t.Run("invalid limit returns error", func(t *testing.T) {
+		req := &SearchRequest{}
+		err := WithLimit(0).ApplyToSearchRequest(req)
+		require.Error(t, err)
+		require.Equal(t, ErrInvalidLimit, err)
+	})
+
+	t.Run("negative offset returns error", func(t *testing.T) {
+		req := &SearchRequest{}
+		err := WithOffset(-1).ApplyToSearchRequest(req)
+		require.Error(t, err)
+		require.Equal(t, ErrInvalidOffset, err)
+	})
+}
+
 func TestSearchSelect(t *testing.T) {
 	t.Run("select standard keys", func(t *testing.T) {
 		req := &SearchRequest{}
@@ -286,13 +328,13 @@ func TestWithKnnRank(t *testing.T) {
 	})
 }
 
-func TestWithRffRank(t *testing.T) {
-	t.Run("basic rff rank", func(t *testing.T) {
+func TestWithRrfRank(t *testing.T) {
+	t.Run("basic rrf rank", func(t *testing.T) {
 		req := &SearchRequest{}
 		knn1 := mustKnnRank(t, KnnQueryText("query1"))
 		knn2 := mustKnnRank(t, KnnQueryText("query2"))
-		err := WithRffRank(
-			WithRffRanks(
+		err := WithRrfRank(
+			WithRrfRanks(
 				knn1.WithWeight(0.5),
 				knn2.WithWeight(0.5),
 			),
@@ -305,12 +347,12 @@ func TestWithRffRank(t *testing.T) {
 		require.Len(t, rrf.Ranks, 2)
 	})
 
-	t.Run("rff with custom k", func(t *testing.T) {
+	t.Run("rrf with custom k", func(t *testing.T) {
 		req := &SearchRequest{}
 		knn := mustKnnRank(t, KnnQueryText("test"))
-		err := WithRffRank(
-			WithRffRanks(knn.WithWeight(1.0)),
-			WithRffK(100),
+		err := WithRrfRank(
+			WithRrfRanks(knn.WithWeight(1.0)),
+			WithRrfK(100),
 		).ApplyToSearchRequest(req)
 		require.NoError(t, err)
 
@@ -318,12 +360,12 @@ func TestWithRffRank(t *testing.T) {
 		require.Equal(t, 100, rrf.K)
 	})
 
-	t.Run("rff with invalid k returns error", func(t *testing.T) {
+	t.Run("rrf with invalid k returns error", func(t *testing.T) {
 		req := &SearchRequest{}
 		knn := mustKnnRank(t, KnnQueryText("test"))
-		err := WithRffRank(
-			WithRffRanks(knn.WithWeight(1.0)),
-			WithRffK(-1),
+		err := WithRrfRank(
+			WithRrfRanks(knn.WithWeight(1.0)),
+			WithRrfK(-1),
 		).ApplyToSearchRequest(req)
 		require.Error(t, err)
 	})

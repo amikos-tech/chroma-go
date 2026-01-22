@@ -68,8 +68,8 @@ func main() {
 	// Create RRF with weighted ranks
 	result, err := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithRffRank(
-				v2.WithRffRanks(
+			v2.WithRrfRank(
+				v2.WithRrfRanks(
 					denseKnn.WithWeight(1.0),
 					sparseKnn.WithWeight(1.0),
 				),
@@ -157,8 +157,8 @@ func main() {
 	// Custom weights - Dense 3x more important
 	result1, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithRffRank(
-				v2.WithRffRanks(
+			v2.WithRrfRank(
+				v2.WithRrfRanks(
 					denseKnn.WithWeight(3.0),
 					sparseKnn.WithWeight(1.0),
 				),
@@ -183,12 +183,12 @@ func main() {
 
 	result2, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithRffRank(
-				v2.WithRffRanks(
+			v2.WithRrfRank(
+				v2.WithRrfRanks(
 					denseKnn2.WithWeight(75),
 					sparseKnn2.WithWeight(25),
 				),
-				v2.WithRffNormalize(), // Normalize to sum to 1.0
+				v2.WithRrfNormalize(), // Normalize to sum to 1.0
 			),
 			v2.WithPage(v2.PageLimit(10)),
 		),
@@ -258,12 +258,12 @@ func main() {
 	// Small k=10 - top results heavily weighted
 	result1, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithRffRank(
-				v2.WithRffRanks(
+			v2.WithRrfRank(
+				v2.WithRrfRanks(
 					denseKnn.WithWeight(1.0),
 					sparseKnn.WithWeight(1.0),
 				),
-				v2.WithRffK(10),
+				v2.WithRrfK(10),
 			),
 			v2.WithPage(v2.PageLimit(10)),
 		),
@@ -284,8 +284,8 @@ func main() {
 
 	result2, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithRffRank(
-				v2.WithRffRanks(
+			v2.WithRrfRank(
+				v2.WithRrfRanks(
 					denseKnn2.WithWeight(1.0),
 					sparseKnn2.WithWeight(1.0),
 				),
@@ -386,12 +386,12 @@ func main() {
 	result, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.EqString("status", "published")),
-			v2.WithRffRank(
-				v2.WithRffRanks(
+			v2.WithRrfRank(
+				v2.WithRrfRanks(
 					denseRank.WithWeight(0.7),
 					sparseRank.WithWeight(0.3),
 				),
-				v2.WithRffK(60),
+				v2.WithRrfK(60),
 			),
 			v2.WithPage(v2.PageLimit(20)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title")),
@@ -494,12 +494,12 @@ func main() {
 					v2.GteInt("year", 2020),
 				),
 			),
-			v2.WithRffRank(
-				v2.WithRffRanks(
+			v2.WithRrfRank(
+				v2.WithRrfRanks(
 					denseKnn.WithWeight(2.0),  // Dense 2x more important
 					sparseKnn.WithWeight(1.0),
 				),
-				v2.WithRffK(60),
+				v2.WithRrfK(60),
 			),
 			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title"), v2.K("year")),
@@ -533,10 +533,10 @@ func main() {
 
 | Python | Go Function | Description |
 |--------|-------------|-------------|
-| `ranks=[...]` | `v2.WithRffRanks()` | List of weighted ranks |
+| `ranks=[...]` | `v2.WithRrfRanks()` | List of weighted ranks |
 | `weights=[...]` | `.WithWeight(w)` on each rank | Weight for each ranking |
-| `k=N` | `v2.WithRffK(N)` | Smoothing parameter (default: 60) |
-| `normalize=True` | `v2.WithRffNormalize()` | Normalize weights to sum to 1.0 |
+| `k=N` | `v2.WithRrfK(N)` | Smoothing parameter (default: 60) |
+| `normalize=True` | `v2.WithRrfNormalize()` | Normalize weights to sum to 1.0 |
 
 ## RRF Formula
 

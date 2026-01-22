@@ -3,6 +3,7 @@
 package v2
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -40,7 +41,7 @@ func TestLimitValidation(t *testing.T) {
 		op := &CollectionGetOp{}
 		err := page.ApplyToGet(op)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "limit must be > 0")
+		require.Contains(t, err.Error(), "limit must be greater than 0")
 	})
 
 	t.Run("negative limit returns error at apply time", func(t *testing.T) {
@@ -48,7 +49,7 @@ func TestLimitValidation(t *testing.T) {
 		req := &SearchRequest{}
 		err := page.ApplyToSearchRequest(req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "limit must be > 0")
+		require.Contains(t, err.Error(), "limit must be greater than 0")
 	})
 }
 
@@ -58,7 +59,7 @@ func TestOffsetValidation(t *testing.T) {
 		op := &CollectionGetOp{}
 		err := page.ApplyToGet(op)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "offset must be >= 0")
+		require.Contains(t, err.Error(), "offset must be greater than or equal to 0")
 	})
 
 	t.Run("zero offset is allowed", func(t *testing.T) {
@@ -86,6 +87,13 @@ func TestPageNext(t *testing.T) {
 	page = page.Next()
 	require.Equal(t, 60, page.GetOffset())
 	require.Equal(t, 3, page.Number())
+}
+
+func TestPageNextOverflowProtection(t *testing.T) {
+	page := NewPage(Limit(20), Offset(math.MaxInt-10))
+	next := page.Next()
+	require.Equal(t, math.MaxInt, next.GetOffset(), "offset should be clamped to MaxInt on overflow")
+	require.Equal(t, 20, next.Size(), "limit should be preserved")
 }
 
 func TestPagePrev(t *testing.T) {
@@ -240,7 +248,7 @@ func TestPageInlineUsage(t *testing.T) {
 			NewPage(Limit(-1)),
 		)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "limit must be > 0")
+		require.Contains(t, err.Error(), "limit must be greater than 0")
 	})
 }
 
@@ -254,21 +262,21 @@ func TestPageValidate(t *testing.T) {
 		page := NewPage(Limit(0))
 		err := page.Validate()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "limit must be > 0")
+		require.Contains(t, err.Error(), "limit must be greater than 0")
 	})
 
 	t.Run("negative limit fails validation", func(t *testing.T) {
 		page := NewPage(Limit(-5))
 		err := page.Validate()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "limit must be > 0")
+		require.Contains(t, err.Error(), "limit must be greater than 0")
 	})
 
 	t.Run("negative offset fails validation", func(t *testing.T) {
 		page := NewPage(Offset(-10))
 		err := page.Validate()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "offset must be >= 0")
+		require.Contains(t, err.Error(), "offset must be greater than or equal to 0")
 	})
 
 	t.Run("default page passes validation", func(t *testing.T) {
