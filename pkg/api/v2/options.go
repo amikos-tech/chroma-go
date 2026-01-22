@@ -200,7 +200,7 @@ func WithIDs(ids ...DocumentID) *idsOption {
 
 func (o *idsOption) ApplyToGet(op *CollectionGetOp) error {
 	if len(o.ids) == 0 {
-		return errors.New("at least one id is required")
+		return nil
 	}
 	op.Ids = append(op.Ids, o.ids...)
 	return nil
