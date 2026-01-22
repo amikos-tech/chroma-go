@@ -1,6 +1,9 @@
 package v2
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 /*
 Unified Options API
@@ -157,6 +160,24 @@ type SearchRequestOptionFunc func(*SearchRequest) error
 // ApplyToSearchRequest implements [SearchRequestOption].
 func (f SearchRequestOptionFunc) ApplyToSearchRequest(req *SearchRequest) error { return f(req) }
 
+// checkDuplicateIDs validates that ids contains no duplicates and no overlap with existing.
+// Returns an error identifying the first duplicate found.
+func checkDuplicateIDs(ids []DocumentID, existing []DocumentID) error {
+	seen := make(map[DocumentID]struct{}, len(existing)+len(ids))
+
+	for _, id := range existing {
+		seen[id] = struct{}{}
+	}
+
+	for _, id := range ids {
+		if _, exists := seen[id]; exists {
+			return fmt.Errorf("duplicate id: %s", id)
+		}
+		seen[id] = struct{}{}
+	}
+	return nil
+}
+
 // idsOption implements ID filtering for all operations.
 // Use [WithIDs] to create this option.
 type idsOption struct {
@@ -195,7 +216,9 @@ type idsOption struct {
 //	    WithTexts("First document", "Second document"),
 //	)
 //
-// Note: Calling WithIDs multiple times will append IDs, not overwrite them.
+// Note: Calling WithIDs multiple times will append IDs to support incremental
+// array construction in the columnar API. Duplicate IDs (within a call or
+// across calls) will return an error immediately.
 // At least one ID must be provided.
 func WithIDs(ids ...DocumentID) *idsOption {
 	return &idsOption{ids: ids}
@@ -205,6 +228,9 @@ func (o *idsOption) ApplyToGet(op *CollectionGetOp) error {
 	if len(o.ids) == 0 {
 		return errors.New("at least one id is required")
 	}
+	if err := checkDuplicateIDs(o.ids, op.Ids); err != nil {
+		return err
+	}
 	op.Ids = append(op.Ids, o.ids...)
 	return nil
 }
@@ -212,6 +238,9 @@ func (o *idsOption) ApplyToGet(op *CollectionGetOp) error {
 func (o *idsOption) ApplyToQuery(op *CollectionQueryOp) error {
 	if len(o.ids) == 0 {
 		return errors.New("at least one id is required")
+	}
+	if err := checkDuplicateIDs(o.ids, op.Ids); err != nil {
+		return err
 	}
 	op.Ids = append(op.Ids, o.ids...)
 	return nil
@@ -221,6 +250,9 @@ func (o *idsOption) ApplyToDelete(op *CollectionDeleteOp) error {
 	if len(o.ids) == 0 {
 		return errors.New("at least one id is required")
 	}
+	if err := checkDuplicateIDs(o.ids, op.Ids); err != nil {
+		return err
+	}
 	op.Ids = append(op.Ids, o.ids...)
 	return nil
 }
@@ -229,6 +261,9 @@ func (o *idsOption) ApplyToAdd(op *CollectionAddOp) error {
 	if len(o.ids) == 0 {
 		return errors.New("at least one id is required")
 	}
+	if err := checkDuplicateIDs(o.ids, op.Ids); err != nil {
+		return err
+	}
 	op.Ids = append(op.Ids, o.ids...)
 	return nil
 }
@@ -236,6 +271,9 @@ func (o *idsOption) ApplyToAdd(op *CollectionAddOp) error {
 func (o *idsOption) ApplyToUpdate(op *CollectionUpdateOp) error {
 	if len(o.ids) == 0 {
 		return errors.New("at least one id is required")
+	}
+	if err := checkDuplicateIDs(o.ids, op.Ids); err != nil {
+		return err
 	}
 	op.Ids = append(op.Ids, o.ids...)
 	return nil
@@ -247,6 +285,9 @@ func (o *idsOption) ApplyToSearchRequest(req *SearchRequest) error {
 	}
 	if req.Filter == nil {
 		req.Filter = &SearchFilter{}
+	}
+	if err := checkDuplicateIDs(o.ids, req.Filter.IDs); err != nil {
+		return err
 	}
 	req.Filter.IDs = append(req.Filter.IDs, o.ids...)
 	return nil

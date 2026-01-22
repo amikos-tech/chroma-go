@@ -477,3 +477,121 @@ func TestEarlyValidationInvalidSearchWhereFilter(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestWithIDsDuplicateWithinSingleCall(t *testing.T) {
+	t.Run("duplicate IDs within single call for Get returns error", func(t *testing.T) {
+		opt := WithIDs("id1", "id1")
+		op := &CollectionGetOp{}
+		err := opt.ApplyToGet(op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id1")
+	})
+
+	t.Run("duplicate IDs within single call for Query returns error", func(t *testing.T) {
+		opt := WithIDs("id1", "id2", "id1")
+		op := &CollectionQueryOp{}
+		err := opt.ApplyToQuery(op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id1")
+	})
+
+	t.Run("duplicate IDs within single call for Delete returns error", func(t *testing.T) {
+		opt := WithIDs("id1", "id1")
+		op := &CollectionDeleteOp{}
+		err := opt.ApplyToDelete(op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id1")
+	})
+
+	t.Run("duplicate IDs within single call for Add returns error", func(t *testing.T) {
+		opt := WithIDs("id1", "id1")
+		op := &CollectionAddOp{}
+		err := opt.ApplyToAdd(op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id1")
+	})
+
+	t.Run("duplicate IDs within single call for Update returns error", func(t *testing.T) {
+		opt := WithIDs("id1", "id1")
+		op := &CollectionUpdateOp{}
+		err := opt.ApplyToUpdate(op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id1")
+	})
+
+	t.Run("duplicate IDs within single call for Search returns error", func(t *testing.T) {
+		opt := WithIDs("id1", "id1")
+		req := &SearchRequest{}
+		err := opt.ApplyToSearchRequest(req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id1")
+	})
+}
+
+func TestWithIDsDuplicateAcrossMultipleCalls(t *testing.T) {
+	t.Run("duplicate IDs across calls for Get returns error", func(t *testing.T) {
+		opt1 := WithIDs("id1", "id2")
+		opt2 := WithIDs("id2", "id3")
+
+		op := &CollectionGetOp{}
+		require.NoError(t, opt1.ApplyToGet(op))
+		err := opt2.ApplyToGet(op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id2")
+	})
+
+	t.Run("duplicate IDs across calls for Query returns error", func(t *testing.T) {
+		opt1 := WithIDs("id1", "id2")
+		opt2 := WithIDs("id3", "id1")
+
+		op := &CollectionQueryOp{}
+		require.NoError(t, opt1.ApplyToQuery(op))
+		err := opt2.ApplyToQuery(op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id1")
+	})
+
+	t.Run("duplicate IDs across calls for Delete returns error", func(t *testing.T) {
+		opt1 := WithIDs("id1")
+		opt2 := WithIDs("id1")
+
+		op := &CollectionDeleteOp{}
+		require.NoError(t, opt1.ApplyToDelete(op))
+		err := opt2.ApplyToDelete(op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id1")
+	})
+
+	t.Run("duplicate IDs across calls for Add returns error", func(t *testing.T) {
+		opt1 := WithIDs("id1", "id2")
+		opt2 := WithIDs("id2")
+
+		op := &CollectionAddOp{}
+		require.NoError(t, opt1.ApplyToAdd(op))
+		err := opt2.ApplyToAdd(op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id2")
+	})
+
+	t.Run("duplicate IDs across calls for Update returns error", func(t *testing.T) {
+		opt1 := WithIDs("id1", "id2", "id3")
+		opt2 := WithIDs("id4", "id3")
+
+		op := &CollectionUpdateOp{}
+		require.NoError(t, opt1.ApplyToUpdate(op))
+		err := opt2.ApplyToUpdate(op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id3")
+	})
+
+	t.Run("duplicate IDs across calls for Search returns error", func(t *testing.T) {
+		opt1 := WithIDs("id1", "id2")
+		opt2 := WithIDs("id2", "id3")
+
+		req := &SearchRequest{}
+		require.NoError(t, opt1.ApplyToSearchRequest(req))
+		err := opt2.ApplyToSearchRequest(req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate id: id2")
+	})
+}
