@@ -73,6 +73,33 @@ func TestSearchPage(t *testing.T) {
 	}
 }
 
+func TestWithPageErrorPropagation(t *testing.T) {
+	t.Run("invalid limit returns error", func(t *testing.T) {
+		opt := WithPage(PageLimit(0))
+		req := &SearchRequest{}
+		err := opt.ApplyToSearchRequest(req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid limit")
+	})
+
+	t.Run("negative offset returns error", func(t *testing.T) {
+		opt := WithPage(PageOffset(-1))
+		req := &SearchRequest{}
+		err := opt.ApplyToSearchRequest(req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid offset")
+	})
+
+	t.Run("valid options succeed", func(t *testing.T) {
+		opt := WithPage(PageLimit(10), PageOffset(20))
+		req := &SearchRequest{}
+		err := opt.ApplyToSearchRequest(req)
+		require.NoError(t, err)
+		require.Equal(t, 10, req.Limit.Limit)
+		require.Equal(t, 20, req.Limit.Offset)
+	})
+}
+
 func TestSearchSelect(t *testing.T) {
 	t.Run("select standard keys", func(t *testing.T) {
 		req := &SearchRequest{}

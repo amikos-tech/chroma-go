@@ -63,8 +63,7 @@ Additional support features:
 - ✅ [Sentence Transformers](https://go-client.chromadb.dev/embeddings/#huggingface-inference-api) (HuggingFace Inference
   API and [HFEI local server]())
 - ✅ [Google Gemini Embedding](https://go-client.chromadb.dev/embeddings/#google-gemini-ai) Support
--
-✅ [HuggingFace Embedding Inference Server Support](https://go-client.chromadb.dev/embeddings/#huggingface-embedding-inference-server)
+- ✅ [HuggingFace Embedding Inference Server Support](https://go-client.chromadb.dev/embeddings/#huggingface-embedding-inference-server)
 - ✅ [Ollama Embedding](https://go-client.chromadb.dev/embeddings/#ollama) Support
 - ✅ [Cloudflare Workers AI Embedding](https://go-client.chromadb.dev/embeddings/#cloudflare-workers-ai) Support
 - ✅ [Together AI Embedding](https://go-client.chromadb.dev/embeddings/#together-ai) Support
@@ -92,7 +91,7 @@ Import:
 
 ```go
 import (
-chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
 )
 ```
 

@@ -199,6 +199,9 @@ func WithIDs(ids ...DocumentID) *idsOption {
 }
 
 func (o *idsOption) ApplyToGet(op *CollectionGetOp) error {
+	if len(o.ids) == 0 {
+		return errors.New("at least one id is required")
+	}
 	op.Ids = append(op.Ids, o.ids...)
 	return nil
 }
@@ -236,6 +239,9 @@ func (o *idsOption) ApplyToUpdate(op *CollectionUpdateOp) error {
 }
 
 func (o *idsOption) ApplyToSearchRequest(req *SearchRequest) error {
+	if len(o.ids) == 0 {
+		return errors.New("at least one id is required")
+	}
 	if req.Filter == nil {
 		req.Filter = &SearchFilter{}
 	}
@@ -255,6 +261,9 @@ type whereOption struct {
 //   - [Collection.Get]: Filter which documents to retrieve
 //   - [Collection.Query]: Filter semantic search results
 //   - [Collection.Delete]: Delete documents matching the filter
+//
+// Note: Calling WithWhere multiple times will overwrite the previous filter,
+// not merge them. To combine filters, use [AndFilter] or [OrFilter].
 //
 // # Available Filter Functions
 //
@@ -342,6 +351,9 @@ type whereDocumentOption struct {
 //   - [Collection.Get]: Filter which documents to retrieve
 //   - [Collection.Query]: Filter semantic search results
 //   - [Collection.Delete]: Delete documents matching the content filter
+//
+// Note: Calling WithWhereDocument multiple times will overwrite the previous filter,
+// not merge them. To combine filters, use [AndDocumentFilter] or [OrDocumentFilter].
 //
 // # Available Filter Functions
 //

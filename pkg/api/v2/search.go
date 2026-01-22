@@ -466,6 +466,7 @@ func PageOffset(offset int) PageOpts {
 // Use [WithPage] to create this option.
 type pageOption struct {
 	page *SearchPage
+	err  error
 }
 
 // WithPage adds pagination to the search request.
@@ -482,12 +483,17 @@ type pageOption struct {
 func WithPage(pageOpts ...PageOpts) *pageOption {
 	page := &SearchPage{}
 	for _, opt := range pageOpts {
-		_ = opt(page)
+		if err := opt(page); err != nil {
+			return &pageOption{page: page, err: err}
+		}
 	}
 	return &pageOption{page: page}
 }
 
 func (o *pageOption) ApplyToSearchRequest(req *SearchRequest) error {
+	if o.err != nil {
+		return o.err
+	}
 	req.Limit = o.page
 	return nil
 }

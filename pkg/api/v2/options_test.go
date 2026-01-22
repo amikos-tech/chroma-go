@@ -383,16 +383,18 @@ func TestEarlyValidationEmptyIDs(t *testing.T) {
 		require.Contains(t, err.Error(), "at least one id is required")
 	})
 
-	t.Run("empty IDs for Get is allowed", func(t *testing.T) {
+	t.Run("empty IDs for Get returns error", func(t *testing.T) {
 		op := &CollectionGetOp{}
 		err := WithIDs().ApplyToGet(op)
-		require.NoError(t, err)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one id is required")
 	})
 
-	t.Run("empty IDs for Search is allowed", func(t *testing.T) {
+	t.Run("empty IDs for Search returns error", func(t *testing.T) {
 		req := &SearchRequest{}
 		err := WithIDs().ApplyToSearchRequest(req)
-		require.NoError(t, err)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one id is required")
 	})
 }
 
