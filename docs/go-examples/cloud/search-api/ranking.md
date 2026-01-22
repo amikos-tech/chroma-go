@@ -53,7 +53,7 @@ func main() {
 	result1, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("machine learning research")),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -68,7 +68,7 @@ func main() {
 				v2.KnnQueryText("AI applications"),
 				v2.WithKnnLimit(100),
 			),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -126,7 +126,7 @@ func main() {
 	result, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryVector(embedding)),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -196,7 +196,7 @@ func main() {
 	result1, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithRank(weightedRank),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -208,7 +208,7 @@ func main() {
 	result2, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithRank(adjustedRank),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -219,7 +219,7 @@ func main() {
 	result3, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithRank(logRank),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -233,7 +233,7 @@ func main() {
 	result4, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithRank(combinedRank),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -319,7 +319,7 @@ func main() {
 	result, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithRank(absRank),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -380,7 +380,7 @@ func main() {
 				v2.WithKnnLimit(50),
 				v2.WithKnnDefault(10.0),
 			),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -452,14 +452,14 @@ func main() {
 	result1, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithRank(rankWithOffset),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
 	result2, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithRank(complexRank),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 

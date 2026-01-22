@@ -93,9 +93,9 @@ func searchProducts(
 			v2.KnnQueryText(opts.UserQuery),
 			v2.WithKnnLimit(100),
 		),
-		v2.WithPage(
-			v2.PageLimit(opts.PageSize),
-			v2.PageOffset(opts.Page*opts.PageSize),
+		v2.NewPage(
+			v2.Limit(opts.PageSize),
+			v2.Offset(opts.Page*opts.PageSize),
 		),
 		v2.WithSelect(v2.KDocument, v2.KScore, v2.K("name"), v2.K("price"), v2.K("category"), v2.K("rating")),
 	}
@@ -279,7 +279,7 @@ func getRecommendations(
 			),
 			v2.WithRrfK(60),
 		),
-		v2.WithPage(v2.PageLimit(numRecommendations)),
+		v2.NewPage(v2.Limit(numRecommendations)),
 		v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title"), v2.K("category"), v2.K("author"), v2.K("rating")),
 	}
 
@@ -417,7 +417,7 @@ func searchAcrossCategories(
 				v2.KnnQueryText(userQuery),
 				v2.WithKnnLimit(50),
 			),
-			v2.WithPage(v2.PageLimit(resultsPerCategory)),
+			v2.NewPage(v2.Limit(resultsPerCategory)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title"), v2.K("category"), v2.K("date")),
 		)
 	}

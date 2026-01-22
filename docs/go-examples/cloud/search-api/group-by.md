@@ -68,7 +68,7 @@ func main() {
 					v2.K("category"),             // Group by category
 				),
 			),
-			v2.WithPage(v2.PageLimit(30)),
+			v2.NewPage(v2.Limit(30)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("category")),
 		),
 	)
@@ -133,7 +133,7 @@ func main() {
 					v2.K("category"),
 				),
 			),
-			v2.WithPage(v2.PageLimit(30)),
+			v2.NewPage(v2.Limit(30)),
 		),
 	)
 
@@ -147,7 +147,7 @@ func main() {
 					v2.K("category"),
 				),
 			),
-			v2.WithPage(v2.PageLimit(30)),
+			v2.NewPage(v2.Limit(30)),
 		),
 	)
 
@@ -208,7 +208,7 @@ func main() {
 					v2.K("category"),
 				),
 			),
-			v2.WithPage(v2.PageLimit(30)),
+			v2.NewPage(v2.Limit(30)),
 		),
 	)
 
@@ -222,7 +222,7 @@ func main() {
 					v2.K("category"),
 				),
 			),
-			v2.WithPage(v2.PageLimit(30)),
+			v2.NewPage(v2.Limit(30)),
 		),
 	)
 
@@ -287,7 +287,7 @@ func main() {
 					v2.K("category"), v2.K("year"), // Multiple keys
 				),
 			),
-			v2.WithPage(v2.PageLimit(30)),
+			v2.NewPage(v2.Limit(30)),
 		),
 	)
 	if err != nil {
@@ -370,7 +370,7 @@ func main() {
 					v2.K("category"),
 				),
 			),
-			v2.WithPage(v2.PageLimit(20)),
+			v2.NewPage(v2.Limit(20)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("name"), v2.K("category"), v2.K("price")),
 		),
 	)

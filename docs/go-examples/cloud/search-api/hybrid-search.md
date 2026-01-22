@@ -74,7 +74,7 @@ func main() {
 					sparseKnn.WithWeight(1.0),
 				),
 			),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -163,7 +163,7 @@ func main() {
 					sparseKnn.WithWeight(1.0),
 				),
 			),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -190,7 +190,7 @@ func main() {
 				),
 				v2.WithRrfNormalize(), // Normalize to sum to 1.0
 			),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -265,7 +265,7 @@ func main() {
 				),
 				v2.WithRrfK(10),
 			),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -291,7 +291,7 @@ func main() {
 				),
 				// k=60 is default, so not needed
 			),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -393,7 +393,7 @@ func main() {
 				),
 				v2.WithRrfK(60),
 			),
-			v2.WithPage(v2.PageLimit(20)),
+			v2.NewPage(v2.Limit(20)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title")),
 		),
 	)
@@ -501,7 +501,7 @@ func main() {
 				),
 				v2.WithRrfK(60),
 			),
-			v2.WithPage(v2.PageLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title"), v2.K("year")),
 		),
 	)

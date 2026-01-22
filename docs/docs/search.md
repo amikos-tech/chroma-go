@@ -61,7 +61,7 @@ A search request consists of four optional components:
 | Component | Description | Function |
 |-----------|-------------|----------|
 | **Rank** | How to score and order results | `WithKnnRank`, `WithRrfRank` |
-| **Filter** | Which documents to include | `WithFilter`, `WithFilterIDs`, `WithFilterDocument` |
+| **Filter** | Which documents to include | `WithFilter`, `WithIDs` |
 | **Page** | Pagination (limit/offset) | `NewPage`, `WithLimit`, `WithOffset` |
 | **Select** | Which fields to return | `WithSelect`, `WithSelectAll` |
 
@@ -241,10 +241,10 @@ chroma.WithFilter(
 
 ### Document ID Filter
 
-Restrict search to specific document IDs using `WithFilterIDs`:
+Restrict search to specific document IDs using `WithIDs`:
 
 ```go
-chroma.WithFilterIDs("doc1", "doc2", "doc3")
+chroma.WithIDs("doc1", "doc2", "doc3")
 ```
 
 For more flexible ID filtering that can be combined with other where clauses, use `IDIn` and `IDNotIn`:
@@ -277,7 +277,7 @@ result, err := col.Search(ctx,
                 chroma.InStrings("category", []string{"tech", "science"}),
             ),
         ),
-        chroma.WithFilterIDs("doc1", "doc2", "doc3"),
+        chroma.WithIDs("doc1", "doc2", "doc3"),
         chroma.NewPage(chroma.Limit(20)),
     ),
 )
@@ -554,7 +554,7 @@ if err != nil {
 | `WithKnnRank(query, opts...)` | Add KNN ranking to request |
 | `WithRrfRank(opts...)` | Add RRF ranking to request |
 | `WithFilter(where)` | Add metadata filter |
-| `WithFilterIDs(ids...)` | Filter by document IDs |
+| `WithIDs(ids...)` | Filter by document IDs (unified option) |
 | `NewPage(opts...)` | Create a fluent pagination object (recommended) |
 | `Limit(n)` | Set page size (for NewPage) |
 | `Offset(n)` | Set offset (for NewPage) |
