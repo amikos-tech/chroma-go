@@ -262,7 +262,7 @@ func main() {
 				v2.WithKnnKey(v2.K("sparse_embedding")), // Search on sparse index
 				v2.WithKnnLimit(50),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -354,7 +354,7 @@ func main() {
 				),
 				v2.WithRffK(60),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -527,7 +527,7 @@ func main() {
 					sparseKnn.WithWeight(0.4),
 				),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)

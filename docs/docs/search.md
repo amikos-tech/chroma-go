@@ -44,7 +44,7 @@ func main() {
     result, err := col.Search(context.Background(),
         chroma.NewSearchRequest(
             chroma.WithKnnRank(chroma.KnnQueryText("machine learning")),
-            chroma.WithPage(chroma.WithLimit(10)),
+            chroma.WithPage(chroma.PageLimit(10)),
         ),
     )
     if err != nil {
@@ -130,7 +130,7 @@ combined := dense.Multiply(chroma.FloatOperand(0.7)).Add(
 result, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithRank(combined),
-        chroma.WithPage(chroma.WithLimit(10)),
+        chroma.WithPage(chroma.PageLimit(10)),
     ),
 )
 ```
@@ -195,7 +195,7 @@ if err != nil {
 result, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithRank(rrf),
-        chroma.WithPage(chroma.WithLimit(10)),
+        chroma.WithPage(chroma.PageLimit(10)),
     ),
 )
 ```
@@ -278,7 +278,7 @@ result, err := col.Search(ctx,
             ),
         ),
         chroma.WithFilterIDs("doc1", "doc2", "doc3"),
-        chroma.WithPage(chroma.WithLimit(20)),
+        chroma.WithPage(chroma.PageLimit(20)),
     ),
 )
 ```
@@ -291,13 +291,13 @@ Control result pagination with limit and offset:
 
 ```go
 // First page (10 results)
-chroma.WithPage(chroma.WithLimit(10))
+chroma.WithPage(chroma.PageLimit(10))
 
 // Second page
-chroma.WithPage(chroma.WithLimit(10), chroma.WithOffset(10))
+chroma.WithPage(chroma.PageLimit(10), chroma.PageOffset(10))
 
 // Third page
-chroma.WithPage(chroma.WithLimit(10), chroma.WithOffset(20))
+chroma.WithPage(chroma.PageLimit(10), chroma.PageOffset(20))
 ```
 
 ---
@@ -344,7 +344,7 @@ result, err := col.Search(ctx,
                 chroma.GtInt("year", 2023),
             ),
         ),
-        chroma.WithPage(chroma.WithLimit(10)),
+        chroma.WithPage(chroma.PageLimit(10)),
         chroma.WithSelect(chroma.KDocument, chroma.KScore, chroma.K("title")),
     ),
 )
@@ -374,7 +374,7 @@ hybrid := dense.Multiply(chroma.FloatOperand(0.7)).Add(
 result, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithRank(hybrid),
-        chroma.WithPage(chroma.WithLimit(10)),
+        chroma.WithPage(chroma.PageLimit(10)),
     ),
 )
 ```
@@ -407,7 +407,7 @@ result, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithRank(rrf),
         chroma.WithFilter(chroma.EqString("type", "paper")),
-        chroma.WithPage(chroma.WithLimit(10)),
+        chroma.WithPage(chroma.PageLimit(10)),
         chroma.WithSelect(chroma.KDocument, chroma.KScore, chroma.K("title"), chroma.K("authors")),
     ),
 )
@@ -421,7 +421,7 @@ Retrieve documents without ranking (useful for filtered retrieval):
 result, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithFilter(chroma.EqString("status", "active")),
-        chroma.WithPage(chroma.WithLimit(100)),
+        chroma.WithPage(chroma.PageLimit(100)),
     ),
 )
 ```

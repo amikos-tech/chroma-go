@@ -107,7 +107,7 @@ func main() {
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.EqString("status", "active")),
 			v2.WithKnnRank(v2.KnnQueryText("machine learning")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -167,7 +167,7 @@ func main() {
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.EqString("status", "published")),
 			v2.WithKnnRank(v2.KnnQueryText("machine learning applications")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -220,7 +220,7 @@ func main() {
 					v2.GteInt("year", 2023),
 				),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KMetadata),
 		),
 	)
@@ -232,7 +232,7 @@ func main() {
 	rankOnly, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("AI research")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -250,7 +250,7 @@ func main() {
 				),
 			),
 			v2.WithKnnRank(v2.KnnQueryText("AI research")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -303,7 +303,7 @@ func main() {
 	result, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("machine learning")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 		),
 		v2.WithReadLevel(v2.ReadLevelIndexAndWAL),
 	)
@@ -316,7 +316,7 @@ func main() {
 	fastResult, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("machine learning")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 		),
 		v2.WithReadLevel(v2.ReadLevelIndexOnly),
 	)
@@ -368,7 +368,7 @@ Use the `Rows()` method for ergonomic result iteration:
 results, err := collection.Search(ctx,
     v2.NewSearchRequest(
         v2.WithKnnRank(v2.KnnQueryText("machine learning")),
-        v2.WithPage(v2.WithLimit(10)),
+        v2.WithPage(v2.PageLimit(10)),
         v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title")),
     ),
 )

@@ -187,7 +187,7 @@ col.Delete(ctx, v2.WithDeleteWhere(v2.EqString("key", "value")))
 result, _ := col.Search(ctx,
     v2.NewSearchRequest(
         v2.WithKnnRank(v2.KnnQueryText("query")),
-        v2.WithPage(v2.WithLimit(10)),
+        v2.WithPage(v2.PageLimit(10)),
         v2.WithSelect(v2.KDocument, v2.KScore),
     ),
 )
@@ -201,7 +201,7 @@ result, _ := col.Search(ctx,
         v2.WithRffRank(
             v2.WithRffRanks(denseKnn.WithWeight(0.7), sparseKnn.WithWeight(0.3)),
         ),
-        v2.WithPage(v2.WithLimit(10)),
+        v2.WithPage(v2.PageLimit(10)),
     ),
 )
 ```

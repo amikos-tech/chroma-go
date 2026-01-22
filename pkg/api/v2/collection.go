@@ -782,16 +782,24 @@ type metadatasOption struct {
 //	    WithIDs("doc1"),
 //	    WithMetadatas(map[string]any{"status": "reviewed"}),
 //	)
+//
+// Note: At least one metadata must be provided.
 func WithMetadatas(metadatas ...DocumentMetadata) *metadatasOption {
 	return &metadatasOption{metadatas: metadatas}
 }
 
 func (o *metadatasOption) ApplyToAdd(op *CollectionAddOp) error {
+	if len(o.metadatas) == 0 {
+		return ErrNoMetadatas
+	}
 	op.Metadatas = o.metadatas
 	return nil
 }
 
 func (o *metadatasOption) ApplyToUpdate(op *CollectionUpdateOp) error {
+	if len(o.metadatas) == 0 {
+		return ErrNoMetadatas
+	}
 	op.Metadatas = o.metadatas
 	return nil
 }

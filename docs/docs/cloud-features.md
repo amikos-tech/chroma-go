@@ -86,7 +86,7 @@ if status.OpIndexingProgress >= 1.0 {
 results, err := collection.Search(ctx,
     v2.NewSearchRequest(
         v2.WithKnnRank(v2.KnnQueryText("machine learning")),
-        v2.WithPage(v2.WithLimit(10)),
+        v2.WithPage(v2.PageLimit(10)),
     ),
     v2.WithReadLevel(readLevel),
 )

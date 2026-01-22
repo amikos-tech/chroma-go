@@ -52,7 +52,7 @@ func main() {
 	// Limit results - return top 10
 	result1, err := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 		),
 	)
 	if err != nil {
@@ -63,8 +63,8 @@ func main() {
 	result2, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithPage(
-				v2.WithLimit(10),
-				v2.WithOffset(20),
+				v2.PageLimit(10),
+				v2.PageOffset(20),
 			),
 		),
 	)
@@ -132,21 +132,21 @@ func main() {
 	// Page 0: Results 1-10
 	page0, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithPage(v2.WithLimit(pageSize), v2.WithOffset(0)),
+			v2.WithPage(v2.PageLimit(pageSize), v2.PageOffset(0)),
 		),
 	)
 
 	// Page 1: Results 11-20
 	page1, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithPage(v2.WithLimit(pageSize), v2.WithOffset(10)),
+			v2.WithPage(v2.PageLimit(pageSize), v2.PageOffset(10)),
 		),
 	)
 
 	// Page 2: Results 21-30
 	page2, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithPage(v2.WithLimit(pageSize), v2.WithOffset(20)),
+			v2.WithPage(v2.PageLimit(pageSize), v2.PageOffset(20)),
 		),
 	)
 
@@ -154,8 +154,8 @@ func main() {
 	getPage := func(pageNumber int, pageSize int) v2.SearchCollectionOption {
 		return v2.NewSearchRequest(
 			v2.WithPage(
-				v2.WithLimit(pageSize),
-				v2.WithOffset(pageNumber*pageSize),
+				v2.PageLimit(pageSize),
+				v2.PageOffset(pageNumber*pageSize),
 			),
 		)
 	}
@@ -222,7 +222,7 @@ func main() {
 	// Default - returns IDs only
 	result1, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 		),
 	)
 
@@ -230,7 +230,7 @@ func main() {
 	result2, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("query")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -238,7 +238,7 @@ func main() {
 	// Select metadata fields using K()
 	result3, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.K("title"), v2.K("author"), v2.K("date")),
 		),
 	)
@@ -247,7 +247,7 @@ func main() {
 	result4, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("query")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title"), v2.K("author")),
 		),
 	)
@@ -256,7 +256,7 @@ func main() {
 	result5, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("query")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelectAll(),
 		),
 	)
@@ -316,7 +316,7 @@ func main() {
 	// Fast - minimal data (IDs only)
 	fast, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithPage(v2.WithLimit(100)),
+			v2.WithPage(v2.PageLimit(100)),
 		),
 	)
 
@@ -324,7 +324,7 @@ func main() {
 	moderate, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("query")),
-			v2.WithPage(v2.WithLimit(100)),
+			v2.WithPage(v2.PageLimit(100)),
 			v2.WithSelect(v2.KScore, v2.K("title"), v2.K("date")),
 		),
 	)
@@ -333,7 +333,7 @@ func main() {
 	slower, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("query")),
-			v2.WithPage(v2.WithLimit(100)),
+			v2.WithPage(v2.PageLimit(100)),
 			v2.WithSelect(v2.KDocument, v2.KEmbedding),
 		),
 	)
@@ -342,7 +342,7 @@ func main() {
 	slowest, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("query")),
-			v2.WithPage(v2.WithLimit(100)),
+			v2.WithPage(v2.PageLimit(100)),
 			v2.WithSelectAll(),
 		),
 	)
@@ -418,8 +418,8 @@ func searchWithPagination(
 					v2.WithKnnLimit(100),
 				),
 				v2.WithPage(
-					v2.WithLimit(pageSize),
-					v2.WithOffset(currentPage*pageSize),
+					v2.PageLimit(pageSize),
+					v2.PageOffset(currentPage*pageSize),
 				),
 				v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title"), v2.K("author"), v2.K("date")),
 			),

@@ -483,6 +483,10 @@ type includeOption struct {
 //
 // By default, Get returns documents and metadatas. Query returns IDs and distances.
 //
+// Note: Calling WithInclude multiple times will overwrite the previous value.
+// Include fields are idempotent - specifying the same field multiple times has
+// no additional effect.
+//
 // # Get Example
 //
 //	results, err := collection.Get(ctx,
@@ -708,6 +712,10 @@ type textsOption struct {
 //	    WithTexts("New or updated doc 1", "New or updated doc 2"),
 //	    WithMetadatas(meta1, meta2),
 //	)
+//
+// Note: Calling WithTexts multiple times will append texts to support incremental
+// array construction in the columnar API. This aligns with [WithIDs] behavior.
+// At least one text must be provided.
 func WithTexts(texts ...string) *textsOption {
 	return &textsOption{texts: texts}
 }
@@ -819,6 +827,9 @@ var (
 
 	// ErrNoTexts is returned when [WithTexts] is called with no texts.
 	ErrNoTexts = errorString("at least one text is required")
+
+	// ErrNoMetadatas is returned when [WithMetadatas] is called with no metadatas.
+	ErrNoMetadatas = errorString("at least one metadata is required")
 )
 
 // errorString is a simple error type for constant errors.

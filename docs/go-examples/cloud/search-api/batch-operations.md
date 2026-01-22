@@ -82,7 +82,7 @@ func main() {
 				v2.KnnQueryText("machine learning applications"),
 				v2.WithKnnLimit(50),
 			),
-			v2.WithPage(v2.WithLimit(5)),
+			v2.WithPage(v2.PageLimit(5)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title")),
 		),
 		// Search 2: Papers by specific authors
@@ -92,13 +92,13 @@ func main() {
 				v2.KnnQueryText("neural network research"),
 				v2.WithKnnLimit(50),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title"), v2.K("author")),
 		),
 		// Search 3: Featured content (no ranking)
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.EqString("status", "featured")),
-			v2.WithPage(v2.WithLimit(20)),
+			v2.WithPage(v2.PageLimit(20)),
 			v2.WithSelect(v2.K("title"), v2.K("date")),
 		),
 	)
@@ -165,9 +165,9 @@ func main() {
 
 	// Execute batch searches
 	results, err := collection.Search(ctx,
-		v2.NewSearchRequest(v2.WithPage(v2.WithLimit(5))),
-		v2.NewSearchRequest(v2.WithPage(v2.WithLimit(10))),
-		v2.NewSearchRequest(v2.WithPage(v2.WithLimit(20))),
+		v2.NewSearchRequest(v2.WithPage(v2.PageLimit(5))),
+		v2.NewSearchRequest(v2.WithPage(v2.PageLimit(10))),
+		v2.NewSearchRequest(v2.WithPage(v2.PageLimit(20))),
 	)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
@@ -262,7 +262,7 @@ func main() {
 	for i, q := range queryVariations {
 		searchOpts[i] = v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText(q), v2.WithKnnLimit(50)),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title")),
 		)
 	}
@@ -346,7 +346,7 @@ func main() {
 				v2.KnnQueryText("artificial intelligence"),
 				v2.WithKnnLimit(50),
 			),
-			v2.WithPage(v2.WithLimit(5)),
+			v2.WithPage(v2.PageLimit(5)),
 			v2.WithSelect(v2.K("title"), v2.K("category"), v2.KScore),
 		)
 	}
@@ -430,7 +430,7 @@ func main() {
 		result, _ := collection.Search(ctx,
 			v2.NewSearchRequest(
 				v2.WithKnnRank(v2.KnnQueryText(q)),
-				v2.WithPage(v2.WithLimit(10)),
+				v2.WithPage(v2.PageLimit(10)),
 			),
 		)
 		sequentialResults[i] = result
@@ -441,7 +441,7 @@ func main() {
 	for i, q := range queries {
 		searchOpts[i] = v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText(q)),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithPage(v2.PageLimit(10)),
 		)
 	}
 	batchResult, _ := collection.Search(ctx, searchOpts...)

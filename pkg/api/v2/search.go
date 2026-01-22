@@ -115,10 +115,13 @@ type SearchResult interface{}
 // Key identifies a metadata field for filtering or projection in the Search API.
 //
 // Key is a type alias for string, so raw strings work directly for backward
-// compatibility. Use [K] to clearly mark field names in filter expressions:
+// compatibility. Both patterns are valid and compile correctly:
 //
-//	EqString(K("status"), "active")  // K() marks the field clearly
-//	EqString("status", "active")     // Raw string also works
+//	EqString(K("status"), "active")  // K() marks field names clearly (recommended for Search API)
+//	EqString("status", "active")     // Raw string also works (common in Query API)
+//
+// The [K] function is a no-op that returns the string unchanged, serving purely
+// as documentation to distinguish field names from values in filter expressions.
 //
 // For built-in fields, use the predefined constants: [KDocument], [KEmbedding],
 // [KScore], [KMetadata], and [KID].
@@ -129,11 +132,22 @@ type Key = string
 // Use this to clearly mark field names in filter and projection expressions.
 // This improves code readability by distinguishing field names from values.
 //
-// # Filter Example
+// K() is a no-op identity function - it returns the string unchanged.
+// Both K("field") and "field" compile to the same value. The function exists
+// solely for documentation purposes.
+//
+// # Filter Example (Search API style with K())
 //
 //	WithFilter(And(
 //	    EqString(K("status"), "published"),
 //	    GtInt(K("views"), 1000),
+//	))
+//
+// # Filter Example (Query API style without K())
+//
+//	WithWhere(AndFilter(
+//	    EqString("status", "published"),
+//	    GtInt("views", 1000),
 //	))
 //
 // # Projection Example
@@ -408,6 +422,18 @@ func WithFilter(where WhereClause) SearchRequestOption {
 // Deprecated: Use [WithIDs] instead.
 func WithFilterIDs(ids ...DocumentID) SearchRequestOption {
 	return WithIDs(ids...)
+}
+
+// Deprecated: Use [PageLimit] instead.
+// SearchWithLimit is kept for backward compatibility.
+func SearchWithLimit(limit int) PageOpts {
+	return PageLimit(limit)
+}
+
+// Deprecated: Use [PageOffset] instead.
+// SearchWithOffset is kept for backward compatibility.
+func SearchWithOffset(offset int) PageOpts {
+	return PageOffset(offset)
 }
 
 // SearchPage specifies pagination for search results.
