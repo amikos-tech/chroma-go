@@ -159,8 +159,8 @@ func TestCollectionUpdate(t *testing.T) {
 				require.Equal(t, []string{"doc1", "doc2", "doc3"}, req.Documents)
 			},
 			updateOptions: []CollectionUpdateOption{
-				WithIDsUpdate("1", "2", "3"),
-				WithTextsUpdate("doc1", "doc2", "doc3"),
+				WithIDs("1", "2", "3"),
+				WithTexts("doc1", "doc2", "doc3"),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -175,9 +175,9 @@ func TestCollectionUpdate(t *testing.T) {
 				require.Equal(t, [][]float64{{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}}, req.Embeddings)
 			},
 			updateOptions: []CollectionUpdateOption{
-				WithIDsUpdate("1", "2", "3"),
-				WithTextsUpdate("doc1", "doc2", "doc3"),
-				WithEmbeddingsUpdate(
+				WithIDs("1", "2", "3"),
+				WithTexts("doc1", "doc2", "doc3"),
+				WithEmbeddings(
 					embeddings.NewEmbeddingFromFloat32([]float32{1.0, 2.0, 3.0}),
 					embeddings.NewEmbeddingFromFloat32([]float32{4.0, 5.0, 6.0}),
 					embeddings.NewEmbeddingFromFloat32([]float32{7.0, 8.0, 9.0}),
@@ -202,14 +202,14 @@ func TestCollectionUpdate(t *testing.T) {
 				}, req.Metadatas)
 			},
 			updateOptions: []CollectionUpdateOption{
-				WithIDsUpdate("1", "2", "3"),
-				WithTextsUpdate("doc1", "doc2", "doc3"),
-				WithEmbeddingsUpdate(
+				WithIDs("1", "2", "3"),
+				WithTexts("doc1", "doc2", "doc3"),
+				WithEmbeddings(
 					embeddings.NewEmbeddingFromFloat32([]float32{1.0, 2.0, 3.0}),
 					embeddings.NewEmbeddingFromFloat32([]float32{4.0, 5.0, 6.0}),
 					embeddings.NewEmbeddingFromFloat32([]float32{7.0, 8.0, 9.0}),
 				),
-				WithMetadatasUpdate(
+				WithMetadatas(
 					NewDocumentMetadata(NewStringAttribute("metadata1", "metadata1"), NewIntAttribute("metadata2", 2), NewBoolAttribute("metadata3", true)),
 					NewDocumentMetadata(NewStringAttribute("metadata1", "metadata1"), NewIntAttribute("metadata2", 3), NewBoolAttribute("metadata3", true)),
 					NewDocumentMetadata(NewStringAttribute("metadata1", "metadata1"), NewIntAttribute("metadata2", 4), NewBoolAttribute("metadata3", true)),
@@ -392,7 +392,7 @@ func TestCollectionDelete(t *testing.T) {
 				require.Equal(t, []string{"1", "2", "3"}, req.IDs)
 			},
 			deleteOptions: []CollectionDeleteOption{
-				WithIDsDelete("1", "2", "3"),
+				WithIDs("1", "2", "3"),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -405,7 +405,7 @@ func TestCollectionDelete(t *testing.T) {
 				require.Equal(t, map[string]any{"test": map[string]any{"$eq": "test"}}, req.Where)
 			},
 			deleteOptions: []CollectionDeleteOption{
-				WithWhereDelete(EqString(K("test"), "test")),
+				WithWhere(EqString(K("test"), "test")),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -418,7 +418,7 @@ func TestCollectionDelete(t *testing.T) {
 				require.Equal(t, map[string]any{"$contains": "test"}, req.WhereDoc)
 			},
 			deleteOptions: []CollectionDeleteOption{
-				WithWhereDocumentDelete(Contains("test")),
+				WithWhereDocument(Contains("test")),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -432,8 +432,8 @@ func TestCollectionDelete(t *testing.T) {
 				require.Equal(t, map[string]any{"$contains": "test"}, req.WhereDoc)
 			},
 			deleteOptions: []CollectionDeleteOption{
-				WithWhereDelete(EqString(K("test"), "test")),
-				WithWhereDocumentDelete(Contains("test")),
+				WithWhere(EqString(K("test"), "test")),
+				WithWhereDocument(Contains("test")),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -614,7 +614,7 @@ func TestCollectionQuery(t *testing.T) {
 	}
 
 	require.NotNil(t, collection)
-	r, err := collection.Query(context.Background(), WithQueryTexts("doc1", "doc2", "doc3"), WithWhereQuery(Or(EqString(K("test"), "test"))))
+	r, err := collection.Query(context.Background(), WithQueryTexts("doc1", "doc2", "doc3"), WithWhere(Or(EqString(K("test"), "test"))))
 	require.NoError(t, err)
 	require.NotNil(t, r)
 }
@@ -715,7 +715,7 @@ func TestCollectionGet(t *testing.T) {
 				require.Equal(t, []string{"1", "2", "3"}, req.IDs)
 			},
 			getOptions: []CollectionGetOption{
-				WithIDsGet("1", "2", "3"),
+				WithIDs("1", "2", "3"),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -729,8 +729,8 @@ func TestCollectionGet(t *testing.T) {
 				require.Equal(t, []string{"documents"}, req.Include)
 			},
 			getOptions: []CollectionGetOption{
-				WithIDsGet("1", "2", "3"),
-				WithIncludeGet(IncludeDocuments),
+				WithIDs("1", "2", "3"),
+				WithInclude(IncludeDocuments),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -744,8 +744,8 @@ func TestCollectionGet(t *testing.T) {
 				require.Equal(t, 10, req.Limit)
 			},
 			getOptions: []CollectionGetOption{
-				WithIDsGet("1", "2", "3"),
-				WithLimitGet(10),
+				WithIDs("1", "2", "3"),
+				WithLimit(10),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -760,9 +760,9 @@ func TestCollectionGet(t *testing.T) {
 				require.Equal(t, 5, req.Offset)
 			},
 			getOptions: []CollectionGetOption{
-				WithIDsGet("1", "2", "3"),
-				WithLimitGet(10),
-				WithOffsetGet(5),
+				WithIDs("1", "2", "3"),
+				WithLimit(10),
+				WithOffset(5),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -775,7 +775,7 @@ func TestCollectionGet(t *testing.T) {
 				require.Equal(t, map[string]any{"test": map[string]any{"$eq": "test"}}, req.Where)
 			},
 			getOptions: []CollectionGetOption{
-				WithWhereGet(EqString(K("test"), "test")),
+				WithWhere(EqString(K("test"), "test")),
 			},
 			limits: `{"max_batch_size":100}`,
 		},
@@ -788,7 +788,7 @@ func TestCollectionGet(t *testing.T) {
 				require.Equal(t, map[string]any{"$contains": "test"}, req.WhereDoc)
 			},
 			getOptions: []CollectionGetOption{
-				WithWhereDocumentGet(Contains("test")),
+				WithWhereDocument(Contains("test")),
 			},
 			limits: `{"max_batch_size":100}`,
 		},

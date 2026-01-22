@@ -26,27 +26,27 @@ func TestSearchPage(t *testing.T) {
 	}{
 		{
 			name:     "limit only",
-			opts:     []PageOpts{WithLimit(10)},
+			opts:     []PageOpts{PageLimit(10)},
 			expected: &SearchPage{Limit: 10},
 		},
 		{
 			name:     "offset only",
-			opts:     []PageOpts{WithOffset(5)},
+			opts:     []PageOpts{PageOffset(5)},
 			expected: &SearchPage{Offset: 5},
 		},
 		{
 			name:     "limit and offset",
-			opts:     []PageOpts{WithLimit(20), WithOffset(10)},
+			opts:     []PageOpts{PageLimit(20), PageOffset(10)},
 			expected: &SearchPage{Limit: 20, Offset: 10},
 		},
 		{
 			name:        "invalid limit",
-			opts:        []PageOpts{WithLimit(0)},
+			opts:        []PageOpts{PageLimit(0)},
 			shouldError: true,
 		},
 		{
 			name:        "negative offset",
-			opts:        []PageOpts{WithOffset(-1)},
+			opts:        []PageOpts{PageOffset(-1)},
 			shouldError: true,
 		},
 	}
@@ -76,7 +76,7 @@ func TestSearchPage(t *testing.T) {
 func TestSearchSelect(t *testing.T) {
 	t.Run("select standard keys", func(t *testing.T) {
 		req := &SearchRequest{}
-		err := WithSelect(KDocument, KScore, KEmbedding)(req)
+		err := WithSelect(KDocument, KScore, KEmbedding).ApplyToSearchRequest(req)
 		require.NoError(t, err)
 		require.Len(t, req.Select.Keys, 3)
 		require.Contains(t, req.Select.Keys, KDocument)
@@ -86,14 +86,14 @@ func TestSearchSelect(t *testing.T) {
 
 	t.Run("select custom keys", func(t *testing.T) {
 		req := &SearchRequest{}
-		err := WithSelect(K("title"), K("author"))(req)
+		err := WithSelect(K("title"), K("author")).ApplyToSearchRequest(req)
 		require.NoError(t, err)
 		require.Len(t, req.Select.Keys, 2)
 	})
 
 	t.Run("select all", func(t *testing.T) {
 		req := &SearchRequest{}
-		err := WithSelectAll()(req)
+		err := WithSelectAll().ApplyToSearchRequest(req)
 		require.NoError(t, err)
 		require.Len(t, req.Select.Keys, 5)
 		require.Contains(t, req.Select.Keys, KID)
@@ -105,8 +105,8 @@ func TestSearchSelect(t *testing.T) {
 
 	t.Run("append to existing select", func(t *testing.T) {
 		req := &SearchRequest{}
-		_ = WithSelect(KDocument)(req)
-		_ = WithSelect(K("custom"))(req)
+		_ = WithSelect(KDocument).ApplyToSearchRequest(req)
+		_ = WithSelect(K("custom")).ApplyToSearchRequest(req)
 		require.Len(t, req.Select.Keys, 2)
 	})
 }
@@ -114,7 +114,7 @@ func TestSearchSelect(t *testing.T) {
 func TestSearchFilter(t *testing.T) {
 	t.Run("with where clause", func(t *testing.T) {
 		req := &SearchRequest{}
-		err := WithFilter(EqString(K("status"), "active"))(req)
+		err := WithFilter(EqString(K("status"), "active")).ApplyToSearchRequest(req)
 		require.NoError(t, err)
 		require.NotNil(t, req.Filter)
 		require.NotNil(t, req.Filter.Where)
@@ -122,7 +122,7 @@ func TestSearchFilter(t *testing.T) {
 
 	t.Run("with filter ids", func(t *testing.T) {
 		req := &SearchRequest{}
-		err := WithFilterIDs("id1", "id2", "id3")(req)
+		err := WithFilterIDs("id1", "id2", "id3").ApplyToSearchRequest(req)
 		require.NoError(t, err)
 		require.NotNil(t, req.Filter)
 		require.Len(t, req.Filter.IDs, 3)
@@ -130,8 +130,8 @@ func TestSearchFilter(t *testing.T) {
 
 	t.Run("combine filter and ids", func(t *testing.T) {
 		req := &SearchRequest{}
-		_ = WithFilter(EqString(K("type"), "document"))(req)
-		_ = WithFilterIDs("doc1", "doc2")(req)
+		_ = WithFilter(EqString(K("type"), "document")).ApplyToSearchRequest(req)
+		_ = WithFilterIDs("doc1", "doc2").ApplyToSearchRequest(req)
 		require.NotNil(t, req.Filter.Where)
 		require.Len(t, req.Filter.IDs, 2)
 	})
@@ -160,8 +160,8 @@ func TestSearchRequestJSON(t *testing.T) {
 
 	t.Run("request with filter", func(t *testing.T) {
 		req := &SearchRequest{}
-		_ = WithFilter(EqString(K("category"), "tech"))(req)
-		_ = WithPage(WithLimit(20))(req)
+		_ = WithFilter(EqString(K("category"), "tech")).ApplyToSearchRequest(req)
+		_ = WithPage(PageLimit(20)).ApplyToSearchRequest(req)
 
 		data, err := req.MarshalJSON()
 		require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestSearchRequestJSON(t *testing.T) {
 
 	t.Run("request with select", func(t *testing.T) {
 		req := &SearchRequest{}
-		_ = WithSelect(KDocument, KScore, K("title"))(req)
+		_ = WithSelect(KDocument, KScore, K("title")).ApplyToSearchRequest(req)
 
 		data, err := req.MarshalJSON()
 		require.NoError(t, err)
@@ -204,7 +204,7 @@ func TestSearchQuery(t *testing.T) {
 		sq := &SearchQuery{}
 		opt := NewSearchRequest(
 			WithKnnRank(KnnQueryText("test"), WithKnnLimit(50)),
-			WithPage(WithLimit(10)),
+			WithPage(PageLimit(10)),
 		)
 		err := opt(sq)
 		require.NoError(t, err)
@@ -231,7 +231,7 @@ func TestSearchQuery(t *testing.T) {
 func TestWithKnnRank(t *testing.T) {
 	t.Run("basic knn rank", func(t *testing.T) {
 		req := &SearchRequest{}
-		err := WithKnnRank(KnnQueryText("machine learning"))(req)
+		err := WithKnnRank(KnnQueryText("machine learning")).ApplyToSearchRequest(req)
 		require.NoError(t, err)
 		require.NotNil(t, req.Rank)
 
@@ -247,7 +247,7 @@ func TestWithKnnRank(t *testing.T) {
 			WithKnnLimit(100),
 			WithKnnDefault(10.0),
 			WithKnnKey(K("custom_field")),
-		)(req)
+		).ApplyToSearchRequest(req)
 		require.NoError(t, err)
 
 		knn, ok := req.Rank.(*KnnRank)
@@ -269,7 +269,7 @@ func TestWithRffRank(t *testing.T) {
 				knn1.WithWeight(0.5),
 				knn2.WithWeight(0.5),
 			),
-		)(req)
+		).ApplyToSearchRequest(req)
 		require.NoError(t, err)
 		require.NotNil(t, req.Rank)
 
@@ -284,7 +284,7 @@ func TestWithRffRank(t *testing.T) {
 		err := WithRffRank(
 			WithRffRanks(knn.WithWeight(1.0)),
 			WithRffK(100),
-		)(req)
+		).ApplyToSearchRequest(req)
 		require.NoError(t, err)
 
 		rrf := req.Rank.(*RrfRank)
@@ -297,7 +297,7 @@ func TestWithRffRank(t *testing.T) {
 		err := WithRffRank(
 			WithRffRanks(knn.WithWeight(1.0)),
 			WithRffK(-1),
-		)(req)
+		).ApplyToSearchRequest(req)
 		require.Error(t, err)
 	})
 }
@@ -424,7 +424,7 @@ func TestCompleteSearchScenario(t *testing.T) {
 				WithKnnLimit(50),
 				WithKnnDefault(1000.0),
 			),
-			WithPage(WithLimit(20), WithOffset(0)),
+			WithPage(PageLimit(20), PageOffset(0)),
 			WithSelect(KDocument, KScore, K("title"), K("author")),
 		)
 
@@ -454,7 +454,7 @@ func TestCompleteSearchScenario(t *testing.T) {
 				WithKnnLimit(100),
 			),
 			WithGroupBy(NewGroupBy(NewMinK(3, KScore), K("category"))),
-			WithPage(WithLimit(30)),
+			WithPage(PageLimit(30)),
 			WithSelect(KDocument, KScore, K("category")),
 		)
 
@@ -498,7 +498,7 @@ func TestCompleteSearchScenario(t *testing.T) {
 		opt := NewSearchRequest(
 			WithKnnRank(KnnQueryText("top rated movies")),
 			WithGroupBy(NewGroupBy(NewMaxK(5, K("rating")), K("genre"))),
-			WithPage(WithLimit(50)),
+			WithPage(PageLimit(50)),
 		)
 
 		err := opt(sq)
@@ -758,7 +758,7 @@ func TestWithReadLevel(t *testing.T) {
 		sq := &SearchQuery{}
 		opt1 := NewSearchRequest(
 			WithKnnRank(KnnQueryText("test"), WithKnnLimit(50)),
-			WithPage(WithLimit(10)),
+			WithPage(PageLimit(10)),
 		)
 		opt2 := WithReadLevel(ReadLevelIndexOnly)
 
