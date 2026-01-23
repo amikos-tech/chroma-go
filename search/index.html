@@ -682,6 +682,56 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Pagination">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-page-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using Page (Recommended)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iteration-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iteration Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#page-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Page Methods
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-withlimit-and-withoffset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using WithLimit and WithOffset
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1017,6 +1067,56 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Pagination">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-page-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using Page (Recommended)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iteration-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iteration Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#page-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Page Methods
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-withlimit-and-withoffset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using WithLimit and WithOffset
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1236,7 +1336,7 @@
 </span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">    </span><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span>
 </span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
 </span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="w">            </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnRank</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;machine learning&quot;</span><span class="p">)),</span>
-</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="w">            </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">)),</span>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="w">            </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span>
 </span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="w">        </span><span class="p">),</span>
 </span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="w">    </span><span class="p">)</span>
 </span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
@@ -1259,17 +1359,17 @@
 <tr>
 <td><strong>Rank</strong></td>
 <td>How to score and order results</td>
-<td><code>WithKnnRank</code>, <code>WithRffRank</code></td>
+<td><code>WithKnnRank</code>, <code>WithRrfRank</code></td>
 </tr>
 <tr>
 <td><strong>Filter</strong></td>
 <td>Which documents to include</td>
-<td><code>WithFilter</code>, <code>WithFilterIDs</code>, <code>WithFilterDocument</code></td>
+<td><code>WithFilter</code>, <code>WithIDs</code></td>
 </tr>
 <tr>
 <td><strong>Page</strong></td>
 <td>Pagination (limit/offset)</td>
-<td><code>WithPage</code></td>
+<td><code>NewPage</code>, <code>WithLimit</code>, <code>WithOffset</code></td>
 </tr>
 <tr>
 <td><strong>Select</strong></td>
@@ -1355,7 +1455,7 @@
 </span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
 </span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
 </span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRank</span><span class="p">(</span><span class="nx">combined</span><span class="p">),</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">)),</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span>
 </span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="p">),</span>
 </span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">)</span>
 </span></code></pre></div>
@@ -1446,12 +1546,12 @@
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">)</span>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
 </span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="nx">rrf</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewRrfRank</span><span class="p">(</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRffRanks</span><span class="p">(</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRrfRanks</span><span class="p">(</span>
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">        </span><span class="nx">knn1</span><span class="p">.</span><span class="nx">WithWeight</span><span class="p">(</span><span class="mf">0.6</span><span class="p">),</span>
 </span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">        </span><span class="nx">knn2</span><span class="p">.</span><span class="nx">WithWeight</span><span class="p">(</span><span class="mf">0.4</span><span class="p">),</span>
 </span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="p">),</span>
-</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRffK</span><span class="p">(</span><span class="mi">60</span><span class="p">),</span><span class="w">         </span><span class="c1">// Smoothing constant (default: 60)</span>
-</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRffNormalize</span><span class="p">(),</span><span class="w">   </span><span class="c1">// Normalize weights to sum to 1.0</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRrfK</span><span class="p">(</span><span class="mi">60</span><span class="p">),</span><span class="w">         </span><span class="c1">// Smoothing constant (default: 60)</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRrfNormalize</span><span class="p">(),</span><span class="w">   </span><span class="c1">// Normalize weights to sum to 1.0</span>
 </span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="p">)</span>
 </span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
@@ -1460,7 +1560,7 @@
 </span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
 </span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
 </span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRank</span><span class="p">(</span><span class="nx">rrf</span><span class="p">),</span>
-</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">)),</span>
+</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span>
 </span><span id="__span-5-26"><a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">    </span><span class="p">),</span>
 </span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="p">)</span>
 </span></code></pre></div>
@@ -1557,8 +1657,8 @@
 </tbody>
 </table>
 <h3 id="document-id-filter">Document ID Filter<a class="headerlink" href="#document-id-filter" title="Permanent link">&para;</a></h3>
-<p>Restrict search to specific document IDs using <code>WithFilterIDs</code>:</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilterIDs</span><span class="p">(</span><span class="s">&quot;doc1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc2&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc3&quot;</span><span class="p">)</span>
+<p>Restrict search to specific document IDs using <code>WithIDs</code>:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithIDs</span><span class="p">(</span><span class="s">&quot;doc1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc2&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc3&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>For more flexible ID filtering that can be combined with other where clauses, use <code>IDIn</code> and <code>IDNotIn</code>:</p>
 <blockquote>
@@ -1586,31 +1686,112 @@
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">                </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">InStrings</span><span class="p">(</span><span class="s">&quot;category&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;tech&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;science&quot;</span><span class="p">}),</span>
 </span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">            </span><span class="p">),</span>
 </span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">        </span><span class="p">),</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilterIDs</span><span class="p">(</span><span class="s">&quot;doc1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc2&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc3&quot;</span><span class="p">),</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">20</span><span class="p">)),</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithIDs</span><span class="p">(</span><span class="s">&quot;doc1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc2&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;doc3&quot;</span><span class="p">),</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">Limit</span><span class="p">(</span><span class="mi">20</span><span class="p">)),</span>
 </span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">    </span><span class="p">),</span>
 </span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="pagination">Pagination<a class="headerlink" href="#pagination" title="Permanent link">&para;</a></h2>
-<p>Control result pagination with limit and offset:</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1">// First page (10 results)</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1">// Second page</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithOffset</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1">// Third page</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithOffset</span><span class="p">(</span><span class="mi">20</span><span class="p">))</span>
+<p>Control result pagination with limit and offset. The recommended approach is using the <code>Page</code> type for fluent navigation.</p>
+<h3 id="using-page-recommended">Using Page (Recommended)<a class="headerlink" href="#using-page-recommended" title="Permanent link">&para;</a></h3>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1">// Create a page with custom size - inline usage</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnRank</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;query&quot;</span><span class="p">)),</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">Limit</span><span class="p">(</span><span class="mi">20</span><span class="p">)),</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="p">),</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="p">)</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="c1">// Or reuse for navigation</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="nx">page</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">Limit</span><span class="p">(</span><span class="mi">20</span><span class="p">))</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="nx">page</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">page</span><span class="p">.</span><span class="nx">Next</span><span class="p">()</span><span class="w">  </span><span class="c1">// Offset becomes 20</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="nx">page</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">page</span><span class="p">.</span><span class="nx">Prev</span><span class="p">()</span><span class="w">  </span><span class="c1">// Back to offset 0</span>
+</span></code></pre></div>
+<h3 id="iteration-pattern">Iteration Pattern<a class="headerlink" href="#iteration-pattern" title="Permanent link">&para;</a></h3>
+<p><code>Page</code> eliminates off-by-one errors in pagination loops:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nx">page</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">Limit</span><span class="p">(</span><span class="mi">20</span><span class="p">))</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">for</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">            </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnRank</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;query&quot;</span><span class="p">)),</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">            </span><span class="nx">page</span><span class="p">,</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">        </span><span class="p">),</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">    </span><span class="p">)</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">        </span><span class="k">break</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">    </span><span class="nx">rows</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">result</span><span class="p">.(</span><span class="o">*</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">SearchResultImpl</span><span class="p">).</span><span class="nx">Rows</span><span class="p">()</span>
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">rows</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">        </span><span class="k">break</span><span class="w">  </span><span class="c1">// No more results</span>
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>
+</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">    </span><span class="c1">// Process rows...</span>
+</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>
+</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="w">    </span><span class="nx">page</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">page</span><span class="p">.</span><span class="nx">Next</span><span class="p">()</span><span class="w">  </span><span class="c1">// Move to next page</span>
+</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="page-methods">Page Methods<a class="headerlink" href="#page-methods" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NewPage(opts...)</code></td>
+<td>Create a page (default limit: 10)</td>
+</tr>
+<tr>
+<td><code>Limit(n)</code></td>
+<td>Set page size (must be &gt; 0)</td>
+</tr>
+<tr>
+<td><code>Offset(n)</code></td>
+<td>Set starting offset (must be &gt;= 0)</td>
+</tr>
+<tr>
+<td><code>Next()</code></td>
+<td>Return new page for next results</td>
+</tr>
+<tr>
+<td><code>Prev()</code></td>
+<td>Return new page for previous results (clamped to 0)</td>
+</tr>
+<tr>
+<td><code>Number()</code></td>
+<td>Current page number (0-indexed)</td>
+</tr>
+<tr>
+<td><code>Size()</code></td>
+<td>Page size (limit)</td>
+</tr>
+<tr>
+<td><code>GetOffset()</code></td>
+<td>Current offset</td>
+</tr>
+</tbody>
+</table>
+<h3 id="using-withlimit-and-withoffset">Using WithLimit and WithOffset<a class="headerlink" href="#using-withlimit-and-withoffset" title="Permanent link">&para;</a></h3>
+<p>For simple cases, you can use <code>WithLimit</code> and <code>WithOffset</code> directly:</p>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1">// First page (10 results)</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1">// Third page (skip 20 results)</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithOffset</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="projection-select">Projection (Select)<a class="headerlink" href="#projection-select" title="Permanent link">&para;</a></h2>
 <p>Choose which fields to include in results:</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1">// Select specific fields</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSelect</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KDocument</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KScore</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;title&quot;</span><span class="p">))</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1">// Select all standard fields</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSelectAll</span><span class="p">()</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1">// Select specific fields</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSelect</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KDocument</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KScore</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;title&quot;</span><span class="p">))</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1">// Select all standard fields</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSelectAll</span><span class="p">()</span>
 </span></code></pre></div>
 <h4 id="projection-keys">Projection Keys<a class="headerlink" href="#projection-keys" title="Permanent link">&para;</a></h4>
 <table>
@@ -1650,88 +1831,88 @@
 <hr />
 <h2 id="complete-examples">Complete Examples<a class="headerlink" href="#complete-examples" title="Permanent link">&para;</a></h2>
 <h3 id="semantic-search-with-filters">Semantic Search with Filters<a class="headerlink" href="#semantic-search-with-filters" title="Permanent link">&para;</a></h3>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnRank</span><span class="p">(</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">            </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;latest AI research&quot;</span><span class="p">),</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">            </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">        </span><span class="p">),</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilter</span><span class="p">(</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">            </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">And</span><span class="p">(</span>
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">                </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">EqString</span><span class="p">(</span><span class="s">&quot;status&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;published&quot;</span><span class="p">),</span>
-</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">                </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">GtInt</span><span class="p">(</span><span class="s">&quot;year&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">2023</span><span class="p">),</span>
-</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">            </span><span class="p">),</span>
-</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">        </span><span class="p">),</span>
-</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">)),</span>
-</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSelect</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KDocument</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KScore</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;title&quot;</span><span class="p">)),</span>
-</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="p">),</span>
-</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="p">)</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnRank</span><span class="p">(</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">            </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;latest AI research&quot;</span><span class="p">),</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">            </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">        </span><span class="p">),</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilter</span><span class="p">(</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">            </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">And</span><span class="p">(</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">                </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">EqString</span><span class="p">(</span><span class="s">&quot;status&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;published&quot;</span><span class="p">),</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">                </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">GtInt</span><span class="p">(</span><span class="s">&quot;year&quot;</span><span class="p">,</span><span class="w"> </span><span class="mi">2023</span><span class="p">),</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">            </span><span class="p">),</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="w">        </span><span class="p">),</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSelect</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KDocument</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KScore</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;title&quot;</span><span class="p">)),</span>
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="w">    </span><span class="p">),</span>
+</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="hybrid-dense-sparse-search">Hybrid Dense + Sparse Search<a class="headerlink" href="#hybrid-dense-sparse-search" title="Permanent link">&para;</a></h3>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nx">dense</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewKnnRank</span><span class="p">(</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;neural networks&quot;</span><span class="p">),</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnDefault</span><span class="p">(</span><span class="mf">1000.0</span><span class="p">),</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="p">)</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="nx">sparse</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewKnnRank</span><span class="p">(</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQuerySparseVector</span><span class="p">(</span><span class="nx">sparseVector</span><span class="p">),</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnKey</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;sparse_embedding&quot;</span><span class="p">)),</span>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnDefault</span><span class="p">(</span><span class="mf">1000.0</span><span class="p">),</span>
-</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="p">)</span>
-</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>
-</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="c1">// 70% dense, 30% sparse</span>
-</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="nx">hybrid</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dense</span><span class="p">.</span><span class="nx">Multiply</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">FloatOperand</span><span class="p">(</span><span class="mf">0.7</span><span class="p">)).</span><span class="nx">Add</span><span class="p">(</span>
-</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">    </span><span class="nx">sparse</span><span class="p">.</span><span class="nx">Multiply</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">FloatOperand</span><span class="p">(</span><span class="mf">0.3</span><span class="p">)),</span>
-</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="p">)</span>
-</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>
-</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
-</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
-</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRank</span><span class="p">(</span><span class="nx">hybrid</span><span class="p">),</span>
-</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">)),</span>
-</span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a><span class="w">    </span><span class="p">),</span>
-</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a><span class="p">)</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nx">dense</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewKnnRank</span><span class="p">(</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;neural networks&quot;</span><span class="p">),</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnDefault</span><span class="p">(</span><span class="mf">1000.0</span><span class="p">),</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="p">)</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="nx">sparse</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewKnnRank</span><span class="p">(</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQuerySparseVector</span><span class="p">(</span><span class="nx">sparseVector</span><span class="p">),</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnKey</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;sparse_embedding&quot;</span><span class="p">)),</span>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnDefault</span><span class="p">(</span><span class="mf">1000.0</span><span class="p">),</span>
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="p">)</span>
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="c1">// 70% dense, 30% sparse</span>
+</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="nx">hybrid</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dense</span><span class="p">.</span><span class="nx">Multiply</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">FloatOperand</span><span class="p">(</span><span class="mf">0.7</span><span class="p">)).</span><span class="nx">Add</span><span class="p">(</span>
+</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="w">    </span><span class="nx">sparse</span><span class="p">.</span><span class="nx">Multiply</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">FloatOperand</span><span class="p">(</span><span class="mf">0.3</span><span class="p">)),</span>
+</span><span id="__span-15-17"><a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="p">)</span>
+</span><span id="__span-15-18"><a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>
+</span><span id="__span-15-19"><a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+</span><span id="__span-15-20"><a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
+</span><span id="__span-15-21"><a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRank</span><span class="p">(</span><span class="nx">hybrid</span><span class="p">),</span>
+</span><span id="__span-15-22"><a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span>
+</span><span id="__span-15-23"><a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="w">    </span><span class="p">),</span>
+</span><span id="__span-15-24"><a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="multi-query-with-rrf">Multi-Query with RRF<a class="headerlink" href="#multi-query-with-rrf" title="Permanent link">&para;</a></h3>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nx">semantic</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewKnnRank</span><span class="p">(</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;machine learning algorithms&quot;</span><span class="p">),</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnReturnRank</span><span class="p">(),</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="p">)</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="nx">keyword</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewKnnRank</span><span class="p">(</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQuerySparseVector</span><span class="p">(</span><span class="nx">bm25Vector</span><span class="p">),</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnKey</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;bm25_embedding&quot;</span><span class="p">)),</span>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnReturnRank</span><span class="p">(),</span>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="p">)</span>
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>
-</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="nx">rrf</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewRrfRank</span><span class="p">(</span>
-</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRffRanks</span><span class="p">(</span>
-</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="w">        </span><span class="nx">semantic</span><span class="p">.</span><span class="nx">WithWeight</span><span class="p">(</span><span class="mf">0.6</span><span class="p">),</span>
-</span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a><span class="w">        </span><span class="nx">keyword</span><span class="p">.</span><span class="nx">WithWeight</span><span class="p">(</span><span class="mf">0.4</span><span class="p">),</span>
-</span><span id="__span-14-18"><a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a><span class="w">    </span><span class="p">),</span>
-</span><span id="__span-14-19"><a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRffK</span><span class="p">(</span><span class="mi">60</span><span class="p">),</span>
-</span><span id="__span-14-20"><a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a><span class="p">)</span>
-</span><span id="__span-14-21"><a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a>
-</span><span id="__span-14-22"><a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
-</span><span id="__span-14-23"><a id="__codelineno-14-23" name="__codelineno-14-23" href="#__codelineno-14-23"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
-</span><span id="__span-14-24"><a id="__codelineno-14-24" name="__codelineno-14-24" href="#__codelineno-14-24"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRank</span><span class="p">(</span><span class="nx">rrf</span><span class="p">),</span>
-</span><span id="__span-14-25"><a id="__codelineno-14-25" name="__codelineno-14-25" href="#__codelineno-14-25"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilter</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">EqString</span><span class="p">(</span><span class="s">&quot;type&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;paper&quot;</span><span class="p">)),</span>
-</span><span id="__span-14-26"><a id="__codelineno-14-26" name="__codelineno-14-26" href="#__codelineno-14-26"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">)),</span>
-</span><span id="__span-14-27"><a id="__codelineno-14-27" name="__codelineno-14-27" href="#__codelineno-14-27"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSelect</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KDocument</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KScore</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;title&quot;</span><span class="p">),</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;authors&quot;</span><span class="p">)),</span>
-</span><span id="__span-14-28"><a id="__codelineno-14-28" name="__codelineno-14-28" href="#__codelineno-14-28"></a><span class="w">    </span><span class="p">),</span>
-</span><span id="__span-14-29"><a id="__codelineno-14-29" name="__codelineno-14-29" href="#__codelineno-14-29"></a><span class="p">)</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nx">semantic</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewKnnRank</span><span class="p">(</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;machine learning algorithms&quot;</span><span class="p">),</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnReturnRank</span><span class="p">(),</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="p">)</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="nx">keyword</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewKnnRank</span><span class="p">(</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQuerySparseVector</span><span class="p">(</span><span class="nx">bm25Vector</span><span class="p">),</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnKey</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;bm25_embedding&quot;</span><span class="p">)),</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnReturnRank</span><span class="p">(),</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="p">)</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="nx">rrf</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewRrfRank</span><span class="p">(</span>
+</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRrfRanks</span><span class="p">(</span>
+</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="w">        </span><span class="nx">semantic</span><span class="p">.</span><span class="nx">WithWeight</span><span class="p">(</span><span class="mf">0.6</span><span class="p">),</span>
+</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="w">        </span><span class="nx">keyword</span><span class="p">.</span><span class="nx">WithWeight</span><span class="p">(</span><span class="mf">0.4</span><span class="p">),</span>
+</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="w">    </span><span class="p">),</span>
+</span><span id="__span-16-19"><a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRrfK</span><span class="p">(</span><span class="mi">60</span><span class="p">),</span>
+</span><span id="__span-16-20"><a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="p">)</span>
+</span><span id="__span-16-21"><a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a>
+</span><span id="__span-16-22"><a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+</span><span id="__span-16-23"><a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
+</span><span id="__span-16-24"><a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRank</span><span class="p">(</span><span class="nx">rrf</span><span class="p">),</span>
+</span><span id="__span-16-25"><a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilter</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">EqString</span><span class="p">(</span><span class="s">&quot;type&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;paper&quot;</span><span class="p">)),</span>
+</span><span id="__span-16-26"><a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span>
+</span><span id="__span-16-27"><a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithSelect</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KDocument</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KScore</span><span class="p">,</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;title&quot;</span><span class="p">),</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">K</span><span class="p">(</span><span class="s">&quot;authors&quot;</span><span class="p">)),</span>
+</span><span id="__span-16-28"><a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="w">    </span><span class="p">),</span>
+</span><span id="__span-16-29"><a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="no-ranking-index-order">No Ranking (Index Order)<a class="headerlink" href="#no-ranking-index-order" title="Permanent link">&para;</a></h3>
 <p>Retrieve documents without ranking (useful for filtered retrieval):</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilter</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">EqString</span><span class="p">(</span><span class="s">&quot;status&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;active&quot;</span><span class="p">)),</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithLimit</span><span class="p">(</span><span class="mi">100</span><span class="p">)),</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="p">),</span>
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="p">)</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithFilter</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">EqString</span><span class="p">(</span><span class="s">&quot;status&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;active&quot;</span><span class="p">)),</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewPage</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">Limit</span><span class="p">(</span><span class="mi">100</span><span class="p">)),</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="p">),</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="read-level">Read Level<a class="headerlink" href="#read-level" title="Permanent link">&para;</a></h2>
@@ -1754,21 +1935,21 @@
 </tr>
 </tbody>
 </table>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1">// Default behavior - reads from both index and WAL</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnRank</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;query&quot;</span><span class="p">)),</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="p">),</span>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithReadLevel</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">ReadLevelIndexAndWAL</span><span class="p">),</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="p">)</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="c1">// Faster search - only reads from compacted index</span>
-</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
-</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
-</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnRank</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;query&quot;</span><span class="p">)),</span>
-</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="w">    </span><span class="p">),</span>
-</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithReadLevel</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">ReadLevelIndexOnly</span><span class="p">),</span>
-</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="p">)</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1">// Default behavior - reads from both index and WAL</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnRank</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;query&quot;</span><span class="p">)),</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">    </span><span class="p">),</span>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithReadLevel</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">ReadLevelIndexAndWAL</span><span class="p">),</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="p">)</span>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="c1">// Faster search - only reads from compacted index</span>
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="nx">result</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">col</span><span class="p">.</span><span class="nx">Search</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewSearchRequest</span><span class="p">(</span>
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">        </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnRank</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;query&quot;</span><span class="p">)),</span>
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">    </span><span class="p">),</span>
+</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithReadLevel</span><span class="p">(</span><span class="nx">chroma</span><span class="p">.</span><span class="nx">ReadLevelIndexOnly</span><span class="p">),</span>
+</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Index-Only Reads</p>
@@ -1777,20 +1958,20 @@
 <hr />
 <h2 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h2>
 <p>Both <code>NewKnnRank</code> and <code>NewRrfRank</code> return errors that should be checked:</p>
-<div class="language-go highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nx">knn</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewKnnRank</span><span class="p">(</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;query&quot;</span><span class="p">),</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="p">)</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Failed to create KNN rank: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="p">}</span>
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="nx">rrf</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewRrfRank</span><span class="p">(</span>
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRffRanks</span><span class="p">(</span><span class="nx">knn</span><span class="p">.</span><span class="nx">WithWeight</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)),</span>
-</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="p">)</span>
-</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Failed to create RRF rank: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
-</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="p">}</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nx">knn</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewKnnRank</span><span class="p">(</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">KnnQueryText</span><span class="p">(</span><span class="s">&quot;query&quot;</span><span class="p">),</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithKnnLimit</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="p">)</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Failed to create KNN rank: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="p">}</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="nx">rrf</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">NewRrfRank</span><span class="p">(</span>
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">    </span><span class="nx">chroma</span><span class="p">.</span><span class="nx">WithRrfRanks</span><span class="p">(</span><span class="nx">knn</span><span class="p">.</span><span class="nx">WithWeight</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)),</span>
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="p">)</span>
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;Failed to create RRF rank: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="p">}</span>
 </span></code></pre></div>
 <hr />
 <h2 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h2>
@@ -1812,7 +1993,7 @@
 <td>Add KNN ranking to request</td>
 </tr>
 <tr>
-<td><code>WithRffRank(opts...)</code></td>
+<td><code>WithRrfRank(opts...)</code></td>
 <td>Add RRF ranking to request</td>
 </tr>
 <tr>
@@ -1820,12 +2001,28 @@
 <td>Add metadata filter</td>
 </tr>
 <tr>
-<td><code>WithFilterIDs(ids...)</code></td>
-<td>Filter by document IDs</td>
+<td><code>WithIDs(ids...)</code></td>
+<td>Filter by document IDs (unified option)</td>
 </tr>
 <tr>
-<td><code>WithPage(opts...)</code></td>
-<td>Add pagination</td>
+<td><code>NewPage(opts...)</code></td>
+<td>Create a fluent pagination object (recommended)</td>
+</tr>
+<tr>
+<td><code>Limit(n)</code></td>
+<td>Set page size (for NewPage)</td>
+</tr>
+<tr>
+<td><code>Offset(n)</code></td>
+<td>Set offset (for NewPage)</td>
+</tr>
+<tr>
+<td><code>WithLimit(n)</code></td>
+<td>Set result limit directly</td>
+</tr>
+<tr>
+<td><code>WithOffset(n)</code></td>
+<td>Set result offset directly</td>
 </tr>
 <tr>
 <td><code>WithSelect(keys...)</code></td>
@@ -1890,15 +2087,15 @@
 </thead>
 <tbody>
 <tr>
-<td><code>WithRffRanks(ranks...)</code></td>
+<td><code>WithRrfRanks(ranks...)</code></td>
 <td>Add weighted ranks</td>
 </tr>
 <tr>
-<td><code>WithRffK(k)</code></td>
+<td><code>WithRrfK(k)</code></td>
 <td>Set smoothing constant</td>
 </tr>
 <tr>
-<td><code>WithRffNormalize()</code></td>
+<td><code>WithRrfNormalize()</code></td>
 <td>Normalize weights</td>
 </tr>
 </tbody>
