@@ -13,12 +13,12 @@ import (
 
 qr, err := col.Query(context.Background(),
     chroma.WithQueryTexts("say hello"),
-    chroma.WithIncludeQuery(chroma.IncludeDocuments, chroma.IncludeMetadatas),
+    chroma.WithInclude(chroma.IncludeDocuments, chroma.IncludeMetadatas),
     // Example with a single filter:
-    // chroma.WithWhereQuery(StringFilter)
+    // chroma.WithWhere(StringFilter)
 
     // Example with multiple combined filters:
-    chroma.WithWhereQuery(
+    chroma.WithWhere(
         chroma.Or(chroma.EqString("str1", "hello2"), chroma.EqInt("int", 1)),
     ),
 )

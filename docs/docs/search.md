@@ -44,7 +44,7 @@ func main() {
     result, err := col.Search(context.Background(),
         chroma.NewSearchRequest(
             chroma.WithKnnRank(chroma.KnnQueryText("machine learning")),
-            chroma.WithPage(chroma.WithLimit(10)),
+            chroma.WithLimit(10),
         ),
     )
     if err != nil {
@@ -60,9 +60,9 @@ A search request consists of four optional components:
 
 | Component | Description | Function |
 |-----------|-------------|----------|
-| **Rank** | How to score and order results | `WithKnnRank`, `WithRffRank` |
-| **Filter** | Which documents to include | `WithFilter`, `WithFilterIDs`, `WithFilterDocument` |
-| **Page** | Pagination (limit/offset) | `WithPage` |
+| **Rank** | How to score and order results | `WithKnnRank`, `WithRrfRank` |
+| **Filter** | Which documents to include | `WithFilter`, `WithIDs` |
+| **Page** | Pagination (limit/offset) | `NewPage`, `WithLimit`, `WithOffset` |
 | **Select** | Which fields to return | `WithSelect`, `WithSelectAll` |
 
 ---
@@ -130,7 +130,7 @@ combined := dense.Multiply(chroma.FloatOperand(0.7)).Add(
 result, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithRank(combined),
-        chroma.WithPage(chroma.WithLimit(10)),
+        chroma.WithLimit(10),
     ),
 )
 ```
@@ -181,12 +181,12 @@ knn2, _ := chroma.NewKnnRank(
 )
 
 rrf, err := chroma.NewRrfRank(
-    chroma.WithRffRanks(
+    chroma.WithRrfRanks(
         knn1.WithWeight(0.6),
         knn2.WithWeight(0.4),
     ),
-    chroma.WithRffK(60),         // Smoothing constant (default: 60)
-    chroma.WithRffNormalize(),   // Normalize weights to sum to 1.0
+    chroma.WithRrfK(60),         // Smoothing constant (default: 60)
+    chroma.WithRrfNormalize(),   // Normalize weights to sum to 1.0
 )
 if err != nil {
     log.Fatal(err)
@@ -195,7 +195,7 @@ if err != nil {
 result, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithRank(rrf),
-        chroma.WithPage(chroma.WithLimit(10)),
+        chroma.WithLimit(10),
     ),
 )
 ```
@@ -241,10 +241,10 @@ chroma.WithFilter(
 
 ### Document ID Filter
 
-Restrict search to specific document IDs using `WithFilterIDs`:
+Restrict search to specific document IDs using `WithIDs`:
 
 ```go
-chroma.WithFilterIDs("doc1", "doc2", "doc3")
+chroma.WithIDs("doc1", "doc2", "doc3")
 ```
 
 For more flexible ID filtering that can be combined with other where clauses, use `IDIn` and `IDNotIn`:
@@ -277,8 +277,8 @@ result, err := col.Search(ctx,
                 chroma.InStrings("category", []string{"tech", "science"}),
             ),
         ),
-        chroma.WithFilterIDs("doc1", "doc2", "doc3"),
-        chroma.WithPage(chroma.WithLimit(20)),
+        chroma.WithIDs("doc1", "doc2", "doc3"),
+        chroma.NewPage(chroma.Limit(20)),
     ),
 )
 ```
@@ -287,17 +287,77 @@ result, err := col.Search(ctx,
 
 ## Pagination
 
-Control result pagination with limit and offset:
+Control result pagination with limit and offset. The recommended approach is using the `Page` type for fluent navigation.
+
+### Using Page (Recommended)
+
+```go
+// Create a page with custom size - inline usage
+result, err := col.Search(ctx,
+    chroma.NewSearchRequest(
+        chroma.WithKnnRank(chroma.KnnQueryText("query")),
+        chroma.NewPage(chroma.Limit(20)),
+    ),
+)
+
+// Or reuse for navigation
+page := chroma.NewPage(chroma.Limit(20))
+page = page.Next()  // Offset becomes 20
+page = page.Prev()  // Back to offset 0
+```
+
+### Iteration Pattern
+
+`Page` eliminates off-by-one errors in pagination loops:
+
+```go
+page := chroma.NewPage(chroma.Limit(20))
+for {
+    result, err := col.Search(ctx,
+        chroma.NewSearchRequest(
+            chroma.WithKnnRank(chroma.KnnQueryText("query")),
+            page,
+        ),
+    )
+    if err != nil {
+        break
+    }
+
+    rows := result.(*chroma.SearchResultImpl).Rows()
+    if len(rows) == 0 {
+        break  // No more results
+    }
+
+    // Process rows...
+
+    page = page.Next()  // Move to next page
+}
+```
+
+### Page Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewPage(opts...)` | Create a page (default limit: 10) |
+| `Limit(n)` | Set page size (must be > 0) |
+| `Offset(n)` | Set starting offset (must be >= 0) |
+| `Next()` | Return new page for next results |
+| `Prev()` | Return new page for previous results (clamped to 0) |
+| `Number()` | Current page number (0-indexed) |
+| `Size()` | Page size (limit) |
+| `GetOffset()` | Current offset |
+
+### Using WithLimit and WithOffset
+
+For simple cases, you can use `WithLimit` and `WithOffset` directly:
 
 ```go
 // First page (10 results)
-chroma.WithPage(chroma.WithLimit(10))
+chroma.WithLimit(10)
 
-// Second page
-chroma.WithPage(chroma.WithLimit(10), chroma.WithOffset(10))
-
-// Third page
-chroma.WithPage(chroma.WithLimit(10), chroma.WithOffset(20))
+// Third page (skip 20 results)
+chroma.WithLimit(10)
+chroma.WithOffset(20)
 ```
 
 ---
@@ -344,7 +404,7 @@ result, err := col.Search(ctx,
                 chroma.GtInt("year", 2023),
             ),
         ),
-        chroma.WithPage(chroma.WithLimit(10)),
+        chroma.WithLimit(10),
         chroma.WithSelect(chroma.KDocument, chroma.KScore, chroma.K("title")),
     ),
 )
@@ -374,7 +434,7 @@ hybrid := dense.Multiply(chroma.FloatOperand(0.7)).Add(
 result, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithRank(hybrid),
-        chroma.WithPage(chroma.WithLimit(10)),
+        chroma.WithLimit(10),
     ),
 )
 ```
@@ -396,18 +456,18 @@ keyword, _ := chroma.NewKnnRank(
 )
 
 rrf, _ := chroma.NewRrfRank(
-    chroma.WithRffRanks(
+    chroma.WithRrfRanks(
         semantic.WithWeight(0.6),
         keyword.WithWeight(0.4),
     ),
-    chroma.WithRffK(60),
+    chroma.WithRrfK(60),
 )
 
 result, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithRank(rrf),
         chroma.WithFilter(chroma.EqString("type", "paper")),
-        chroma.WithPage(chroma.WithLimit(10)),
+        chroma.WithLimit(10),
         chroma.WithSelect(chroma.KDocument, chroma.KScore, chroma.K("title"), chroma.K("authors")),
     ),
 )
@@ -421,7 +481,7 @@ Retrieve documents without ranking (useful for filtered retrieval):
 result, err := col.Search(ctx,
     chroma.NewSearchRequest(
         chroma.WithFilter(chroma.EqString("status", "active")),
-        chroma.WithPage(chroma.WithLimit(100)),
+        chroma.NewPage(chroma.Limit(100)),
     ),
 )
 ```
@@ -475,7 +535,7 @@ if err != nil {
 }
 
 rrf, err := chroma.NewRrfRank(
-    chroma.WithRffRanks(knn.WithWeight(1.0)),
+    chroma.WithRrfRanks(knn.WithWeight(1.0)),
 )
 if err != nil {
     log.Fatalf("Failed to create RRF rank: %v", err)
@@ -492,10 +552,14 @@ if err != nil {
 |----------|-------------|
 | `NewSearchRequest(opts...)` | Create a search request with options |
 | `WithKnnRank(query, opts...)` | Add KNN ranking to request |
-| `WithRffRank(opts...)` | Add RRF ranking to request |
+| `WithRrfRank(opts...)` | Add RRF ranking to request |
 | `WithFilter(where)` | Add metadata filter |
-| `WithFilterIDs(ids...)` | Filter by document IDs |
-| `WithPage(opts...)` | Add pagination |
+| `WithIDs(ids...)` | Filter by document IDs (unified option) |
+| `NewPage(opts...)` | Create a fluent pagination object (recommended) |
+| `Limit(n)` | Set page size (for NewPage) |
+| `Offset(n)` | Set offset (for NewPage) |
+| `WithLimit(n)` | Set result limit directly |
+| `WithOffset(n)` | Set result offset directly |
 | `WithSelect(keys...)` | Select fields to return |
 | `WithSelectAll()` | Select all standard fields |
 | `WithReadLevel(level)` | Set read level (`ReadLevelIndexAndWAL` or `ReadLevelIndexOnly`) |
@@ -516,9 +580,9 @@ if err != nil {
 
 | Function | Description |
 |----------|-------------|
-| `WithRffRanks(ranks...)` | Add weighted ranks |
-| `WithRffK(k)` | Set smoothing constant |
-| `WithRffNormalize()` | Normalize weights |
+| `WithRrfRanks(ranks...)` | Add weighted ranks |
+| `WithRrfK(k)` | Set smoothing constant |
+| `WithRrfNormalize()` | Normalize weights |
 
 ### ID Filter Operators (Cloud-only)
 

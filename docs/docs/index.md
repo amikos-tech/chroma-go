@@ -1,6 +1,6 @@
 # Chroma Go Client
 
-An experimental Go client for ChromaDB.
+A Go client library for ChromaDB vector database.
 
 ## Installation
 
@@ -12,253 +12,323 @@ go get github.com/amikos-tech/chroma-go
 
 ## Getting Started
 
-!!! warning "V1 API Deprecation Notice"
+Import the V2 API:
 
-    The examples on this page use the **V1 API**, which has been removed in version `v0.3.0` and later.
+```go
+package main
 
-    - For **new projects**, use the [V2 API](client.md) (`github.com/amikos-tech/chroma-go/pkg/api/v2`)
-    - To use V1 examples below, pin your dependency to `v0.2.5` or earlier:
-      ```bash
-      go get github.com/amikos-tech/chroma-go@v0.2.5
-      ```
+import (
+    chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+```
 
 Concepts:
 
-- [Client Options](client.md) - How to configure chroma go client
-- [Embeddings](embeddings.md) - List of available embedding functions and how to use them
-- [Records](records.md) - How to work with records
+- [Client Options](client.md) - How to configure the Chroma Go client
+- [Embeddings](embeddings.md) - Available embedding functions
 - [Filtering](filtering.md) - How to filter results
+- [Search API](search.md) - Advanced search with ranking and pagination
 
-Import the library:
-
-```go
-package main
-
-import (
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/collection"
-	"github.com/amikos-tech/chroma-go/types"
-)
-```
-
-New client:
-
-!!! note Client Options
-    
-    Check [Client Options](client.md) for more details.
+## Quick Start
 
 ```go
 package main
 
 import (
-	chroma "github.com/amikos-tech/chroma-go"
-	"fmt"
+    "context"
+    "fmt"
+    "log"
+
+    chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
 )
 
 func main() {
-    client,err := chroma.NewClient(chroma.WithBasePath("http://localhost:8000"))
+    ctx := context.Background()
+
+    // Create client (connects to localhost:8000 by default)
+    client, err := chroma.NewHTTPClient()
     if err != nil {
-        fmt.Printf("Failed to create client: %v", err)
+        log.Fatalf("Error creating client: %s", err)
     }
-	// do something with client
-}
-```
+    defer client.Close()
 
-### Embedding Functions
-
-The client supports a number of embedding wrapper functions. See [Embeddings](embeddings.md) for more details.
-
-### CRUD Operations
-
-Ensure you have a running instance of Chroma running.
-See [this doc](https://cookbook.chromadb.dev/running/running-chroma/#running-chroma) for more info how to run local
-Chroma instance.
-
-Here's a simple example of creating a new collection:
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/types"
-	openai "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
-)
-
-func main() {
-	ctx := context.Background()
-	client,err := chroma.NewClient() //connects to localhost:8000\
-	if err != nil {
-		fmt.Printf("Failed to create client: %v", err)
-	}
-
-	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
-	if err != nil {
-		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
-	}
-
-	// Create a new collection with OpenAI embedding function, L2 distance function and metadata
-	_, err = client.CreateCollection(ctx, "my-collection", map[string]interface{}{"key1": "value1"}, true, openaiEf, types.L2)
-	if err != nil {
-		log.Fatalf("Failed to create collection: %v", err)
-	}
-	
-	// Get collection
-	collection, err := client.GetCollection(ctx, "my-collection", openaiEf)
-	if err != nil {
-        log.Fatalf("Failed to get collection: %v", err)
+    // Create or get a collection
+    col, err := client.GetOrCreateCollection(ctx, "my-collection")
+    if err != nil {
+        log.Fatalf("Error creating collection: %s", err)
     }
-	
-	// Modify collection
-	_, err = collection.Update(ctx, "new-collection",nil)
-	if err != nil {
-        log.Fatalf("Failed to update collection: %v", err)
+
+    // Add documents
+    err = col.Add(ctx,
+        chroma.WithIDs("doc1", "doc2", "doc3"),
+        chroma.WithTexts(
+            "Machine learning is a subset of AI",
+            "Natural language processing enables computers to understand text",
+            "Deep learning uses neural networks with many layers",
+        ),
+        chroma.WithMetadatas(
+            map[string]any{"category": "ml", "year": 2024},
+            map[string]any{"category": "nlp", "year": 2024},
+            map[string]any{"category": "dl", "year": 2023},
+        ),
+    )
+    if err != nil {
+        log.Fatalf("Error adding documents: %s", err)
     }
-	
-	// Delete collection
-	_, err = client.DeleteCollection(ctx, "new-collection")
-	if err != nil {
-        log.Fatalf("Failed to delete collection: %v", err)
+
+    // Query for similar documents
+    results, err := col.Query(ctx,
+        chroma.WithQueryTexts("What is artificial intelligence?"),
+        chroma.WithNResults(2),
+    )
+    if err != nil {
+        log.Fatalf("Error querying: %s", err)
+    }
+
+    fmt.Printf("Found %d results\n", len(results.GetIDsGroups()[0]))
+    for i, doc := range results.GetDocumentsGroups()[0] {
+        fmt.Printf("  %d: %s\n", i+1, doc)
     }
 }
 ```
 
-### Add documents
+## Unified Options API
 
-Here's a simple example of adding documents to a collection:
+The V2 API uses a unified options pattern where common options work across multiple operations:
+
+| Option | Get | Query | Delete | Add | Update | Search |
+|--------|:---:|:-----:|:------:|:---:|:------:|:------:|
+| `WithIDs` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `WithWhere` | ✓ | ✓ | ✓ | | | |
+| `WithWhereDocument` | ✓ | ✓ | ✓ | | | |
+| `WithInclude` | ✓ | ✓ | | | | |
+| `WithLimit` | ✓ | | | | | ✓ |
+| `WithOffset` | ✓ | | | | | ✓ |
+| `NewPage` | ✓ | | | | | ✓ |
+| `WithNResults` | | ✓ | | | | |
+| `WithQueryTexts` | | ✓ | | | | |
+| `WithTexts` | | | | ✓ | ✓ | |
+| `WithEmbeddings` | | | | ✓ | ✓ | |
+| `WithMetadatas` | | | | ✓ | ✓ | |
+| `WithIDGenerator` | | | | ✓ | | |
+
+## CRUD Operations
+
+### Add Documents
 
 ```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
-	"github.com/amikos-tech/chroma-go/types"
+// Add with explicit IDs
+err := col.Add(ctx,
+    chroma.WithIDs("id1", "id2"),
+    chroma.WithTexts("First document", "Second document"),
+    chroma.WithMetadatas(
+        map[string]any{"author": "Alice"},
+        map[string]any{"author": "Bob"},
+    ),
 )
 
-func main() {
-	ctx := context.Background()
-	client, err := chroma.NewClient() //connects to localhost:8000
-	if err !=nil{
-        log.Fatalf("Failed to create client: %v", err)
-    }
+// Add with auto-generated IDs
+err := col.Add(ctx,
+    chroma.WithTexts("Document without explicit ID"),
+    chroma.WithIDGenerator(chroma.NewULIDGenerator()),
+)
 
-	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
-	if err != nil {
-		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
-	}
-	// Get the collection we created earlier
-	collection, err := client.GetCollection(ctx, "my-collection", openaiEf)
-	if err != nil {
-		log.Fatalf("Failed to create collection: %v", err)
-		return
-	}
-	_, err = collection.Add(context.TODO(), nil, []map[string]interface{}{{"key1": "value1"}}, []string{"My name is John and I have three dogs."}, []string{"ID1"})
-	if err != nil {
-		log.Fatalf("Error adding documents: %v\n", err)
-		return
-	}
-	data, err := collection.Get(context.TODO(), nil, nil, nil, nil)
-	if err != nil {
-		log.Fatalf("Error getting documents: %v\n", err)
-		return
-	}
-	// see GetResults struct for more details
-	fmt.Printf("Collection data: %v\n", data)
-}
+// Add with pre-computed embeddings
+err := col.Add(ctx,
+    chroma.WithIDs("id1"),
+    chroma.WithEmbeddings([]float32{0.1, 0.2, 0.3, ...}),
+    chroma.WithMetadatas(map[string]any{"source": "external"}),
+)
 ```
 
-### Query Collection
-
-Here's a simple example of querying documents in a collection:
+### Get Documents
 
 ```go
-package main
+// Get by IDs
+results, err := col.Get(ctx, chroma.WithIDs("id1", "id2"))
 
-import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
+// Get with metadata filter
+results, err := col.Get(ctx,
+    chroma.WithWhere(chroma.EqString("author", "Alice")),
+    chroma.WithInclude(chroma.IncludeDocuments, chroma.IncludeMetadatas),
 )
 
-func main() {
-	ctx := context.Background()
-	client,err := chroma.NewClient() //connects to localhost:8000
-	
-	if err != nil {
-		fmt.Printf("Failed to create client: %v", err)
-	}
-	
-	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
-	if err != nil {
-		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
-	}
-	// Get the collection we created earlier
-	collection, err := client.GetCollection(ctx, "my-collection", openaiEf)
-	if err != nil {
-		log.Fatalf("Failed to create collection: %v", err)
-		return
-	}
-	data, err := collection.Query(context.TODO(), []string{"I love dogs"}, 5, nil, nil, nil)
-	if err != nil {
-		log.Fatalf("Error querying documents: %v\n", err)
-		return
-	}
-	// see QueryResults struct for more details
-	fmt.Printf("Collection data: %v\n", data)
-}
+// Get with pagination
+results, err := col.Get(ctx,
+    chroma.WithLimit(10),
+    chroma.WithOffset(20),
+)
+
+// Get with document content filter
+results, err := col.Get(ctx,
+    chroma.WithWhereDocument(chroma.Contains("machine learning")),
+)
+```
+
+### Query (Semantic Search)
+
+```go
+// Basic query
+results, err := col.Query(ctx,
+    chroma.WithQueryTexts("machine learning algorithms"),
+    chroma.WithNResults(5),
+)
+
+// Query with metadata filter
+results, err := col.Query(ctx,
+    chroma.WithQueryTexts("neural networks"),
+    chroma.WithWhere(chroma.AndFilter(
+        chroma.EqString("category", "dl"),
+        chroma.GtInt("year", 2022),
+    )),
+    chroma.WithNResults(10),
+)
+
+// Query with multiple queries
+results, err := col.Query(ctx,
+    chroma.WithQueryTexts("AI", "robotics", "automation"),
+    chroma.WithNResults(3),
+)
+// results.GetIDsGroups()[0] - results for "AI"
+// results.GetIDsGroups()[1] - results for "robotics"
+// results.GetIDsGroups()[2] - results for "automation"
+```
+
+### Update Documents
+
+```go
+// Update document content
+err := col.Update(ctx,
+    chroma.WithIDs("id1"),
+    chroma.WithTexts("Updated document content"),
+)
+
+// Update metadata
+err := col.Update(ctx,
+    chroma.WithIDs("id1", "id2"),
+    chroma.WithMetadatas(
+        map[string]any{"status": "reviewed"},
+        map[string]any{"status": "reviewed"},
+    ),
+)
+```
+
+### Upsert Documents
+
+```go
+// Insert or update documents
+err := col.Upsert(ctx,
+    chroma.WithIDs("id1", "id2"),
+    chroma.WithTexts("New or updated doc 1", "New or updated doc 2"),
+    chroma.WithMetadatas(meta1, meta2),
+)
 ```
 
 ### Delete Documents
 
-Here's a simple example of deleting documents from a collection:
-
 ```go
-package main
+// Delete by IDs
+err := col.Delete(ctx, chroma.WithIDs("id1", "id2"))
 
-import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-
-	chroma "github.com/amikos-tech/chroma-go"
-	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
+// Delete by metadata filter
+err := col.Delete(ctx,
+    chroma.WithWhere(chroma.EqString("status", "archived")),
 )
 
-func main() {
-	ctx := context.Background()
-	client,err := chroma.NewClient() //connects to localhost:8000
+// Delete by document content
+err := col.Delete(ctx,
+    chroma.WithWhereDocument(chroma.Contains("DEPRECATED")),
+)
+```
 
-	openaiEf, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
-	if err != nil {
-		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
-	}
-	// Get the collection we created earlier
-	collection, err := client.GetCollection(ctx, "my-collection", openaiEf)
-	if err != nil {
-		log.Fatalf("Failed to create collection: %v", err)
-		return
-	}
-	_, err = collection.Delete(context.TODO(), []string{"ID1"}, nil, nil)
-	if err != nil {
-		log.Fatalf("Error deleting documents: %v\n", err)
-		return
-	}
-	fmt.Printf("Documents deleted\n")
+## Metadata Filters
+
+The library provides type-safe filter functions:
+
+```go
+// Equality
+chroma.EqString("field", "value")
+chroma.EqInt("count", 10)
+chroma.EqFloat("score", 0.95)
+chroma.EqBool("active", true)
+
+// Not equal
+chroma.NeString("status", "deleted")
+
+// Comparison (numeric and string)
+chroma.GtInt("year", 2020)      // greater than
+chroma.GteInt("year", 2020)     // greater than or equal
+chroma.LtFloat("score", 0.5)    // less than
+chroma.LteFloat("score", 0.5)   // less than or equal
+
+// Set operations
+chroma.InString("category", "ml", "ai", "dl")
+chroma.NinInt("priority", 1, 2)
+
+// Logical operators
+chroma.AndFilter(filter1, filter2, ...)
+chroma.OrFilter(filter1, filter2, ...)
+```
+
+## Document Content Filters
+
+```go
+// Contains substring
+chroma.Contains("machine learning")
+
+// Does not contain
+chroma.NotContains("deprecated")
+
+// Combine filters
+chroma.AndDocumentFilter(
+    chroma.Contains("neural"),
+    chroma.NotContains("outdated"),
+)
+```
+
+## Search API
+
+For advanced use cases, the Search API provides more control:
+
+```go
+results, err := col.Search(ctx,
+    chroma.NewSearchRequest(
+        chroma.WithKnnRank(chroma.KnnQueryText("machine learning")),
+        chroma.WithFilter(chroma.EqString(chroma.K("status"), "published")),
+        chroma.NewPage(chroma.Limit(10)),
+        chroma.WithSelect(chroma.KDocument, chroma.KScore, chroma.K("author")),
+    ),
+)
+
+// Access results
+for _, row := range results.(*chroma.SearchResultImpl).Rows() {
+    fmt.Printf("ID: %s, Score: %f, Doc: %s\n", row.ID, row.Score, row.Document)
 }
 ```
+
+See [Search API documentation](search.md) for more details.
+
+## Embedding Functions
+
+The client supports multiple embedding providers. See [Embeddings](embeddings.md) for the full list.
+
+```go
+import "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
+
+// Create embedding function
+ef, err := openai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+
+// Use with collection
+col, err := client.GetOrCreateCollection(ctx, "my-collection",
+    chroma.WithEmbeddingFunction(ef),
+)
+```
+
+## V1 API (Deprecated)
+
+!!! warning "V1 API Removed"
+
+    The V1 API has been removed in version `v0.3.0`. If you need V1 compatibility:
+    ```bash
+    go get github.com/amikos-tech/chroma-go@v0.2.5
+    ```

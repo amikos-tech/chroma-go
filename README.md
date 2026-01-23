@@ -46,7 +46,8 @@ Additional support features:
   X-Chroma-Token header)
 - ✅ [Private PKI and self-signed certificate support](https://go-client.chromadb.dev/client/)
 - ✅ Chroma Cloud support
-- ✅ [Structured Logging](https://go-client.chromadb.dev/logging/) - Injectable logger with Zap bridge for structured logging
+- ✅ [Structured Logging](https://go-client.chromadb.dev/logging/) - Injectable logger with Zap bridge for structured
+  logging
 - ⚒️ Persistent Embedding Function support (coming soon) - automatically load embedding function from Chroma collection
   configuration
 - ⚒️ Persistent Client support (coming soon) - Run/embed full-featured Chroma in your go application without the need
@@ -55,7 +56,8 @@ Additional support features:
 
 ## Embedding API and Models Support
 
-- ✅ [Default Embedding](https://go-client.chromadb.dev/embeddings/#default-embeddings) Support - the default `all-MiniLM-L6-v2` model running on Onnx Runtime (ORT).
+- ✅ [Default Embedding](https://go-client.chromadb.dev/embeddings/#default-embeddings) Support - the default
+  `all-MiniLM-L6-v2` model running on Onnx Runtime (ORT).
 - ✅ [OpenAI Embedding](https://go-client.chromadb.dev/embeddings/#openai) Support
 - ✅ [Cohere](https://go-client.chromadb.dev/embeddings/#cohere) (including Multi-language support)
 - ✅ [Sentence Transformers](https://go-client.chromadb.dev/embeddings/#huggingface-inference-api) (HuggingFace Inference
@@ -187,12 +189,55 @@ func main() {
 	}
 	fmt.Printf("Query result: %v\n", qr.GetDocumentsGroups()[0][0])
 
-	err = col.Delete(context.Background(), chroma.WithIDsDelete("1", "2"))
+	err = col.Delete(context.Background(), chroma.WithIDs("1", "2"))
 	if err != nil {
 		log.Fatalf("Error deleting collection: %s \n", err)
 		return
 	}
 }
+```
+
+### Unified Options API
+
+The V2 API provides a unified options pattern where common options work across multiple operations:
+
+| Option              | Get | Query | Delete | Add | Update | Search |
+|---------------------|-----|-------|--------|-----|--------|--------|
+| `WithIDs`           | ✓   | ✓     | ✓      | ✓   | ✓      | ✓      |
+| `WithWhere`         | ✓   | ✓     | ✓      |     |        |        |
+| `WithWhereDocument` | ✓   | ✓     | ✓      |     |        |        |
+| `WithInclude`       | ✓   | ✓     |        |     |        |        |
+| `WithTexts`         |     |       |        | ✓   | ✓      |        |
+| `WithMetadatas`     |     |       |        | ✓   | ✓      |        |
+| `WithEmbeddings`    |     |       |        | ✓   | ✓      |        |
+
+```go
+// Get documents by ID or filter
+results, _ := col.Get(ctx,
+chroma.WithIDs("id1", "id2"),
+chroma.WithWhere(chroma.EqString("status", "active")),
+chroma.WithInclude(chroma.IncludeDocuments, chroma.IncludeMetadatas),
+)
+
+// Query with semantic search
+results, _ := col.Query(ctx,
+chroma.WithQueryTexts("machine learning"),
+chroma.WithWhere(chroma.GtInt("year", 2020)),
+chroma.WithNResults(10),
+)
+
+// Delete by filter
+_ = col.Delete(ctx, chroma.WithWhere(chroma.EqString("status", "archived")))
+
+// Search API with ranking and pagination
+results, _ := col.Search(ctx,
+chroma.NewSearchRequest(
+chroma.WithKnnRank(chroma.KnnQueryText("query")),
+chroma.WithFilter(chroma.EqString(chroma.K("category"), "tech")),
+chroma.NewPage(chroma.Limit(20)),
+chroma.WithSelect(chroma.KDocument, chroma.KScore),
+),
+)
 ```
 
 ### Structured Logging

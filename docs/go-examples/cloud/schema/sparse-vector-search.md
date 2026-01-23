@@ -262,7 +262,7 @@ func main() {
 				v2.WithKnnKey(v2.K("sparse_embedding")), // Search on sparse index
 				v2.WithKnnLimit(50),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -347,14 +347,14 @@ func main() {
 	// Create RRF ranking combining dense and sparse
 	result, err := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithRffRank(
-				v2.WithRffRanks(
+			v2.WithRrfRank(
+				v2.WithRrfRanks(
 					denseKnn.WithWeight(0.7),  // 70% semantic
 					sparseKnn.WithWeight(0.3), // 30% keyword
 				),
-				v2.WithRffK(60),
+				v2.WithRrfK(60),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -521,13 +521,13 @@ func main() {
 	// Execute hybrid search
 	result, err := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithRffRank(
-				v2.WithRffRanks(
+			v2.WithRrfRank(
+				v2.WithRrfRanks(
 					denseKnn.WithWeight(0.6),
 					sparseKnn.WithWeight(0.4),
 				),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)

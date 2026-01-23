@@ -117,7 +117,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("this is document about cats", "123141231", "$@!123115"))
 		require.NoError(t, err)
 
-		err = collection.Delete(ctx, WithIDsDelete("1", "2"))
+		err = collection.Delete(ctx, WithIDs("1", "2"))
 		require.NoError(t, err)
 
 		// Verify deletion
@@ -139,12 +139,12 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		err = collection.Add(ctx, WithIDs("1", "2", "3"), WithTexts("this is document about cats", "123141231", "$@!123115"))
 		require.NoError(t, err)
 
-		err = collection.Update(ctx, WithIDsUpdate("1", "2"), WithTextsUpdate("updated text for 1", "updated text for 2"))
+		err = collection.Update(ctx, WithIDs("1", "2"), WithTexts("updated text for 1", "updated text for 2"))
 		require.NoError(t, err)
 
 		// Verify update
 
-		results, err := collection.Get(ctx, WithIDsGet("1", "2"))
+		results, err := collection.Get(ctx, WithIDs("1", "2"))
 		require.NoError(t, err)
 		require.Equal(t, results.Count(), 2)
 		require.Equal(t, "updated text for 1", results.GetDocuments()[0].ContentString())
@@ -332,7 +332,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("tell me about cats"), WithKnnLimit(10)),
-				WithPage(WithLimit(2)),
+				WithPage(PageLimit(2)),
 				WithSelect(KDocument, KScore),
 			),
 		)
@@ -371,7 +371,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
-				WithPage(WithLimit(2)),
+				WithPage(PageLimit(2)),
 				WithSelect(KDocument, KScore),
 			),
 		)
@@ -404,7 +404,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
 				WithFilter(IDIn("1", "3")),
-				WithPage(WithLimit(5)),
+				WithPage(PageLimit(5)),
 				WithSelect(KID, KDocument, KScore),
 			),
 		)
@@ -441,7 +441,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
 				WithFilter(IDNotIn("1")),
-				WithPage(WithLimit(5)),
+				WithPage(PageLimit(5)),
 				WithSelect(KID, KDocument, KScore),
 			),
 		)
@@ -486,7 +486,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 					EqString(K("category"), "wildlife"),
 					IDNotIn("3"),
 				)),
-				WithPage(WithLimit(5)),
+				WithPage(PageLimit(5)),
 				WithSelect(KID, KDocument, KScore),
 			),
 		)
@@ -527,7 +527,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("pets"), WithKnnLimit(10)),
 				WithFilter(DocumentContains("fluffy")),
-				WithPage(WithLimit(5)),
+				WithPage(PageLimit(5)),
 				WithSelect(KID, KDocument, KScore),
 			),
 		)
@@ -564,7 +564,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("animals"), WithKnnLimit(10)),
 				WithFilter(DocumentNotContains("cats")),
-				WithPage(WithLimit(5)),
+				WithPage(PageLimit(5)),
 				WithSelect(KID, KDocument, KScore),
 			),
 		)
@@ -608,7 +608,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		searchResults, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
-				WithPage(WithLimit(2)),
+				WithPage(PageLimit(2)),
 				WithSelect(KDocument, KScore),
 			),
 		)
@@ -705,7 +705,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		searchResults, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
-				WithPage(WithLimit(2)),
+				WithPage(PageLimit(2)),
 				WithSelect(KDocument, KScore),
 			),
 		)
@@ -764,7 +764,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		searchResults, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("quick fox"), WithKnnLimit(10)),
-				WithPage(WithLimit(2)),
+				WithPage(PageLimit(2)),
 				WithSelect(KDocument, KScore),
 			),
 		)
@@ -829,7 +829,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err := collection.Query(ctx,
 			WithQueryTexts("animals"),
 			WithNResults(10),
-			WithWhereQuery(EqString(K("category"), "pets")),
+			WithWhere(EqString(K("category"), "pets")),
 		)
 		require.NoError(t, err)
 		require.LessOrEqual(t, len(results.GetDocumentsGroups()[0]), 2)
@@ -838,7 +838,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err = collection.Query(ctx,
 			WithQueryTexts("animals"),
 			WithNResults(10),
-			WithWhereQuery(GteInt("year", 2020)),
+			WithWhere(GteInt("year", 2020)),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, results.GetDocumentsGroups())
@@ -847,7 +847,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err = collection.Query(ctx,
 			WithQueryTexts("animals"),
 			WithNResults(10),
-			WithWhereQuery(GtFloat("rating", 4.0)),
+			WithWhere(GtFloat("rating", 4.0)),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, results.GetDocumentsGroups())
@@ -856,7 +856,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err = collection.Query(ctx,
 			WithQueryTexts("animals"),
 			WithNResults(10),
-			WithWhereQuery(EqBool("available", true)),
+			WithWhere(EqBool("available", true)),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, results.GetDocumentsGroups())
@@ -865,7 +865,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		searchResults, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("animals"), WithKnnLimit(10)),
-				WithPage(WithLimit(5)),
+				WithPage(PageLimit(5)),
 				WithSelect(KDocument, KScore, KMetadata),
 			),
 		)
@@ -945,7 +945,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		searchResults, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("machine learning AI"), WithKnnLimit(10)),
-				WithPage(WithLimit(3)),
+				WithPage(PageLimit(3)),
 				WithSelect(KDocument, KScore),
 			),
 		)
@@ -956,7 +956,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		searchResults, err = collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("learning"), WithKnnLimit(10)),
-				WithPage(WithLimit(3)),
+				WithPage(PageLimit(3)),
 				WithSelect(KDocument, KScore, KMetadata),
 			),
 		)
@@ -977,7 +977,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err = collection.Query(ctx,
 			WithQueryTexts("learning"),
 			WithNResults(10),
-			WithWhereQuery(EqInt("year", 2023)),
+			WithWhere(EqInt("year", 2023)),
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, results.GetDocumentsGroups())
@@ -1024,7 +1024,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
-				WithPage(WithLimit(3)),
+				WithPage(PageLimit(3)),
 				WithSelect(KID, KDocument, KScore, KMetadata),
 			),
 		)
@@ -1153,7 +1153,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("animals"), WithKnnLimit(10)),
-				WithPage(WithLimit(10)),
+				WithPage(PageLimit(10)),
 				WithSelect(KID, KDocument, KScore),
 			),
 			WithReadLevel(ReadLevelIndexAndWAL),
@@ -1185,7 +1185,7 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		results, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("animals"), WithKnnLimit(10)),
-				WithPage(WithLimit(10)),
+				WithPage(PageLimit(10)),
 				WithSelect(KID, KDocument, KScore),
 			),
 			WithReadLevel(ReadLevelIndexOnly),

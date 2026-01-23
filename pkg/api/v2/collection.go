@@ -9,121 +9,359 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
+/*
+Collection represents a Chroma vector collection.
+
+A Collection stores documents with their embeddings, metadata, and optional URIs.
+It provides methods for CRUD operations and semantic search.
+
+# Creating a Collection
+
+Use [Client.CreateCollection] or [Client.GetOrCreateCollection]:
+
+	client, _ := NewClient()
+	collection, _ := client.CreateCollection(ctx, "my-collection",
+	    WithEmbeddingFunction(ef),
+	    WithCollectionMetadata(map[string]any{"description": "My docs"}),
+	)
+
+# Adding Documents
+
+Use [Collection.Add] with unified options:
+
+	err := collection.Add(ctx,
+	    WithIDs("doc1", "doc2"),
+	    WithTexts("First document", "Second document"),
+	    WithMetadatas(meta1, meta2),
+	)
+
+# Querying Documents
+
+Use [Collection.Query] for semantic search or [Collection.Get] for direct retrieval:
+
+	// Semantic search
+	results, _ := collection.Query(ctx,
+	    WithQueryTexts("machine learning"),
+	    WithNResults(10),
+	)
+
+	// Direct retrieval
+	results, _ := collection.Get(ctx,
+	    WithIDs("doc1", "doc2"),
+	)
+
+# Advanced Search
+
+Use [Collection.Search] for more control over ranking and filtering:
+
+	results, _ := collection.Search(ctx,
+	    NewSearchRequest(
+	        WithKnnRank(KnnQueryText("query")),
+	        WithFilter(EqString(K("status"), "published")),
+	        WithPage(PageLimit(20)),
+	    ),
+	)
+*/
 type Collection interface {
-	// Name returns the name of the collection
+	// Name returns the name of the collection.
 	Name() string
-	// ID returns the id of the collection
+
+	// ID returns the unique identifier of the collection.
 	ID() string
-	// Tenant returns the tenant of the collection
+
+	// Tenant returns the tenant that owns this collection.
 	Tenant() Tenant
-	// Database returns the database of the collection
+
+	// Database returns the database containing this collection.
 	Database() Database
-	// Metadata returns the metadata of the collection
+
+	// Metadata returns the collection's metadata.
 	Metadata() CollectionMetadata
-	// Dimension returns the dimension of the embeddings in the collection
+
+	// Dimension returns the dimensionality of embeddings in this collection.
+	// Returns 0 if not yet determined (no documents added).
 	Dimension() int
-	// Configuration returns the configuration of the collection
+
+	// Configuration returns the collection's configuration settings.
 	Configuration() CollectionConfiguration
-	// Schema returns the schema of the collection
+
+	// Schema returns the collection's schema definition, if any.
 	Schema() *Schema
-	// Add adds a document to the collection
+
+	// Add inserts new documents into the collection.
+	//
+	// Documents can be provided as text (automatically embedded) or with
+	// pre-computed embeddings. IDs must be unique within the collection.
+	//
+	// Options: [WithIDs], [WithTexts], [WithEmbeddings], [WithMetadatas], [WithIDGenerator]
+	//
+	//	err := collection.Add(ctx,
+	//	    WithIDs("doc1", "doc2"),
+	//	    WithTexts("First document", "Second document"),
+	//	)
 	Add(ctx context.Context, opts ...CollectionAddOption) error
-	// Upsert updates or adds a document to the collection
+
+	// Upsert inserts new documents or updates existing ones.
+	//
+	// If a document with the given ID exists, it is updated. Otherwise, a new
+	// document is created. Uses the same options as [Collection.Add].
+	//
+	//	err := collection.Upsert(ctx,
+	//	    WithIDs("doc1"),
+	//	    WithTexts("New or updated content"),
+	//	)
 	Upsert(ctx context.Context, opts ...CollectionAddOption) error
-	// Update updates a document in the collection
+
+	// Update modifies existing documents in the collection.
+	//
+	// Only the provided fields are updated. Documents must exist.
+	//
+	// Options: [WithIDs], [WithTexts], [WithEmbeddings], [WithMetadatas]
+	//
+	//	err := collection.Update(ctx,
+	//	    WithIDs("doc1"),
+	//	    WithTexts("Updated content"),
+	//	)
 	Update(ctx context.Context, opts ...CollectionUpdateOption) error
-	// Delete deletes documents from the collection
+
+	// Delete removes documents from the collection.
+	//
+	// At least one filter must be provided: IDs, Where, or WhereDocument.
+	//
+	// Options: [WithIDs], [WithWhere], [WithWhereDocument]
+	//
+	//	// Delete by ID
+	//	err := collection.Delete(ctx, WithIDs("doc1", "doc2"))
+	//
+	//	// Delete by metadata filter
+	//	err := collection.Delete(ctx, WithWhere(EqString("status", "archived")))
 	Delete(ctx context.Context, opts ...CollectionDeleteOption) error
-	// Count returns the number of documents in the collection
+
+	// Count returns the total number of documents in the collection.
 	Count(ctx context.Context) (int, error)
-	// ModifyName modifies the name of the collection
+
+	// ModifyName changes the collection's name.
 	ModifyName(ctx context.Context, newName string) error
-	// ModifyMetadata modifies the metadata of the collection
+
+	// ModifyMetadata updates the collection's metadata.
 	ModifyMetadata(ctx context.Context, newMetadata CollectionMetadata) error
-	// ModifyConfiguration modifies the configuration of the collection
-	ModifyConfiguration(ctx context.Context, newConfig CollectionConfiguration) error // not supported yet
-	// Get gets documents from the collection
+
+	// ModifyConfiguration updates the collection's configuration.
+	// Note: Not all configuration changes may be supported.
+	ModifyConfiguration(ctx context.Context, newConfig CollectionConfiguration) error
+
+	// Get retrieves documents from the collection by ID or filter.
+	//
+	// Returns documents matching the specified criteria. If no filters are
+	// provided, returns all documents (subject to limit/offset).
+	//
+	// Options: [WithIDs], [WithWhere], [WithWhereDocument], [WithInclude], [WithLimit], [WithOffset]
+	//
+	//	// Get by IDs
+	//	results, _ := collection.Get(ctx, WithIDs("doc1", "doc2"))
+	//
+	//	// Get with pagination
+	//	results, _ := collection.Get(ctx, WithLimit(100), WithOffset(200))
+	//
+	//	// Get with filter
+	//	results, _ := collection.Get(ctx,
+	//	    WithWhere(EqString("status", "published")),
+	//	    WithInclude(IncludeDocuments, IncludeMetadatas),
+	//	)
 	Get(ctx context.Context, opts ...CollectionGetOption) (GetResult, error)
-	// Query queries the collection
+
+	// Query performs semantic search using text or embeddings.
+	//
+	// Finds documents most similar to the query. Use [WithQueryTexts] for text
+	// queries (automatically embedded) or [WithQueryEmbeddings] for pre-computed
+	// embeddings.
+	//
+	// Options: [WithQueryTexts], [WithQueryEmbeddings], [WithNResults], [WithWhere],
+	// [WithWhereDocument], [WithInclude], [WithIDs]
+	//
+	//	results, _ := collection.Query(ctx,
+	//	    WithQueryTexts("machine learning"),
+	//	    WithNResults(10),
+	//	    WithWhere(EqString("category", "tech")),
+	//	)
 	Query(ctx context.Context, opts ...CollectionQueryOption) (QueryResult, error)
-	// Search searches the collection - TODO: coming in 0.3.0
+
+	// Search performs advanced search with ranking and filtering.
+	//
+	// Provides more control than Query, including custom ranking expressions,
+	// pagination, field selection, and grouping.
+	//
+	// Use [NewSearchRequest] to create search requests with options like
+	// [WithKnnRank], [WithFilter], [WithPage], [WithSelect], and [WithGroupBy].
+	//
+	//	results, _ := collection.Search(ctx,
+	//	    NewSearchRequest(
+	//	        WithKnnRank(KnnQueryText("machine learning")),
+	//	        WithFilter(EqString(K("status"), "published")),
+	//	        WithPage(PageLimit(10)),
+	//	        WithSelect(KDocument, KScore),
+	//	    ),
+	//	)
 	Search(ctx context.Context, opts ...SearchCollectionOption) (SearchResult, error)
-	// Fork creates a fork of the collection
+
+	// Fork creates a copy of this collection with a new name.
+	// The new collection contains all documents from the original.
 	Fork(ctx context.Context, newName string) (Collection, error)
-	// IndexingStatus returns the indexing status of the collection (requires Chroma >= 1.4.1)
+
+	// IndexingStatus returns the current indexing progress for this collection.
+	// Requires Chroma server version >= 1.4.1.
+	//
+	// Use this to monitor background indexing after adding large amounts of data.
 	IndexingStatus(ctx context.Context) (*IndexingStatus, error)
-	// Close closes the collection and releases any resources
+
+	// Close releases any resources held by the collection.
+	// The collection should not be used after calling Close.
 	Close() error
 }
 
+// IndexingStatus represents the current indexing state of a collection.
+//
+// After adding documents, Chroma indexes them in the background. Use this
+// to monitor indexing progress, especially after bulk inserts.
+//
+//	status, err := collection.IndexingStatus(ctx)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("Indexing progress: %.1f%%\n", status.OpIndexingProgress*100)
 type IndexingStatus struct {
-	NumIndexedOps      uint64  `json:"num_indexed_ops"`
-	NumUnindexedOps    uint64  `json:"num_unindexed_ops"`
-	TotalOps           uint64  `json:"total_ops"`
+	// NumIndexedOps is the number of operations that have been indexed.
+	NumIndexedOps uint64 `json:"num_indexed_ops"`
+
+	// NumUnindexedOps is the number of operations waiting to be indexed.
+	NumUnindexedOps uint64 `json:"num_unindexed_ops"`
+
+	// TotalOps is the total number of operations (indexed + unindexed).
+	TotalOps uint64 `json:"total_ops"`
+
+	// OpIndexingProgress is the indexing progress as a fraction (0.0 to 1.0).
+	// A value of 1.0 means all operations have been indexed.
 	OpIndexingProgress float64 `json:"op_indexing_progress"`
 }
 
+// CollectionOp is the interface for all collection operations.
+// This is an internal interface used by the HTTP client implementation.
 type CollectionOp interface {
-	// PrepareAndValidate validates the operation. Each operation must implement this method to ensure the operation is valid and can be sent over the wire
+	// PrepareAndValidate validates the operation before sending.
 	PrepareAndValidate() error
+
+	// EmbedData embeds text data using the provided embedding function.
 	EmbedData(ctx context.Context, ef embeddings.EmbeddingFunction) error
-	// MarshalJSON marshals the operation to JSON
+
+	// MarshalJSON serializes the operation to JSON.
 	MarshalJSON() ([]byte, error)
-	// UnmarshalJSON unmarshals the operation from JSON
+
+	// UnmarshalJSON deserializes the operation from JSON.
 	UnmarshalJSON(b []byte) error
 }
 
+// FilterOp provides metadata and document content filtering capabilities.
+// Embedded in operations that support Where and WhereDocument filters.
 type FilterOp struct {
-	Where         WhereFilter         `json:"where,omitempty"`
+	// Where filters by metadata field values.
+	Where WhereFilter `json:"where,omitempty"`
+
+	// WhereDocument filters by document text content.
 	WhereDocument WhereDocumentFilter `json:"where_document,omitempty"`
 }
 
+// SetWhere sets the metadata filter.
+func (f *FilterOp) SetWhere(where WhereFilter) {
+	f.Where = where
+}
+
+// SetWhereDocument sets the document content filter.
+func (f *FilterOp) SetWhereDocument(where WhereDocumentFilter) {
+	f.WhereDocument = where
+}
+
+// FilterIDOp provides ID-based filtering capabilities.
+// Embedded in operations that support filtering by document IDs.
 type FilterIDOp struct {
+	// Ids contains the document IDs to filter by.
 	Ids []DocumentID `json:"ids,omitempty"`
 }
 
+// AppendIDs adds document IDs to the filter.
+func (f *FilterIDOp) AppendIDs(ids ...DocumentID) {
+	f.Ids = append(f.Ids, ids...)
+}
+
+// FilterTextsOp holds query texts for semantic search.
+// The texts are embedded before search.
 type FilterTextsOp struct {
 	QueryTexts []string `json:"-"`
 }
 
+// FilterEmbeddingsOp holds pre-computed embeddings for semantic search.
 type FilterEmbeddingsOp struct {
 	QueryEmbeddings []embeddings.Embedding `json:"query_embeddings"`
 }
 
+// ProjectOp specifies which fields to include in results.
 type ProjectOp struct {
 	Include []Include `json:"include,omitempty"`
 }
 
+// LimitAndOffsetOp provides pagination for Get operations.
 type LimitAndOffsetOp struct {
 	Limit  int `json:"limit,omitempty"`
 	Offset int `json:"offset,omitempty"`
 }
 
+// LimitResultOp specifies the number of results for Query operations.
 type LimitResultOp struct {
 	NResults int `json:"n_results"`
 }
 
+// SortOp specifies result ordering (not yet supported).
 type SortOp struct {
 	Sort string `json:"sort,omitempty"`
 }
 
-type CollectionGetOption func(get *CollectionGetOp) error
+// CollectionGetOption is an alias for [GetOption] for backward compatibility.
+type CollectionGetOption = GetOption
 
+// CollectionGetOp represents a Get operation on a collection.
+//
+// Use [NewCollectionGetOp] to create instances, or pass options directly
+// to [Collection.Get].
+//
+//	// Using Collection.Get (recommended)
+//	results, err := collection.Get(ctx,
+//	    WithIDs("doc1", "doc2"),
+//	    WithInclude(IncludeDocuments),
+//	)
+//
+//	// Using NewCollectionGetOp (advanced)
+//	op, err := NewCollectionGetOp(
+//	    WithIDs("doc1", "doc2"),
+//	    WithInclude(IncludeDocuments),
+//	)
 type CollectionGetOp struct {
-	FilterOp          // ability to filter by where and whereDocument
-	FilterIDOp        // ability to filter by id
-	ProjectOp         // include metadatas, documents, embeddings, uris, ids
-	LimitAndOffsetOp  // limit and offset
-	SortOp            // sort
+	FilterOp          // Where and WhereDocument filters
+	FilterIDOp        // ID filter
+	ProjectOp         // Field projection (Include)
+	LimitAndOffsetOp  // Pagination
+	SortOp            // Ordering (not yet supported)
 	ResourceOperation `json:"-"`
 }
 
-func NewCollectionGetOp(opts ...CollectionGetOption) (*CollectionGetOp, error) {
+// NewCollectionGetOp creates a new Get operation with the given options.
+//
+// This is primarily for advanced use cases. Most users should use
+// [Collection.Get] directly.
+func NewCollectionGetOp(opts ...GetOption) (*CollectionGetOp, error) {
 	get := &CollectionGetOp{
 		ProjectOp: ProjectOp{Include: []Include{IncludeDocuments, IncludeMetadatas}},
 	}
 	for _, opt := range opts {
-		err := opt(get)
+		err := opt.ApplyToGet(get)
 		if err != nil {
 			return nil, err
 		}
@@ -175,73 +413,64 @@ func (c *CollectionGetOp) Operation() OperationType {
 	return OperationGet
 }
 
-func WithIDsGet(ids ...DocumentID) CollectionGetOption {
-	return func(query *CollectionGetOp) error {
-		for _, id := range ids {
-			query.Ids = append(query.Ids, DocumentID(id))
-		}
-		return nil
-	}
+// Deprecated: Use [WithIDs] instead.
+func WithIDsGet(ids ...DocumentID) GetOption {
+	return WithIDs(ids...)
 }
 
-func WithWhereGet(where WhereFilter) CollectionGetOption {
-	return func(query *CollectionGetOp) error {
-		query.Where = where
-		return nil
-	}
+// Deprecated: Use [WithWhere] instead.
+func WithWhereGet(where WhereFilter) GetOption {
+	return WithWhere(where)
 }
 
-func WithWhereDocumentGet(whereDocument WhereDocumentFilter) CollectionGetOption {
-	return func(query *CollectionGetOp) error {
-		query.WhereDocument = whereDocument
-		return nil
-	}
+// Deprecated: Use [WithWhereDocument] instead.
+func WithWhereDocumentGet(whereDocument WhereDocumentFilter) GetOption {
+	return WithWhereDocument(whereDocument)
 }
 
-func WithIncludeGet(include ...Include) CollectionGetOption {
-	return func(query *CollectionGetOp) error {
-		query.Include = include
-		return nil
-	}
+// Deprecated: Use [WithInclude] instead.
+func WithIncludeGet(include ...Include) GetOption {
+	return WithInclude(include...)
 }
 
-func WithLimitGet(limit int) CollectionGetOption {
-	return func(query *CollectionGetOp) error {
-		if limit <= 0 {
-			return errors.New("limit must be greater than 0")
-		}
-		query.Limit = limit
-		return nil
-	}
+// Deprecated: Use [WithLimit] instead.
+func WithLimitGet(limit int) GetOption {
+	return WithLimit(limit)
 }
 
-func WithOffsetGet(offset int) CollectionGetOption {
-	return func(query *CollectionGetOp) error {
-		if offset < 0 {
-			return errors.New("offset must be greater than or equal to 0")
-		}
-		query.Offset = offset
-		return nil
-	}
+// Deprecated: Use [WithOffset] instead.
+func WithOffsetGet(offset int) GetOption {
+	return WithOffset(offset)
 }
 
-// Query
-
+// CollectionQueryOp represents a semantic search Query operation.
+//
+// Use [Collection.Query] with options like [WithQueryTexts] or [WithQueryEmbeddings].
+//
+//	results, err := collection.Query(ctx,
+//	    WithQueryTexts("machine learning"),
+//	    WithNResults(10),
+//	    WithWhere(EqString("status", "published")),
+//	)
 type CollectionQueryOp struct {
-	FilterOp
-	FilterEmbeddingsOp
-	FilterTextsOp
-	LimitResultOp
-	ProjectOp // include metadatas, documents, embeddings, uris
-	FilterIDOp
+	FilterOp           // Where and WhereDocument filters
+	FilterEmbeddingsOp // Pre-computed query embeddings
+	FilterTextsOp      // Query texts to be embedded
+	LimitResultOp      // Number of results per query
+	ProjectOp          // Field projection (Include)
+	FilterIDOp         // Limit search to specific IDs
 }
 
-func NewCollectionQueryOp(opts ...CollectionQueryOption) (*CollectionQueryOp, error) {
+// NewCollectionQueryOp creates a new Query operation with the given options.
+//
+// Default NResults is 10. This is primarily for advanced use cases.
+// Most users should use [Collection.Query] directly.
+func NewCollectionQueryOp(opts ...QueryOption) (*CollectionQueryOp, error) {
 	query := &CollectionQueryOp{
 		LimitResultOp: LimitResultOp{NResults: 10},
 	}
 	for _, opt := range opts {
-		err := opt(query)
+		err := opt.ApplyToQuery(query)
 		if err != nil {
 			return nil, err
 		}
@@ -300,94 +529,90 @@ func (c *CollectionQueryOp) Operation() OperationType {
 	return OperationQuery
 }
 
-type CollectionQueryOption func(query *CollectionQueryOp) error
+// CollectionQueryOption is an alias for QueryOption for backward compatibility.
+type CollectionQueryOption = QueryOption
 
-func WithWhereQuery(where WhereFilter) CollectionQueryOption {
-	return func(query *CollectionQueryOp) error {
-		query.Where = where
-		return nil
-	}
+// Deprecated: Use [WithWhere] instead.
+func WithWhereQuery(where WhereFilter) QueryOption {
+	return WithWhere(where)
 }
 
-func WithWhereDocumentQuery(whereDocument WhereDocumentFilter) CollectionQueryOption {
-	return func(query *CollectionQueryOp) error {
-		query.WhereDocument = whereDocument
-		return nil
-	}
+// Deprecated: Use [WithWhereDocument] instead.
+func WithWhereDocumentQuery(whereDocument WhereDocumentFilter) QueryOption {
+	return WithWhereDocument(whereDocument)
 }
 
-func WithNResults(nResults int) CollectionQueryOption {
-	return func(query *CollectionQueryOp) error {
-		if nResults <= 0 {
-			return errors.New("nResults must be greater than 0")
-		}
-		query.NResults = nResults
-		return nil
-	}
+// queryEmbeddingsOption implements query embedding input for Query operations.
+type queryEmbeddingsOption struct {
+	embeddings []embeddings.Embedding
 }
 
-func WithQueryTexts(queryTexts ...string) CollectionQueryOption {
-	return func(query *CollectionQueryOp) error {
-		if len(queryTexts) == 0 {
-			return errors.New("at least one query text is required")
-		}
-		query.QueryTexts = queryTexts
-		return nil
-	}
+// WithQueryEmbeddings sets the query embeddings. Works with Query.
+func WithQueryEmbeddings(queryEmbeddings ...embeddings.Embedding) *queryEmbeddingsOption {
+	return &queryEmbeddingsOption{embeddings: queryEmbeddings}
 }
 
-func WithQueryEmbeddings(queryEmbeddings ...embeddings.Embedding) CollectionQueryOption {
-	return func(query *CollectionQueryOp) error {
-		if len(queryEmbeddings) == 0 {
-			return errors.New("at least one query embedding is required")
-		}
-		query.QueryEmbeddings = queryEmbeddings
-		return nil
+func (o *queryEmbeddingsOption) ApplyToQuery(op *CollectionQueryOp) error {
+	if len(o.embeddings) == 0 {
+		return errors.New("at least one query embedding is required")
 	}
+	op.QueryEmbeddings = o.embeddings
+	return nil
 }
 
-// WithIncludeQuery is used to include metadatas, documents, embeddings, uris in the query response.
-func WithIncludeQuery(include ...Include) CollectionQueryOption {
-	return func(query *CollectionQueryOp) error {
-		query.Include = include
-		return nil
-	}
+// Deprecated: Use [WithInclude] instead.
+func WithIncludeQuery(include ...Include) QueryOption {
+	return WithInclude(include...)
 }
 
-// WithIDsQuery is used to filter the query by IDs. This is only available for Chroma version 1.0.3 and above.
-func WithIDsQuery(ids ...DocumentID) CollectionQueryOption {
-	return func(query *CollectionQueryOp) error {
-		if len(ids) == 0 {
-			return errors.New("at least one id is required")
-		}
-		if query.Ids == nil {
-			query.Ids = make([]DocumentID, 0)
-		}
-		query.Ids = append(query.Ids, ids...)
-		return nil
-	}
+// Deprecated: Use [WithIDs] instead.
+func WithIDsQuery(ids ...DocumentID) QueryOption {
+	return WithIDs(ids...)
 }
 
-// Add, Upsert, Update
-
+// CollectionAddOp represents an Add or Upsert operation.
+//
+// Use [Collection.Add] or [Collection.Upsert] with options:
+//
+//	err := collection.Add(ctx,
+//	    WithIDs("doc1", "doc2"),
+//	    WithTexts("First document", "Second document"),
+//	    WithMetadatas(meta1, meta2),
+//	)
 type CollectionAddOp struct {
-	Ids         []DocumentID       `json:"ids"`
-	Documents   []Document         `json:"documents,omitempty"`
-	Metadatas   []DocumentMetadata `json:"metadatas,omitempty"`
-	Embeddings  []any              `json:"embeddings"`
-	Records     []Record           `json:"-"`
-	IDGenerator IDGenerator        `json:"-"`
+	// Ids are the unique identifiers for each document.
+	Ids []DocumentID `json:"ids"`
+
+	// Documents contain the text content to be stored and embedded.
+	Documents []Document `json:"documents,omitempty"`
+
+	// Metadatas contain key-value metadata for each document.
+	Metadatas []DocumentMetadata `json:"metadatas,omitempty"`
+
+	// Embeddings are the vector representations of the documents.
+	// If not provided, they are computed from Documents using the embedding function.
+	Embeddings []any `json:"embeddings"`
+
+	// Records is an alternative to separate Ids/Documents/Metadatas/Embeddings.
+	Records []Record `json:"-"`
+
+	// IDGenerator automatically generates IDs if Ids is empty.
+	IDGenerator IDGenerator `json:"-"`
 }
 
-func NewCollectionAddOp(opts ...CollectionAddOption) (*CollectionAddOp, error) {
-	update := &CollectionAddOp{}
+// NewCollectionAddOp creates a new Add operation with the given options.
+//
+// This is primarily for advanced use cases. Most users should use
+// [Collection.Add] or [Collection.Upsert] directly.
+func NewCollectionAddOp(opts ...AddOption) (*CollectionAddOp, error) {
+	add := &CollectionAddOp{}
 	for _, opt := range opts {
-		err := opt(update)
+		err := opt.ApplyToAdd(add)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return update, nil
+	return add, nil
 }
 
 func (c *CollectionAddOp) EmbedData(ctx context.Context, ef embeddings.EmbeddingFunction) error {
@@ -525,74 +750,188 @@ func (c *CollectionAddOp) Operation() OperationType {
 	return OperationCreate
 }
 
-type CollectionAddOption func(update *CollectionAddOp) error
+// CollectionAddOption is an alias for [AddOption] for backward compatibility.
+type CollectionAddOption = AddOption
 
-func WithTexts(documents ...string) CollectionAddOption {
-	return func(update *CollectionAddOp) error {
-		if len(documents) == 0 {
-			return errors.New("at least one document is required")
-		}
-		if update.Documents == nil {
-			update.Documents = make([]Document, 0)
-		}
-		for _, text := range documents {
-			update.Documents = append(update.Documents, NewTextDocument(text))
-		}
-		return nil
-	}
+// metadatasOption implements metadata input for Add and Update operations.
+// Use [WithMetadatas] to create this option.
+type metadatasOption struct {
+	metadatas []DocumentMetadata
 }
 
-func WithMetadatas(metadatas ...DocumentMetadata) CollectionAddOption {
-	return func(update *CollectionAddOp) error {
-		update.Metadatas = metadatas
-		return nil
-	}
+// WithMetadatas sets document metadata for [Collection.Add], [Collection.Upsert],
+// and [Collection.Update] operations.
+//
+// The number of metadatas must match the number of IDs provided.
+// Each metadata is a map of string keys to values (string, int, float, bool).
+//
+// # Add Example
+//
+//	meta1 := map[string]any{"author": "Alice", "year": 2024}
+//	meta2 := map[string]any{"author": "Bob", "year": 2023}
+//
+//	err := collection.Add(ctx,
+//	    WithIDs("doc1", "doc2"),
+//	    WithTexts("First document", "Second document"),
+//	    WithMetadatas(meta1, meta2),
+//	)
+//
+// # Update Example
+//
+//	err := collection.Update(ctx,
+//	    WithIDs("doc1"),
+//	    WithMetadatas(map[string]any{"status": "reviewed"}),
+//	)
+//
+// Note: At least one metadata must be provided.
+func WithMetadatas(metadatas ...DocumentMetadata) *metadatasOption {
+	return &metadatasOption{metadatas: metadatas}
 }
 
-func WithIDs(ids ...DocumentID) CollectionAddOption {
-	return func(update *CollectionAddOp) error {
-		for _, id := range ids {
-			update.Ids = append(update.Ids, DocumentID(id))
-		}
-		return nil
+func (o *metadatasOption) ApplyToAdd(op *CollectionAddOp) error {
+	if len(o.metadatas) == 0 {
+		return ErrNoMetadatas
 	}
+	op.Metadatas = o.metadatas
+	return nil
 }
 
-func WithIDGenerator(idGenerator IDGenerator) CollectionAddOption {
-	return func(update *CollectionAddOp) error {
-		update.IDGenerator = idGenerator
-		return nil
+func (o *metadatasOption) ApplyToUpdate(op *CollectionUpdateOp) error {
+	if len(o.metadatas) == 0 {
+		return ErrNoMetadatas
 	}
+	op.Metadatas = o.metadatas
+	return nil
 }
 
-func WithEmbeddings(embeddings ...embeddings.Embedding) CollectionAddOption {
-	return func(update *CollectionAddOp) error {
-		if len(embeddings) == 0 {
-			return errors.New("at least one embedding is required")
-		}
-		embds := make([]any, 0)
-		for _, e := range embeddings {
-			embds = append(embds, e)
-		}
-		update.Embeddings = embds
-		return nil
-	}
+// idGeneratorOption implements ID generator for Add operations.
+// Use [WithIDGenerator] to create this option.
+type idGeneratorOption struct {
+	generator IDGenerator
 }
 
-// Update
+// WithIDGenerator sets an automatic ID generator for [Collection.Add].
+//
+// When an ID generator is set, IDs are automatically generated for each
+// document based on the generator's strategy. This allows adding documents
+// without explicitly providing IDs.
+//
+// Available generators:
+//   - [NewULIDGenerator] - generates unique, lexicographically sortable IDs
+//   - [NewUUIDGenerator] - generates random UUIDs
+//   - [NewSHA256Generator] - generates content-based IDs (deterministic)
+//
+// # Example with ULID Generator
+//
+//	err := collection.Add(ctx,
+//	    WithTexts("First document", "Second document"),
+//	    WithIDGenerator(NewULIDGenerator()),
+//	)
+//
+// # Example with Content-Based IDs
+//
+//	// Same content always produces the same ID
+//	err := collection.Add(ctx,
+//	    WithTexts("Document content"),
+//	    WithIDGenerator(NewSHA256Generator()),
+//	)
+func WithIDGenerator(idGenerator IDGenerator) *idGeneratorOption {
+	return &idGeneratorOption{generator: idGenerator}
+}
 
+func (o *idGeneratorOption) ApplyToAdd(op *CollectionAddOp) error {
+	op.IDGenerator = o.generator
+	return nil
+}
+
+// embeddingsOption implements embedding input for Add and Update operations.
+// Use [WithEmbeddings] to create this option.
+type embeddingsOption struct {
+	embeddings []embeddings.Embedding
+}
+
+// WithEmbeddings sets pre-computed embeddings for [Collection.Add], [Collection.Upsert],
+// and [Collection.Update] operations.
+//
+// Use this when you have already computed embeddings externally and don't want
+// the collection's embedding function to re-embed the documents.
+//
+// The number of embeddings must match the number of IDs provided.
+// Each embedding is a slice of float32 values.
+//
+// # Example
+//
+//	// Pre-computed 384-dimensional embeddings
+//	emb1 := []float32{0.1, 0.2, ...}
+//	emb2 := []float32{0.3, 0.4, ...}
+//
+//	err := collection.Add(ctx,
+//	    WithIDs("doc1", "doc2"),
+//	    WithEmbeddings(emb1, emb2),
+//	    WithMetadatas(meta1, meta2),
+//	)
+func WithEmbeddings(embs ...embeddings.Embedding) *embeddingsOption {
+	return &embeddingsOption{embeddings: embs}
+}
+
+func (o *embeddingsOption) ApplyToAdd(op *CollectionAddOp) error {
+	if len(o.embeddings) == 0 {
+		return errors.New("at least one embedding is required")
+	}
+	embds := make([]any, 0, len(o.embeddings))
+	for _, e := range o.embeddings {
+		embds = append(embds, e)
+	}
+	op.Embeddings = embds
+	return nil
+}
+
+func (o *embeddingsOption) ApplyToUpdate(op *CollectionUpdateOp) error {
+	if len(o.embeddings) == 0 {
+		return errors.New("at least one embedding is required")
+	}
+	embds := make([]any, 0, len(o.embeddings))
+	for _, e := range o.embeddings {
+		embds = append(embds, e)
+	}
+	op.Embeddings = embds
+	return nil
+}
+
+// CollectionUpdateOp represents an Update operation on existing documents.
+//
+// Use [Collection.Update] with options to modify existing documents:
+//
+//	err := collection.Update(ctx,
+//	    WithIDs("doc1"),
+//	    WithTexts("Updated document content"),
+//	    WithMetadatas(updatedMeta),
+//	)
 type CollectionUpdateOp struct {
-	Ids        []DocumentID       `json:"ids"`
-	Documents  []Document         `json:"documents,omitempty"`
-	Metadatas  []DocumentMetadata `json:"metadatas,omitempty"`
-	Embeddings []any              `json:"embeddings"`
-	Records    []Record           `json:"-"`
+	// Ids identifies the documents to update (required).
+	Ids []DocumentID `json:"ids"`
+
+	// Documents contain updated text content.
+	Documents []Document `json:"documents,omitempty"`
+
+	// Metadatas contain updated metadata values.
+	Metadatas []DocumentMetadata `json:"metadatas,omitempty"`
+
+	// Embeddings contain updated vector representations.
+	Embeddings []any `json:"embeddings"`
+
+	// Records is an alternative to separate fields.
+	Records []Record `json:"-"`
 }
 
-func NewCollectionUpdateOp(opts ...CollectionUpdateOption) (*CollectionUpdateOp, error) {
+// NewCollectionUpdateOp creates a new Update operation with the given options.
+//
+// This is primarily for advanced use cases. Most users should use
+// [Collection.Update] directly.
+func NewCollectionUpdateOp(opts ...UpdateOption) (*CollectionUpdateOp, error) {
 	update := &CollectionUpdateOp{}
 	for _, opt := range opts {
-		err := opt(update)
+		err := opt.ApplyToUpdate(update)
 		if err != nil {
 			return nil, err
 		}
@@ -697,64 +1036,56 @@ func (c *CollectionUpdateOp) Operation() OperationType {
 	return OperationUpdate
 }
 
-type CollectionUpdateOption func(update *CollectionUpdateOp) error
+// CollectionUpdateOption is an alias for [UpdateOption] for backward compatibility.
+type CollectionUpdateOption = UpdateOption
 
-func WithTextsUpdate(documents ...string) CollectionUpdateOption {
-	return func(update *CollectionUpdateOp) error {
-		if len(documents) == 0 {
-			return errors.New("at least one document is required")
-		}
-		if update.Documents == nil {
-			update.Documents = make([]Document, 0)
-		}
-		for _, text := range documents {
-			update.Documents = append(update.Documents, NewTextDocument(text))
-		}
-		return nil
-	}
+// Deprecated: Use [WithTexts] instead.
+func WithTextsUpdate(documents ...string) UpdateOption {
+	return WithTexts(documents...)
 }
 
-func WithMetadatasUpdate(metadatas ...DocumentMetadata) CollectionUpdateOption {
-	return func(update *CollectionUpdateOp) error {
-		update.Metadatas = metadatas
-		return nil
-	}
+// Deprecated: Use [WithMetadatas] instead.
+func WithMetadatasUpdate(metadatas ...DocumentMetadata) UpdateOption {
+	return WithMetadatas(metadatas...)
 }
 
-func WithIDsUpdate(ids ...DocumentID) CollectionUpdateOption {
-	return func(update *CollectionUpdateOp) error {
-		for _, id := range ids {
-			update.Ids = append(update.Ids, DocumentID(id))
-		}
-		return nil
-	}
+// Deprecated: Use [WithIDs] instead.
+func WithIDsUpdate(ids ...DocumentID) UpdateOption {
+	return WithIDs(ids...)
 }
 
-func WithEmbeddingsUpdate(embeddings ...embeddings.Embedding) CollectionUpdateOption {
-	return func(update *CollectionUpdateOp) error {
-		if len(embeddings) == 0 {
-			return errors.New("at least one embedding is required")
-		}
-		embds := make([]any, 0)
-		for _, e := range embeddings {
-			embds = append(embds, e)
-		}
-		update.Embeddings = embds
-		return nil
-	}
+// Deprecated: Use [WithEmbeddings] instead.
+func WithEmbeddingsUpdate(embs ...embeddings.Embedding) UpdateOption {
+	return WithEmbeddings(embs...)
 }
 
-// Delete
-
+// CollectionDeleteOp represents a Delete operation on a collection.
+//
+// At least one filter must be provided: IDs, Where, or WhereDocument.
+//
+// Use [Collection.Delete] with options:
+//
+//	// Delete by ID
+//	err := collection.Delete(ctx, WithIDs("doc1", "doc2"))
+//
+//	// Delete by metadata filter
+//	err := collection.Delete(ctx, WithWhere(EqString("status", "archived")))
+//
+//	// Delete by document content
+//	err := collection.Delete(ctx, WithWhereDocument(Contains("DEPRECATED")))
 type CollectionDeleteOp struct {
-	FilterOp
-	FilterIDOp
+	FilterOp   // Where and WhereDocument filters
+	FilterIDOp // ID filter
 }
 
-func NewCollectionDeleteOp(opts ...CollectionDeleteOption) (*CollectionDeleteOp, error) {
+// NewCollectionDeleteOp creates a new Delete operation with the given options.
+//
+// This is primarily for advanced use cases. Most users should use
+// [Collection.Delete] directly.
+func NewCollectionDeleteOp(opts ...DeleteOption) (*CollectionDeleteOp, error) {
 	del := &CollectionDeleteOp{}
 	for _, opt := range opts {
-		err := opt(del)
+		err := opt.ApplyToDelete(del)
 		if err != nil {
 			return nil, err
 		}
@@ -799,31 +1130,27 @@ func (c *CollectionDeleteOp) Operation() OperationType {
 	return OperationDelete
 }
 
-type CollectionDeleteOption func(update *CollectionDeleteOp) error
+// CollectionDeleteOption is an alias for [DeleteOption] for backward compatibility.
+type CollectionDeleteOption = DeleteOption
 
-func WithWhereDelete(where WhereFilter) CollectionDeleteOption {
-	return func(delete *CollectionDeleteOp) error {
-		delete.Where = where
-		return nil
-	}
+// Deprecated: Use [WithWhere] instead.
+func WithWhereDelete(where WhereFilter) DeleteOption {
+	return WithWhere(where)
 }
 
-func WithWhereDocumentDelete(whereDocument WhereDocumentFilter) CollectionDeleteOption {
-	return func(delete *CollectionDeleteOp) error {
-		delete.WhereDocument = whereDocument
-		return nil
-	}
+// Deprecated: Use [WithWhereDocument] instead.
+func WithWhereDocumentDelete(whereDocument WhereDocumentFilter) DeleteOption {
+	return WithWhereDocument(whereDocument)
 }
 
-func WithIDsDelete(ids ...DocumentID) CollectionDeleteOption {
-	return func(delete *CollectionDeleteOp) error {
-		for _, id := range ids {
-			delete.Ids = append(delete.Ids, DocumentID(id))
-		}
-		return nil
-	}
+// Deprecated: Use [WithIDs] instead.
+func WithIDsDelete(ids ...DocumentID) DeleteOption {
+	return WithIDs(ids...)
 }
 
+// CollectionConfiguration provides access to collection configuration settings.
 type CollectionConfiguration interface {
-	GetRaw(key string) (interface{}, bool)
+	// GetRaw returns a configuration value by key.
+	// Returns the value and true if found, or nil and false if not found.
+	GetRaw(key string) (any, bool)
 }

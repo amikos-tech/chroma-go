@@ -10,8 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make build
 
 # Run tests by category (use build tags)
-make test          # V1 API tests
-make test-v2       # V2 API tests
+make test          # V2 API tests (basicv2 tag)
 make test-cloud    # Cloud integration tests (requires CHROMA_CLOUD_* env vars)
 make test-ef       # Embedding function tests
 make test-rf       # Reranking function tests

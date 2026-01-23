@@ -13,11 +13,11 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
 )
 
 func TestCollectionAddIntegration(t *testing.T) {
@@ -545,8 +545,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 		_, err = collection.Query(ctx, WithQueryEmbeddings())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "at least one query embedding is required")
-		// empty query IDs
-		_, err = collection.Query(ctx, WithIDsQuery(), WithQueryTexts("test"))
+		_, err = collection.Query(ctx, WithIDs(), WithQueryTexts("test"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "at least one id is required")
 
@@ -655,7 +654,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
 				WithFilter(IDIn("1", "3")),
-				WithPage(WithLimit(5)),
+				WithPage(PageLimit(5)),
 				WithSelect(KID, KDocument, KScore),
 			),
 		)
@@ -687,7 +686,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 			NewSearchRequest(
 				WithKnnRank(KnnQueryText("cats"), WithKnnLimit(10)),
 				WithFilter(IDNotIn("1", "3")),
-				WithPage(WithLimit(5)),
+				WithPage(PageLimit(5)),
 				WithSelect(KID, KDocument, KScore),
 			),
 		)
@@ -731,7 +730,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 					EqString(K("category"), "wildlife"),
 					IDNotIn("3"), // Exclude lions
 				)),
-				WithPage(WithLimit(5)),
+				WithPage(PageLimit(5)),
 				WithSelect(KID, KDocument, KScore),
 			),
 		)

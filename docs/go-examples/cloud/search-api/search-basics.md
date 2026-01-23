@@ -107,7 +107,7 @@ func main() {
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.EqString("status", "active")),
 			v2.WithKnnRank(v2.KnnQueryText("machine learning")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -167,7 +167,7 @@ func main() {
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.EqString("status", "published")),
 			v2.WithKnnRank(v2.KnnQueryText("machine learning applications")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -220,7 +220,7 @@ func main() {
 					v2.GteInt("year", 2023),
 				),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KMetadata),
 		),
 	)
@@ -232,7 +232,7 @@ func main() {
 	rankOnly, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("AI research")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -250,7 +250,7 @@ func main() {
 				),
 			),
 			v2.WithKnnRank(v2.KnnQueryText("AI research")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.KScore),
 		),
 	)
@@ -303,7 +303,7 @@ func main() {
 	result, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("machine learning")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 		v2.WithReadLevel(v2.ReadLevelIndexAndWAL),
 	)
@@ -316,7 +316,7 @@ func main() {
 	fastResult, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithKnnRank(v2.KnnQueryText("machine learning")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 		v2.WithReadLevel(v2.ReadLevelIndexOnly),
 	)
@@ -341,10 +341,9 @@ func main() {
 | Component | Go Function | Description |
 |-----------|-------------|-------------|
 | Filter | `WithFilter()` | Narrow down results by metadata |
-| Filter IDs | `WithFilterIDs()` | Filter by specific document IDs |
-| Filter Document | `WithFilterDocument()` | Filter by document content |
+| Filter IDs | `WithIDs()` | Filter by specific document IDs |
 | Rank | `WithKnnRank()`, `WithRank()` | Score and order results |
-| Page | `WithPage()` | Pagination with limit/offset |
+| Page | `NewPage()` | Pagination with limit/offset |
 | Select | `WithSelect()` | Choose which fields to return |
 | Group By | `WithGroupBy()` | Group results by metadata |
 | Read Level | `WithReadLevel()` | Control WAL vs index-only reads |
@@ -368,7 +367,7 @@ Use the `Rows()` method for ergonomic result iteration:
 results, err := collection.Search(ctx,
     v2.NewSearchRequest(
         v2.WithKnnRank(v2.KnnQueryText("machine learning")),
-        v2.WithPage(v2.WithLimit(10)),
+        v2.NewPage(v2.Limit(10)),
         v2.WithSelect(v2.KDocument, v2.KScore, v2.K("title")),
     ),
 )
@@ -397,7 +396,7 @@ if row, ok := results.At(0, 0); ok {
 
 - Go uses functional options pattern instead of Python's builder pattern
 - Use `NewSearchRequest()` to create a search request
-- Combine options like `WithFilter()`, `WithKnnRank()`, `WithPage()`, `WithSelect()`
+- Combine options like `WithFilter()`, `WithKnnRank()`, `NewPage()`, `WithSelect()`
 - Use `Rows()` for easy iteration over results
 - Use `RowGroups()` when executing multiple search requests in a batch
 - Use `At(group, index)` for safe indexed access with bounds checking

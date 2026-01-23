@@ -378,11 +378,11 @@ func TestRrfRank(t *testing.T) {
 		knn1 := mustNewKnnRank(t, KnnQueryText("query1"), WithKnnReturnRank())
 		knn2 := mustNewKnnRank(t, KnnQueryText("query2"), WithKnnReturnRank())
 		rrf, err := NewRrfRank(
-			WithRffRanks(
+			WithRrfRanks(
 				knn1.WithWeight(1.0),
 				knn2.WithWeight(1.0),
 			),
-			WithRffK(60),
+			WithRrfK(60),
 		)
 		require.NoError(t, err)
 
@@ -399,10 +399,10 @@ func TestRrfRank(t *testing.T) {
 	t.Run("rrf with custom k", func(t *testing.T) {
 		knn := mustNewKnnRank(t, KnnQueryText("test"))
 		rrf, err := NewRrfRank(
-			WithRffRanks(
+			WithRrfRanks(
 				knn.WithWeight(1.0),
 			),
-			WithRffK(100),
+			WithRrfK(100),
 		)
 		require.NoError(t, err)
 		require.Equal(t, 100, rrf.K)
@@ -412,11 +412,11 @@ func TestRrfRank(t *testing.T) {
 		knnA := mustNewKnnRank(t, KnnQueryText("a"))
 		knnB := mustNewKnnRank(t, KnnQueryText("b"))
 		rrf, err := NewRrfRank(
-			WithRffRanks(
+			WithRrfRanks(
 				knnA.WithWeight(3.0),
 				knnB.WithWeight(1.0),
 			),
-			WithRffNormalize(),
+			WithRrfNormalize(),
 		)
 		require.NoError(t, err)
 		require.True(t, rrf.Normalize)
@@ -433,7 +433,7 @@ func TestRrfRank(t *testing.T) {
 	})
 
 	t.Run("rrf k must be positive", func(t *testing.T) {
-		_, err := NewRrfRank(WithRffK(0))
+		_, err := NewRrfRank(WithRrfK(0))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "must be >= 1")
 	})
@@ -441,7 +441,7 @@ func TestRrfRank(t *testing.T) {
 	t.Run("rrf rejects negative weights", func(t *testing.T) {
 		knn := mustNewKnnRank(t, KnnQueryText("test"))
 		_, err := NewRrfRank(
-			WithRffRanks(knn.WithWeight(-0.5)),
+			WithRrfRanks(knn.WithWeight(-0.5)),
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "negative weight")
@@ -450,7 +450,7 @@ func TestRrfRank(t *testing.T) {
 	t.Run("rrf rejects NaN weights", func(t *testing.T) {
 		knn := mustNewKnnRank(t, KnnQueryText("test"))
 		_, err := NewRrfRank(
-			WithRffRanks(knn.WithWeight(math.NaN())),
+			WithRrfRanks(knn.WithWeight(math.NaN())),
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid weight")
@@ -459,7 +459,7 @@ func TestRrfRank(t *testing.T) {
 	t.Run("rrf rejects Inf weights", func(t *testing.T) {
 		knn := mustNewKnnRank(t, KnnQueryText("test"))
 		_, err := NewRrfRank(
-			WithRffRanks(knn.WithWeight(math.Inf(1))),
+			WithRrfRanks(knn.WithWeight(math.Inf(1))),
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid weight")
@@ -469,11 +469,11 @@ func TestRrfRank(t *testing.T) {
 		knn1 := mustNewKnnRank(t, KnnQueryText("a"))
 		knn2 := mustNewKnnRank(t, KnnQueryText("b"))
 		rrf, err := NewRrfRank(
-			WithRffRanks(
+			WithRrfRanks(
 				knn1.WithWeight(math.MaxFloat64),
 				knn2.WithWeight(math.MaxFloat64),
 			),
-			WithRffNormalize(),
+			WithRrfNormalize(),
 		)
 		require.NoError(t, err)
 		_, err = rrf.MarshalJSON()

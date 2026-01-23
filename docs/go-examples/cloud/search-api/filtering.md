@@ -59,7 +59,7 @@ func main() {
 	result1, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.EqString(v2.K("status"), "active")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 	if err != nil {
@@ -70,7 +70,7 @@ func main() {
 	result2, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.DocumentContains("machine learning")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 	if err != nil {
@@ -78,11 +78,11 @@ func main() {
 	}
 
 	// Filter by specific document IDs: K.ID.is_in([...])
-	// Option 1: Using WithFilterIDs convenience function
+	// Option 1: Using WithIDs convenience function
 	result3, err := collection.Search(ctx,
 		v2.NewSearchRequest(
-			v2.WithFilterIDs("doc1", "doc2", "doc3"),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.WithIDs("doc1", "doc2", "doc3"),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 	if err != nil {
@@ -93,7 +93,7 @@ func main() {
 	result4, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.IDIn("doc1", "doc2", "doc3")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 	if err != nil {
@@ -104,7 +104,7 @@ func main() {
 	result5, err := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.IDNotIn("excluded1", "excluded2")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 	if err != nil {
@@ -165,7 +165,7 @@ func main() {
 	result1, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.EqString(v2.K("status"), "published")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -173,7 +173,7 @@ func main() {
 	result2, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.NeInt(v2.K("views"), 0)),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -181,7 +181,7 @@ func main() {
 	result3, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.EqBool(v2.K("featured"), true)),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -189,7 +189,7 @@ func main() {
 	result4, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.GtFloat(v2.K("price"), 100)),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -197,7 +197,7 @@ func main() {
 	result5, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.GteFloat(v2.K("rating"), 4.5)),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -205,7 +205,7 @@ func main() {
 	result6, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.LtInt(v2.K("stock"), 10)),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -213,7 +213,7 @@ func main() {
 	result7, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.LteFloat(v2.K("discount"), 0.25)),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -271,7 +271,7 @@ func main() {
 	result1, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.IDIn("doc1", "doc2", "doc3")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -279,7 +279,7 @@ func main() {
 	result2, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.IDNotIn("excluded1", "excluded2")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -287,7 +287,7 @@ func main() {
 	result3, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.InString(v2.K("category"), "tech", "science")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -295,7 +295,7 @@ func main() {
 	result4, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.NinString(v2.K("status"), "draft", "deleted")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -303,7 +303,7 @@ func main() {
 	result5, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.DocumentContains("machine learning")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -311,7 +311,7 @@ func main() {
 	result6, _ := collection.Search(ctx,
 		v2.NewSearchRequest(
 			v2.WithFilter(v2.DocumentNotContains("deprecated")),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -377,7 +377,7 @@ func main() {
 					v2.GteInt(v2.K("year"), 2020),
 				),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -390,7 +390,7 @@ func main() {
 					v2.EqString(v2.K("category"), "science"),
 				),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -407,7 +407,7 @@ func main() {
 					v2.GteFloat(v2.K("rating"), 4.0),
 				),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 		),
 	)
 
@@ -503,7 +503,7 @@ func main() {
 				v2.KnnQueryText("latest AI research developments"),
 				v2.WithKnnLimit(100),
 			),
-			v2.WithPage(v2.WithLimit(10)),
+			v2.NewPage(v2.Limit(10)),
 			v2.WithSelect(v2.KDocument, v2.K("title"), v2.K("author"), v2.K("year")),
 		),
 	)
@@ -541,7 +541,7 @@ func main() {
 - Use `v2.K("field")` to clearly mark metadata field names in filter expressions
 - String comparisons are case-sensitive
 - All filter clauses can be combined using `v2.And()` and `v2.Or()` within `WithFilter()`
-- Use `WithFilterIDs()` as a convenience shortcut to restrict search to specific document IDs
+- Use `WithIDs()` as a convenience shortcut to restrict search to specific document IDs
 - Standard keys are available as constants: `v2.KID`, `v2.KDocument`, `v2.KScore`, `v2.KMetadata`, `v2.KEmbedding`
 
 ### Go vs Python Syntax
