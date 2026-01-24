@@ -94,6 +94,7 @@ func WithTask(task TaskType) Option {
 
 // WithLateChunking enables late chunking mode which concatenates all sentences
 // and treats them as a single input for contextual token-level embeddings.
+// Default is false.
 func WithLateChunking(lateChunking bool) Option {
 	return func(c *JinaEmbeddingFunction) error {
 		c.lateChunking = lateChunking

@@ -464,7 +464,7 @@ Supported Embedding Function Options:
 - `WithModel` - Set the Jina model to use. Default is `jina-embeddings-v3`.
 - `WithTask` - Set the task type (`retrieval.query`, `retrieval.passage`, `classification`, `text-matching`, `separation`).
 - `WithNormalized` - Whether to normalize (L2 norm) the output embeddings. Default is `true`.
-- `WithLateChunking` - Enable late chunking mode which concatenates all sentences and treats them as a single input for contextual token-level embeddings.
+- `WithLateChunking` - Enable late chunking mode which concatenates all sentences and treats them as a single input for contextual token-level embeddings. Default is `false`.
 - `WithEmbeddingEndpoint` - Set a custom API endpoint.
 
 ```go
