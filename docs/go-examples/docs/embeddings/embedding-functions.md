@@ -462,8 +462,10 @@ func createEmbeddingFunctions() {
 
 	// Jina
 	jinaEF, _ := jina.NewJinaEmbeddingFunction(
-		os.Getenv("JINA_API_KEY"),
-		jina.WithModel("jina-embeddings-v2-base-en"),
+		jina.WithAPIKey(os.Getenv("JINA_API_KEY")),
+		jina.WithModel("jina-embeddings-v3"),
+		jina.WithTask(jina.TaskTextMatching),
+		jina.WithLateChunking(true),
 	)
 
 	// Mistral
