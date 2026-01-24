@@ -459,6 +459,14 @@ without any registration, scroll down the page and find the automatically genera
 
 Supported models - https://api.jina.ai/redoc#tag/embeddings/operation/create_embedding_v1_embeddings_post
 
+Supported Embedding Function Options:
+
+- `WithModel` - Set the Jina model to use. Default is `jina-embeddings-v3`.
+- `WithTask` - Set the task type (`retrieval.query`, `retrieval.passage`, `classification`, `text-matching`, `separation`).
+- `WithNormalized` - Whether to normalize (L2 norm) the output embeddings. Default is `true`.
+- `WithLateChunking` - Enable late chunking mode which concatenates all sentences and treats them as a single input for contextual token-level embeddings. Default is `false`.
+- `WithEmbeddingEndpoint` - Set a custom API endpoint.
+
 ```go
 package main
 
@@ -474,7 +482,11 @@ func main() {
 		"Document 2 content here",
 	}
 	// Make sure that you have the `JINA_API_KEY` set in your environment
-	ef, err := jina.NewJinaEmbeddingFunction(jina.WithEnvAPIKey())
+	ef, err := jina.NewJinaEmbeddingFunction(
+		jina.WithEnvAPIKey(),
+		jina.WithTask(jina.TaskTextMatching),
+		jina.WithLateChunking(true),
+	)
 	if err != nil {
 		fmt.Printf("Error creating Jina embedding function: %s \n", err)
 	}

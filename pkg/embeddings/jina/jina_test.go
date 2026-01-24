@@ -123,6 +123,20 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 		require.Equal(t, 1024, resp[0].Len())
 	})
 
+	t.Run("Test with late chunking", func(t *testing.T) {
+		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey(), WithTask(TaskTextMatching), WithLateChunking(true))
+		require.NoError(t, err)
+		documents := []string{
+			"Organic skincare for sensitive skin with aloe vera and chamomile.",
+			"Bio-Hautpflege für empfindliche Haut mit Aloe Vera und Kamille.",
+		}
+		resp, err := ef.EmbedDocuments(context.Background(), documents)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Len(t, resp, 2)
+		require.Equal(t, 1024, resp[0].Len())
+	})
+
 	t.Run("Test missing API key", func(t *testing.T) {
 		_, err := NewJinaEmbeddingFunction()
 		require.Error(t, err)
@@ -143,5 +157,22 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 	t.Run("Test HTTPS endpoint accepted", func(t *testing.T) {
 		_, err := NewJinaEmbeddingFunction(WithAPIKey(apiKey), WithEmbeddingEndpoint("https://example.com"))
 		require.NoError(t, err)
+	})
+
+	t.Run("Test GetConfig with late chunking", func(t *testing.T) {
+		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey(), WithTask(TaskTextMatching), WithLateChunking(true))
+		require.NoError(t, err)
+		cfg := ef.GetConfig()
+		require.Equal(t, "jina-embeddings-v3", cfg["model_name"])
+		require.Equal(t, "text-matching", cfg["task"])
+		require.Equal(t, true, cfg["late_chunking"])
+	})
+
+	t.Run("Test GetConfig without late chunking", func(t *testing.T) {
+		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey())
+		require.NoError(t, err)
+		cfg := ef.GetConfig()
+		_, hasLateChunking := cfg["late_chunking"]
+		require.False(t, hasLateChunking)
 	})
 }

@@ -38,6 +38,7 @@ type EmbeddingRequest struct {
 	EmbeddingType EmbeddingType       `json:"embedding_type,omitempty"`
 	Input         []map[string]string `json:"input"`
 	Task          TaskType            `json:"task,omitempty"`
+	LateChunking  bool                `json:"late_chunking,omitempty"`
 }
 
 type EmbeddingResponse struct {
@@ -75,6 +76,7 @@ type JinaEmbeddingFunction struct {
 	normalized        bool
 	embeddingType     EmbeddingType
 	task              TaskType
+	lateChunking      bool
 	insecure          bool
 }
 
@@ -165,6 +167,7 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 		Task:          task,
 		Normalized:    e.normalized,
 		EmbeddingType: e.embeddingType,
+		LateChunking:  e.lateChunking,
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
@@ -202,6 +205,7 @@ func (e *JinaEmbeddingFunction) EmbedQuery(ctx context.Context, document string)
 		Task:          task,
 		Normalized:    e.normalized,
 		EmbeddingType: e.embeddingType,
+		LateChunking:  e.lateChunking,
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
@@ -226,6 +230,18 @@ func (e *JinaEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 		"model_name":      string(e.defaultModel),
 		"api_key_env_var": envVar,
 	}
+	if e.task != "" {
+		cfg["task"] = string(e.task)
+	}
+	if e.lateChunking {
+		cfg["late_chunking"] = true
+	}
+	if !e.normalized {
+		cfg["normalized"] = false
+	}
+	if e.embeddingType != "" && e.embeddingType != EmbeddingTypeFloat {
+		cfg["embedding_type"] = string(e.embeddingType)
+	}
 	if e.insecure {
 		cfg["insecure"] = true
 	}
@@ -244,7 +260,8 @@ func (e *JinaEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
 }
 
 // NewJinaEmbeddingFunctionFromConfig creates a Jina embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, base_url, insecure.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url, task, late_chunking,
+// normalized, embedding_type, insecure.
 func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*JinaEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -256,6 +273,18 @@ func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) 
 	}
 	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
 		opts = append(opts, WithEmbeddingEndpoint(baseURL))
+	}
+	if task, ok := cfg["task"].(string); ok && task != "" {
+		opts = append(opts, WithTask(TaskType(task)))
+	}
+	if lateChunking, ok := cfg["late_chunking"].(bool); ok && lateChunking {
+		opts = append(opts, WithLateChunking(true))
+	}
+	if normalized, ok := cfg["normalized"].(bool); ok {
+		opts = append(opts, WithNormalized(normalized))
+	}
+	if embeddingType, ok := cfg["embedding_type"].(string); ok && embeddingType != "" {
+		opts = append(opts, WithEmbeddingType(EmbeddingType(embeddingType)))
 	}
 	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
 		opts = append(opts, WithInsecure())
