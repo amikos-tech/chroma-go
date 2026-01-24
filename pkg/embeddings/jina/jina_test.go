@@ -158,4 +158,21 @@ func TestJinaEmbeddingFunction(t *testing.T) {
 		_, err := NewJinaEmbeddingFunction(WithAPIKey(apiKey), WithEmbeddingEndpoint("https://example.com"))
 		require.NoError(t, err)
 	})
+
+	t.Run("Test GetConfig with late chunking", func(t *testing.T) {
+		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey(), WithTask(TaskTextMatching), WithLateChunking(true))
+		require.NoError(t, err)
+		cfg := ef.GetConfig()
+		require.Equal(t, "jina-embeddings-v3", cfg["model_name"])
+		require.Equal(t, "text-matching", cfg["task"])
+		require.Equal(t, true, cfg["late_chunking"])
+	})
+
+	t.Run("Test GetConfig without late chunking", func(t *testing.T) {
+		ef, err := NewJinaEmbeddingFunction(WithEnvAPIKey())
+		require.NoError(t, err)
+		cfg := ef.GetConfig()
+		_, hasLateChunking := cfg["late_chunking"]
+		require.False(t, hasLateChunking)
+	})
 }
