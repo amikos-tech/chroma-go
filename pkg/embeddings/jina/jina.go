@@ -38,6 +38,7 @@ type EmbeddingRequest struct {
 	EmbeddingType EmbeddingType       `json:"embedding_type,omitempty"`
 	Input         []map[string]string `json:"input"`
 	Task          TaskType            `json:"task,omitempty"`
+	LateChunking  bool                `json:"late_chunking,omitempty"`
 }
 
 type EmbeddingResponse struct {
@@ -75,6 +76,7 @@ type JinaEmbeddingFunction struct {
 	normalized        bool
 	embeddingType     EmbeddingType
 	task              TaskType
+	lateChunking      bool
 	insecure          bool
 }
 
@@ -165,6 +167,7 @@ func (e *JinaEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []
 		Task:          task,
 		Normalized:    e.normalized,
 		EmbeddingType: e.embeddingType,
+		LateChunking:  e.lateChunking,
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
@@ -202,6 +205,7 @@ func (e *JinaEmbeddingFunction) EmbedQuery(ctx context.Context, document string)
 		Task:          task,
 		Normalized:    e.normalized,
 		EmbeddingType: e.embeddingType,
+		LateChunking:  e.lateChunking,
 	}
 	response, err := e.sendRequest(ctx, req)
 	if err != nil {
