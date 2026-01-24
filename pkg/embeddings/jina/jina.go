@@ -236,6 +236,12 @@ func (e *JinaEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig {
 	if e.lateChunking {
 		cfg["late_chunking"] = true
 	}
+	if !e.normalized {
+		cfg["normalized"] = false
+	}
+	if e.embeddingType != "" && e.embeddingType != EmbeddingTypeFloat {
+		cfg["embedding_type"] = string(e.embeddingType)
+	}
 	if e.insecure {
 		cfg["insecure"] = true
 	}
@@ -254,7 +260,8 @@ func (e *JinaEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
 }
 
 // NewJinaEmbeddingFunctionFromConfig creates a Jina embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, model_name, base_url, task, late_chunking, insecure.
+// Uses schema-compliant field names: api_key_env_var, model_name, base_url, task, late_chunking,
+// normalized, embedding_type, insecure.
 func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*JinaEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -272,6 +279,12 @@ func NewJinaEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) 
 	}
 	if lateChunking, ok := cfg["late_chunking"].(bool); ok && lateChunking {
 		opts = append(opts, WithLateChunking(true))
+	}
+	if normalized, ok := cfg["normalized"].(bool); ok {
+		opts = append(opts, WithNormalized(normalized))
+	}
+	if embeddingType, ok := cfg["embedding_type"].(string); ok && embeddingType != "" {
+		opts = append(opts, WithEmbeddingType(EmbeddingType(embeddingType)))
 	}
 	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
 		opts = append(opts, WithInsecure())
