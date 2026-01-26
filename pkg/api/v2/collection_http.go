@@ -114,11 +114,15 @@ func (c *CollectionImpl) Add(ctx context.Context, opts ...CollectionAddOption) e
 			// encode embeddings
 			packedEmbeddings := make([]any, 0)
 			for _, e := range addObject.Embeddings {
-				f32Emb, ok := e.(*embeddings.Float32Embedding)
+				emb, ok := e.(embeddings.Embedding)
 				if !ok {
-					return errors.New("unsupported embedding type: expected Float32Embedding for base64 encoding")
+					return errors.New("unsupported embedding type for base64 encoding")
 				}
-				packedE := packEmbeddingSafely(f32Emb.ContentAsFloat32())
+				content := emb.ContentAsFloat32()
+				if len(content) == 0 {
+					return errors.New("embedding has no float32 content for base64 encoding")
+				}
+				packedE := packEmbeddingSafely(content)
 				packedEmbeddings = append(packedEmbeddings, packedE)
 			}
 			addObject.Embeddings = packedEmbeddings
@@ -161,11 +165,15 @@ func (c *CollectionImpl) Upsert(ctx context.Context, opts ...CollectionAddOption
 			// encode embeddings
 			packedEmbeddings := make([]any, 0)
 			for _, e := range upsertObject.Embeddings {
-				f32Emb, ok := e.(*embeddings.Float32Embedding)
+				emb, ok := e.(embeddings.Embedding)
 				if !ok {
-					return errors.New("unsupported embedding type: expected Float32Embedding for base64 encoding")
+					return errors.New("unsupported embedding type for base64 encoding")
 				}
-				packedE := packEmbeddingSafely(f32Emb.ContentAsFloat32())
+				content := emb.ContentAsFloat32()
+				if len(content) == 0 {
+					return errors.New("embedding has no float32 content for base64 encoding")
+				}
+				packedE := packEmbeddingSafely(content)
 				packedEmbeddings = append(packedEmbeddings, packedE)
 			}
 			upsertObject.Embeddings = packedEmbeddings
@@ -207,11 +215,15 @@ func (c *CollectionImpl) Update(ctx context.Context, opts ...CollectionUpdateOpt
 			// encode embeddings
 			packedEmbeddings := make([]any, 0)
 			for _, e := range updateObject.Embeddings {
-				f32Emb, ok := e.(*embeddings.Float32Embedding)
+				emb, ok := e.(embeddings.Embedding)
 				if !ok {
-					return errors.New("unsupported embedding type: expected Float32Embedding for base64 encoding")
+					return errors.New("unsupported embedding type for base64 encoding")
 				}
-				packedE := packEmbeddingSafely(f32Emb.ContentAsFloat32())
+				content := emb.ContentAsFloat32()
+				if len(content) == 0 {
+					return errors.New("embedding has no float32 content for base64 encoding")
+				}
+				packedE := packEmbeddingSafely(content)
 				packedEmbeddings = append(packedEmbeddings, packedE)
 			}
 			updateObject.Embeddings = packedEmbeddings
