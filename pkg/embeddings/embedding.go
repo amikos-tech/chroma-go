@@ -124,6 +124,9 @@ func (e *Float32Embedding) IsDefined() bool {
 }
 
 func (e *Float32Embedding) ContentAsFloat32() []float32 {
+	if e.ArrayOfFloat32 == nil {
+		return make([]float32, 0)
+	}
 	return *e.ArrayOfFloat32
 }
 
