@@ -23,6 +23,7 @@ type APIClientV2 struct {
 	preflightConditionsRaw map[string]interface{}
 	preflightLimits        map[string]interface{}
 	preflightCompleted     bool
+	preflightMu            sync.Mutex
 	collectionCache        map[string]Collection
 	collectionMu           sync.RWMutex
 }
@@ -59,9 +60,13 @@ func NewHTTPClient(opts ...ClientOption) (Client, error) {
 }
 
 func (client *APIClientV2) PreFlight(ctx context.Context) error {
+	client.preflightMu.Lock()
+	defer client.preflightMu.Unlock()
+
 	if client.preflightCompleted {
 		return nil
 	}
+
 	reqURL, err := url.JoinPath(client.BaseURL(), "pre-flight-checks")
 	if err != nil {
 		return err
