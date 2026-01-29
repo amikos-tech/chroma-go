@@ -121,6 +121,7 @@ func isLockStale(lockPath string) bool {
 
 func downloadFile(filepath string, url string) error {
 	client := &http.Client{
+		Timeout: 10 * time.Minute,
 		Transport: &http.Transport{
 			DialContext: (&net.Dialer{
 				Timeout: 30 * time.Second,
