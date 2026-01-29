@@ -183,14 +183,27 @@ func (e *Int32Embedding) IsDefined() bool {
 }
 
 func (e *Int32Embedding) ContentAsFloat32() []float32 {
-	return make([]float32, 0)
+	if e.ArrayOfInt32 == nil {
+		return make([]float32, 0)
+	}
+	result := make([]float32, len(*e.ArrayOfInt32))
+	for i, v := range *e.ArrayOfInt32 {
+		result[i] = float32(v)
+	}
+	return result
 }
 
 func (e *Int32Embedding) ContentAsInt32() []int32 {
+	if e.ArrayOfInt32 == nil {
+		return make([]int32, 0)
+	}
 	return *e.ArrayOfInt32
 }
 
 func (e *Int32Embedding) Len() int {
+	if e.ArrayOfInt32 == nil {
+		return 0
+	}
 	return len(*e.ArrayOfInt32)
 }
 
