@@ -22,7 +22,7 @@ test: gotestsum-bin
 .PHONY: test-cloud
 test-cloud: gotestsum-bin
 	gotestsum \
-        --format short-verbose \
+        --format standard-verbose \
         --rerun-fails=1 \
         --packages="./..." \
         --junitfile unit-cloud.xml \
