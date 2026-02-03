@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -1200,16 +1201,50 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 	})
 
 	t.Cleanup(func() {
-		collections, err := client.ListCollections(context.Background())
-		require.NoError(t, err)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		collections, err := client.ListCollections(ctx)
+		if err != nil {
+			t.Logf("Warning: failed to list collections for cleanup: %v", err)
+			return
+		}
+
+		// Collect collection names to delete
+		var toDelete []string
 		for _, collection := range collections {
 			if collection.Name() != "chroma" && collection.Name() != "default" {
-				err := client.DeleteCollection(context.Background(), collection.Name())
-				require.NoError(t, err)
+				toDelete = append(toDelete, collection.Name())
 			}
 		}
-		fmt.Println("Cleanup completed")
-		time.Sleep(1 * time.Second) // Wait for cleanup to complete
+
+		if len(toDelete) == 0 {
+			return
+		}
+
+		// Delete collections in parallel with concurrency limit
+		const maxConcurrency = 10
+		sem := make(chan struct{}, maxConcurrency)
+		var wg sync.WaitGroup
+
+		for _, name := range toDelete {
+			wg.Add(1)
+			go func(collName string) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				deleteCtx, deleteCancel := context.WithTimeout(ctx, 10*time.Second)
+				defer deleteCancel()
+
+				if err := client.DeleteCollection(deleteCtx, collName); err != nil {
+					t.Logf("Warning: failed to delete collection %s: %v", collName, err)
+				}
+			}(name)
+		}
+
+		wg.Wait()
+		t.Logf("Cleanup completed: deleted %d collections", len(toDelete))
 	})
 
 	t.Run("Without API Key", func(t *testing.T) {
