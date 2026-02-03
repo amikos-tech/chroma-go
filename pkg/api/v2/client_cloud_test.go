@@ -21,7 +21,7 @@ import (
 
 // cleanupOrphanedCollections removes test collections from previous runs
 // This should be called at the START of tests to ensure fast ListCollections responses
-func cleanupOrphanedCollections(t *testing.T, client *Client) {
+func cleanupOrphanedCollections(t *testing.T, client Client) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
