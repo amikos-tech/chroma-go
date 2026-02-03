@@ -4,7 +4,6 @@ package v2
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -49,11 +48,11 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 	})
 
 	t.Run("List collections", func(t *testing.T) {
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
 		collections, err := client.ListCollections(ctx)
 		require.NoError(t, err)
-		fmt.Println(collections)
-
+		t.Logf("Found %d collections", len(collections))
 	})
 
 	t.Run("Count collections", func(t *testing.T) {
