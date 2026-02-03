@@ -5,6 +5,7 @@ package v2
 import (
 	"context"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +18,57 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloud"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloudsplade"
 )
+
+// cleanupOrphanedCollections removes test collections from previous runs
+// This should be called at the START of tests to ensure fast ListCollections responses
+func cleanupOrphanedCollections(t *testing.T, client *Client) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	collections, err := client.ListCollections(ctx)
+	if err != nil {
+		t.Logf("Warning: failed to list collections for pre-test cleanup: %v", err)
+		return
+	}
+
+	var toDelete []string
+	for _, collection := range collections {
+		name := collection.Name()
+		if strings.HasPrefix(name, "test_") {
+			toDelete = append(toDelete, name)
+		}
+	}
+
+	if len(toDelete) == 0 {
+		t.Logf("No orphaned test collections to clean up")
+		return
+	}
+
+	t.Logf("Cleaning up %d orphaned test collections before tests start...", len(toDelete))
+
+	const maxConcurrency = 10
+	sem := make(chan struct{}, maxConcurrency)
+	var wg sync.WaitGroup
+
+	for _, name := range toDelete {
+		wg.Add(1)
+		go func(collName string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			deleteCtx, deleteCancel := context.WithTimeout(ctx, 10*time.Second)
+			defer deleteCancel()
+
+			if err := client.DeleteCollection(deleteCtx, collName); err != nil {
+				t.Logf("Warning: failed to delete orphaned collection %s: %v", collName, err)
+			}
+		}(name)
+	}
+
+	wg.Wait()
+	t.Logf("Pre-test cleanup completed: deleted %d orphaned collections", len(toDelete))
+}
 
 func TestCloudClientHTTPIntegration(t *testing.T) {
 	t.Cleanup(func() {
@@ -38,6 +90,10 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		err := client.Close()
 		require.NoError(t, err)
 	})
+
+	// Clean up orphaned test collections from previous runs BEFORE tests start
+	// This prevents slow ListCollections responses that can cause CI timeouts
+	cleanupOrphanedCollections(t, client)
 
 	t.Run("Get Version", func(t *testing.T) {
 		ctx := context.Background()
