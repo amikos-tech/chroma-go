@@ -132,7 +132,7 @@ jobs:
       - name: Build
         run: make build
       - name: Test
-        run: make test-cloud
+        run: go test -v -p=1 -tags=basicv2,cloud -timeout=30m ./...
         env:
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
           CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
