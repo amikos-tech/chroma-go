@@ -121,7 +121,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ lint,paths-filter ]
     if: inputs.run_cloud || needs.paths-filter.outputs.base == 'true'
-    environment: Test
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
