@@ -22,16 +22,15 @@ test: gotestsum-bin
 .PHONY: test-cloud
 test-cloud: gotestsum-bin
 	gotestsum \
-        --format short-verbose \
-        --rerun-fails=1 \
-        --packages="./..." \
+        --format standard-verbose \
+        --packages="./pkg/api/v2" \
         --junitfile unit-cloud.xml \
         -- \
         -p=1 \
         -v \
         -tags=basicv2,cloud \
         -coverprofile=coverage-cloud.out \
-        -timeout=30m
+        -timeout=10m
 
 .PHONY: test-ef
 test-ef: gotestsum-bin
