@@ -15,7 +15,7 @@ import (
 )
 
 // testImageURL is a small public domain image used for testing.
-const testImageURL = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/100px-PNG_transparency_demonstration_1.png"
+const testImageURL = "https://cookbook.chromadb.dev/assets/images/multi-tenancy-user-per-collection.png"
 
 func TestRoboflowEmbeddingFunction(t *testing.T) {
 	apiKey := os.Getenv("ROBOFLOW_API_KEY")
@@ -85,6 +85,22 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 		require.NotNil(t, resp)
 		require.Greater(t, resp.Len(), 0)
 		t.Logf("Image embedding length: %d", resp.Len())
+	})
+
+	t.Run("Test image embedding from file", func(t *testing.T) {
+		if apiKey == "" {
+			t.Skip("ROBOFLOW_API_KEY not set")
+		}
+		ef, err := NewRoboflowEmbeddingFunction(WithAPIKey(apiKey))
+		require.NoError(t, err)
+
+		// Use the test image file in the same directory
+		image := embeddings.NewImageInputFromFile("img.png")
+		resp, err := ef.EmbedImage(context.Background(), image)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Greater(t, resp.Len(), 0)
+		t.Logf("Image embedding from file length: %d", resp.Len())
 	})
 
 	t.Run("Test EmbedImages batch", func(t *testing.T) {
