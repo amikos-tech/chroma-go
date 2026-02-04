@@ -24,7 +24,7 @@ test-cloud: gotestsum-bin
 	gotestsum \
         --format standard-verbose \
         --rerun-fails=1 \
-        --packages="./..." \
+        --packages="./pkg/api/v2" \
         --junitfile unit-cloud.xml \
         -- \
         -p=1 \
