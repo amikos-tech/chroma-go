@@ -153,6 +153,24 @@ jobs:
           path: |
             coverage-cloud.out
             unit-cloud.xml
+  cloud-cleanup:
+    name: Cleanup Cloud Collections
+    runs-on: ubuntu-22.04
+    needs: [cloud]
+    if: always() && (inputs.run_cloud || needs.paths-filter.outputs.base == 'true')
+    environment: Test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Cleanup test collections
+        run: go test -v -tags=basicv2,cloud -timeout=5m -run "TestCloudCleanup" ./pkg/api/v2/...
+        env:
+          CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
+          CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
+          CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
   ef:
     name: Test Embedding Functions
     runs-on: ubuntu-latest
