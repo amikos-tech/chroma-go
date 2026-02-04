@@ -120,7 +120,7 @@ jobs:
             unit.xml
   cloud:
     name: Test Chroma Cloud
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [ lint,paths-filter ]
     if: inputs.run_cloud || needs.paths-filter.outputs.base == 'true'
     environment: Test
@@ -134,7 +134,7 @@ jobs:
       - name: Build
         run: make build
       - name: Test
-        run: go test -v -tags=basicv2,cloud -timeout=10m -skip 'Schema' ./pkg/api/v2/... 2>&1 | tee test-output.log
+        run: make test-cloud
         timeout-minutes: 10
         env:
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
