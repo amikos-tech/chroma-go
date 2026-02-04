@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -16,8 +17,9 @@ import (
 )
 
 const (
-	DefaultBaseURL = "https://infer.roboflow.com"
-	APIKeyEnvVar   = "ROBOFLOW_API_KEY"
+	DefaultBaseURL     = "https://infer.roboflow.com"
+	APIKeyEnvVar       = "ROBOFLOW_API_KEY"
+	DefaultHTTPTimeout = 60 * time.Second
 )
 
 type textEmbeddingRequest struct {
@@ -44,7 +46,7 @@ var (
 
 func getDefaults() *RoboflowEmbeddingFunction {
 	return &RoboflowEmbeddingFunction{
-		httpClient: http.DefaultClient,
+		httpClient: &http.Client{Timeout: DefaultHTTPTimeout},
 		baseURL:    DefaultBaseURL,
 	}
 }
@@ -85,7 +87,7 @@ func NewRoboflowEmbeddingFunction(opts ...Option) (*RoboflowEmbeddingFunction, e
 }
 
 func (e *RoboflowEmbeddingFunction) sendTextRequest(ctx context.Context, text string) (*embeddingResponse, error) {
-	endpoint := e.baseURL + "/clip/embed_text?api_key=" + e.APIKey.Value()
+	endpoint := e.baseURL + "/clip/embed_text"
 
 	payload, err := json.Marshal(textEmbeddingRequest{Text: text})
 	if err != nil {
@@ -96,7 +98,7 @@ func (e *RoboflowEmbeddingFunction) sendTextRequest(ctx context.Context, text st
 }
 
 func (e *RoboflowEmbeddingFunction) sendImageRequest(ctx context.Context, base64Image string) (*embeddingResponse, error) {
-	endpoint := e.baseURL + "/clip/embed_image?api_key=" + e.APIKey.Value()
+	endpoint := e.baseURL + "/clip/embed_image"
 
 	payload, err := json.Marshal(imageEmbeddingRequest{
 		Image: imageData{
@@ -120,6 +122,7 @@ func (e *RoboflowEmbeddingFunction) doRequest(ctx context.Context, endpoint stri
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
+	req.Header.Set("Authorization", "Bearer "+e.APIKey.Value())
 
 	resp, err := e.httpClient.Do(req)
 	if err != nil {

@@ -253,6 +253,48 @@ func TestImageInput(t *testing.T) {
 		_, err := img.ToBase64(context.Background())
 		require.Error(t, err)
 	})
+
+	t.Run("Test URL blocks localhost", func(t *testing.T) {
+		img := embeddings.NewImageInputFromURL("http://localhost/image.png")
+		_, err := img.ToBase64(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "private/internal address")
+	})
+
+	t.Run("Test URL blocks 127.0.0.1", func(t *testing.T) {
+		img := embeddings.NewImageInputFromURL("http://127.0.0.1/image.png")
+		_, err := img.ToBase64(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "private/internal address")
+	})
+
+	t.Run("Test URL blocks private IP 10.x.x.x", func(t *testing.T) {
+		img := embeddings.NewImageInputFromURL("http://10.0.0.1/image.png")
+		_, err := img.ToBase64(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "private/internal address")
+	})
+
+	t.Run("Test URL blocks private IP 192.168.x.x", func(t *testing.T) {
+		img := embeddings.NewImageInputFromURL("http://192.168.1.1/image.png")
+		_, err := img.ToBase64(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "private/internal address")
+	})
+
+	t.Run("Test URL blocks metadata IP 169.254.x.x", func(t *testing.T) {
+		img := embeddings.NewImageInputFromURL("http://169.254.169.254/latest/meta-data/")
+		_, err := img.ToBase64(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "private/internal address")
+	})
+
+	t.Run("Test URL rejects non-http schemes", func(t *testing.T) {
+		img := embeddings.NewImageInputFromURL("file:///etc/passwd")
+		_, err := img.ToBase64(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "scheme must be http or https")
+	})
 }
 
 func TestRoboflowFromConfig(t *testing.T) {

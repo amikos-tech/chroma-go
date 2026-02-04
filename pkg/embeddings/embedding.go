@@ -9,12 +9,26 @@ import (
 	"io"
 	"log"
 	"math"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
+)
+
+const (
+	// MaxImageFileSize is the maximum allowed size for image files (50 MB).
+	MaxImageFileSize = 50 * 1024 * 1024
+	// MaxImageURLResponseSize is the maximum allowed size for image URL responses (50 MB).
+	MaxImageURLResponseSize = 50 * 1024 * 1024
+	// ImageFetchTimeout is the timeout for fetching images from URLs.
+	ImageFetchTimeout = 30 * time.Second
+	// MaxImageRedirects is the maximum number of redirects allowed when fetching images.
+	MaxImageRedirects = 5
 )
 
 type EmbeddingModel string
@@ -358,11 +372,28 @@ func (i ImageInput) ToBase64(ctx context.Context) (string, error) {
 }
 
 func (i ImageInput) fetchURLAsBase64(ctx context.Context) (string, error) {
+	if err := validateImageURL(i.URL); err != nil {
+		return "", err
+	}
+
+	client := &http.Client{
+		Timeout: ImageFetchTimeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= MaxImageRedirects {
+				return errors.Errorf("too many redirects (max %d)", MaxImageRedirects)
+			}
+			if err := validateImageURL(req.URL.String()); err != nil {
+				return errors.Wrap(err, "redirect blocked")
+			}
+			return nil
+		},
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, i.URL, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to create request for image URL")
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to fetch image from URL")
 	}
@@ -371,14 +402,72 @@ func (i ImageInput) fetchURLAsBase64(ctx context.Context) (string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.Errorf("failed to fetch image: HTTP %d", resp.StatusCode)
 	}
-	data, err := io.ReadAll(resp.Body)
+
+	limitedReader := io.LimitReader(resp.Body, MaxImageURLResponseSize+1)
+	data, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to read image data")
+	}
+	if len(data) > MaxImageURLResponseSize {
+		return "", errors.Errorf("image response exceeds maximum size of %d bytes", MaxImageURLResponseSize)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
+func validateImageURL(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return errors.Wrap(err, "invalid URL")
+	}
+
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return errors.Errorf("URL scheme must be http or https, got %q", parsed.Scheme)
+	}
+
+	host := parsed.Hostname()
+	if host == "" {
+		return errors.New("URL must have a host")
+	}
+
+	if isPrivateHost(host) {
+		return errors.Errorf("URL host %q appears to be a private/internal address", host)
+	}
+
+	return nil
+}
+
+func isPrivateHost(host string) bool {
+	if host == "localhost" || strings.HasSuffix(host, ".local") {
+		return true
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+
+	if ip4 := ip.To4(); ip4 != nil {
+		if ip4[0] == 169 && ip4[1] == 254 {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (i ImageInput) readFileAsBase64() (string, error) {
+	info, err := os.Stat(i.FilePath)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to stat image file")
+	}
+	if info.Size() > MaxImageFileSize {
+		return "", errors.Errorf("image file size %d exceeds maximum of %d bytes", info.Size(), MaxImageFileSize)
+	}
+
 	data, err := os.ReadFile(i.FilePath)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to read image file")
