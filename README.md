@@ -71,6 +71,7 @@ Additional support features:
 - ✅ [Mistral AI API Embedding](https://go-client.chromadb.dev/embeddings/#mistral-ai) Support
 - ✅ [Nomic AI Embedding](https://go-client.chromadb.dev/embeddings/#nomic-ai) Support
 - ✅ [Jina AI Embedding](https://go-client.chromadb.dev/embeddings/#jina-ai) Support
+- ✅ [Roboflow CLIP Embedding](https://go-client.chromadb.dev/embeddings/#roboflow) Support (Multimodal: text + images)
 
 ## Reranking Functions
 

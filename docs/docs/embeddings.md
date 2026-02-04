@@ -16,7 +16,8 @@ The following embedding wrappers are available:
 | [Google Gemini](#google-gemini)                                                   | Google Gemini Embedding.<br/> For more info see [Gemini Docs](https://ai.google.dev/gemini-api/docs/embeddings).                                            |
 | [Mistral AI](#mistral-ai)                                                         | Mistral AI Embedding.<br/> For more info see [Mistral AI API Docs](https://docs.mistral.ai/capabilities/embeddings/).                                       |
 | [Nomic AI](#nomic-ai)                                                             | Nomic AI Embedding.<br/> For more info see [Nomic AI API Docs](https://docs.nomic.ai/atlas/models/text-embedding).                                          |
-| [Jina AI](#jina-ai)                                                               | Jina AI Embedding.<br/> For more info see [Nomic AI API Docs](https://api.jina.ai/redoc#tag/embeddings/operation/create_embedding_v1_embeddings_post).      |
+| [Jina AI](#jina-ai)                                                               | Jina AI Embedding.<br/> For more info see [Jina AI API Docs](https://api.jina.ai/redoc#tag/embeddings/operation/create_embedding_v1_embeddings_post).       |
+| [Roboflow](#roboflow)                                                             | Roboflow CLIP Embedding (Multimodal: text + images).<br/> For more info see [Roboflow Docs](https://inference.roboflow.com/).                               |
 
 ## Default Embeddings
 
@@ -498,4 +499,132 @@ func main() {
 }
 ```
 
+## Roboflow
+
+Roboflow provides CLIP-based embeddings that support both text and images (multimodal). This is useful for building
+applications that need to search across both text and image content. Text and images are mapped to the same embedding
+space, enabling cross-modal similarity search (e.g., searching images with text queries).
+
+- [Getting Started](https://inference.roboflow.com/start/overview/)
+- [CLIP API Documentation](https://inference.roboflow.com/foundation/clip/)
+- [OpenAPI Spec](https://inference.roboflow.com/openapi.json)
+
+To use Roboflow embeddings, you will need to create an [API Key](https://app.roboflow.com/settings/api).
+
+Supported Embedding Function Options:
+
+- `WithAPIKey` - Set the API key directly.
+- `WithEnvAPIKey` - Use the `ROBOFLOW_API_KEY` environment variable.
+- `WithAPIKeyFromEnvVar` - Use a custom environment variable for the API key.
+- `WithBaseURL` - Set a custom base URL (default: `https://infer.roboflow.com`).
+- `WithCLIPVersion` - Set the CLIP model version (default: `CLIPVersionViTB16`). See [available versions](#clip-model-versions).
+- `WithHTTPClient` - Use a custom HTTP client.
+- `WithInsecure` - Allow HTTP connections (for local development only).
+
+### CLIP Model Versions
+
+The following CLIP model versions are available:
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `CLIPVersionViTB16` | `ViT-B-16` | Default. Good balance of speed and accuracy |
+| `CLIPVersionViTB32` | `ViT-B-32` | Faster, slightly lower accuracy |
+| `CLIPVersionViTL14` | `ViT-L-14` | Higher accuracy, slower |
+| `CLIPVersionViTL14336px` | `ViT-L-14-336px` | Higher resolution variant |
+| `CLIPVersionRN50` | `RN50` | ResNet-50 based |
+| `CLIPVersionRN101` | `RN101` | ResNet-101 based |
+| `CLIPVersionRN50x4` | `RN50x4` | Scaled ResNet-50 |
+| `CLIPVersionRN50x16` | `RN50x16` | Larger scaled ResNet-50 |
+| `CLIPVersionRN50x64` | `RN50x64` | Largest scaled ResNet-50 |
+
+!!! note "Embedding Space Consistency"
+    Use the same CLIP version for both text and image embeddings to ensure they share the same embedding space.
+
+### Text Embeddings
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	roboflow "github.com/amikos-tech/chroma-go/pkg/embeddings/roboflow"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `ROBOFLOW_API_KEY` set in your environment
+	ef, err := roboflow.NewRoboflowEmbeddingFunction(
+		roboflow.WithEnvAPIKey(),
+		roboflow.WithCLIPVersion(roboflow.CLIPVersionViTL14), // optional: use a specific CLIP version
+	)
+	if err != nil {
+		fmt.Printf("Error creating Roboflow embedding function: %s \n", err)
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+### Image Embeddings
+
+Roboflow supports embedding images from multiple sources: base64-encoded data, URLs, or local file paths.
+
+!!! note "URL Handling"
+    For URL inputs, the URL is passed directly to the Roboflow API for fetching. For file inputs, the image is read
+    locally and sent as base64.
+
+!!! note "Sequential Processing"
+    The Roboflow CLIP API processes one item per request. When embedding multiple documents or images, requests are
+    sent sequentially. For large batches, consider the API rate limits and potential latency.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	roboflow "github.com/amikos-tech/chroma-go/pkg/embeddings/roboflow"
+)
+
+func main() {
+	// Make sure that you have the `ROBOFLOW_API_KEY` set in your environment
+	// Use the same CLIP version for both text and images for consistent embeddings
+	ef, err := roboflow.NewRoboflowEmbeddingFunction(
+		roboflow.WithEnvAPIKey(),
+		roboflow.WithCLIPVersion(roboflow.CLIPVersionViTL14),
+	)
+	if err != nil {
+		fmt.Printf("Error creating Roboflow embedding function: %s \n", err)
+	}
+
+	// Create image inputs from different sources
+	images := []embeddings.ImageInput{
+		embeddings.NewImageInputFromFile("/path/to/image.png"),
+		embeddings.NewImageInputFromURL("https://example.com/image.jpg"),
+		embeddings.NewImageInputFromBase64("base64EncodedImageData..."),
+	}
+
+	// Embed multiple images
+	resp, err := ef.EmbedImages(context.Background(), images)
+	if err != nil {
+		fmt.Printf("Error embedding images: %s \n", err)
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+
+	// Or embed a single image
+	singleResp, err := ef.EmbedImage(context.Background(), embeddings.NewImageInputFromFile("/path/to/image.png"))
+	if err != nil {
+		fmt.Printf("Error embedding image: %s \n", err)
+	}
+	fmt.Printf("Single image embedding: %v \n", singleResp)
+}
+```
 
