@@ -326,27 +326,6 @@ func _sanitizeResponseDump(respDump string) (result string) {
 		}
 	}()
 
-	// Truncate large response bodies for logging (keep headers, limit body to 2KB)
-	// This prevents CI log line limits and memory issues with large responses
-	const maxLogSize = 4 * 1024 // 4KB max for logging
-	if len(respDump) > maxLogSize {
-		// Find where the body starts (after \r\n\r\n)
-		bodyStart := strings.Index(respDump, "\r\n\r\n")
-		if bodyStart != -1 {
-			headerPart := respDump[:bodyStart+4]
-			bodyPart := respDump[bodyStart+4:]
-			maxBodyLen := maxLogSize - len(headerPart) - 50 // Reserve space for truncation message
-			if maxBodyLen > 0 && len(bodyPart) > maxBodyLen {
-				respDump = headerPart + bodyPart[:maxBodyLen] + fmt.Sprintf("...[TRUNCATED %d bytes]", len(bodyPart)-maxBodyLen)
-			} else if maxBodyLen <= 0 {
-				// Headers alone exceed limit, truncate entire response
-				respDump = respDump[:maxLogSize] + fmt.Sprintf("...[TRUNCATED %d bytes]", len(respDump)-maxLogSize)
-			}
-		} else if len(respDump) > maxLogSize {
-			respDump = respDump[:maxLogSize] + fmt.Sprintf("...[TRUNCATED %d bytes]", len(respDump)-maxLogSize)
-		}
-	}
-
 	// First obfuscate any tokens that might be in headers
 	result = _sanitizeRequestDump(respDump)
 

@@ -119,12 +119,16 @@ jobs:
             coverage.out
             unit.xml
   cloud:
-    name: Test Chroma Cloud
+    name: Test Chroma Cloud (${{ matrix.test }})
     runs-on: ubuntu-22.04
     needs: [ lint,paths-filter ]
     if: inputs.run_cloud || needs.paths-filter.outputs.base == 'true'
     environment: Test
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        test: [CRUD, AutoWire, Search, Schema, Config]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Go
@@ -133,18 +137,8 @@ jobs:
           go-version-file: 'go.mod'
       - name: Build
         run: make build
-      - name: Test
-        run: |
-          echo "Running cloud tests in batches..."
-          # Run basic tests first
-          go test -v -tags=basicv2,cloud -timeout=5m -run 'TestCloudClientHTTPIntegration/(Get_Version|List_collections|Count_collections|Create_collection|Delete_collection|Add_data|Delete_data|Update_and_get|Query_data)' ./pkg/api/v2/...
-          echo "Basic tests completed"
-          # Run auto-wire and search tests
-          go test -v -tags=basicv2,cloud -timeout=5m -run 'TestCloudClientHTTPIntegration/(auto-wire|Search_data|Search_with_pagination|Search_with_ID)' ./pkg/api/v2/...
-          echo "Auto-wire and search tests completed"
-          # Run remaining tests
-          go test -v -tags=basicv2,cloud -timeout=5m -run 'TestCloudClientHTTPIntegration/(Document|Schema|metadata|indexing|ReadLevel|Without_API|With_env|options)' ./pkg/api/v2/...
-          echo "All tests completed successfully"
+      - name: Test ${{ matrix.test }}
+        run: go test -v -tags=basicv2,cloud -timeout=8m -run "TestCloudClient${{ matrix.test }}" ./pkg/api/v2/...
         timeout-minutes: 10
         env:
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
@@ -155,7 +149,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-cloud
+          name: test-results-cloud-${{ matrix.test }}
           path: |
             coverage-cloud.out
             unit-cloud.xml
