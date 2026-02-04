@@ -206,6 +206,7 @@ jobs:
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           NOMIC_API_KEY: ${{ secrets.NOMIC_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+          ROBOFLOW_API_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
       - name: Upload Test Results
