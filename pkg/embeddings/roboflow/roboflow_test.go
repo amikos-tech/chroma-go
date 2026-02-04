@@ -14,9 +14,8 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-// validPNGBase64 is a valid 8x8 red PNG image encoded as base64.
-// This is a pre-generated valid PNG that Roboflow's API can process.
-const validPNGBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAADklEQVR4nGP4z8DAwMAAAj4C/ZfyKMkAAAAASUVORK5CYII="
+// testImageURL is a small public domain image used for testing.
+const testImageURL = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/100px-PNG_transparency_demonstration_1.png"
 
 func TestRoboflowEmbeddingFunction(t *testing.T) {
 	apiKey := os.Getenv("ROBOFLOW_API_KEY")
@@ -73,14 +72,14 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 		require.Greater(t, resp.Len(), 0)
 	})
 
-	t.Run("Test image embedding from base64", func(t *testing.T) {
+	t.Run("Test image embedding from URL", func(t *testing.T) {
 		if apiKey == "" {
 			t.Skip("ROBOFLOW_API_KEY not set")
 		}
 		ef, err := NewRoboflowEmbeddingFunction(WithAPIKey(apiKey))
 		require.NoError(t, err)
 
-		image := embeddings.NewImageInputFromBase64(validPNGBase64)
+		image := embeddings.NewImageInputFromURL(testImageURL)
 		resp, err := ef.EmbedImage(context.Background(), image)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -96,8 +95,8 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 		require.NoError(t, err)
 
 		images := []embeddings.ImageInput{
-			embeddings.NewImageInputFromBase64(validPNGBase64),
-			embeddings.NewImageInputFromBase64(validPNGBase64),
+			embeddings.NewImageInputFromURL(testImageURL),
+			embeddings.NewImageInputFromURL(testImageURL),
 		}
 		resp, err := ef.EmbedImages(context.Background(), images)
 		require.NoError(t, err)
