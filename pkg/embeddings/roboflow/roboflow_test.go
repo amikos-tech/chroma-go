@@ -280,6 +280,24 @@ func TestImageInput(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "URL inputs should be passed directly")
 	})
+
+	t.Run("Test ToBase64 with unsupported file extension", func(t *testing.T) {
+		img := embeddings.NewImageInputFromFile("/path/to/file.txt")
+		_, err := img.ToBase64(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unsupported image file extension")
+	})
+
+	t.Run("Test ToBase64 with valid extensions", func(t *testing.T) {
+		validExtensions := []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif"}
+		for _, ext := range validExtensions {
+			img := embeddings.NewImageInputFromFile("/nonexistent/file" + ext)
+			_, err := img.ToBase64(context.Background())
+			// Should fail on file not found, not extension validation
+			require.Error(t, err)
+			require.NotContains(t, err.Error(), "unsupported image file extension")
+		}
+	})
 }
 
 func TestRoboflowFromConfig(t *testing.T) {

@@ -580,6 +580,10 @@ Roboflow supports embedding images from multiple sources: base64-encoded data, U
     For URL inputs, the URL is passed directly to the Roboflow API for fetching. For file inputs, the image is read
     locally and sent as base64.
 
+!!! note "Sequential Processing"
+    The Roboflow CLIP API processes one item per request. When embedding multiple documents or images, requests are
+    sent sequentially. For large batches, consider the API rate limits and potential latency.
+
 ```go
 package main
 

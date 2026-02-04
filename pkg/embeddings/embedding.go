@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -19,6 +20,18 @@ const (
 	// MaxImageFileSize is the maximum allowed size for image files (50 MB).
 	MaxImageFileSize = 50 * 1024 * 1024
 )
+
+// allowedImageExtensions is a set of valid image file extensions (lowercase, with dot).
+var allowedImageExtensions = map[string]struct{}{
+	".jpg":  {},
+	".jpeg": {},
+	".png":  {},
+	".gif":  {},
+	".webp": {},
+	".bmp":  {},
+	".tiff": {},
+	".tif":  {},
+}
 
 type EmbeddingModel string
 
@@ -361,6 +374,11 @@ func (i ImageInput) ToBase64(_ context.Context) (string, error) {
 }
 
 func (i ImageInput) readFileAsBase64() (string, error) {
+	ext := strings.ToLower(filepath.Ext(i.FilePath))
+	if _, ok := allowedImageExtensions[ext]; !ok {
+		return "", errors.Errorf("unsupported image file extension %q; allowed: .jpg, .jpeg, .png, .gif, .webp, .bmp, .tiff, .tif", ext)
+	}
+
 	info, err := os.Stat(i.FilePath)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to stat image file")
