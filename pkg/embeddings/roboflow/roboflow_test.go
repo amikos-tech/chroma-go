@@ -288,6 +288,13 @@ func TestImageInput(t *testing.T) {
 		require.Contains(t, err.Error(), "private/internal address")
 	})
 
+	t.Run("Test URL blocks unspecified IP 0.0.0.0", func(t *testing.T) {
+		img := embeddings.NewImageInputFromURL("http://0.0.0.0/image.png")
+		_, err := img.ToBase64(context.Background())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "private/internal address")
+	})
+
 	t.Run("Test URL rejects non-http schemes", func(t *testing.T) {
 		img := embeddings.NewImageInputFromURL("file:///etc/passwd")
 		_, err := img.ToBase64(context.Background())

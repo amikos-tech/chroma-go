@@ -113,6 +113,9 @@ func (e *RoboflowEmbeddingFunction) sendImageRequest(ctx context.Context, base64
 	return e.doRequest(ctx, endpoint, payload)
 }
 
+// maxAPIResponseSize limits API response body reads to prevent memory exhaustion.
+const maxAPIResponseSize = 10 * 1024 * 1024 // 10 MB
+
 func (e *RoboflowEmbeddingFunction) doRequest(ctx context.Context, endpoint string, payload []byte) (*embeddingResponse, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(payload))
 	if err != nil {
@@ -129,9 +132,13 @@ func (e *RoboflowEmbeddingFunction) doRequest(ctx context.Context, endpoint stri
 	}
 	defer resp.Body.Close()
 
-	respData, err := io.ReadAll(resp.Body)
+	limitedReader := io.LimitReader(resp.Body, maxAPIResponseSize+1)
+	respData, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response body")
+	}
+	if len(respData) > maxAPIResponseSize {
+		return nil, errors.Errorf("response exceeds maximum size of %d bytes", maxAPIResponseSize)
 	}
 
 	if resp.StatusCode != http.StatusOK {

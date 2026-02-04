@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -376,8 +377,22 @@ func (i ImageInput) fetchURLAsBase64(ctx context.Context) (string, error) {
 		return "", err
 	}
 
+	// Use a custom dialer with Control hook to prevent DNS rebinding attacks.
+	// The Control function is called after DNS resolution but before the connection
+	// is established, allowing us to validate the resolved IP address.
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		Control:   safeDialerControl,
+	}
+
+	transport := &http.Transport{
+		DialContext: dialer.DialContext,
+	}
+
 	client := &http.Client{
-		Timeout: ImageFetchTimeout,
+		Transport: transport,
+		Timeout:   ImageFetchTimeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= MaxImageRedirects {
 				return errors.Errorf("too many redirects (max %d)", MaxImageRedirects)
@@ -436,6 +451,33 @@ func validateImageURL(rawURL string) error {
 	return nil
 }
 
+// safeDialerControl is called after DNS resolution but before the connection is established.
+// This prevents DNS rebinding attacks where a hostname resolves to a public IP during
+// validation but to a private IP (e.g., 169.254.169.254) when the actual request is made.
+func safeDialerControl(network, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return errors.Wrap(err, "invalid address")
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return errors.Errorf("invalid IP address: %s", host)
+	}
+
+	if isPrivateIP(ip) {
+		return errors.Errorf("connection to private IP %s not allowed", ip)
+	}
+
+	return nil
+}
+
+// isPrivateIP checks if an IP address is private, loopback, link-local, or otherwise reserved.
+func isPrivateIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() || ip.IsUnspecified()
+}
+
 func isPrivateHost(host string) bool {
 	if host == "localhost" || strings.HasSuffix(host, ".local") {
 		return true
@@ -446,14 +488,8 @@ func isPrivateHost(host string) bool {
 		return false
 	}
 
-	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
 		return true
-	}
-
-	if ip4 := ip.To4(); ip4 != nil {
-		if ip4[0] == 169 && ip4[1] == 254 {
-			return true
-		}
 	}
 
 	return false
