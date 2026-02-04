@@ -78,6 +78,7 @@ func cleanupOrphanedCollections(t *testing.T, client Client) {
 	for _, name := range toDelete {
 		deleteCtx, deleteCancel := context.WithTimeout(ctx, 10*time.Second)
 		if err := client.DeleteCollection(deleteCtx, name); err != nil {
+			t.Logf("Warning: failed to delete collection '%s': %v", name, err)
 			failed++
 		} else {
 			deleted++
@@ -104,7 +105,7 @@ func cleanupTestCollections(t *testing.T, client Client) {
 	var toDelete []string
 	for _, collection := range collections {
 		name := collection.Name()
-		if name != "chroma" && name != "default" {
+		if strings.HasPrefix(name, "test_") {
 			toDelete = append(toDelete, name)
 		}
 	}
@@ -117,6 +118,7 @@ func cleanupTestCollections(t *testing.T, client Client) {
 	for _, name := range toDelete {
 		deleteCtx, deleteCancel := context.WithTimeout(ctx, 10*time.Second)
 		if err := client.DeleteCollection(deleteCtx, name); err != nil {
+			t.Logf("Warning: failed to delete collection '%s': %v", name, err)
 			failed++
 		} else {
 			deleted++
