@@ -156,7 +156,7 @@ jobs:
   cloud-cleanup:
     name: Cleanup Cloud Collections
     runs-on: ubuntu-22.04
-    needs: [cloud]
+    needs: [cloud, paths-filter]
     if: always() && (inputs.run_cloud || needs.paths-filter.outputs.base == 'true')
     environment: Test
     steps:
