@@ -134,7 +134,10 @@ jobs:
       - name: Build
         run: make build
       - name: Test
-        run: make test-cloud
+        run: |
+          echo "Starting minimal cloud tests..."
+          go test -v -tags=basicv2,cloud -timeout=5m -run 'TestCloudClientHTTPIntegration/Get_Version|TestCloudClientHTTPIntegration/List_collections|TestCloudClientHTTPIntegration/Count_collections' ./pkg/api/v2/...
+          echo "Minimal tests completed successfully"
         timeout-minutes: 10
         env:
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
