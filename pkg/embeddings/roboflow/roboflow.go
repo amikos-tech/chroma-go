@@ -1,3 +1,11 @@
+// Package roboflow provides a Roboflow CLIP embedding function for text and images.
+//
+// Roboflow Inference provides a hosted API for generating CLIP embeddings that map
+// text and images into the same embedding space, enabling cross-modal similarity search.
+//
+// API Documentation: https://inference.roboflow.com/foundation/clip/
+// Getting Started: https://inference.roboflow.com/start/overview/
+// OpenAPI Spec: https://inference.roboflow.com/openapi.json
 package roboflow
 
 import (
@@ -21,6 +29,25 @@ const (
 	APIKeyEnvVar       = "ROBOFLOW_API_KEY"
 	DefaultHTTPTimeout = 60 * time.Second
 )
+
+// CLIPVersion represents the available CLIP model versions.
+// See https://inference.roboflow.com/foundation/clip/ for details on each model variant.
+type CLIPVersion string
+
+const (
+	CLIPVersionViTB16      CLIPVersion = "ViT-B-16"
+	CLIPVersionViTB32      CLIPVersion = "ViT-B-32"
+	CLIPVersionViTL14      CLIPVersion = "ViT-L-14"
+	CLIPVersionViTL14336px CLIPVersion = "ViT-L-14-336px"
+	CLIPVersionRN50        CLIPVersion = "RN50"
+	CLIPVersionRN101       CLIPVersion = "RN101"
+	CLIPVersionRN50x4      CLIPVersion = "RN50x4"
+	CLIPVersionRN50x16     CLIPVersion = "RN50x16"
+	CLIPVersionRN50x64     CLIPVersion = "RN50x64"
+)
+
+// DefaultCLIPVersion is the default CLIP model version.
+const DefaultCLIPVersion = CLIPVersionViTB16
 
 type textEmbeddingRequest struct {
 	Text string `json:"text"`
@@ -46,16 +73,24 @@ var (
 
 func getDefaults() *RoboflowEmbeddingFunction {
 	return &RoboflowEmbeddingFunction{
-		httpClient: &http.Client{Timeout: DefaultHTTPTimeout},
-		baseURL:    DefaultBaseURL,
+		httpClient:  &http.Client{Timeout: DefaultHTTPTimeout},
+		baseURL:     DefaultBaseURL,
+		clipVersion: DefaultCLIPVersion,
 	}
 }
 
+// RoboflowEmbeddingFunction generates CLIP embeddings using the Roboflow Inference API.
+// It supports both text and image inputs, producing embeddings in a shared vector space
+// that enables cross-modal similarity search (e.g., searching images with text queries).
+//
+// For URL image inputs, the URL is passed directly to the Roboflow API for fetching.
+// For file inputs, the image is read locally and sent as base64.
 type RoboflowEmbeddingFunction struct {
 	httpClient   *http.Client
 	APIKey       embeddings.Secret `json:"-" validate:"required"`
 	apiKeyEnvVar string
 	baseURL      string
+	clipVersion  CLIPVersion
 	insecure     bool
 }
 
@@ -73,6 +108,15 @@ func validate(ef *RoboflowEmbeddingFunction) error {
 	return nil
 }
 
+// NewRoboflowEmbeddingFunction creates a new Roboflow CLIP embedding function.
+// Requires an API key via WithAPIKey, WithEnvAPIKey, or WithAPIKeyFromEnvVar.
+//
+// Example:
+//
+//	ef, err := NewRoboflowEmbeddingFunction(
+//	    WithEnvAPIKey(),
+//	    WithCLIPVersion(CLIPVersionViTL14),
+//	)
 func NewRoboflowEmbeddingFunction(opts ...Option) (*RoboflowEmbeddingFunction, error) {
 	ef := getDefaults()
 	for _, opt := range opts {
@@ -87,7 +131,7 @@ func NewRoboflowEmbeddingFunction(opts ...Option) (*RoboflowEmbeddingFunction, e
 }
 
 func (e *RoboflowEmbeddingFunction) sendTextRequest(ctx context.Context, text string) (*embeddingResponse, error) {
-	endpoint := e.baseURL + "/clip/embed_text?api_key=" + e.APIKey.Value()
+	endpoint := e.baseURL + "/clip/embed_text?api_key=" + e.APIKey.Value() + "&clip_version_id=" + string(e.clipVersion)
 
 	payload, err := json.Marshal(textEmbeddingRequest{Text: text})
 	if err != nil {
@@ -97,13 +141,13 @@ func (e *RoboflowEmbeddingFunction) sendTextRequest(ctx context.Context, text st
 	return e.doRequest(ctx, endpoint, payload)
 }
 
-func (e *RoboflowEmbeddingFunction) sendImageRequest(ctx context.Context, base64Image string) (*embeddingResponse, error) {
-	endpoint := e.baseURL + "/clip/embed_image?api_key=" + e.APIKey.Value()
+func (e *RoboflowEmbeddingFunction) sendImageRequest(ctx context.Context, imageType, imageValue string) (*embeddingResponse, error) {
+	endpoint := e.baseURL + "/clip/embed_image?api_key=" + e.APIKey.Value() + "&clip_version_id=" + string(e.clipVersion)
 
 	payload, err := json.Marshal(imageEmbeddingRequest{
 		Image: imageData{
-			Type:  "base64",
-			Value: base64Image,
+			Type:  imageType,
+			Value: imageValue,
 		},
 	})
 	if err != nil {
@@ -197,12 +241,33 @@ func (e *RoboflowEmbeddingFunction) EmbedImages(ctx context.Context, images []em
 }
 
 func (e *RoboflowEmbeddingFunction) EmbedImage(ctx context.Context, image embeddings.ImageInput) (embeddings.Embedding, error) {
-	base64Data, err := image.ToBase64(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert image to base64")
+	if err := image.Validate(); err != nil {
+		return nil, err
 	}
 
-	response, err := e.sendImageRequest(ctx, base64Data)
+	var imageType, imageValue string
+
+	switch image.Type() {
+	case embeddings.ImageInputTypeURL:
+		// Pass URL directly to Roboflow API - let them handle fetching
+		imageType = "url"
+		imageValue = image.URL
+	case embeddings.ImageInputTypeBase64:
+		imageType = "base64"
+		imageValue = image.Base64
+	case embeddings.ImageInputTypeFilePath:
+		// Read file and convert to base64
+		base64Data, err := image.ToBase64(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to read image file")
+		}
+		imageType = "base64"
+		imageValue = base64Data
+	default:
+		return nil, errors.New("unknown image input type")
+	}
+
+	response, err := e.sendImageRequest(ctx, imageType, imageValue)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed image")
 	}
@@ -225,9 +290,14 @@ func (e *RoboflowEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConf
 	if apiURL == "" {
 		apiURL = DefaultBaseURL
 	}
+	clipVersion := string(e.clipVersion)
+	if clipVersion == "" {
+		clipVersion = string(DefaultCLIPVersion)
+	}
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"api_key_env_var": envVar,
 		"api_url":         apiURL,
+		"clip_version":    clipVersion,
 	}
 	if e.insecure {
 		cfg["insecure"] = true
@@ -244,7 +314,7 @@ func (e *RoboflowEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetri
 }
 
 // NewRoboflowEmbeddingFunctionFromConfig creates a Roboflow embedding function from a config map.
-// Uses schema-compliant field names: api_key_env_var, api_url, insecure.
+// Uses schema-compliant field names: api_key_env_var, api_url, clip_version, insecure.
 func NewRoboflowEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*RoboflowEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
@@ -255,6 +325,9 @@ func NewRoboflowEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConf
 		return nil, errors.New("api_url is required in config")
 	}
 	opts := []Option{WithAPIKeyFromEnvVar(envVar), WithBaseURL(apiURL)}
+	if clipVersion, ok := cfg["clip_version"].(string); ok && clipVersion != "" {
+		opts = append(opts, WithCLIPVersion(CLIPVersion(clipVersion)))
+	}
 	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
 		opts = append(opts, WithInsecure())
 	} else if embeddings.AllowInsecureFromEnv() {

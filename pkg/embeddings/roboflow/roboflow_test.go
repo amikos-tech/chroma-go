@@ -163,6 +163,26 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 		require.Equal(t, true, cfg["insecure"])
 	})
 
+	t.Run("Test default CLIP version", func(t *testing.T) {
+		ef, err := NewRoboflowEmbeddingFunction(WithAPIKey("test-key"))
+		require.NoError(t, err)
+		cfg := ef.GetConfig()
+		require.Equal(t, string(DefaultCLIPVersion), cfg["clip_version"])
+	})
+
+	t.Run("Test custom CLIP version", func(t *testing.T) {
+		ef, err := NewRoboflowEmbeddingFunction(WithAPIKey("test-key"), WithCLIPVersion(CLIPVersionViTL14))
+		require.NoError(t, err)
+		cfg := ef.GetConfig()
+		require.Equal(t, string(CLIPVersionViTL14), cfg["clip_version"])
+	})
+
+	t.Run("Test empty CLIP version rejected", func(t *testing.T) {
+		_, err := NewRoboflowEmbeddingFunction(WithAPIKey("test-key"), WithCLIPVersion(""))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "CLIP version cannot be empty")
+	})
+
 	t.Run("Test Name returns roboflow", func(t *testing.T) {
 		ef, err := NewRoboflowEmbeddingFunction(WithAPIKey("test-key"))
 		require.NoError(t, err)
@@ -253,53 +273,12 @@ func TestImageInput(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("Test URL blocks localhost", func(t *testing.T) {
-		img := embeddings.NewImageInputFromURL("http://localhost/image.png")
+	t.Run("Test ToBase64 with URL returns error", func(t *testing.T) {
+		// URL inputs should be passed directly to the API, not converted to base64
+		img := embeddings.NewImageInputFromURL("http://example.com/image.png")
 		_, err := img.ToBase64(context.Background())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "private/internal address")
-	})
-
-	t.Run("Test URL blocks 127.0.0.1", func(t *testing.T) {
-		img := embeddings.NewImageInputFromURL("http://127.0.0.1/image.png")
-		_, err := img.ToBase64(context.Background())
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "private/internal address")
-	})
-
-	t.Run("Test URL blocks private IP 10.x.x.x", func(t *testing.T) {
-		img := embeddings.NewImageInputFromURL("http://10.0.0.1/image.png")
-		_, err := img.ToBase64(context.Background())
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "private/internal address")
-	})
-
-	t.Run("Test URL blocks private IP 192.168.x.x", func(t *testing.T) {
-		img := embeddings.NewImageInputFromURL("http://192.168.1.1/image.png")
-		_, err := img.ToBase64(context.Background())
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "private/internal address")
-	})
-
-	t.Run("Test URL blocks metadata IP 169.254.x.x", func(t *testing.T) {
-		img := embeddings.NewImageInputFromURL("http://169.254.169.254/latest/meta-data/")
-		_, err := img.ToBase64(context.Background())
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "private/internal address")
-	})
-
-	t.Run("Test URL blocks unspecified IP 0.0.0.0", func(t *testing.T) {
-		img := embeddings.NewImageInputFromURL("http://0.0.0.0/image.png")
-		_, err := img.ToBase64(context.Background())
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "private/internal address")
-	})
-
-	t.Run("Test URL rejects non-http schemes", func(t *testing.T) {
-		img := embeddings.NewImageInputFromURL("file:///etc/passwd")
-		_, err := img.ToBase64(context.Background())
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "scheme must be http or https")
+		require.Contains(t, err.Error(), "URL inputs should be passed directly")
 	})
 }
 
@@ -331,11 +310,13 @@ func TestRoboflowFromConfig(t *testing.T) {
 		cfg := embeddings.EmbeddingFunctionConfig{
 			"api_key_env_var": "ROBOFLOW_API_KEY",
 			"api_url":         "https://custom.api.com",
+			"clip_version":    string(CLIPVersionViTL14),
 			"insecure":        true,
 		}
 		ef, err := NewRoboflowEmbeddingFunctionFromConfig(cfg)
 		require.NoError(t, err)
 		require.Equal(t, "https://custom.api.com", ef.baseURL)
+		require.Equal(t, CLIPVersionViTL14, ef.clipVersion)
 		require.True(t, ef.insecure)
 	})
 
@@ -343,16 +324,18 @@ func TestRoboflowFromConfig(t *testing.T) {
 		if apiKey == "" {
 			t.Skip("ROBOFLOW_API_KEY not set")
 		}
-		ef1, err := NewRoboflowEmbeddingFunction(WithEnvAPIKey(), WithBaseURL("https://custom.api.com"))
+		ef1, err := NewRoboflowEmbeddingFunction(WithEnvAPIKey(), WithBaseURL("https://custom.api.com"), WithCLIPVersion(CLIPVersionViTL14))
 		require.NoError(t, err)
 
 		cfg := ef1.GetConfig()
 		require.Equal(t, "ROBOFLOW_API_KEY", cfg["api_key_env_var"])
 		require.Equal(t, "https://custom.api.com", cfg["api_url"])
+		require.Equal(t, string(CLIPVersionViTL14), cfg["clip_version"])
 
 		ef2, err := NewRoboflowEmbeddingFunctionFromConfig(cfg)
 		require.NoError(t, err)
 		require.Equal(t, ef1.baseURL, ef2.baseURL)
+		require.Equal(t, ef1.clipVersion, ef2.clipVersion)
 	})
 }
 

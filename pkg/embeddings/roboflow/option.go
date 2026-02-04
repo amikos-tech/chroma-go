@@ -73,3 +73,16 @@ func WithInsecure() Option {
 		return nil
 	}
 }
+
+// WithCLIPVersion sets the CLIP model version for embeddings.
+// Available versions: CLIPVersionViTB16 (default), CLIPVersionViTB32, CLIPVersionViTL14, etc.
+// Using the same version for both text and image embeddings ensures they share the same embedding space.
+func WithCLIPVersion(version CLIPVersion) Option {
+	return func(c *RoboflowEmbeddingFunction) error {
+		if version == "" {
+			return errors.New("CLIP version cannot be empty")
+		}
+		c.clipVersion = version
+		return nil
+	}
+}

@@ -6,17 +6,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"math"
-	"net"
-	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
-	"syscall"
-	"time"
 
 	"github.com/pkg/errors"
 )
@@ -24,12 +18,6 @@ import (
 const (
 	// MaxImageFileSize is the maximum allowed size for image files (50 MB).
 	MaxImageFileSize = 50 * 1024 * 1024
-	// MaxImageURLResponseSize is the maximum allowed size for image URL responses (50 MB).
-	MaxImageURLResponseSize = 50 * 1024 * 1024
-	// ImageFetchTimeout is the timeout for fetching images from URLs.
-	ImageFetchTimeout = 30 * time.Second
-	// MaxImageRedirects is the maximum number of redirects allowed when fetching images.
-	MaxImageRedirects = 5
 )
 
 type EmbeddingModel string
@@ -354,9 +342,9 @@ func (i ImageInput) Validate() error {
 
 // ToBase64 converts the image input to a base64-encoded string.
 // For Base64 inputs, returns the value directly.
-// For URL inputs, fetches the image and encodes it.
+// For URL inputs, returns an error (URLs should be passed directly to the API).
 // For FilePath inputs, reads the file and encodes it.
-func (i ImageInput) ToBase64(ctx context.Context) (string, error) {
+func (i ImageInput) ToBase64(_ context.Context) (string, error) {
 	if err := i.Validate(); err != nil {
 		return "", err
 	}
@@ -364,135 +352,12 @@ func (i ImageInput) ToBase64(ctx context.Context) (string, error) {
 	case ImageInputTypeBase64:
 		return i.Base64, nil
 	case ImageInputTypeURL:
-		return i.fetchURLAsBase64(ctx)
+		return "", errors.New("URL inputs should be passed directly to the embedding API, not converted to base64")
 	case ImageInputTypeFilePath:
 		return i.readFileAsBase64()
 	default:
 		return "", errors.New("unknown image input type")
 	}
-}
-
-func (i ImageInput) fetchURLAsBase64(ctx context.Context) (string, error) {
-	if err := validateImageURL(i.URL); err != nil {
-		return "", err
-	}
-
-	// Use a custom dialer with Control hook to prevent DNS rebinding attacks.
-	// The Control function is called after DNS resolution but before the connection
-	// is established, allowing us to validate the resolved IP address.
-	dialer := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-		Control:   safeDialerControl,
-	}
-
-	transport := &http.Transport{
-		DialContext: dialer.DialContext,
-	}
-
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   ImageFetchTimeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= MaxImageRedirects {
-				return errors.Errorf("too many redirects (max %d)", MaxImageRedirects)
-			}
-			if err := validateImageURL(req.URL.String()); err != nil {
-				return errors.Wrap(err, "redirect blocked")
-			}
-			return nil
-		},
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, i.URL, nil)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to create request for image URL")
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to fetch image from URL")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("failed to fetch image: HTTP %d", resp.StatusCode)
-	}
-
-	limitedReader := io.LimitReader(resp.Body, MaxImageURLResponseSize+1)
-	data, err := io.ReadAll(limitedReader)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to read image data")
-	}
-	if len(data) > MaxImageURLResponseSize {
-		return "", errors.Errorf("image response exceeds maximum size of %d bytes", MaxImageURLResponseSize)
-	}
-	return base64.StdEncoding.EncodeToString(data), nil
-}
-
-func validateImageURL(rawURL string) error {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return errors.Wrap(err, "invalid URL")
-	}
-
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return errors.Errorf("URL scheme must be http or https, got %q", parsed.Scheme)
-	}
-
-	host := parsed.Hostname()
-	if host == "" {
-		return errors.New("URL must have a host")
-	}
-
-	if isPrivateHost(host) {
-		return errors.Errorf("URL host %q appears to be a private/internal address", host)
-	}
-
-	return nil
-}
-
-// safeDialerControl is called after DNS resolution but before the connection is established.
-// This prevents DNS rebinding attacks where a hostname resolves to a public IP during
-// validation but to a private IP (e.g., 169.254.169.254) when the actual request is made.
-func safeDialerControl(network, address string, _ syscall.RawConn) error {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		return errors.Wrap(err, "invalid address")
-	}
-
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return errors.Errorf("invalid IP address: %s", host)
-	}
-
-	if isPrivateIP(ip) {
-		return errors.Errorf("connection to private IP %s not allowed", ip)
-	}
-
-	return nil
-}
-
-// isPrivateIP checks if an IP address is private, loopback, link-local, or otherwise reserved.
-func isPrivateIP(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast() || ip.IsUnspecified()
-}
-
-func isPrivateHost(host string) bool {
-	if host == "localhost" || strings.HasSuffix(host, ".local") {
-		return true
-	}
-
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return false
-	}
-
-	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
-		return true
-	}
-
-	return false
 }
 
 func (i ImageInput) readFileAsBase64() (string, error) {

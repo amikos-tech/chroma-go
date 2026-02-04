@@ -502,7 +502,12 @@ func main() {
 ## Roboflow
 
 Roboflow provides CLIP-based embeddings that support both text and images (multimodal). This is useful for building
-applications that need to search across both text and image content.
+applications that need to search across both text and image content. Text and images are mapped to the same embedding
+space, enabling cross-modal similarity search (e.g., searching images with text queries).
+
+- [Getting Started](https://inference.roboflow.com/start/overview/)
+- [CLIP API Documentation](https://inference.roboflow.com/foundation/clip/)
+- [OpenAPI Spec](https://inference.roboflow.com/openapi.json)
 
 To use Roboflow embeddings, you will need to create an [API Key](https://app.roboflow.com/settings/api).
 
@@ -512,8 +517,28 @@ Supported Embedding Function Options:
 - `WithEnvAPIKey` - Use the `ROBOFLOW_API_KEY` environment variable.
 - `WithAPIKeyFromEnvVar` - Use a custom environment variable for the API key.
 - `WithBaseURL` - Set a custom base URL (default: `https://infer.roboflow.com`).
+- `WithCLIPVersion` - Set the CLIP model version (default: `CLIPVersionViTB16`). See [available versions](#clip-model-versions).
 - `WithHTTPClient` - Use a custom HTTP client.
 - `WithInsecure` - Allow HTTP connections (for local development only).
+
+### CLIP Model Versions
+
+The following CLIP model versions are available:
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `CLIPVersionViTB16` | `ViT-B-16` | Default. Good balance of speed and accuracy |
+| `CLIPVersionViTB32` | `ViT-B-32` | Faster, slightly lower accuracy |
+| `CLIPVersionViTL14` | `ViT-L-14` | Higher accuracy, slower |
+| `CLIPVersionViTL14336px` | `ViT-L-14-336px` | Higher resolution variant |
+| `CLIPVersionRN50` | `RN50` | ResNet-50 based |
+| `CLIPVersionRN101` | `RN101` | ResNet-101 based |
+| `CLIPVersionRN50x4` | `RN50x4` | Scaled ResNet-50 |
+| `CLIPVersionRN50x16` | `RN50x16` | Larger scaled ResNet-50 |
+| `CLIPVersionRN50x64` | `RN50x64` | Largest scaled ResNet-50 |
+
+!!! note "Embedding Space Consistency"
+    Use the same CLIP version for both text and image embeddings to ensure they share the same embedding space.
 
 ### Text Embeddings
 
@@ -532,7 +557,10 @@ func main() {
 		"Document 2 content here",
 	}
 	// Make sure that you have the `ROBOFLOW_API_KEY` set in your environment
-	ef, err := roboflow.NewRoboflowEmbeddingFunction(roboflow.WithEnvAPIKey())
+	ef, err := roboflow.NewRoboflowEmbeddingFunction(
+		roboflow.WithEnvAPIKey(),
+		roboflow.WithCLIPVersion(roboflow.CLIPVersionViTL14), // optional: use a specific CLIP version
+	)
 	if err != nil {
 		fmt.Printf("Error creating Roboflow embedding function: %s \n", err)
 	}
@@ -548,6 +576,10 @@ func main() {
 
 Roboflow supports embedding images from multiple sources: base64-encoded data, URLs, or local file paths.
 
+!!! note "URL Handling"
+    For URL inputs, the URL is passed directly to the Roboflow API for fetching. For file inputs, the image is read
+    locally and sent as base64.
+
 ```go
 package main
 
@@ -560,7 +592,11 @@ import (
 
 func main() {
 	// Make sure that you have the `ROBOFLOW_API_KEY` set in your environment
-	ef, err := roboflow.NewRoboflowEmbeddingFunction(roboflow.WithEnvAPIKey())
+	// Use the same CLIP version for both text and images for consistent embeddings
+	ef, err := roboflow.NewRoboflowEmbeddingFunction(
+		roboflow.WithEnvAPIKey(),
+		roboflow.WithCLIPVersion(roboflow.CLIPVersionViTL14),
+	)
 	if err != nil {
 		fmt.Printf("Error creating Roboflow embedding function: %s \n", err)
 	}
