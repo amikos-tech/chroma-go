@@ -6,7 +6,6 @@ import (
 	"context"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -46,28 +45,19 @@ func cleanupOrphanedCollections(t *testing.T, client Client) {
 
 	t.Logf("Cleaning up %d orphaned test collections before tests start...", len(toDelete))
 
-	const maxConcurrency = 10
-	sem := make(chan struct{}, maxConcurrency)
-	var wg sync.WaitGroup
-
+	// Delete sequentially to avoid goroutine issues with t.Logf
+	var deleted, failed int
 	for _, name := range toDelete {
-		wg.Add(1)
-		go func(collName string) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			deleteCtx, deleteCancel := context.WithTimeout(ctx, 10*time.Second)
-			defer deleteCancel()
-
-			if err := client.DeleteCollection(deleteCtx, collName); err != nil {
-				t.Logf("Warning: failed to delete orphaned collection %s: %v", collName, err)
-			}
-		}(name)
+		deleteCtx, deleteCancel := context.WithTimeout(ctx, 10*time.Second)
+		if err := client.DeleteCollection(deleteCtx, name); err != nil {
+			failed++
+		} else {
+			deleted++
+		}
+		deleteCancel()
 	}
 
-	wg.Wait()
-	t.Logf("Pre-test cleanup completed: deleted %d orphaned collections", len(toDelete))
+	t.Logf("Pre-test cleanup completed: deleted %d, failed %d", deleted, failed)
 }
 
 func TestCloudClientHTTPIntegration(t *testing.T) {
@@ -1277,29 +1267,16 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 			return
 		}
 
-		// Delete collections in parallel with concurrency limit
-		const maxConcurrency = 10
-		sem := make(chan struct{}, maxConcurrency)
-		var wg sync.WaitGroup
-
+		// Delete sequentially to avoid goroutine issues with t.Logf
+		var deleted int
 		for _, name := range toDelete {
-			wg.Add(1)
-			go func(collName string) {
-				defer wg.Done()
-				sem <- struct{}{}
-				defer func() { <-sem }()
-
-				deleteCtx, deleteCancel := context.WithTimeout(ctx, 10*time.Second)
-				defer deleteCancel()
-
-				if err := client.DeleteCollection(deleteCtx, collName); err != nil {
-					t.Logf("Warning: failed to delete collection %s: %v", collName, err)
-				}
-			}(name)
+			deleteCtx, deleteCancel := context.WithTimeout(ctx, 10*time.Second)
+			if err := client.DeleteCollection(deleteCtx, name); err == nil {
+				deleted++
+			}
+			deleteCancel()
 		}
-
-		wg.Wait()
-		t.Logf("Cleanup completed: deleted %d collections", len(toDelete))
+		t.Logf("Cleanup completed: deleted %d collections", deleted)
 	})
 
 	t.Run("Without API Key", func(t *testing.T) {
