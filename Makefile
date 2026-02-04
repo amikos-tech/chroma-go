@@ -45,6 +45,33 @@ test-ef: gotestsum-bin
 		-coverprofile=coverage-ef.out \
 		-timeout=30m
 
+# Provider-specific EF test targets (use test-ef-<provider> pattern)
+# Examples: make test-ef-openai, make test-ef-bm25, make test-ef-default_ef
+test-ef-%: gotestsum-bin
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=1 \
+		--packages="./pkg/embeddings/$*/..." \
+		--junitfile unit-ef-$*.xml \
+		-- \
+		-v \
+		-tags=ef \
+		-coverprofile=coverage-ef-$*.out \
+		-timeout=15m
+
+.PHONY: test-ef-core
+test-ef-core: gotestsum-bin
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=1 \
+		--packages="./pkg/embeddings" \
+		--junitfile unit-ef-core.xml \
+		-- \
+		-v \
+		-tags=ef \
+		-coverprofile=coverage-ef-core.out \
+		-timeout=15m
+
 .PHONY: test-ef-cloud
 test-ef-cloud: gotestsum-bin
 	gotestsum \

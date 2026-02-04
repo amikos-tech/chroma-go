@@ -172,11 +172,49 @@ jobs:
           CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
           CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
   ef:
-    name: Test Embedding Functions
+    name: Test EF (${{ matrix.provider }})
     runs-on: ubuntu-latest
-    needs: [lint,paths-filter]
+    needs: [lint, paths-filter]
     if: inputs.run_ef || needs.paths-filter.outputs.embeddings == 'true'
     environment: Test
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # API-based providers
+          - provider: openai
+            test_path: ./pkg/embeddings/openai/...
+          - provider: cohere
+            test_path: ./pkg/embeddings/cohere/...
+          - provider: hf
+            test_path: ./pkg/embeddings/hf/...
+          - provider: cloudflare
+            test_path: ./pkg/embeddings/cloudflare/...
+          - provider: together
+            test_path: ./pkg/embeddings/together/...
+          - provider: voyage
+            test_path: ./pkg/embeddings/voyage/...
+          - provider: gemini
+            test_path: ./pkg/embeddings/gemini/...
+          - provider: mistral
+            test_path: ./pkg/embeddings/mistral/...
+          - provider: nomic
+            test_path: ./pkg/embeddings/nomic/...
+          - provider: jina
+            test_path: ./pkg/embeddings/jina/...
+          - provider: roboflow
+            test_path: ./pkg/embeddings/roboflow/...
+          - provider: morph
+            test_path: ./pkg/embeddings/morph/...
+          # Local providers (no API keys)
+          - provider: default_ef
+            test_path: ./pkg/embeddings/default_ef/...
+          - provider: bm25
+            test_path: ./pkg/embeddings/bm25/...
+          # Docker-based (testcontainers)
+          - provider: ollama
+            test_path: ./pkg/embeddings/ollama/...
     steps:
       - uses: actions/checkout@v4
       - name: Log in to GitHub Container Registry
@@ -191,8 +229,20 @@ jobs:
           go-version-file: 'go.mod'
       - name: Build
         run: make build
-      - name: Test
-        run: make test-ef
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+      - name: Test ${{ matrix.provider }}
+        run: |
+          gotestsum \
+            --format short-verbose \
+            --rerun-fails=1 \
+            --packages="${{ matrix.test_path }}" \
+            --junitfile unit-ef-${{ matrix.provider }}.xml \
+            -- \
+            -v \
+            -tags=ef \
+            -coverprofile=coverage-ef-${{ matrix.provider }}.out \
+            -timeout=15m
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
@@ -207,16 +257,16 @@ jobs:
           NOMIC_API_KEY: ${{ secrets.NOMIC_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           ROBOFLOW_API_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ef-test-results
+          name: ef-test-results-${{ matrix.provider }}
           path: |
-            coverage-ef.out
-            unit-ef.xml
+            coverage-ef-${{ matrix.provider }}.out
+            unit-ef-${{ matrix.provider }}.xml
   rf:
     name: Test Ranking Functions
     runs-on: ubuntu-latest

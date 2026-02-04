@@ -34,8 +34,11 @@ var allowedImageExtensions = map[string]struct{}{
 	".tif":  {},
 }
 
+// EmbeddingModel represents the name/identifier of an embedding model.
 type EmbeddingModel string
 
+// Embedding represents a vector embedding that can be either float32 or int32 based.
+// Implementations include Float32Embedding and Int32Embedding.
 type Embedding interface {
 	Len() int
 	ContentAsFloat32() []float32
@@ -45,6 +48,7 @@ type Embedding interface {
 	IsDefined() bool
 }
 
+// KnnVector represents a vector that can be used for k-nearest neighbor search.
 type KnnVector interface {
 	Len() int
 	ValuesAsFloat32() []float32
@@ -133,8 +137,11 @@ func (s *SparseVector) Validate() error {
 	return nil
 }
 
+// Embeddings is a slice of Embedding values.
 type Embeddings []Embedding
 
+// Float32Embedding implements Embedding using float32 values.
+// This is the most common embedding type for dense vectors.
 type Float32Embedding struct {
 	ArrayOfFloat32 *[]float32
 }
@@ -188,10 +195,13 @@ func (e *Float32Embedding) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// Int32Embedding implements Embedding using int32 values.
+// Used for quantized embeddings to reduce memory usage.
 type Int32Embedding struct {
 	ArrayOfInt32 *[]int32
 }
 
+// NewInt32Embedding creates a new Int32Embedding from a slice of int32 values.
 func NewInt32Embedding(embedding []int32) Embedding {
 	return &Int32Embedding{
 		ArrayOfInt32: &embedding,
@@ -414,12 +424,14 @@ type Closeable interface {
 	Close() error
 }
 
+// NewEmbeddingFromFloat32 creates a new Float32Embedding from a slice of float32 values.
 func NewEmbeddingFromFloat32(embedding []float32) Embedding {
 	return &Float32Embedding{
 		ArrayOfFloat32: &embedding,
 	}
 }
 
+// NewEmbeddingFromInt32 creates a Float32Embedding by converting int32 values to float32.
 func NewEmbeddingFromInt32(embedding []int32) Embedding {
 	emb := make([]float32, len(embedding))
 	for i, val := range embedding {
@@ -430,6 +442,7 @@ func NewEmbeddingFromInt32(embedding []int32) Embedding {
 	}
 }
 
+// NewEmbeddingFromFloat64 creates a Float32Embedding by converting float64 values to float32.
 func NewEmbeddingFromFloat64(embedding []float64) Embedding {
 	emb := make([]float32, len(embedding))
 	for i, val := range embedding {
@@ -439,14 +452,21 @@ func NewEmbeddingFromFloat64(embedding []float64) Embedding {
 		ArrayOfFloat32: &emb,
 	}
 }
+
+// NewEmptyEmbedding creates an undefined embedding with no data.
 func NewEmptyEmbedding() Embedding {
 	return &Float32Embedding{
 		ArrayOfFloat32: nil,
 	}
 }
+
+// NewEmptyEmbeddings creates an empty slice of embeddings.
 func NewEmptyEmbeddings() []Embedding {
 	return make([]Embedding, 0)
 }
+
+// NewEmbeddingsFromInterface parses embeddings from a slice of interface{} values,
+// typically used when unmarshaling JSON responses from embedding APIs.
 func NewEmbeddingsFromInterface(lst []interface{}) ([]Embedding, error) {
 	var result []Embedding
 	for _, embedding := range lst {
@@ -489,6 +509,7 @@ func NewEmbeddingsFromInterface(lst []interface{}) ([]Embedding, error) {
 	return result, nil
 }
 
+// NewEmbeddingsFromFloat32 creates a slice of embeddings from a 2D slice of float32 values.
 func NewEmbeddingsFromFloat32(lst [][]float32) ([]Embedding, error) {
 	var result []Embedding
 	for _, embedding := range lst {
@@ -498,6 +519,7 @@ func NewEmbeddingsFromFloat32(lst [][]float32) ([]Embedding, error) {
 	return result, nil
 }
 
+// NewEmbeddingsFromInt32 creates a slice of Int32Embedding from a 2D slice of int32 values.
 func NewEmbeddingsFromInt32(lst [][]int32) ([]Embedding, error) {
 	var result []Embedding
 	for _, embedding := range lst {
@@ -507,8 +529,11 @@ func NewEmbeddingsFromInt32(lst [][]int32) ([]Embedding, error) {
 	return result, nil
 }
 
+// ConsistentHashEmbeddingFunction generates deterministic embeddings using SHA-256 hashing.
+// Useful for testing and scenarios where consistent embeddings are needed for the same input.
 type ConsistentHashEmbeddingFunction struct{ dim int }
 
+// NewConsistentHashEmbeddingFunction creates a ConsistentHashEmbeddingFunction with default dimension (384).
 func NewConsistentHashEmbeddingFunction() EmbeddingFunction {
 	return &ConsistentHashEmbeddingFunction{dim: 384}
 }
