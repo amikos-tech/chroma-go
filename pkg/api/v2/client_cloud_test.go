@@ -47,48 +47,6 @@ func setupCloudClient(t *testing.T) Client {
 	return client
 }
 
-// cleanupOrphanedCollections removes test collections from previous runs
-func cleanupOrphanedCollections(t *testing.T, client Client) {
-	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	collections, err := client.ListCollections(ctx)
-	if err != nil {
-		t.Logf("Warning: failed to list collections for pre-test cleanup: %v", err)
-		return
-	}
-
-	var toDelete []string
-	for _, collection := range collections {
-		name := collection.Name()
-		if strings.HasPrefix(name, "test_") {
-			toDelete = append(toDelete, name)
-		}
-	}
-
-	if len(toDelete) == 0 {
-		return
-	}
-
-	t.Logf("Cleaning up %d orphaned test collections...", len(toDelete))
-
-	var deleted, failed int
-	for _, name := range toDelete {
-		deleteCtx, deleteCancel := context.WithTimeout(ctx, 10*time.Second)
-		if err := client.DeleteCollection(deleteCtx, name); err != nil {
-			t.Logf("Warning: failed to delete collection '%s': %v", name, err)
-			failed++
-		} else {
-			deleted++
-		}
-		deleteCancel()
-	}
-
-	t.Logf("Cleanup completed: deleted %d, failed %d", deleted, failed)
-}
-
 // TestCloudCleanup is a dedicated cleanup test that runs after all other cloud tests
 // It removes all test collections to clean up the shared cloud database
 func TestCloudCleanup(t *testing.T) {
@@ -135,7 +93,6 @@ func TestCloudCleanup(t *testing.T) {
 // TestCloudClientCRUD tests basic CRUD operations
 func TestCloudClientCRUD(t *testing.T) {
 	client := setupCloudClient(t)
-	cleanupOrphanedCollections(t, client)
 
 	t.Run("Get Version", func(t *testing.T) {
 		ctx := context.Background()
@@ -260,7 +217,6 @@ func TestCloudClientCRUD(t *testing.T) {
 // TestCloudClientAutoWire tests embedding function auto-wiring
 func TestCloudClientAutoWire(t *testing.T) {
 	client := setupCloudClient(t)
-	cleanupOrphanedCollections(t, client)
 
 	t.Run("auto-wire chroma cloud embedding function on GetCollection", func(t *testing.T) {
 		ctx := context.Background()
@@ -422,7 +378,6 @@ func TestCloudClientAutoWire(t *testing.T) {
 // TestCloudClientSearch tests Search API functionality
 func TestCloudClientSearch(t *testing.T) {
 	client := setupCloudClient(t)
-	cleanupOrphanedCollections(t, client)
 
 	t.Run("Search data in collection", func(t *testing.T) {
 		ctx := context.Background()
@@ -822,7 +777,6 @@ func TestCloudClientSearch(t *testing.T) {
 // TestCloudClientSchema tests Schema configuration
 func TestCloudClientSchema(t *testing.T) {
 	client := setupCloudClient(t)
-	cleanupOrphanedCollections(t, client)
 
 	t.Run("Create collection with default schema", func(t *testing.T) {
 		ctx := context.Background()
@@ -1231,7 +1185,6 @@ func TestCloudClientConfig(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	cleanupOrphanedCollections(t, client)
 
 	t.Cleanup(func() {
 		_ = client.Close()
