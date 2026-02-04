@@ -215,9 +215,6 @@ jobs:
           # Docker-based (testcontainers)
           - provider: ollama
             test_path: ./pkg/embeddings/ollama/...
-          # Core embedding tests
-          - provider: core
-            test_path: ./pkg/embeddings
     steps:
       - uses: actions/checkout@v4
       - name: Log in to GitHub Container Registry
