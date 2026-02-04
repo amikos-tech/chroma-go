@@ -1268,15 +1268,17 @@ func TestCloudClientHTTPIntegration(t *testing.T) {
 		}
 
 		// Delete sequentially to avoid goroutine issues with t.Logf
-		var deleted int
+		var deleted, failed int
 		for _, name := range toDelete {
 			deleteCtx, deleteCancel := context.WithTimeout(ctx, 10*time.Second)
-			if err := client.DeleteCollection(deleteCtx, name); err == nil {
+			if err := client.DeleteCollection(deleteCtx, name); err != nil {
+				failed++
+			} else {
 				deleted++
 			}
 			deleteCancel()
 		}
-		t.Logf("Cleanup completed: deleted %d collections", deleted)
+		t.Logf("Cleanup completed: deleted %d, failed %d", deleted, failed)
 	})
 
 	t.Run("Without API Key", func(t *testing.T) {

@@ -338,6 +338,9 @@ func _sanitizeResponseDump(respDump string) (result string) {
 			maxBodyLen := maxLogSize - len(headerPart) - 50 // Reserve space for truncation message
 			if maxBodyLen > 0 && len(bodyPart) > maxBodyLen {
 				respDump = headerPart + bodyPart[:maxBodyLen] + fmt.Sprintf("...[TRUNCATED %d bytes]", len(bodyPart)-maxBodyLen)
+			} else if maxBodyLen <= 0 {
+				// Headers alone exceed limit, truncate entire response
+				respDump = respDump[:maxLogSize] + fmt.Sprintf("...[TRUNCATED %d bytes]", len(respDump)-maxLogSize)
 			}
 		} else if len(respDump) > maxLogSize {
 			respDump = respDump[:maxLogSize] + fmt.Sprintf("...[TRUNCATED %d bytes]", len(respDump)-maxLogSize)
