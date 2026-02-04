@@ -152,15 +152,14 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 		require.NoError(t, err)
 		cfg := ef.GetConfig()
 		require.Equal(t, "ROBOFLOW_API_KEY", cfg["api_key_env_var"])
-		_, hasBaseURL := cfg["base_url"]
-		require.False(t, hasBaseURL)
+		require.Equal(t, DefaultBaseURL, cfg["api_url"])
 	})
 
 	t.Run("Test GetConfig with custom base URL", func(t *testing.T) {
 		ef, err := NewRoboflowEmbeddingFunction(WithAPIKey("test-key"), WithBaseURL("https://custom.api.com"), WithInsecure())
 		require.NoError(t, err)
 		cfg := ef.GetConfig()
-		require.Equal(t, "https://custom.api.com", cfg["base_url"])
+		require.Equal(t, "https://custom.api.com", cfg["api_url"])
 		require.Equal(t, true, cfg["insecure"])
 	})
 
@@ -301,10 +300,21 @@ func TestRoboflowFromConfig(t *testing.T) {
 	apiKey := os.Getenv("ROBOFLOW_API_KEY")
 
 	t.Run("Test config missing api_key_env_var", func(t *testing.T) {
-		cfg := embeddings.EmbeddingFunctionConfig{}
+		cfg := embeddings.EmbeddingFunctionConfig{
+			"api_url": DefaultBaseURL,
+		}
 		_, err := NewRoboflowEmbeddingFunctionFromConfig(cfg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "api_key_env_var is required")
+	})
+
+	t.Run("Test config missing api_url", func(t *testing.T) {
+		cfg := embeddings.EmbeddingFunctionConfig{
+			"api_key_env_var": "ROBOFLOW_API_KEY",
+		}
+		_, err := NewRoboflowEmbeddingFunctionFromConfig(cfg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "api_url is required")
 	})
 
 	t.Run("Test config with all options", func(t *testing.T) {
@@ -313,13 +323,29 @@ func TestRoboflowFromConfig(t *testing.T) {
 		}
 		cfg := embeddings.EmbeddingFunctionConfig{
 			"api_key_env_var": "ROBOFLOW_API_KEY",
-			"base_url":        "https://custom.api.com",
+			"api_url":         "https://custom.api.com",
 			"insecure":        true,
 		}
 		ef, err := NewRoboflowEmbeddingFunctionFromConfig(cfg)
 		require.NoError(t, err)
 		require.Equal(t, "https://custom.api.com", ef.baseURL)
 		require.True(t, ef.insecure)
+	})
+
+	t.Run("Test config roundtrip", func(t *testing.T) {
+		if apiKey == "" {
+			t.Skip("ROBOFLOW_API_KEY not set")
+		}
+		ef1, err := NewRoboflowEmbeddingFunction(WithEnvAPIKey(), WithBaseURL("https://custom.api.com"))
+		require.NoError(t, err)
+
+		cfg := ef1.GetConfig()
+		require.Equal(t, "ROBOFLOW_API_KEY", cfg["api_key_env_var"])
+		require.Equal(t, "https://custom.api.com", cfg["api_url"])
+
+		ef2, err := NewRoboflowEmbeddingFunctionFromConfig(cfg)
+		require.NoError(t, err)
+		require.Equal(t, ef1.baseURL, ef2.baseURL)
 	})
 }
 

@@ -87,7 +87,7 @@ func NewRoboflowEmbeddingFunction(opts ...Option) (*RoboflowEmbeddingFunction, e
 }
 
 func (e *RoboflowEmbeddingFunction) sendTextRequest(ctx context.Context, text string) (*embeddingResponse, error) {
-	endpoint := e.baseURL + "/clip/embed_text"
+	endpoint := e.baseURL + "/clip/embed_text?api_key=" + e.APIKey.Value()
 
 	payload, err := json.Marshal(textEmbeddingRequest{Text: text})
 	if err != nil {
@@ -98,7 +98,7 @@ func (e *RoboflowEmbeddingFunction) sendTextRequest(ctx context.Context, text st
 }
 
 func (e *RoboflowEmbeddingFunction) sendImageRequest(ctx context.Context, base64Image string) (*embeddingResponse, error) {
-	endpoint := e.baseURL + "/clip/embed_image"
+	endpoint := e.baseURL + "/clip/embed_image?api_key=" + e.APIKey.Value()
 
 	payload, err := json.Marshal(imageEmbeddingRequest{
 		Image: imageData{
@@ -122,7 +122,6 @@ func (e *RoboflowEmbeddingFunction) doRequest(ctx context.Context, endpoint stri
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	req.Header.Set("Authorization", "Bearer "+e.APIKey.Value())
 
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
@@ -215,11 +214,13 @@ func (e *RoboflowEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConf
 	if envVar == "" {
 		envVar = APIKeyEnvVar
 	}
+	apiURL := e.baseURL
+	if apiURL == "" {
+		apiURL = DefaultBaseURL
+	}
 	cfg := embeddings.EmbeddingFunctionConfig{
 		"api_key_env_var": envVar,
-	}
-	if e.baseURL != "" && e.baseURL != DefaultBaseURL {
-		cfg["base_url"] = e.baseURL
+		"api_url":         apiURL,
 	}
 	if e.insecure {
 		cfg["insecure"] = true
@@ -236,15 +237,17 @@ func (e *RoboflowEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetri
 }
 
 // NewRoboflowEmbeddingFunctionFromConfig creates a Roboflow embedding function from a config map.
+// Uses schema-compliant field names: api_key_env_var, api_url, insecure.
 func NewRoboflowEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*RoboflowEmbeddingFunction, error) {
 	envVar, ok := cfg["api_key_env_var"].(string)
 	if !ok || envVar == "" {
 		return nil, errors.New("api_key_env_var is required in config")
 	}
-	opts := []Option{WithAPIKeyFromEnvVar(envVar)}
-	if baseURL, ok := cfg["base_url"].(string); ok && baseURL != "" {
-		opts = append(opts, WithBaseURL(baseURL))
+	apiURL, ok := cfg["api_url"].(string)
+	if !ok || apiURL == "" {
+		return nil, errors.New("api_url is required in config")
 	}
+	opts := []Option{WithAPIKeyFromEnvVar(envVar), WithBaseURL(apiURL)}
 	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
 		opts = append(opts, WithInsecure())
 	} else if embeddings.AllowInsecureFromEnv() {
