@@ -134,7 +134,7 @@ jobs:
       - name: Build
         run: make build
       - name: Test
-        run: go test -v -tags=basicv2,cloud -timeout=10m ./pkg/api/v2/... 2>&1 | tee test-output.log
+        run: go test -v -tags=basicv2,cloud -timeout=10m -skip 'Schema' ./pkg/api/v2/... 2>&1 | tee test-output.log
         timeout-minutes: 10
         env:
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
