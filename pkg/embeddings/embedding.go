@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -379,17 +380,20 @@ func (i ImageInput) readFileAsBase64() (string, error) {
 		return "", errors.Errorf("unsupported image file extension %q; allowed: .jpg, .jpeg, .png, .gif, .webp, .bmp, .tiff, .tif", ext)
 	}
 
-	info, err := os.Stat(i.FilePath)
+	f, err := os.Open(i.FilePath)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to stat image file")
+		return "", errors.Wrap(err, "failed to open image file")
 	}
-	if info.Size() > MaxImageFileSize {
-		return "", errors.Errorf("image file size %d exceeds maximum of %d bytes", info.Size(), MaxImageFileSize)
-	}
+	defer f.Close()
 
-	data, err := os.ReadFile(i.FilePath)
+	// Read up to MaxImageFileSize+1 to detect if file exceeds the limit
+	limitedReader := io.LimitReader(f, MaxImageFileSize+1)
+	data, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to read image file")
+	}
+	if int64(len(data)) > MaxImageFileSize {
+		return "", errors.Errorf("image file size exceeds maximum of %d bytes", MaxImageFileSize)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
 }

@@ -4,8 +4,10 @@ package roboflow
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
@@ -14,8 +16,22 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-// testImageURL is a small public domain image used for testing.
-const testImageURL = "https://cookbook.chromadb.dev/assets/images/multi-tenancy-user-per-collection.png"
+// testImageURL is a stable public image endpoint used for testing.
+const testImageURL = "https://httpbin.org/image/png"
+
+// skipIfImageURLUnavailable checks if the test image URL is accessible and skips the test if not.
+func skipIfImageURLUnavailable(t *testing.T) {
+	t.Helper()
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Head(testImageURL)
+	if err != nil {
+		t.Skipf("Skipping: test image URL unavailable: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Skipf("Skipping: test image URL returned status %d", resp.StatusCode)
+	}
+}
 
 func TestRoboflowEmbeddingFunction(t *testing.T) {
 	apiKey := os.Getenv("ROBOFLOW_API_KEY")
@@ -76,6 +92,7 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 		if apiKey == "" {
 			t.Skip("ROBOFLOW_API_KEY not set")
 		}
+		skipIfImageURLUnavailable(t)
 		ef, err := NewRoboflowEmbeddingFunction(WithAPIKey(apiKey))
 		require.NoError(t, err)
 
@@ -107,6 +124,7 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 		if apiKey == "" {
 			t.Skip("ROBOFLOW_API_KEY not set")
 		}
+		skipIfImageURLUnavailable(t)
 		ef, err := NewRoboflowEmbeddingFunction(WithAPIKey(apiKey))
 		require.NoError(t, err)
 
