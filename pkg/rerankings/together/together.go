@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
@@ -99,7 +98,7 @@ func (r *TogetherRerankingFunction) sendRequest(ctx context.Context, req *Rerank
 		return nil, err
 	}
 	defer resp.Body.Close()
-	respData, err := io.ReadAll(resp.Body)
+	respData, err := chttp.ReadLimitedBody(resp.Body)
 	if err != nil {
 		return nil, err
 	}

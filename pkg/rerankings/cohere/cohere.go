@@ -9,6 +9,7 @@ import (
 
 	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
 	ccommons "github.com/amikos-tech/chroma-go/pkg/commons/cohere"
+	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/rerankings"
 )
 
@@ -106,7 +107,7 @@ func (c CohereRerankingFunction) Rerank(ctx context.Context, query string, resul
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		all, err := io.ReadAll(resp.Body)
+		all, err := chttp.ReadLimitedBody(resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("rerank failed with status code: %d, failed to read response: %v", resp.StatusCode, err)
@@ -197,7 +198,7 @@ func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryTexts [
 			return nil, err
 		}
 		if resp.StatusCode != 200 {
-			all, err := io.ReadAll(resp.Body)
+			all, err := chttp.ReadLimitedBody(resp.Body)
 			resp.Body.Close()
 			if err != nil {
 				return nil, fmt.Errorf("rerank failed with status code: %d, failed to read response: %v", resp.StatusCode, err)
