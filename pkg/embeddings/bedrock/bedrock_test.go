@@ -188,6 +188,14 @@ func TestBedrockEmbeddingFunction_OptionValidation(t *testing.T) {
 		_, err := NewBedrockEmbeddingFunction(WithRegion(""))
 		require.Error(t, err)
 	})
+	t.Run("invalid region format rejected", func(t *testing.T) {
+		_, err := NewBedrockEmbeddingFunction(
+			WithBedrockClient(&mockInvoker{response: newMockResponse(t, []float32{0.1})}),
+			WithRegion("not-a-valid-region!"),
+		)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid AWS region")
+	})
 	t.Run("empty profile rejected", func(t *testing.T) {
 		_, err := NewBedrockEmbeddingFunction(WithProfile(""))
 		require.Error(t, err)

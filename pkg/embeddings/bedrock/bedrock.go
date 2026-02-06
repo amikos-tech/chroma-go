@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -52,6 +53,8 @@ type titanResponse struct {
 	InputTextTokenCount int       `json:"inputTextTokenCount"`
 }
 
+var regionRE = regexp.MustCompile(`^[a-z]{2}(-[a-z]+-\d+){1,2}$`)
+
 func applyDefaults(c *Client) {
 	if c.model == "" {
 		c.model = DefaultModel
@@ -62,6 +65,13 @@ func applyDefaults(c *Client) {
 	if c.httpClient == nil {
 		c.httpClient = http.DefaultClient
 	}
+}
+
+func validate(c *Client) error {
+	if !regionRE.MatchString(c.region) {
+		return errors.Errorf("invalid AWS region %q", c.region)
+	}
+	return nil
 }
 
 func newInvoker(ctx context.Context, c *Client) (invoker, error) {
@@ -91,11 +101,14 @@ func newInvoker(ctx context.Context, c *Client) (invoker, error) {
 
 func NewClient(opts ...Option) (*Client, error) {
 	c := &Client{}
-	applyDefaults(c)
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
 			return nil, errors.Wrap(err, "failed to apply Bedrock option")
 		}
+	}
+	applyDefaults(c)
+	if err := validate(c); err != nil {
+		return nil, errors.Wrap(err, "failed to validate Bedrock client")
 	}
 	return c, nil
 }
