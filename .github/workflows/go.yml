@@ -209,6 +209,8 @@ jobs:
             test_path: ./pkg/embeddings/morph/...
           - provider: baseten
             test_path: ./pkg/embeddings/baseten/...
+          - provider: bedrock
+            test_path: ./pkg/embeddings/bedrock/...
           # Local providers (no API keys)
           - provider: default_ef
             test_path: ./pkg/embeddings/default_ef/...
@@ -262,6 +264,10 @@ jobs:
           MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
           BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
           BASETEN_BASE_URL: ${{ secrets.BASETEN_BASE_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
