@@ -18,7 +18,7 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-// Docs:  https://docs.together.ai/docs/embeddings-rest.  Models - https://docs.together.ai/docs/embeddings-models.
+// Docs: https://docs.voyageai.com/docs/embeddings
 
 type InputType string
 type EncodingFormat string
