@@ -1,3 +1,4 @@
+// Package rerankings provides reranking functions for reordering search results by relevance.
 package rerankings
 
 import (
@@ -8,9 +9,10 @@ import (
 	chromago "github.com/amikos-tech/chroma-go/pkg/api/v2"
 )
 
-// RerankingModel represents the model identifier for a reranking function
+// RerankingModel represents the model identifier for a reranking function.
 type RerankingModel string
 
+// RankedResult holds a single reranked item with its original index, content, and relevance score.
 type RankedResult struct {
 	Index  int // Index in the original input []string
 	String string
@@ -24,6 +26,7 @@ type RerankedChromaResults struct {
 	Ranks      map[string][][]float32 // each reranker adds a rank for each result
 }
 
+// Result wraps either a text string or an arbitrary object for reranking input.
 type Result struct {
 	Text   *string
 	Object *any
@@ -78,6 +81,7 @@ func (r *Result) IsObject() bool {
 	return r.Object != nil
 }
 
+// RerankingFunction defines the interface for reranking search results.
 type RerankingFunction interface {
 	ID() string
 	Rerank(ctx context.Context, query string, results []Result) (map[string][]RankedResult, error)
