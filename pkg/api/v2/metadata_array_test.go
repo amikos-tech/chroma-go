@@ -625,6 +625,46 @@ func TestConvertInterfaceSliceUnsupportedType(t *testing.T) {
 	require.Contains(t, err.Error(), "unsupported")
 }
 
+// --- Nested array rejection ---
+
+func TestMetadataValueUnmarshalNestedArray(t *testing.T) {
+	var mv MetadataValue
+	err := json.Unmarshal([]byte(`[[1,2],[3,4]]`), &mv)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "nested arrays are not supported")
+}
+
+func TestMetadataValueUnmarshalArrayOfObjects(t *testing.T) {
+	var mv MetadataValue
+	err := json.Unmarshal([]byte(`[{"a":1},{"b":2}]`), &mv)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "arrays of objects are not supported")
+}
+
+func TestConvertInterfaceSliceNestedArray(t *testing.T) {
+	nested := []interface{}{
+		[]interface{}{"a", "b"},
+		[]interface{}{"c", "d"},
+	}
+	_, err := convertInterfaceSliceToMetadataValue(nested)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "nested arrays are not supported")
+}
+
+func TestMetadataValueUnmarshalNestedArrayOfStrings(t *testing.T) {
+	var mv MetadataValue
+	err := json.Unmarshal([]byte(`[["a","b"],["c","d"]]`), &mv)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "nested arrays are not supported")
+}
+
+func TestCollectionMetadataNestedArrayJSONRejected(t *testing.T) {
+	// Simulate a JSON payload with nested arrays
+	md := NewMetadata()
+	err := md.UnmarshalJSON([]byte(`{"tags":[["a","b"],["c","d"]]}`))
+	require.Error(t, err)
+}
+
 // helper
 func strPtr(s string) *string {
 	return &s

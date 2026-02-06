@@ -324,6 +324,12 @@ func (mv *MetadataValue) unmarshalArray(b []byte) error {
 	}
 
 	switch {
+	case first[0] == '[':
+		// Nested array - not supported
+		return errors.New("nested arrays are not supported in metadata values; only flat arrays of string, int, float, or bool are allowed")
+	case first[0] == '{':
+		// Object in array - not supported
+		return errors.New("arrays of objects are not supported in metadata values; only flat arrays of string, int, float, or bool are allowed")
 	case first[0] == '"':
 		// String array
 		var arr []string
@@ -505,8 +511,10 @@ func convertInterfaceSliceToMetadataValue(slice []interface{}) (MetadataValue, e
 			arr[i] = fv
 		}
 		return MetadataValue{FloatArray: arr}, nil
+	case []interface{}:
+		return MetadataValue{}, errors.New("nested arrays are not supported in metadata values; only flat arrays of string, int, float, or bool are allowed")
 	default:
-		return MetadataValue{}, errors.Errorf("unsupported metadata array element type: %T", slice[0])
+		return MetadataValue{}, errors.Errorf("unsupported metadata array element type: %T; only string, int, float, and bool arrays are supported", slice[0])
 	}
 }
 
