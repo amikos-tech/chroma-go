@@ -199,6 +199,9 @@ func (e *BasetenEmbeddingFunction) getModel(ctx context.Context) string {
 
 // EmbedDocuments returns embeddings for a batch of documents.
 func (e *BasetenEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
+	if len(documents) == 0 {
+		return embeddings.NewEmptyEmbeddings(), nil
+	}
 	response, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
 		Model: e.getModel(ctx),
 		Input: &Input{
