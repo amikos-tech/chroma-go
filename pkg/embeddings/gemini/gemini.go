@@ -82,6 +82,9 @@ func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]embedding
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed contents")
 	}
+	if res == nil || len(res.Embeddings) == 0 {
+		return nil, errors.New("no embeddings returned from Gemini API")
+	}
 	embs := make([][]float32, 0, len(res.Embeddings))
 	for _, e := range res.Embeddings {
 		embs = append(embs, e.Values)
