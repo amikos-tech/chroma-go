@@ -207,6 +207,8 @@ jobs:
             test_path: ./pkg/embeddings/roboflow/...
           - provider: morph
             test_path: ./pkg/embeddings/morph/...
+          - provider: baseten
+            test_path: ./pkg/embeddings/baseten/...
           # Local providers (no API keys)
           - provider: default_ef
             test_path: ./pkg/embeddings/default_ef/...
@@ -258,6 +260,8 @@ jobs:
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           ROBOFLOW_API_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
           MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
+          BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
+          BASETEN_BASE_URL: ${{ secrets.BASETEN_BASE_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload Test Results
         uses: actions/upload-artifact@v4

@@ -18,6 +18,7 @@ The following embedding wrappers are available:
 | [Nomic AI](#nomic-ai)                                                             | Nomic AI Embedding.<br/> For more info see [Nomic AI API Docs](https://docs.nomic.ai/atlas/models/text-embedding).                                          |
 | [Jina AI](#jina-ai)                                                               | Jina AI Embedding.<br/> For more info see [Jina AI API Docs](https://api.jina.ai/redoc#tag/embeddings/operation/create_embedding_v1_embeddings_post).       |
 | [Roboflow](#roboflow)                                                             | Roboflow CLIP Embedding (Multimodal: text + images).<br/> For more info see [Roboflow Docs](https://inference.roboflow.com/).                               |
+| [Baseten](#baseten)                                                               | Baseten BEI (Baseten Embeddings Inference).<br/> Deploy your own embedding models. See [Baseten Docs](https://docs.baseten.co/engines/bei/overview).        |
 
 ## Default Embeddings
 
@@ -628,3 +629,144 @@ func main() {
 }
 ```
 
+## Baseten
+
+Baseten allows you to deploy your own embedding models using BEI (Baseten Embeddings Inference), a high-performance
+embedding inference engine. This is useful when you need to run custom or self-hosted embedding models with GPU
+acceleration.
+
+- [BEI Overview](https://docs.baseten.co/engines/bei/overview)
+- [Supported Models](https://docs.baseten.co/engines/bei/models)
+- [API Reference](https://docs.baseten.co/api-reference/embeddings)
+
+To use Baseten embeddings, you will need to:
+
+1. Create a [Baseten account](https://www.baseten.co/)
+2. Get an [API Key](https://app.baseten.co/settings/api_keys)
+3. Deploy an embedding model (see [Deploying a Model](#deploying-a-model) below)
+
+Supported Embedding Function Options:
+
+- `WithAPIKey` - Set the API key directly.
+- `WithEnvAPIKey` - Use the `BASETEN_API_KEY` environment variable.
+- `WithAPIKeyFromEnvVar` - Use a custom environment variable for the API key.
+- `WithBaseURL` - Set your Baseten deployment URL (**required**).
+- `WithModelID` - Set the model identifier (optional, depends on deployment).
+- `WithHTTPClient` - Use a custom HTTP client.
+- `WithInsecure` - Allow HTTP connections (for local development only).
+
+### Basic Usage
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	baseten "github.com/amikos-tech/chroma-go/pkg/embeddings/baseten"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+
+	// Make sure BASETEN_API_KEY is set in your environment
+	// Replace the base URL with your actual Baseten deployment URL (without /v1 suffix)
+	ef, err := baseten.NewBasetenEmbeddingFunction(
+		baseten.WithEnvAPIKey(),
+		baseten.WithBaseURL("https://model-xxxxxx.api.baseten.co/environments/production/sync"),
+	)
+	if err != nil {
+		fmt.Printf("Error creating Baseten embedding function: %s \n", err)
+		return
+	}
+
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+		return
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+### Deploying a Model
+
+Baseten uses [Truss](https://github.com/basetenlabs/truss) to deploy models. Here's how to deploy a lightweight
+embedding model:
+
+**1. Install Truss:**
+
+```bash
+pip install truss
+```
+
+**2. Authenticate with Baseten:**
+
+```bash
+truss login
+# Enter your BASETEN_API_KEY when prompted
+```
+
+**3. Create a deployment config:**
+
+Create a `config.yaml` file (example for `all-MiniLM-L6-v2`):
+
+```yaml
+model_name: BEI-all-MiniLM-L6-v2
+
+resources:
+  accelerator: H100_40GB
+  cpu: "1"
+  memory: 10Gi
+  use_gpu: true
+
+trt_llm:
+  build:
+    base_model: encoder_bert  # Use encoder_bert for BERT-like models (MiniLM, BGE, etc.)
+    num_builder_gpus: 4       # Required for T4 builds
+    checkpoint_repository:
+      repo: sentence-transformers/all-MiniLM-L6-v2
+      revision: main
+      source: HF
+    quantization_type: no_quant
+  runtime:
+    webserver_default_route: /v1/embeddings
+```
+
+**4. Deploy:**
+
+```bash
+truss push --publish --promote
+```
+
+After deployment, you'll receive a model URL like:
+```
+https://model-xxxxxx.api.baseten.co/environments/production/sync/v1
+```
+
+Use this URL **without the `/v1` suffix** as the `BaseURL` in your embedding function configuration:
+```
+https://model-xxxxxx.api.baseten.co/environments/production/sync
+```
+
+The embedding function automatically appends `/v1/embeddings` to the base URL.
+
+!!! note "Pre-built Config"
+    A ready-to-use Truss config for `all-MiniLM-L6-v2` is available in the repository at
+    `pkg/embeddings/baseten/truss/config.yaml`.
+
+### Popular Models for BEI
+
+| Model | HuggingFace Repo | Use Case |
+|-------|------------------|----------|
+| all-MiniLM-L6-v2 | `sentence-transformers/all-MiniLM-L6-v2` | Fast, lightweight embeddings |
+| BGE Large | `BAAI/bge-large-en-v1.5` | High-quality English embeddings |
+| Nomic Embed | `nomic-ai/nomic-embed-text-v1.5` | Long-context embeddings |
+| E5 Large | `intfloat/e5-large-v2` | Multilingual embeddings |
+
+For more models and configuration options, see the [BEI documentation](https://docs.baseten.co/engines/bei/overview).
