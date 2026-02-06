@@ -617,6 +617,56 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#baseten" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Baseten
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Baseten">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploying-a-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploying a Model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#popular-models-for-bei" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Popular Models for BEI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -998,6 +1048,56 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#baseten" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Baseten
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Baseten">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploying-a-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploying a Model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#popular-models-for-bei" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Popular Models for BEI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1083,6 +1183,10 @@
 <tr>
 <td><a href="#roboflow">Roboflow</a></td>
 <td>Roboflow CLIP Embedding (Multimodal: text + images).<br/> For more info see <a href="https://inference.roboflow.com/">Roboflow Docs</a>.</td>
+</tr>
+<tr>
+<td><a href="#baseten">Baseten</a></td>
+<td>Baseten BEI (Baseten Embeddings Inference).<br/> Deploy your own embedding models. See <a href="https://docs.baseten.co/engines/bei/overview">Baseten Docs</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -1671,6 +1775,147 @@ sent sequentially. For large batches, consider the API rate limits and potential
 </span><span id="__span-15-40"><a id="__codelineno-15-40" name="__codelineno-15-40" href="#__codelineno-15-40"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Single image embedding: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">singleResp</span><span class="p">)</span>
 </span><span id="__span-15-41"><a id="__codelineno-15-41" name="__codelineno-15-41" href="#__codelineno-15-41"></a><span class="p">}</span>
 </span></code></pre></div>
+<h2 id="baseten">Baseten<a class="headerlink" href="#baseten" title="Permanent link">&para;</a></h2>
+<p>Baseten allows you to deploy your own embedding models using BEI (Baseten Embeddings Inference), a high-performance
+embedding inference engine. This is useful when you need to run custom or self-hosted embedding models with GPU
+acceleration.</p>
+<ul>
+<li><a href="https://docs.baseten.co/engines/bei/overview">BEI Overview</a></li>
+<li><a href="https://docs.baseten.co/engines/bei/models">Supported Models</a></li>
+<li><a href="https://docs.baseten.co/api-reference/embeddings">API Reference</a></li>
+</ul>
+<p>To use Baseten embeddings, you will need to:</p>
+<ol>
+<li>Create a <a href="https://www.baseten.co/">Baseten account</a></li>
+<li>Get an <a href="https://app.baseten.co/settings/api_keys">API Key</a></li>
+<li>Deploy an embedding model (see <a href="#deploying-a-model">Deploying a Model</a> below)</li>
+</ol>
+<p>Supported Embedding Function Options:</p>
+<ul>
+<li><code>WithAPIKey</code> - Set the API key directly.</li>
+<li><code>WithEnvAPIKey</code> - Use the <code>BASETEN_API_KEY</code> environment variable.</li>
+<li><code>WithAPIKeyFromEnvVar</code> - Use a custom environment variable for the API key.</li>
+<li><code>WithBaseURL</code> - Set your Baseten deployment URL (<strong>required</strong>).</li>
+<li><code>WithModelID</code> - Set the model identifier (optional, depends on deployment).</li>
+<li><code>WithHTTPClient</code> - Use a custom HTTP client.</li>
+<li><code>WithInsecure</code> - Allow HTTP connections (for local development only).</li>
+</ul>
+<h3 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h3>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="s">&quot;os&quot;</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">    </span><span class="nx">baseten</span><span class="w"> </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings/baseten&quot;</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="p">)</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="w">    </span><span class="nx">documents</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="w">        </span><span class="s">&quot;Document 1 content here&quot;</span><span class="p">,</span>
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="w">        </span><span class="s">&quot;Document 2 content here&quot;</span><span class="p">,</span>
+</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>
+</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="w">    </span><span class="c1">// Make sure BASETEN_API_KEY is set in your environment</span>
+</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="w">    </span><span class="c1">// Replace the base URL with your actual Baseten deployment URL (without /v1 suffix)</span>
+</span><span id="__span-16-19"><a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="w">    </span><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">baseten</span><span class="p">.</span><span class="nx">NewBasetenEmbeddingFunction</span><span class="p">(</span>
+</span><span id="__span-16-20"><a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">        </span><span class="nx">baseten</span><span class="p">.</span><span class="nx">WithEnvAPIKey</span><span class="p">(),</span>
+</span><span id="__span-16-21"><a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a><span class="w">        </span><span class="nx">baseten</span><span class="p">.</span><span class="nx">WithBaseURL</span><span class="p">(</span><span class="s">&quot;https://model-xxxxxx.api.baseten.co/environments/production/sync&quot;</span><span class="p">),</span>
+</span><span id="__span-16-22"><a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="w">    </span><span class="p">)</span>
+</span><span id="__span-16-23"><a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-24"><a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error creating Baseten embedding function: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-16-25"><a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="w">        </span><span class="k">return</span>
+</span><span id="__span-16-26"><a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-16-27"><a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a>
+</span><span id="__span-16-28"><a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="w">    </span><span class="nx">resp</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedDocuments</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">documents</span><span class="p">)</span>
+</span><span id="__span-16-29"><a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-30"><a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Error embedding documents: %s \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-16-31"><a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a><span class="w">        </span><span class="k">return</span>
+</span><span id="__span-16-32"><a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-16-33"><a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Embedding response: %v \n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">resp</span><span class="p">)</span>
+</span><span id="__span-16-34"><a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a><span class="p">}</span>
+</span></code></pre></div>
+<h3 id="deploying-a-model">Deploying a Model<a class="headerlink" href="#deploying-a-model" title="Permanent link">&para;</a></h3>
+<p>Baseten uses <a href="https://github.com/basetenlabs/truss">Truss</a> to deploy models. Here's how to deploy a lightweight
+embedding model:</p>
+<p><strong>1. Install Truss:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>pip<span class="w"> </span>install<span class="w"> </span>truss
+</span></code></pre></div>
+<p><strong>2. Authenticate with Baseten:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>truss<span class="w"> </span>login
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="c1"># Enter your BASETEN_API_KEY when prompted</span>
+</span></code></pre></div>
+<p><strong>3. Create a deployment config:</strong></p>
+<p>Create a <code>config.yaml</code> file (example for <code>all-MiniLM-L6-v2</code>):</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nt">model_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">BEI-all-MiniLM-L6-v2</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="nt">resources</span><span class="p">:</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nt">accelerator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">H100_40GB</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1&quot;</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10Gi</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">  </span><span class="nt">use_gpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="nt">trt_llm</span><span class="p">:</span>
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">  </span><span class="nt">build</span><span class="p">:</span>
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">    </span><span class="nt">base_model</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">encoder_bert</span><span class="w">  </span><span class="c1"># Use encoder_bert for BERT-like models (MiniLM, BGE, etc.)</span>
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="w">    </span><span class="nt">num_builder_gpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">       </span><span class="c1"># Required for T4 builds</span>
+</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="w">    </span><span class="nt">checkpoint_repository</span><span class="p">:</span>
+</span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="w">      </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sentence-transformers/all-MiniLM-L6-v2</span>
+</span><span id="__span-19-15"><a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="w">      </span><span class="nt">revision</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">main</span>
+</span><span id="__span-19-16"><a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HF</span>
+</span><span id="__span-19-17"><a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a><span class="w">    </span><span class="nt">quantization_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">no_quant</span>
+</span><span id="__span-19-18"><a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a><span class="w">  </span><span class="nt">runtime</span><span class="p">:</span>
+</span><span id="__span-19-19"><a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a><span class="w">    </span><span class="nt">webserver_default_route</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/v1/embeddings</span>
+</span></code></pre></div>
+<p><strong>4. Deploy:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>truss<span class="w"> </span>push<span class="w"> </span>--publish<span class="w"> </span>--promote
+</span></code></pre></div>
+<p>After deployment, you'll receive a model URL like:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>https://model-xxxxxx.api.baseten.co/environments/production/sync/v1
+</span></code></pre></div></p>
+<p>Use this URL <strong>without the <code>/v1</code> suffix</strong> as the <code>BaseURL</code> in your embedding function configuration:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>https://model-xxxxxx.api.baseten.co/environments/production/sync
+</span></code></pre></div></p>
+<p>The embedding function automatically appends <code>/v1/embeddings</code> to the base URL.</p>
+<div class="admonition note">
+<p class="admonition-title">Pre-built Config</p>
+<p>A ready-to-use Truss config for <code>all-MiniLM-L6-v2</code> is available in the repository at
+<code>pkg/embeddings/baseten/truss/config.yaml</code>.</p>
+</div>
+<h3 id="popular-models-for-bei">Popular Models for BEI<a class="headerlink" href="#popular-models-for-bei" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>HuggingFace Repo</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>all-MiniLM-L6-v2</td>
+<td><code>sentence-transformers/all-MiniLM-L6-v2</code></td>
+<td>Fast, lightweight embeddings</td>
+</tr>
+<tr>
+<td>BGE Large</td>
+<td><code>BAAI/bge-large-en-v1.5</code></td>
+<td>High-quality English embeddings</td>
+</tr>
+<tr>
+<td>Nomic Embed</td>
+<td><code>nomic-ai/nomic-embed-text-v1.5</code></td>
+<td>Long-context embeddings</td>
+</tr>
+<tr>
+<td>E5 Large</td>
+<td><code>intfloat/e5-large-v2</code></td>
+<td>Multilingual embeddings</td>
+</tr>
+</tbody>
+</table>
+<p>For more models and configuration options, see the <a href="https://docs.baseten.co/engines/bei/overview">BEI documentation</a>.</p>
 
 
 
