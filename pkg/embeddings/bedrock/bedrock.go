@@ -78,31 +78,6 @@ func validate(c *Client) error {
 	return nil
 }
 
-func newInvoker(ctx context.Context, c *Client) (invoker, error) {
-	if c.invoker != nil {
-		return c.invoker, nil
-	}
-	var cfg aws.Config
-	if c.awsConfig != nil {
-		cfg = *c.awsConfig
-	} else {
-		opts := []func(*awsconfig.LoadOptions) error{
-			awsconfig.WithRegion(c.region),
-		}
-		if c.profile != "" {
-			opts = append(opts, awsconfig.WithSharedConfigProfile(c.profile))
-		}
-		var err error
-		cfg, err = awsconfig.LoadDefaultConfig(ctx, opts...)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to load AWS config")
-		}
-	}
-	inv := bedrockruntime.NewFromConfig(cfg)
-	c.invoker = inv
-	return inv, nil
-}
-
 func NewClient(opts ...Option) (*Client, error) {
 	c := &Client{}
 	for _, opt := range opts {
@@ -113,6 +88,25 @@ func NewClient(opts ...Option) (*Client, error) {
 	applyDefaults(c)
 	if err := validate(c); err != nil {
 		return nil, errors.Wrap(err, "failed to validate Bedrock client")
+	}
+	if c.invoker == nil && c.bearerToken.IsEmpty() {
+		var cfg aws.Config
+		if c.awsConfig != nil {
+			cfg = *c.awsConfig
+		} else {
+			loadOpts := []func(*awsconfig.LoadOptions) error{
+				awsconfig.WithRegion(c.region),
+			}
+			if c.profile != "" {
+				loadOpts = append(loadOpts, awsconfig.WithSharedConfigProfile(c.profile))
+			}
+			var err error
+			cfg, err = awsconfig.LoadDefaultConfig(context.Background(), loadOpts...)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to load AWS config")
+			}
+		}
+		c.invoker = bedrockruntime.NewFromConfig(cfg)
 	}
 	return c, nil
 }
@@ -170,17 +164,12 @@ func (c *Client) embedBearer(ctx context.Context, text string) ([]float32, error
 
 // embedSDK calls Bedrock via the AWS SDK (SigV4 auth).
 func (c *Client) embedSDK(ctx context.Context, text string) ([]float32, error) {
-	inv, err := newInvoker(ctx, c)
-	if err != nil {
-		return nil, err
-	}
-
 	body, err := c.marshalRequest(text)
 	if err != nil {
 		return nil, err
 	}
 
-	out, err := inv.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
+	out, err := c.invoker.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
 		ModelId:     aws.String(c.model),
 		ContentType: aws.String("application/json"),
 		Accept:      aws.String("application/json"),
