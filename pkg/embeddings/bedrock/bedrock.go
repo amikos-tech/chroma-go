@@ -53,7 +53,7 @@ type titanResponse struct {
 	InputTextTokenCount int       `json:"inputTextTokenCount"`
 }
 
-var regionRE = regexp.MustCompile(`^[a-z]{2}(-[a-z]+-\d+){1,2}$`)
+var regionPattern = `^[a-z]{2}(-[a-z]+-\d+){1,2}$`
 
 func applyDefaults(c *Client) {
 	if c.model == "" {
@@ -68,6 +68,10 @@ func applyDefaults(c *Client) {
 }
 
 func validate(c *Client) error {
+	regionRE, err := regexp.Compile(regionPattern)
+	if err != nil {
+		return errors.Wrap(err, "failed to compile region regex")
+	}
 	if !regionRE.MatchString(c.region) {
 		return errors.Errorf("invalid AWS region %q", c.region)
 	}
@@ -250,6 +254,10 @@ func (e *BedrockEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfi
 		cfg["profile"] = e.client.profile
 	}
 	if !e.client.bearerToken.IsEmpty() {
+		// Config only stores env var references, never raw secrets.
+		// Tokens set via WithBearerToken() (not from an env var) will
+		// default to BearerTokenEnvVar here; that env var must be set
+		// when reconstructing from config.
 		envVar := e.client.bearerTokenEnvVar
 		if envVar == "" {
 			envVar = BearerTokenEnvVar
