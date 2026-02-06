@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -83,7 +84,9 @@ func newInvoker(ctx context.Context, c *Client) (invoker, error) {
 			return nil, errors.Wrap(err, "failed to load AWS config")
 		}
 	}
-	return bedrockruntime.NewFromConfig(cfg), nil
+	inv := bedrockruntime.NewFromConfig(cfg)
+	c.invoker = inv
+	return inv, nil
 }
 
 func NewClient(opts ...Option) (*Client, error) {
@@ -117,7 +120,7 @@ func (c *Client) embedBearer(ctx context.Context, text string) ([]float32, error
 		return nil, err
 	}
 
-	endpoint := fmt.Sprintf("https://bedrock-runtime.%s.amazonaws.com/model/%s/invoke", c.region, c.model)
+	endpoint := fmt.Sprintf("https://bedrock-runtime.%s.amazonaws.com/model/%s/invoke", c.region, url.PathEscape(c.model))
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create HTTP request")
