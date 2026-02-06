@@ -19,6 +19,7 @@ The following embedding wrappers are available:
 | [Jina AI](#jina-ai)                                                               | Jina AI Embedding.<br/> For more info see [Jina AI API Docs](https://api.jina.ai/redoc#tag/embeddings/operation/create_embedding_v1_embeddings_post).       |
 | [Roboflow](#roboflow)                                                             | Roboflow CLIP Embedding (Multimodal: text + images).<br/> For more info see [Roboflow Docs](https://inference.roboflow.com/).                               |
 | [Baseten](#baseten)                                                               | Baseten BEI (Baseten Embeddings Inference).<br/> Deploy your own embedding models. See [Baseten Docs](https://docs.baseten.co/engines/bei/overview).        |
+| [Amazon Bedrock](#amazon-bedrock)                                                 | Amazon Bedrock Embeddings (Titan models).<br/> For more info see [Bedrock Docs](https://docs.aws.amazon.com/bedrock/latest/userguide/embeddings.html).      |
 
 ## Default Embeddings
 
@@ -770,3 +771,132 @@ The embedding function automatically appends `/v1/embeddings` to the base URL.
 | E5 Large | `intfloat/e5-large-v2` | Multilingual embeddings |
 
 For more models and configuration options, see the [BEI documentation](https://docs.baseten.co/engines/bei/overview).
+
+## Amazon Bedrock
+
+Amazon Bedrock provides access to Amazon Titan embedding models via the AWS SDK or Bedrock API keys (bearer tokens).
+
+- [Bedrock Embeddings User Guide](https://docs.aws.amazon.com/bedrock/latest/userguide/embeddings.html)
+- [Titan Text Embeddings Models](https://docs.aws.amazon.com/bedrock/latest/userguide/titan-embedding-models.html)
+- [Bedrock API Keys](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html)
+
+### Authentication
+
+Bedrock supports two authentication methods:
+
+**Option 1: Bedrock API Key (Bearer Token)** - Recommended for simplicity.
+
+1. Go to **AWS Console** -> **Amazon Bedrock** -> **API keys**
+2. Click **Create API key**
+3. Choose **Short-term key** (up to 12 hours) or **Long-term key** (1-365 days)
+4. Copy the generated key
+5. Set it as an environment variable:
+
+```bash
+export AWS_BEARER_TOKEN_BEDROCK=ABSK...your-key-here...
+```
+
+**Option 2: AWS SDK Credentials** - Uses the standard AWS credential chain (env vars, shared config, IAM roles).
+
+```bash
+export AWS_ACCESS_KEY_ID=AKIA...
+export AWS_SECRET_ACCESS_KEY=...
+export AWS_REGION=us-east-1
+```
+
+### Enable Model Access
+
+Before using any model, you must enable it in your AWS account:
+
+1. Go to **AWS Console** -> **Amazon Bedrock** -> **Model access** (left sidebar)
+2. Click **Manage model access**
+3. Check **Titan Embeddings G1 - Text** (`amazon.titan-embed-text-v1`) - approval is instant
+4. Click **Save changes**
+
+### Supported Models
+
+| Model ID | Dimensions | Description |
+|----------|-----------|-------------|
+| `amazon.titan-embed-text-v1` | 1536 | Default. General-purpose text embeddings |
+| `amazon.titan-embed-text-v2:0` | 256/512/1024 | Configurable dimensions, supports normalization |
+
+### Supported Embedding Function Options
+
+- `WithModel` - Set the Bedrock model ID. Default is `amazon.titan-embed-text-v1`.
+- `WithRegion` - Set the AWS region. Default is `us-east-1`.
+- `WithProfile` - Set the AWS profile name for shared credentials.
+- `WithAWSConfig` - Inject a pre-configured `aws.Config`.
+- `WithBedrockClient` - Inject a pre-built Bedrock runtime client (for testing).
+- `WithDimensions` - Set output dimensions (Titan v2 only).
+- `WithNormalize` - Enable output normalization (Titan v2 only).
+- `WithBearerToken` - Set a Bedrock API key (bearer token) directly.
+- `WithEnvBearerToken` - Use the `AWS_BEARER_TOKEN_BEDROCK` environment variable.
+- `WithBearerTokenFromEnvVar` - Use a custom environment variable for the bearer token.
+
+### Bearer Token Authentication
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	bedrock "github.com/amikos-tech/chroma-go/pkg/embeddings/bedrock"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have `AWS_BEARER_TOKEN_BEDROCK` set in your environment
+	ef, err := bedrock.NewBedrockEmbeddingFunction(bedrock.WithEnvBearerToken())
+	if err != nil {
+		fmt.Printf("Error creating Bedrock embedding function: %s \n", err)
+		return
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+		return
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+### AWS SDK Authentication
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	bedrock "github.com/amikos-tech/chroma-go/pkg/embeddings/bedrock"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Uses the AWS default credential chain (env vars, shared config, IAM roles)
+	// Make sure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION are set
+	ef, err := bedrock.NewBedrockEmbeddingFunction(
+		bedrock.WithRegion("us-east-1"),
+		bedrock.WithModel("amazon.titan-embed-text-v2:0"),
+		bedrock.WithDimensions(512),
+		bedrock.WithNormalize(true),
+	)
+	if err != nil {
+		fmt.Printf("Error creating Bedrock embedding function: %s \n", err)
+		return
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+		return
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
