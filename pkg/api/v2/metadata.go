@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -17,11 +18,19 @@ type CollectionMetadata interface {
 	GetInt(key string) (int64, bool)
 	GetFloat(key string) (float64, bool)
 	GetBool(key string) (bool, bool)
+	GetStringArray(key string) ([]string, bool)
+	GetIntArray(key string) ([]int64, bool)
+	GetFloatArray(key string) ([]float64, bool)
+	GetBoolArray(key string) ([]bool, bool)
 	SetRaw(key string, value interface{})
 	SetString(key, value string)
 	SetInt(key string, value int64)
 	SetFloat(key string, value float64)
 	SetBool(key string, value bool)
+	SetStringArray(key string, value []string)
+	SetIntArray(key string, value []int64)
+	SetFloatArray(key string, value []float64)
+	SetBoolArray(key string, value []bool)
 	MarshalJSON() ([]byte, error)
 	UnmarshalJSON(b []byte) error
 }
@@ -32,6 +41,11 @@ type MetadataValue struct {
 	Int         *int64   `json:"-"`
 	StringValue *string  `json:"-"`
 	NilValue    bool     `json:"-"`
+	// Array metadata fields (homogeneous, non-empty arrays)
+	StringArray []string  `json:"-"`
+	IntArray    []int64   `json:"-"`
+	FloatArray  []float64 `json:"-"`
+	BoolArray   []bool    `json:"-"`
 }
 
 type MetaAttribute struct {
@@ -60,6 +74,22 @@ func NewBoolAttribute(key string, value bool) *MetaAttribute {
 	return &MetaAttribute{key: key, value: MetadataValue{Bool: &value}, valueType: reflect.TypeOf(value)}
 }
 
+func NewStringArrayAttribute(key string, values []string) *MetaAttribute {
+	return &MetaAttribute{key: key, value: MetadataValue{StringArray: values}, valueType: reflect.TypeOf(values)}
+}
+
+func NewIntArrayAttribute(key string, values []int64) *MetaAttribute {
+	return &MetaAttribute{key: key, value: MetadataValue{IntArray: values}, valueType: reflect.TypeOf(values)}
+}
+
+func NewFloatArrayAttribute(key string, values []float64) *MetaAttribute {
+	return &MetaAttribute{key: key, value: MetadataValue{FloatArray: values}, valueType: reflect.TypeOf(values)}
+}
+
+func NewBoolArrayAttribute(key string, values []bool) *MetaAttribute {
+	return &MetaAttribute{key: key, value: MetadataValue{BoolArray: values}, valueType: reflect.TypeOf(values)}
+}
+
 func (mv *MetadataValue) GetInt() (int64, bool) {
 	if mv.Int == nil {
 		return 0, false
@@ -79,6 +109,18 @@ func (mv *MetadataValue) String() string {
 	}
 	if mv.StringValue != nil {
 		return *mv.StringValue
+	}
+	if mv.StringArray != nil {
+		return fmt.Sprintf("%v", mv.StringArray)
+	}
+	if mv.IntArray != nil {
+		return fmt.Sprintf("%v", mv.IntArray)
+	}
+	if mv.FloatArray != nil {
+		return fmt.Sprintf("%v", mv.FloatArray)
+	}
+	if mv.BoolArray != nil {
+		return fmt.Sprintf("%v", mv.BoolArray)
 	}
 	return ""
 }
@@ -117,7 +159,47 @@ func (mv *MetadataValue) GetRaw() (interface{}, bool) {
 	if mv.StringValue != nil {
 		return *mv.StringValue, true
 	}
+	if mv.StringArray != nil {
+		return mv.StringArray, true
+	}
+	if mv.IntArray != nil {
+		return mv.IntArray, true
+	}
+	if mv.FloatArray != nil {
+		return mv.FloatArray, true
+	}
+	if mv.BoolArray != nil {
+		return mv.BoolArray, true
+	}
 	return nil, false
+}
+
+func (mv *MetadataValue) GetStringArray() ([]string, bool) {
+	if mv.StringArray == nil {
+		return nil, false
+	}
+	return mv.StringArray, true
+}
+
+func (mv *MetadataValue) GetIntArray() ([]int64, bool) {
+	if mv.IntArray == nil {
+		return nil, false
+	}
+	return mv.IntArray, true
+}
+
+func (mv *MetadataValue) GetFloatArray() ([]float64, bool) {
+	if mv.FloatArray == nil {
+		return nil, false
+	}
+	return mv.FloatArray, true
+}
+
+func (mv *MetadataValue) GetBoolArray() ([]bool, bool) {
+	if mv.BoolArray == nil {
+		return nil, false
+	}
+	return mv.BoolArray, true
 }
 
 func (mv *MetadataValue) Equal(other *MetadataValue) bool {
@@ -132,6 +214,18 @@ func (mv *MetadataValue) Equal(other *MetadataValue) bool {
 	}
 	if mv.StringValue != nil && other.StringValue != nil {
 		return *mv.StringValue == *other.StringValue
+	}
+	if mv.StringArray != nil && other.StringArray != nil {
+		return reflect.DeepEqual(mv.StringArray, other.StringArray)
+	}
+	if mv.IntArray != nil && other.IntArray != nil {
+		return reflect.DeepEqual(mv.IntArray, other.IntArray)
+	}
+	if mv.FloatArray != nil && other.FloatArray != nil {
+		return reflect.DeepEqual(mv.FloatArray, other.FloatArray)
+	}
+	if mv.BoolArray != nil && other.BoolArray != nil {
+		return reflect.DeepEqual(mv.BoolArray, other.BoolArray)
 	}
 	return false
 }
@@ -153,6 +247,18 @@ func (mv *MetadataValue) MarshalJSON() ([]byte, error) {
 	if mv.StringValue != nil {
 		return json.Marshal(*mv.StringValue)
 	}
+	if mv.StringArray != nil {
+		return json.Marshal(mv.StringArray)
+	}
+	if mv.IntArray != nil {
+		return json.Marshal(mv.IntArray)
+	}
+	if mv.FloatArray != nil {
+		return json.Marshal(mv.FloatArray)
+	}
+	if mv.BoolArray != nil {
+		return json.Marshal(mv.BoolArray)
+	}
 	return json.Marshal(nil)
 }
 
@@ -161,6 +267,13 @@ func (mv *MetadataValue) UnmarshalJSON(b []byte) error {
 	var raw json.RawMessage
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
+	}
+
+	trimmed := bytes.TrimSpace(raw)
+
+	// Check if it's an array
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		return mv.unmarshalArray(trimmed)
 	}
 
 	// Try to parse as bool
@@ -190,6 +303,211 @@ func (mv *MetadataValue) UnmarshalJSON(b []byte) error {
 		}
 	}
 	return errors.New("data failed to match schemas in anyOf(Metadata)")
+}
+
+// unmarshalArray parses a JSON array into the appropriate typed array field.
+// Arrays must be non-empty and homogeneous (all elements the same type).
+func (mv *MetadataValue) unmarshalArray(b []byte) error {
+	// Parse as generic array first to inspect element types
+	var rawElements []json.RawMessage
+	if err := json.Unmarshal(b, &rawElements); err != nil {
+		return errors.Wrap(err, "failed to unmarshal metadata array")
+	}
+	if len(rawElements) == 0 {
+		return errors.New("metadata arrays must be non-empty")
+	}
+
+	// Detect the type from the first element
+	first := bytes.TrimSpace(rawElements[0])
+	if len(first) == 0 {
+		return errors.New("invalid empty element in metadata array")
+	}
+
+	switch {
+	case first[0] == '"':
+		// String array
+		var arr []string
+		if err := json.Unmarshal(b, &arr); err != nil {
+			return errors.Wrap(err, "failed to unmarshal string array metadata")
+		}
+		mv.StringArray = arr
+		return nil
+	case bytes.Equal(first, []byte("true")) || bytes.Equal(first, []byte("false")):
+		// Bool array
+		var arr []bool
+		if err := json.Unmarshal(b, &arr); err != nil {
+			return errors.Wrap(err, "failed to unmarshal bool array metadata")
+		}
+		mv.BoolArray = arr
+		return nil
+	default:
+		// Numeric array - check if integers or floats
+		dec := json.NewDecoder(bytes.NewReader(b))
+		dec.UseNumber()
+		var nums []json.Number
+		if err := dec.Decode(&nums); err != nil {
+			return errors.Wrap(err, "failed to unmarshal numeric array metadata")
+		}
+		// Check if all elements are integers
+		allInts := true
+		for _, n := range nums {
+			s := n.String()
+			if strings.Contains(s, ".") || strings.Contains(s, "e") || strings.Contains(s, "E") {
+				allInts = false
+				break
+			}
+		}
+		if allInts {
+			intArr := make([]int64, len(nums))
+			for i, n := range nums {
+				v, err := n.Int64()
+				if err != nil {
+					return errors.Wrapf(err, "failed to parse int at index %d in metadata array", i)
+				}
+				intArr[i] = v
+			}
+			mv.IntArray = intArr
+		} else {
+			floatArr := make([]float64, len(nums))
+			for i, n := range nums {
+				v, err := n.Float64()
+				if err != nil {
+					return errors.Wrapf(err, "failed to parse float at index %d in metadata array", i)
+				}
+				floatArr[i] = v
+			}
+			mv.FloatArray = floatArr
+		}
+		return nil
+	}
+}
+
+// ValidateArrayMetadata checks that array metadata values are non-empty and homogeneous.
+func ValidateArrayMetadata(mv *MetadataValue) error {
+	if mv.StringArray != nil {
+		if len(mv.StringArray) == 0 {
+			return errors.New("metadata arrays must be non-empty")
+		}
+		return nil
+	}
+	if mv.IntArray != nil {
+		if len(mv.IntArray) == 0 {
+			return errors.New("metadata arrays must be non-empty")
+		}
+		return nil
+	}
+	if mv.FloatArray != nil {
+		if len(mv.FloatArray) == 0 {
+			return errors.New("metadata arrays must be non-empty")
+		}
+		return nil
+	}
+	if mv.BoolArray != nil {
+		if len(mv.BoolArray) == 0 {
+			return errors.New("metadata arrays must be non-empty")
+		}
+		return nil
+	}
+	return nil
+}
+
+// validateDocumentMetadatas checks that all metadata values in the given slice are valid.
+// For array values, it ensures they are non-empty.
+func validateDocumentMetadatas(metadatas []DocumentMetadata) error {
+	for i, md := range metadatas {
+		if md == nil {
+			continue
+		}
+		impl, ok := md.(*DocumentMetadataImpl)
+		if !ok {
+			continue
+		}
+		for key, mv := range impl.metadata {
+			if err := ValidateArrayMetadata(&mv); err != nil {
+				return errors.Wrapf(err, "invalid metadata for document at index %d, key %q", i, key)
+			}
+		}
+	}
+	return nil
+}
+
+// convertInterfaceSliceToMetadataValue converts a []interface{} (from JSON unmarshaling)
+// to a typed MetadataValue with the appropriate array field set.
+// The slice must be non-empty and all elements must be the same type.
+func convertInterfaceSliceToMetadataValue(slice []interface{}) (MetadataValue, error) {
+	if len(slice) == 0 {
+		return MetadataValue{}, errors.New("metadata arrays must be non-empty")
+	}
+	switch slice[0].(type) {
+	case string:
+		arr := make([]string, len(slice))
+		for i, v := range slice {
+			s, ok := v.(string)
+			if !ok {
+				return MetadataValue{}, errors.Errorf("metadata array has mixed types: expected string at index %d, got %T", i, v)
+			}
+			arr[i] = s
+		}
+		return MetadataValue{StringArray: arr}, nil
+	case bool:
+		arr := make([]bool, len(slice))
+		for i, v := range slice {
+			b, ok := v.(bool)
+			if !ok {
+				return MetadataValue{}, errors.Errorf("metadata array has mixed types: expected bool at index %d, got %T", i, v)
+			}
+			arr[i] = b
+		}
+		return MetadataValue{BoolArray: arr}, nil
+	case float64:
+		arr := make([]float64, len(slice))
+		for i, v := range slice {
+			f, ok := v.(float64)
+			if !ok {
+				return MetadataValue{}, errors.Errorf("metadata array has mixed types: expected number at index %d, got %T", i, v)
+			}
+			arr[i] = f
+		}
+		return MetadataValue{FloatArray: arr}, nil
+	case json.Number:
+		// Determine if all are integers
+		allInts := true
+		for _, v := range slice {
+			n, ok := v.(json.Number)
+			if !ok {
+				return MetadataValue{}, errors.Errorf("metadata array has mixed types: expected number at index, got %T", v)
+			}
+			s := n.String()
+			if strings.Contains(s, ".") || strings.Contains(s, "e") || strings.Contains(s, "E") {
+				allInts = false
+				break
+			}
+		}
+		if allInts {
+			arr := make([]int64, len(slice))
+			for i, v := range slice {
+				n := v.(json.Number)
+				iv, err := n.Int64()
+				if err != nil {
+					return MetadataValue{}, errors.Wrapf(err, "failed to convert to int64 at index %d", i)
+				}
+				arr[i] = iv
+			}
+			return MetadataValue{IntArray: arr}, nil
+		}
+		arr := make([]float64, len(slice))
+		for i, v := range slice {
+			n := v.(json.Number)
+			fv, err := n.Float64()
+			if err != nil {
+				return MetadataValue{}, errors.Wrapf(err, "failed to convert to float64 at index %d", i)
+			}
+			arr[i] = fv
+		}
+		return MetadataValue{FloatArray: arr}, nil
+	default:
+		return MetadataValue{}, errors.Errorf("unsupported metadata array element type: %T", slice[0])
+	}
 }
 
 // Collection metadata
@@ -232,6 +550,18 @@ func NewMetadataFromMap(metadata map[string]interface{}) CollectionMetadata {
 			mv.SetInt(k, val)
 		case string:
 			mv.SetString(k, val)
+		case []string:
+			mv.SetStringArray(k, val)
+		case []int64:
+			mv.SetIntArray(k, val)
+		case []float64:
+			mv.SetFloatArray(k, val)
+		case []bool:
+			mv.SetBoolArray(k, val)
+		case []interface{}:
+			if arr, err := convertInterfaceSliceToMetadataValue(val); err == nil {
+				mv.metadata[k] = arr
+			}
 		}
 	}
 	return mv
@@ -286,6 +616,38 @@ func (cm *CollectionMetadataImpl) GetBool(key string) (value bool, ok bool) {
 	return b, ok
 }
 
+func (cm *CollectionMetadataImpl) GetStringArray(key string) ([]string, bool) {
+	v, ok := cm.metadata[key]
+	if !ok {
+		return nil, false
+	}
+	return v.GetStringArray()
+}
+
+func (cm *CollectionMetadataImpl) GetIntArray(key string) ([]int64, bool) {
+	v, ok := cm.metadata[key]
+	if !ok {
+		return nil, false
+	}
+	return v.GetIntArray()
+}
+
+func (cm *CollectionMetadataImpl) GetFloatArray(key string) ([]float64, bool) {
+	v, ok := cm.metadata[key]
+	if !ok {
+		return nil, false
+	}
+	return v.GetFloatArray()
+}
+
+func (cm *CollectionMetadataImpl) GetBoolArray(key string) ([]bool, bool) {
+	v, ok := cm.metadata[key]
+	if !ok {
+		return nil, false
+	}
+	return v.GetBoolArray()
+}
+
 func (cm *CollectionMetadataImpl) SetRaw(key string, value interface{}) {
 	switch val := value.(type) {
 	case bool:
@@ -305,6 +667,14 @@ func (cm *CollectionMetadataImpl) SetRaw(key string, value interface{}) {
 		cm.metadata[key] = MetadataValue{Int: &val}
 	case string:
 		cm.metadata[key] = MetadataValue{StringValue: &val}
+	case []string:
+		cm.metadata[key] = MetadataValue{StringArray: val}
+	case []int64:
+		cm.metadata[key] = MetadataValue{IntArray: val}
+	case []float64:
+		cm.metadata[key] = MetadataValue{FloatArray: val}
+	case []bool:
+		cm.metadata[key] = MetadataValue{BoolArray: val}
 	}
 }
 
@@ -324,6 +694,22 @@ func (cm *CollectionMetadataImpl) SetBool(key string, value bool) {
 	cm.metadata[key] = MetadataValue{Bool: &value}
 }
 
+func (cm *CollectionMetadataImpl) SetStringArray(key string, value []string) {
+	cm.metadata[key] = MetadataValue{StringArray: value}
+}
+
+func (cm *CollectionMetadataImpl) SetIntArray(key string, value []int64) {
+	cm.metadata[key] = MetadataValue{IntArray: value}
+}
+
+func (cm *CollectionMetadataImpl) SetFloatArray(key string, value []float64) {
+	cm.metadata[key] = MetadataValue{FloatArray: value}
+}
+
+func (cm *CollectionMetadataImpl) SetBoolArray(key string, value []bool) {
+	cm.metadata[key] = MetadataValue{BoolArray: value}
+}
+
 func (cm *CollectionMetadataImpl) MarshalJSON() ([]byte, error) {
 	processed := make(map[string]interface{})
 	for k, v := range cm.metadata {
@@ -338,6 +724,14 @@ func (cm *CollectionMetadataImpl) MarshalJSON() ([]byte, error) {
 			}
 		case string:
 			processed[k], _ = v.GetString()
+		case []string:
+			processed[k] = v.StringArray
+		case []int64:
+			processed[k] = v.IntArray
+		case []float64:
+			processed[k] = v.FloatArray
+		case []bool:
+			processed[k] = v.BoolArray
 		}
 	}
 	b := bytes.NewBuffer(nil)
