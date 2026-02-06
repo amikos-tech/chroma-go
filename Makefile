@@ -98,6 +98,33 @@ test-rf: gotestsum-bin
 		-coverprofile=coverage-rf.out \
 		-timeout=30m
 
+# Provider-specific RF test targets (use test-rf-<provider> pattern)
+# Examples: make test-rf-cohere, make test-rf-hf, make test-rf-jina
+test-rf-%: gotestsum-bin
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=1 \
+		--packages="./pkg/rerankings/$*/..." \
+		--junitfile unit-rf-$*.xml \
+		-- \
+		-v \
+		-tags=rf \
+		-coverprofile=coverage-rf-$*.out \
+		-timeout=15m
+
+.PHONY: test-rf-core
+test-rf-core: gotestsum-bin
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=1 \
+		--packages="./pkg/rerankings" \
+		--junitfile unit-rf-core.xml \
+		-- \
+		-v \
+		-tags=rf \
+		-coverprofile=coverage-rf-core.out \
+		-timeout=15m
+
 .PHONY: test-crosslang
 test-crosslang: gotestsum-bin setup-python-venv
 	gotestsum \

@@ -272,11 +272,26 @@ jobs:
             coverage-ef-${{ matrix.provider }}.out
             unit-ef-${{ matrix.provider }}.xml
   rf:
-    name: Test Ranking Functions
+    name: Test RF (${{ matrix.provider }})
     runs-on: ubuntu-latest
-    needs: [lint,paths-filter]
+    needs: [lint, paths-filter]
     if: inputs.run_rf || needs.paths-filter.outputs.rerankings == 'true'
     environment: Test
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - provider: cohere
+            test_path: ./pkg/rerankings/cohere/...
+          - provider: hf
+            test_path: ./pkg/rerankings/hf/...
+          - provider: jina
+            test_path: ./pkg/rerankings/jina/...
+          - provider: together
+            test_path: ./pkg/rerankings/together/...
+          - provider: core
+            test_path: ./pkg/rerankings
     steps:
       - uses: actions/checkout@v4
       - name: Log in to GitHub Container Registry
@@ -291,29 +306,33 @@ jobs:
           go-version-file: 'go.mod'
       - name: Build
         run: make build
-      - name: Test
-        run: make test-rf
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+      - name: Test ${{ matrix.provider }}
+        run: |
+          gotestsum \
+            --format short-verbose \
+            --rerun-fails=1 \
+            --packages="${{ matrix.test_path }}" \
+            --junitfile unit-rf-${{ matrix.provider }}.xml \
+            -- \
+            -v \
+            -tags=rf \
+            -coverprofile=coverage-rf-${{ matrix.provider }}.out \
+            -timeout=15m
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
           HF_API_KEY: ${{ secrets.HF_API_KEY }}
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CF_GATEWAY_ENDPOINT: ${{ secrets.CF_GATEWAY_ENDPOINT }}
           TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
-          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-          NOMIC_API_KEY: ${{ secrets.NOMIC_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rf-test-results
+          name: rf-test-results-${{ matrix.provider }}
           path: |
-            coverage-rf.out
-            unit-rf.xml
+            coverage-rf-${{ matrix.provider }}.out
+            unit-rf-${{ matrix.provider }}.xml
   crosslang:
     name: Test Cross-Language EF Persistence
     runs-on: ubuntu-latest
