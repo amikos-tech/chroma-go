@@ -259,7 +259,7 @@ func TestClientHTTPIntegration(t *testing.T) {
 
 		_, err = c.CreateDatabase(ctx, NewDefaultTenant().Database("l"))
 		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), "Validation error: length") || strings.Contains(err.Error(), "Database name must be at least 3 characters long"))
+		require.True(t, strings.Contains(err.Error(), "Validation error: length") || strings.Contains(err.Error(), "Database name must be at least 3 characters long") || strings.Contains(err.Error(), "Expected a name containing 3-512 characters"))
 	})
 
 	t.Run("delete database", func(t *testing.T) {
