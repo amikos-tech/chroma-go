@@ -664,7 +664,7 @@ func TestCollectionAddIntegration(t *testing.T) {
 			// The closest result for each query should be the exact matching document
 			require.Equal(t, expectedIDs[i], res.GetIDGroups()[i][0], "closest ID for query %q", queryTexts[i])
 			require.Equal(t, NewTextDocument(queryTexts[i]), res.GetDocumentsGroups()[i][0], "closest document for query %q", queryTexts[i])
-			require.Equal(t, embeddings.Distance(0), res.GetDistancesGroups()[i][0], "distance should be 0 for exact match on query %q", queryTexts[i])
+			require.InDelta(t, 0, float64(res.GetDistancesGroups()[i][0]), 1e-6, "distance should be ~0 for exact match on query %q", queryTexts[i])
 			fruit, ok := res.GetMetadatasGroups()[i][0].GetString("fruit")
 			require.True(t, ok, "metadata 'fruit' should exist for query %q", queryTexts[i])
 			require.Equal(t, expectedFruits[i], fruit, "metadata fruit for query %q", queryTexts[i])
