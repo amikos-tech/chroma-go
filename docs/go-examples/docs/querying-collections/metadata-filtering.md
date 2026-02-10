@@ -283,6 +283,94 @@ func main() {
 {% /codetab %}
 {% /codetabs %}
 
+### Array Contains Operators ($contains / $not_contains)
+
+{% codetabs group="lang" %}
+{% codetab label="Python" %}
+```python
+# Filter by array metadata field containing a value (Chroma >= 1.5.0)
+collection.query(
+    query_texts=["research papers"],
+    where={"tags": {"$contains": "science"}}
+)
+
+# Exclude documents where array contains a value
+collection.get(
+    where={"tags": {"$not_contains": "deprecated"}}
+)
+```
+{% /codetab %}
+{% codetab label="Go" %}
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+	client, err := v2.NewHTTPClient()
+	if err != nil {
+		log.Fatalf("Error creating client: %v", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	collection, err := client.GetCollection(ctx, "my_collection")
+	if err != nil {
+		log.Fatalf("Error getting collection: %v", err)
+	}
+
+	// Query where "tags" array contains "science"
+	results1, err := collection.Query(ctx,
+		v2.WithQueryTexts("research papers"),
+		v2.WithWhereQuery(v2.MetadataContainsString(v2.K("tags"), "science")),
+	)
+	if err != nil {
+		log.Fatalf("Error querying: %v", err)
+	}
+
+	// Get where "tags" array does NOT contain "deprecated"
+	results2, err := collection.Get(ctx,
+		v2.WithWhereGet(v2.MetadataNotContainsString(v2.K("tags"), "deprecated")),
+	)
+	if err != nil {
+		log.Fatalf("Error getting: %v", err)
+	}
+
+	// Works with other types too: int, float, bool
+	results3, err := collection.Query(ctx,
+		v2.WithQueryTexts("high scores"),
+		v2.WithWhereQuery(v2.MetadataContainsInt(v2.K("scores"), 100)),
+	)
+	if err != nil {
+		log.Fatalf("Error querying: %v", err)
+	}
+
+	// Combine with other filters using And()
+	results4, err := collection.Query(ctx,
+		v2.WithQueryTexts("research"),
+		v2.WithWhereQuery(
+			v2.And(
+				v2.MetadataContainsString(v2.K("tags"), "science"),
+				v2.GteInt(v2.K("year"), 2023),
+			),
+		),
+	)
+	if err != nil {
+		log.Fatalf("Error querying: %v", err)
+	}
+
+	log.Printf("Results: %v, %v, %v, %v", results1, results2, results3, results4)
+}
+```
+{% /codetab %}
+{% /codetabs %}
+
 ### Exclusion Operators ($nin)
 
 {% codetabs group="lang" %}
@@ -555,6 +643,8 @@ func main() {
 | `{"#id": {"$nin": [...]}}` | `v2.IDNotIn(...)` | Exclude specific document IDs |
 | `{"#document": {"$contains": ...}}` | `v2.DocumentContains(...)` | Document contains text |
 | `{"#document": {"$not_contains": ...}}` | `v2.DocumentNotContains(...)` | Document doesn't contain text |
+| `{"$contains": value}` | `v2.MetadataContainsString(v2.K("field"), value)` | Array contains value |
+| `{"$not_contains": value}` | `v2.MetadataNotContainsString(v2.K("field"), value)` | Array doesn't contain value |
 | `{"$and": [...]}` | `v2.And(...)` | All conditions must match |
 | `{"$or": [...]}` | `v2.Or(...)` | Any condition must match |
 
@@ -567,4 +657,5 @@ func main() {
 - `$in` and `$nin` work with strings, ints, floats, and bools
 - `IDIn` and `IDNotIn` are convenience functions for filtering by document IDs
 - `DocumentContains` and `DocumentNotContains` filter by document text content
+- `MetadataContains*` and `MetadataNotContains*` filter by array metadata fields (Chroma >= 1.5.0)
 - All filter types can be combined with `And()` and `Or()`

@@ -53,6 +53,7 @@ Additional support features:
 - ⚒️ Persistent Client support (coming soon) - Run/embed full-featured Chroma in your go application without the need
   for Chroma server.
 - ✅ [Search API Support](https://go-client.chromadb.dev/search/)
+- ✅ Array Metadata support with `$contains`/`$not_contains` operators (Chroma >= 1.5.0)
 
 ## Embedding API and Models Support
 

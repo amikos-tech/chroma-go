@@ -716,6 +716,12 @@ func (c *CollectionAddOp) PrepareAndValidate() error {
 		return errors.Errorf("metadatas (%d) must match the number of ids (%d)", len(c.Metadatas), len(c.Ids))
 	}
 
+	if len(c.Metadatas) > 0 {
+		if err := validateDocumentMetadatas(c.Metadatas); err != nil {
+			return err
+		}
+	}
+
 	if len(c.Records) > 0 {
 		for _, record := range c.Records {
 			err := record.Validate()
@@ -1000,6 +1006,12 @@ func (c *CollectionUpdateOp) PrepareAndValidate() error {
 
 	if len(c.Metadatas) > 0 && len(c.Ids) != len(c.Metadatas) {
 		return errors.Errorf("metadatas (%d) must match the number of ids (%d)", len(c.Metadatas), len(c.Ids))
+	}
+
+	if len(c.Metadatas) > 0 {
+		if err := validateDocumentMetadatas(c.Metadatas); err != nil {
+			return err
+		}
 	}
 
 	if len(c.Records) > 0 {

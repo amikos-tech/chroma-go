@@ -322,6 +322,86 @@ func main() {
 {% /codetab %}
 {% /codetabs %}
 
+### Array Contains Operators
+
+{% codetabs group="lang" %}
+{% codetab label="Python" %}
+```python
+# Filter by array metadata containing a value (Chroma >= 1.5.0)
+K("tags").contains("science")
+K("tags").not_contains("deprecated")
+```
+{% /codetab %}
+{% codetab label="Go" %}
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+	client, err := v2.NewCloudClient(
+		v2.WithCloudAPIKey("your-api-key"),
+		v2.WithDatabaseAndTenant("database", "tenant"),
+	)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	collection, err := client.GetCollection(ctx, "my_collection")
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	// Array contains string
+	result1, _ := collection.Search(ctx,
+		v2.NewSearchRequest(
+			v2.WithFilter(v2.MetadataContainsString(v2.K("tags"), "science")),
+			v2.NewPage(v2.Limit(10)),
+		),
+	)
+
+	// Array not contains string
+	result2, _ := collection.Search(ctx,
+		v2.NewSearchRequest(
+			v2.WithFilter(v2.MetadataNotContainsString(v2.K("tags"), "deprecated")),
+			v2.NewPage(v2.Limit(10)),
+		),
+	)
+
+	// Array contains int
+	result3, _ := collection.Search(ctx,
+		v2.NewSearchRequest(
+			v2.WithFilter(v2.MetadataContainsInt(v2.K("scores"), 100)),
+			v2.NewPage(v2.Limit(10)),
+		),
+	)
+
+	// Combine with other filters
+	result4, _ := collection.Search(ctx,
+		v2.NewSearchRequest(
+			v2.WithFilter(
+				v2.And(
+					v2.MetadataContainsString(v2.K("tags"), "science"),
+					v2.GteInt(v2.K("year"), 2023),
+				),
+			),
+			v2.NewPage(v2.Limit(10)),
+		),
+	)
+
+	log.Printf("Results: %v, %v, %v, %v", result1, result2, result3, result4)
+}
+```
+{% /codetab %}
+{% /codetabs %}
+
 ### Logical Operators (AND/OR)
 
 {% codetabs group="lang" %}
@@ -533,6 +613,8 @@ func main() {
 | `K.ID.not_in([...])` | `v2.IDNotIn(...)` | Exclude specific document IDs |
 | `K.DOCUMENT.contains("text")` | `v2.DocumentContains(...)` | Document contains text |
 | `K.DOCUMENT.not_contains("text")` | `v2.DocumentNotContains(...)` | Document doesn't contain |
+| `K("field").contains(value)` | `v2.MetadataContainsString(v2.K("field"), value)` | Array contains value |
+| `K("field").not_contains(value)` | `v2.MetadataNotContainsString(v2.K("field"), value)` | Array doesn't contain |
 | `... & ...` | `v2.And(...)` | Logical AND |
 | `... \| ...` | `v2.Or(...)` | Logical OR |
 
