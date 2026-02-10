@@ -511,3 +511,64 @@ func TestNewBoolArrayAttribute(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, []bool{true, false}, arr)
 }
+
+func TestNewArrayAttributeEmptyReturnsNil(t *testing.T) {
+	require.Nil(t, NewStringArrayAttribute("k", []string{}))
+	require.Nil(t, NewIntArrayAttribute("k", []int64{}))
+	require.Nil(t, NewFloatArrayAttribute("k", []float64{}))
+	require.Nil(t, NewBoolArrayAttribute("k", []bool{}))
+}
+
+func TestNewMetadataSkipsNilAttributes(t *testing.T) {
+	md := NewMetadata(
+		NewStringAttribute("name", "test"),
+		NewStringArrayAttribute("empty", []string{}), // nil, should be skipped
+		NewStringArrayAttribute("tags", []string{"a"}),
+	)
+	_, ok := md.GetStringArray("empty")
+	require.False(t, ok)
+	arr, ok := md.GetStringArray("tags")
+	require.True(t, ok)
+	require.Equal(t, []string{"a"}, arr)
+}
+
+func TestUnmarshalArrayMixedTypesError(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"bool then string", `[true, "hello"]`},
+		{"string then number", `["hello", 42]`},
+		{"number then bool", `[42, true]`},
+		{"string then bool", `["hello", false]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var mv MetadataValue
+			err := json.Unmarshal([]byte(tt.input), &mv)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "mixed types")
+		})
+	}
+}
+
+func TestUnmarshalArrayNullRejected(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"null first element", `[null, "hello"]`},
+		{"null in string array", `["hello", null]`},
+		{"null in bool array", `[true, null]`},
+		{"null in number array", `[42, null]`},
+		{"only null", `[null]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var mv MetadataValue
+			err := json.Unmarshal([]byte(tt.input), &mv)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "null")
+		})
+	}
+}

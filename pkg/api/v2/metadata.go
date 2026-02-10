@@ -74,18 +74,30 @@ func NewBoolAttribute(key string, value bool) *MetaAttribute {
 }
 
 func NewStringArrayAttribute(key string, values []string) *MetaAttribute {
+	if len(values) == 0 {
+		return nil
+	}
 	return &MetaAttribute{key: key, value: MetadataValue{StringArray: values}, valueType: reflect.TypeOf(values)}
 }
 
 func NewIntArrayAttribute(key string, values []int64) *MetaAttribute {
+	if len(values) == 0 {
+		return nil
+	}
 	return &MetaAttribute{key: key, value: MetadataValue{IntArray: values}, valueType: reflect.TypeOf(values)}
 }
 
 func NewFloatArrayAttribute(key string, values []float64) *MetaAttribute {
+	if len(values) == 0 {
+		return nil
+	}
 	return &MetaAttribute{key: key, value: MetadataValue{FloatArray: values}, valueType: reflect.TypeOf(values)}
 }
 
 func NewBoolArrayAttribute(key string, values []bool) *MetaAttribute {
+	if len(values) == 0 {
+		return nil
+	}
 	return &MetaAttribute{key: key, value: MetadataValue{BoolArray: values}, valueType: reflect.TypeOf(values)}
 }
 
@@ -318,19 +330,60 @@ func (mv *MetadataValue) unmarshalArray(b []byte) error {
 		return errors.New("invalid empty element in metadata array")
 	}
 
+	// Determine expected type from first element
+	var expectedType string
 	switch {
 	case first[0] == '[':
 		return errors.New("nested arrays are not supported in metadata values; only flat arrays of string, int, float, or bool are allowed")
 	case first[0] == '{':
 		return errors.New("arrays of objects are not supported in metadata values; only flat arrays of string, int, float, or bool are allowed")
 	case first[0] == '"':
+		expectedType = "string"
+	case bytes.Equal(first, []byte("true")) || bytes.Equal(first, []byte("false")):
+		expectedType = "bool"
+	case bytes.Equal(first, []byte("null")):
+		return errors.New("null values are not allowed in metadata arrays")
+	default:
+		expectedType = "number"
+	}
+
+	// Validate all elements have the same type
+	for i := 1; i < len(rawElements); i++ {
+		elem := bytes.TrimSpace(rawElements[i])
+		if len(elem) == 0 {
+			return errors.Errorf("invalid empty element at index %d in metadata array", i)
+		}
+		if bytes.Equal(elem, []byte("null")) {
+			return errors.Errorf("null values are not allowed in metadata arrays (index %d)", i)
+		}
+		var elemType string
+		switch {
+		case elem[0] == '"':
+			elemType = "string"
+		case bytes.Equal(elem, []byte("true")) || bytes.Equal(elem, []byte("false")):
+			elemType = "bool"
+		case elem[0] == '[':
+			return errors.New("nested arrays are not supported in metadata values; only flat arrays of string, int, float, or bool are allowed")
+		case elem[0] == '{':
+			return errors.New("arrays of objects are not supported in metadata values; only flat arrays of string, int, float, or bool are allowed")
+		default:
+			elemType = "number"
+		}
+		if elemType != expectedType {
+			return errors.Errorf("metadata array has mixed types: expected %s at index %d, got %s", expectedType, i, elemType)
+		}
+	}
+
+	// All elements are the same type, unmarshal
+	switch expectedType {
+	case "string":
 		var arr []string
 		if err := json.Unmarshal(b, &arr); err != nil {
 			return errors.Wrap(err, "failed to unmarshal string array metadata")
 		}
 		mv.StringArray = arr
 		return nil
-	case bytes.Equal(first, []byte("true")) || bytes.Equal(first, []byte("false")):
+	case "bool":
 		var arr []bool
 		if err := json.Unmarshal(b, &arr); err != nil {
 			return errors.Wrap(err, "failed to unmarshal bool array metadata")
@@ -503,6 +556,9 @@ type CollectionMetadataImpl struct {
 func NewMetadata(attributes ...*MetaAttribute) CollectionMetadata {
 	metadata := make(map[string]MetadataValue)
 	for _, attribute := range attributes {
+		if attribute == nil {
+			continue
+		}
 		metadata[attribute.key] = attribute.value
 	}
 	return &DocumentMetadataImpl{metadata: metadata}
