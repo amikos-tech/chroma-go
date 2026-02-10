@@ -515,6 +515,17 @@ func NewMetadataFromMap(metadata map[string]interface{}) CollectionMetadata {
 
 	for k, v := range metadata {
 		switch val := v.(type) {
+		case json.Number:
+			numStr := string(val)
+			if strings.Contains(numStr, ".") || strings.Contains(numStr, "e") || strings.Contains(numStr, "E") {
+				if floatVal, err := val.Float64(); err == nil {
+					mv.SetFloat(k, floatVal)
+				}
+			} else {
+				if intVal, err := val.Int64(); err == nil {
+					mv.SetInt(k, intVal)
+				}
+			}
 		case bool:
 			mv.SetBool(k, val)
 		case float32:

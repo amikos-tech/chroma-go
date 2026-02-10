@@ -716,12 +716,6 @@ func (c *CollectionAddOp) PrepareAndValidate() error {
 		return errors.Errorf("metadatas (%d) must match the number of ids (%d)", len(c.Metadatas), len(c.Ids))
 	}
 
-	if len(c.Metadatas) > 0 {
-		if err := validateDocumentMetadatas(c.Metadatas); err != nil {
-			return err
-		}
-	}
-
 	if len(c.Records) > 0 {
 		for _, record := range c.Records {
 			err := record.Validate()
@@ -733,6 +727,12 @@ func (c *CollectionAddOp) PrepareAndValidate() error {
 			c.Documents = append(c.Documents, recordDocuments)
 			c.Metadatas = append(c.Metadatas, recordMetadata)
 			c.Embeddings = append(c.Embeddings, recordEmbeddings)
+		}
+	}
+
+	if len(c.Metadatas) > 0 {
+		if err := validateDocumentMetadatas(c.Metadatas); err != nil {
+			return err
 		}
 	}
 
@@ -1008,12 +1008,6 @@ func (c *CollectionUpdateOp) PrepareAndValidate() error {
 		return errors.Errorf("metadatas (%d) must match the number of ids (%d)", len(c.Metadatas), len(c.Ids))
 	}
 
-	if len(c.Metadatas) > 0 {
-		if err := validateDocumentMetadatas(c.Metadatas); err != nil {
-			return err
-		}
-	}
-
 	if len(c.Records) > 0 {
 		for _, record := range c.Records {
 			err := record.Validate()
@@ -1025,6 +1019,12 @@ func (c *CollectionUpdateOp) PrepareAndValidate() error {
 			c.Documents = append(c.Documents, recordDocuments)
 			c.Metadatas = append(c.Metadatas, recordMetadata)
 			c.Embeddings = append(c.Embeddings, recordEmbeddings)
+		}
+	}
+
+	if len(c.Metadatas) > 0 {
+		if err := validateDocumentMetadatas(c.Metadatas); err != nil {
+			return err
 		}
 	}
 
