@@ -463,7 +463,10 @@ func convertInterfaceSliceToMetadataValue(slice []interface{}) (MetadataValue, e
 		if allInts {
 			arr := make([]int64, len(slice))
 			for i, v := range slice {
-				n := v.(json.Number)
+				n, ok := v.(json.Number)
+				if !ok {
+					return MetadataValue{}, errors.Errorf("unexpected type %T at index %d, expected json.Number", v, i)
+				}
 				iv, err := n.Int64()
 				if err != nil {
 					return MetadataValue{}, errors.Wrapf(err, "failed to convert to int64 at index %d", i)
@@ -474,7 +477,10 @@ func convertInterfaceSliceToMetadataValue(slice []interface{}) (MetadataValue, e
 		}
 		arr := make([]float64, len(slice))
 		for i, v := range slice {
-			n := v.(json.Number)
+			n, ok := v.(json.Number)
+			if !ok {
+				return MetadataValue{}, errors.Errorf("unexpected type %T at index %d, expected json.Number", v, i)
+			}
 			fv, err := n.Float64()
 			if err != nil {
 				return MetadataValue{}, errors.Wrapf(err, "failed to convert to float64 at index %d", i)

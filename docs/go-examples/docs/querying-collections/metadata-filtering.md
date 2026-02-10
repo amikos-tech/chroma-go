@@ -643,8 +643,8 @@ func main() {
 | `{"#id": {"$nin": [...]}}` | `v2.IDNotIn(...)` | Exclude specific document IDs |
 | `{"#document": {"$contains": ...}}` | `v2.DocumentContains(...)` | Document contains text |
 | `{"#document": {"$not_contains": ...}}` | `v2.DocumentNotContains(...)` | Document doesn't contain text |
-| `{"$contains": value}` | `v2.MetadataContainsString(v2.K("field"), value)` | Array contains value |
-| `{"$not_contains": value}` | `v2.MetadataNotContainsString(v2.K("field"), value)` | Array doesn't contain value |
+| `{"field": {"$contains": value}}` | `v2.MetadataContainsString(v2.K("field"), value)` | Array contains value |
+| `{"field": {"$not_contains": value}}` | `v2.MetadataNotContainsString(v2.K("field"), value)` | Array doesn't contain value |
 | `{"$and": [...]}` | `v2.And(...)` | All conditions must match |
 | `{"$or": [...]}` | `v2.Or(...)` | Any condition must match |
 
