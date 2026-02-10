@@ -265,13 +265,13 @@ func (cm *DocumentMetadataImpl) SetRaw(key string, value interface{}) {
 	case string:
 		cm.metadata[key] = MetadataValue{StringValue: &val}
 	case []string:
-		cm.metadata[key] = MetadataValue{StringArray: val}
+		cm.SetStringArray(key, val)
 	case []int64:
-		cm.metadata[key] = MetadataValue{IntArray: val}
+		cm.SetIntArray(key, val)
 	case []float64:
-		cm.metadata[key] = MetadataValue{FloatArray: val}
+		cm.SetFloatArray(key, val)
 	case []bool:
-		cm.metadata[key] = MetadataValue{BoolArray: val}
+		cm.SetBoolArray(key, val)
 	}
 }
 

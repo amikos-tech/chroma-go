@@ -602,3 +602,76 @@ func TestUnmarshalArrayNullRejected(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertInterfaceSliceFloat64(t *testing.T) {
+	mv, err := convertInterfaceSliceToMetadataValue([]interface{}{1.0, 2.5, 3.0})
+	require.NoError(t, err)
+	require.Equal(t, []float64{1.0, 2.5, 3.0}, mv.FloatArray)
+}
+
+func TestUnmarshalArrayMixedIntFloat(t *testing.T) {
+	var mv MetadataValue
+	err := json.Unmarshal([]byte(`[1, 2.5, 3]`), &mv)
+	require.NoError(t, err)
+	require.Equal(t, []float64{1.0, 2.5, 3.0}, mv.FloatArray)
+}
+
+func TestSetRawEmptyArrayIsNoop(t *testing.T) {
+	dm := NewDocumentMetadata()
+	dm.SetRaw("tags", []string{})
+	dm.SetRaw("nums", []int64{})
+	dm.SetRaw("vals", []float64{})
+	dm.SetRaw("flags", []bool{})
+	_, ok := dm.GetStringArray("tags")
+	require.False(t, ok)
+	_, ok = dm.GetIntArray("nums")
+	require.False(t, ok)
+	_, ok = dm.GetFloatArray("vals")
+	require.False(t, ok)
+	_, ok = dm.GetBoolArray("flags")
+	require.False(t, ok)
+
+	cm := NewEmptyMetadata()
+	cm.SetRaw("tags", []string{})
+	cm.SetRaw("nums", []int64{})
+	cm.SetRaw("vals", []float64{})
+	cm.SetRaw("flags", []bool{})
+	_, ok = cm.GetStringArray("tags")
+	require.False(t, ok)
+	_, ok = cm.GetIntArray("nums")
+	require.False(t, ok)
+	_, ok = cm.GetFloatArray("vals")
+	require.False(t, ok)
+	_, ok = cm.GetBoolArray("flags")
+	require.False(t, ok)
+}
+
+func TestGetArrayReturnsCopy(t *testing.T) {
+	mv := MetadataValue{StringArray: []string{"a", "b"}}
+	arr, ok := mv.GetStringArray()
+	require.True(t, ok)
+	arr[0] = "modified"
+	original, _ := mv.GetStringArray()
+	require.Equal(t, "a", original[0])
+
+	mv2 := MetadataValue{IntArray: []int64{1, 2}}
+	intArr, ok := mv2.GetIntArray()
+	require.True(t, ok)
+	intArr[0] = 99
+	originalInt, _ := mv2.GetIntArray()
+	require.Equal(t, int64(1), originalInt[0])
+
+	mv3 := MetadataValue{FloatArray: []float64{1.1, 2.2}}
+	floatArr, ok := mv3.GetFloatArray()
+	require.True(t, ok)
+	floatArr[0] = 99.9
+	originalFloat, _ := mv3.GetFloatArray()
+	require.Equal(t, 1.1, originalFloat[0])
+
+	mv4 := MetadataValue{BoolArray: []bool{true, false}}
+	boolArr, ok := mv4.GetBoolArray()
+	require.True(t, ok)
+	boolArr[0] = false
+	originalBool, _ := mv4.GetBoolArray()
+	require.Equal(t, true, originalBool[0])
+}

@@ -189,28 +189,36 @@ func (mv *MetadataValue) GetStringArray() ([]string, bool) {
 	if mv.StringArray == nil {
 		return nil, false
 	}
-	return mv.StringArray, true
+	cp := make([]string, len(mv.StringArray))
+	copy(cp, mv.StringArray)
+	return cp, true
 }
 
 func (mv *MetadataValue) GetIntArray() ([]int64, bool) {
 	if mv.IntArray == nil {
 		return nil, false
 	}
-	return mv.IntArray, true
+	cp := make([]int64, len(mv.IntArray))
+	copy(cp, mv.IntArray)
+	return cp, true
 }
 
 func (mv *MetadataValue) GetFloatArray() ([]float64, bool) {
 	if mv.FloatArray == nil {
 		return nil, false
 	}
-	return mv.FloatArray, true
+	cp := make([]float64, len(mv.FloatArray))
+	copy(cp, mv.FloatArray)
+	return cp, true
 }
 
 func (mv *MetadataValue) GetBoolArray() ([]bool, bool) {
 	if mv.BoolArray == nil {
 		return nil, false
 	}
-	return mv.BoolArray, true
+	cp := make([]bool, len(mv.BoolArray))
+	copy(cp, mv.BoolArray)
+	return cp, true
 }
 
 func (mv *MetadataValue) Equal(other *MetadataValue) bool {
@@ -720,13 +728,13 @@ func (cm *CollectionMetadataImpl) SetRaw(key string, value interface{}) {
 	case string:
 		cm.metadata[key] = MetadataValue{StringValue: &val}
 	case []string:
-		cm.metadata[key] = MetadataValue{StringArray: val}
+		cm.SetStringArray(key, val)
 	case []int64:
-		cm.metadata[key] = MetadataValue{IntArray: val}
+		cm.SetIntArray(key, val)
 	case []float64:
-		cm.metadata[key] = MetadataValue{FloatArray: val}
+		cm.SetFloatArray(key, val)
 	case []bool:
-		cm.metadata[key] = MetadataValue{BoolArray: val}
+		cm.SetBoolArray(key, val)
 	}
 }
 

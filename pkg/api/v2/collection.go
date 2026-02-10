@@ -769,7 +769,8 @@ type metadatasOption struct {
 // and [Collection.Update] operations.
 //
 // The number of metadatas must match the number of IDs provided.
-// Each metadata is a map of string keys to values (string, int, float, bool).
+// Each metadata is a map of string keys to values (string, int, float, bool,
+// or arrays of these types).
 //
 // # Add Example
 //
