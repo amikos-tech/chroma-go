@@ -295,28 +295,36 @@ func (cm *DocumentMetadataImpl) SetStringArray(key string, value []string) {
 	if len(value) == 0 {
 		return
 	}
-	cm.metadata[key] = MetadataValue{StringArray: value}
+	cp := make([]string, len(value))
+	copy(cp, value)
+	cm.metadata[key] = MetadataValue{StringArray: cp}
 }
 
 func (cm *DocumentMetadataImpl) SetIntArray(key string, value []int64) {
 	if len(value) == 0 {
 		return
 	}
-	cm.metadata[key] = MetadataValue{IntArray: value}
+	cp := make([]int64, len(value))
+	copy(cp, value)
+	cm.metadata[key] = MetadataValue{IntArray: cp}
 }
 
 func (cm *DocumentMetadataImpl) SetFloatArray(key string, value []float64) {
 	if len(value) == 0 {
 		return
 	}
-	cm.metadata[key] = MetadataValue{FloatArray: value}
+	cp := make([]float64, len(value))
+	copy(cp, value)
+	cm.metadata[key] = MetadataValue{FloatArray: cp}
 }
 
 func (cm *DocumentMetadataImpl) SetBoolArray(key string, value []bool) {
 	if len(value) == 0 {
 		return
 	}
-	cm.metadata[key] = MetadataValue{BoolArray: value}
+	cp := make([]bool, len(value))
+	copy(cp, value)
+	cm.metadata[key] = MetadataValue{BoolArray: cp}
 }
 
 func (cm *DocumentMetadataImpl) MarshalJSON() ([]byte, error) {

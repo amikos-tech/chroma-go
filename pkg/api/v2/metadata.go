@@ -77,28 +77,36 @@ func NewStringArrayAttribute(key string, values []string) *MetaAttribute {
 	if len(values) == 0 {
 		return nil
 	}
-	return &MetaAttribute{key: key, value: MetadataValue{StringArray: values}, valueType: reflect.TypeOf(values)}
+	cp := make([]string, len(values))
+	copy(cp, values)
+	return &MetaAttribute{key: key, value: MetadataValue{StringArray: cp}, valueType: reflect.TypeOf(values)}
 }
 
 func NewIntArrayAttribute(key string, values []int64) *MetaAttribute {
 	if len(values) == 0 {
 		return nil
 	}
-	return &MetaAttribute{key: key, value: MetadataValue{IntArray: values}, valueType: reflect.TypeOf(values)}
+	cp := make([]int64, len(values))
+	copy(cp, values)
+	return &MetaAttribute{key: key, value: MetadataValue{IntArray: cp}, valueType: reflect.TypeOf(values)}
 }
 
 func NewFloatArrayAttribute(key string, values []float64) *MetaAttribute {
 	if len(values) == 0 {
 		return nil
 	}
-	return &MetaAttribute{key: key, value: MetadataValue{FloatArray: values}, valueType: reflect.TypeOf(values)}
+	cp := make([]float64, len(values))
+	copy(cp, values)
+	return &MetaAttribute{key: key, value: MetadataValue{FloatArray: cp}, valueType: reflect.TypeOf(values)}
 }
 
 func NewBoolArrayAttribute(key string, values []bool) *MetaAttribute {
 	if len(values) == 0 {
 		return nil
 	}
-	return &MetaAttribute{key: key, value: MetadataValue{BoolArray: values}, valueType: reflect.TypeOf(values)}
+	cp := make([]bool, len(values))
+	copy(cp, values)
+	return &MetaAttribute{key: key, value: MetadataValue{BoolArray: cp}, valueType: reflect.TypeOf(values)}
 }
 
 func (mv *MetadataValue) GetInt() (int64, bool) {
@@ -758,28 +766,36 @@ func (cm *CollectionMetadataImpl) SetStringArray(key string, value []string) {
 	if len(value) == 0 {
 		return
 	}
-	cm.metadata[key] = MetadataValue{StringArray: value}
+	cp := make([]string, len(value))
+	copy(cp, value)
+	cm.metadata[key] = MetadataValue{StringArray: cp}
 }
 
 func (cm *CollectionMetadataImpl) SetIntArray(key string, value []int64) {
 	if len(value) == 0 {
 		return
 	}
-	cm.metadata[key] = MetadataValue{IntArray: value}
+	cp := make([]int64, len(value))
+	copy(cp, value)
+	cm.metadata[key] = MetadataValue{IntArray: cp}
 }
 
 func (cm *CollectionMetadataImpl) SetFloatArray(key string, value []float64) {
 	if len(value) == 0 {
 		return
 	}
-	cm.metadata[key] = MetadataValue{FloatArray: value}
+	cp := make([]float64, len(value))
+	copy(cp, value)
+	cm.metadata[key] = MetadataValue{FloatArray: cp}
 }
 
 func (cm *CollectionMetadataImpl) SetBoolArray(key string, value []bool) {
 	if len(value) == 0 {
 		return
 	}
-	cm.metadata[key] = MetadataValue{BoolArray: value}
+	cp := make([]bool, len(value))
+	copy(cp, value)
+	cm.metadata[key] = MetadataValue{BoolArray: cp}
 }
 
 func (cm *CollectionMetadataImpl) MarshalJSON() ([]byte, error) {
