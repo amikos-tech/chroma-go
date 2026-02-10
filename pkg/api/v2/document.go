@@ -96,6 +96,9 @@ type DocumentMetadataImpl struct {
 func NewDocumentMetadata(attributes ...*MetaAttribute) DocumentMetadata {
 	metadata := make(map[string]MetadataValue)
 	for _, attribute := range attributes {
+		if attribute == nil {
+			continue
+		}
 		metadata[attribute.key] = attribute.value
 	}
 	return &DocumentMetadataImpl{metadata: metadata}
