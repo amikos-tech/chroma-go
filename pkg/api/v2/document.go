@@ -292,18 +292,30 @@ func (cm *DocumentMetadataImpl) SetBool(key string, value bool) {
 }
 
 func (cm *DocumentMetadataImpl) SetStringArray(key string, value []string) {
+	if len(value) == 0 {
+		return
+	}
 	cm.metadata[key] = MetadataValue{StringArray: value}
 }
 
 func (cm *DocumentMetadataImpl) SetIntArray(key string, value []int64) {
+	if len(value) == 0 {
+		return
+	}
 	cm.metadata[key] = MetadataValue{IntArray: value}
 }
 
 func (cm *DocumentMetadataImpl) SetFloatArray(key string, value []float64) {
+	if len(value) == 0 {
+		return
+	}
 	cm.metadata[key] = MetadataValue{FloatArray: value}
 }
 
 func (cm *DocumentMetadataImpl) SetBoolArray(key string, value []bool) {
+	if len(value) == 0 {
+		return
+	}
 	cm.metadata[key] = MetadataValue{BoolArray: value}
 }
 

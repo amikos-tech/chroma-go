@@ -532,6 +532,36 @@ func TestNewMetadataSkipsNilAttributes(t *testing.T) {
 	require.Equal(t, []string{"a"}, arr)
 }
 
+func TestSetArrayEmptySliceIsNoop(t *testing.T) {
+	cm := NewMetadata(NewStringAttribute("name", "test"))
+	cm.SetStringArray("tags", []string{})
+	cm.SetIntArray("nums", []int64{})
+	cm.SetFloatArray("vals", []float64{})
+	cm.SetBoolArray("flags", []bool{})
+	_, ok := cm.GetStringArray("tags")
+	require.False(t, ok)
+	_, ok = cm.GetIntArray("nums")
+	require.False(t, ok)
+	_, ok = cm.GetFloatArray("vals")
+	require.False(t, ok)
+	_, ok = cm.GetBoolArray("flags")
+	require.False(t, ok)
+
+	dm := NewDocumentMetadata(NewStringAttribute("name", "test"))
+	dm.SetStringArray("tags", []string{})
+	dm.SetIntArray("nums", []int64{})
+	dm.SetFloatArray("vals", []float64{})
+	dm.SetBoolArray("flags", []bool{})
+	_, ok = dm.GetStringArray("tags")
+	require.False(t, ok)
+	_, ok = dm.GetIntArray("nums")
+	require.False(t, ok)
+	_, ok = dm.GetFloatArray("vals")
+	require.False(t, ok)
+	_, ok = dm.GetBoolArray("flags")
+	require.False(t, ok)
+}
+
 func TestUnmarshalArrayMixedTypesError(t *testing.T) {
 	tests := []struct {
 		name  string
