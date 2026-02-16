@@ -343,13 +343,21 @@ func (cm *DocumentMetadataImpl) MarshalJSON() ([]byte, error) {
 		case string:
 			processed[k], _ = v.GetString()
 		case []string:
-			processed[k] = v.StringArray
+			cp := make([]string, len(v.StringArray))
+			copy(cp, v.StringArray)
+			processed[k] = cp
 		case []int64:
-			processed[k] = v.IntArray
+			cp := make([]int64, len(v.IntArray))
+			copy(cp, v.IntArray)
+			processed[k] = cp
 		case []float64:
-			processed[k] = v.FloatArray
+			cp := make([]float64, len(v.FloatArray))
+			copy(cp, v.FloatArray)
+			processed[k] = cp
 		case []bool:
-			processed[k] = v.BoolArray
+			cp := make([]bool, len(v.BoolArray))
+			copy(cp, v.BoolArray)
+			processed[k] = cp
 		}
 	}
 	b := bytes.NewBuffer(nil)
