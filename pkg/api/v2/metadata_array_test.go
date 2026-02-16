@@ -675,3 +675,33 @@ func TestGetArrayReturnsCopy(t *testing.T) {
 	originalBool, _ := mv4.GetBoolArray()
 	require.Equal(t, true, originalBool[0])
 }
+
+func TestGetRawArrayReturnsCopy(t *testing.T) {
+	mv := MetadataValue{StringArray: []string{"a", "b"}}
+	raw, ok := mv.GetRaw()
+	require.True(t, ok)
+	raw.([]string)[0] = "modified"
+	original, _ := mv.GetRaw()
+	require.Equal(t, "a", original.([]string)[0])
+
+	mv2 := MetadataValue{IntArray: []int64{1, 2}}
+	raw2, ok := mv2.GetRaw()
+	require.True(t, ok)
+	raw2.([]int64)[0] = 99
+	original2, _ := mv2.GetRaw()
+	require.Equal(t, int64(1), original2.([]int64)[0])
+
+	mv3 := MetadataValue{FloatArray: []float64{1.1, 2.2}}
+	raw3, ok := mv3.GetRaw()
+	require.True(t, ok)
+	raw3.([]float64)[0] = 99.9
+	original3, _ := mv3.GetRaw()
+	require.Equal(t, 1.1, original3.([]float64)[0])
+
+	mv4 := MetadataValue{BoolArray: []bool{true, false}}
+	raw4, ok := mv4.GetRaw()
+	require.True(t, ok)
+	raw4.([]bool)[0] = false
+	original4, _ := mv4.GetRaw()
+	require.Equal(t, true, original4.([]bool)[0])
+}

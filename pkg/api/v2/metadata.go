@@ -179,16 +179,24 @@ func (mv *MetadataValue) GetRaw() (interface{}, bool) {
 		return *mv.StringValue, true
 	}
 	if mv.StringArray != nil {
-		return mv.StringArray, true
+		cp := make([]string, len(mv.StringArray))
+		copy(cp, mv.StringArray)
+		return cp, true
 	}
 	if mv.IntArray != nil {
-		return mv.IntArray, true
+		cp := make([]int64, len(mv.IntArray))
+		copy(cp, mv.IntArray)
+		return cp, true
 	}
 	if mv.FloatArray != nil {
-		return mv.FloatArray, true
+		cp := make([]float64, len(mv.FloatArray))
+		copy(cp, mv.FloatArray)
+		return cp, true
 	}
 	if mv.BoolArray != nil {
-		return mv.BoolArray, true
+		cp := make([]bool, len(mv.BoolArray))
+		copy(cp, mv.BoolArray)
+		return cp, true
 	}
 	return nil, false
 }
