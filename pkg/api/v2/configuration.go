@@ -2,6 +2,7 @@ package v2
 
 import (
 	"encoding/json"
+	"math"
 
 	"github.com/pkg/errors"
 
@@ -255,6 +256,10 @@ func (u *UpdateCollectionConfiguration) Validate() error {
 		return errors.New("cannot update both hnsw and spann configuration in the same request")
 	}
 	if u.Hnsw != nil {
+		if u.Hnsw.EfSearch == nil && u.Hnsw.NumThreads == nil && u.Hnsw.BatchSize == nil &&
+			u.Hnsw.SyncThreshold == nil && u.Hnsw.ResizeFactor == nil {
+			return errors.New("hnsw configuration must specify at least one parameter")
+		}
 		if u.Hnsw.EfSearch != nil && *u.Hnsw.EfSearch == 0 {
 			return errors.New("ef_search must be greater than 0")
 		}
@@ -270,8 +275,14 @@ func (u *UpdateCollectionConfiguration) Validate() error {
 		if u.Hnsw.ResizeFactor != nil && *u.Hnsw.ResizeFactor <= 0 {
 			return errors.New("resize_factor must be greater than 0")
 		}
+		if u.Hnsw.ResizeFactor != nil && (math.IsNaN(*u.Hnsw.ResizeFactor) || math.IsInf(*u.Hnsw.ResizeFactor, 0)) {
+			return errors.New("resize_factor must be a finite number")
+		}
 	}
 	if u.Spann != nil {
+		if u.Spann.SearchNprobe == nil && u.Spann.EfSearch == nil {
+			return errors.New("spann configuration must specify at least one parameter")
+		}
 		if u.Spann.SearchNprobe != nil && *u.Spann.SearchNprobe == 0 {
 			return errors.New("search_nprobe must be greater than 0")
 		}

@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"os"
 	"testing"
 
@@ -853,6 +854,34 @@ func TestUpdateCollectionConfiguration_Validate(t *testing.T) {
 		err := cfg.Validate()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "resize_factor must be greater than 0")
+	})
+
+	t.Run("hnsw resize_factor NaN returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWResizeFactorModify(math.NaN()))
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "resize_factor must be a finite number")
+	})
+
+	t.Run("hnsw resize_factor positive Inf returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWResizeFactorModify(math.Inf(1)))
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "resize_factor must be a finite number")
+	})
+
+	t.Run("hnsw empty sub-config returns error", func(t *testing.T) {
+		cfg := &UpdateCollectionConfiguration{Hnsw: &UpdateHNSWConfiguration{}}
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "hnsw configuration must specify at least one parameter")
+	})
+
+	t.Run("spann empty sub-config returns error", func(t *testing.T) {
+		cfg := &UpdateCollectionConfiguration{Spann: &UpdateSpannConfiguration{}}
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "spann configuration must specify at least one parameter")
 	})
 
 	t.Run("spann search_nprobe zero returns error", func(t *testing.T) {
