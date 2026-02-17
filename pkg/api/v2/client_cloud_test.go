@@ -1345,3 +1345,35 @@ func TestCloudClientConfig(t *testing.T) {
 		require.Equal(t, NewDatabase("other_db", NewTenant("other_tenant")), testClient.Database())
 	})
 }
+
+// TestCloudModifyConfiguration tests ModifyConfiguration with HNSW and SPANN parameters
+func TestCloudModifyConfiguration(t *testing.T) {
+	client := setupCloudClient(t)
+
+	t.Run("modify HNSW configuration", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_modify_hnsw_cfg-" + uuid.New().String()
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		cfg := NewUpdateCollectionConfiguration(WithHNSWEfSearchModify(200))
+		err = collection.ModifyConfiguration(ctx, cfg)
+		require.NoError(t, err)
+	})
+
+	t.Run("modify SPANN configuration", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_modify_spann_cfg-" + uuid.New().String()
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		cfg := NewUpdateCollectionConfiguration(
+			WithSpannSearchNprobeModify(32),
+			WithSpannEfSearchModify(64),
+		)
+		err = collection.ModifyConfiguration(ctx, cfg)
+		require.NoError(t, err)
+	})
+}

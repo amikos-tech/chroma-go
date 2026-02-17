@@ -696,7 +696,54 @@ func TestCollectionModifyMetadata(t *testing.T) {
 }
 
 func TestCollectionModifyConfiguration(t *testing.T) {
-	t.Skip("not implemented")
+	rx1 := regexp.MustCompile(`/api/v2/tenants/[^/]+/databases/[^/]+/collections/[^/]+`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("Request: %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
+		respBody := chhttp.ReadRespBody(r.Body)
+		t.Logf("Body: %s", respBody)
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/pre-flight-checks":
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"max_batch_size":100}`))
+			require.NoError(t, err)
+		case r.Method == http.MethodPut && rx1.MatchString(r.URL.Path):
+			w.WriteHeader(http.StatusOK)
+			require.Equal(t, `{"new_configuration":{"hnsw":{"ef_search":200}}}`, respBody)
+			_, err := w.Write([]byte(`true`))
+			require.NoError(t, err)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	collection := &CollectionImpl{
+		name:              "test",
+		id:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+		tenant:            NewDefaultTenant(),
+		database:          NewDefaultDatabase(),
+		metadata:          NewMetadata(),
+		client:            client.(*APIClientV2),
+		embeddingFunction: embeddings.NewConsistentHashEmbeddingFunction(),
+	}
+
+	require.NotNil(t, collection)
+	cfg := NewUpdateCollectionConfiguration(WithHNSWEfSearchModify(200))
+	err = collection.ModifyConfiguration(context.Background(), cfg)
+	require.NoError(t, err)
+}
+
+func TestCollectionModifyConfiguration_NilConfig(t *testing.T) {
+	collection := &CollectionImpl{
+		name:     "test",
+		id:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+		tenant:   NewDefaultTenant(),
+		database: NewDefaultDatabase(),
+	}
+	err := collection.ModifyConfiguration(context.Background(), nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "newConfig cannot be nil")
 }
 
 func TestCollectionGet(t *testing.T) {

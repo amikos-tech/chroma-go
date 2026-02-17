@@ -213,3 +213,111 @@ func BuildEmbeddingFunctionFromConfig(cfg *CollectionConfigurationImpl) (embeddi
 
 	return nil, nil
 }
+
+// UpdateHNSWConfiguration contains mutable HNSW parameters that can be changed after collection creation.
+type UpdateHNSWConfiguration struct {
+	EfSearch      *int     `json:"ef_search,omitempty"`
+	NumThreads    *int     `json:"num_threads,omitempty"`
+	BatchSize     *int     `json:"batch_size,omitempty"`
+	SyncThreshold *int     `json:"sync_threshold,omitempty"`
+	ResizeFactor  *float64 `json:"resize_factor,omitempty"`
+}
+
+// UpdateSpannConfiguration contains mutable SPANN parameters that can be changed after collection creation.
+type UpdateSpannConfiguration struct {
+	SearchNprobe *int `json:"search_nprobe,omitempty"`
+	EfSearch     *int `json:"ef_search,omitempty"`
+}
+
+// UpdateCollectionConfiguration holds configuration updates for an existing collection.
+// Only non-nil fields will be sent to the server.
+type UpdateCollectionConfiguration struct {
+	Hnsw  *UpdateHNSWConfiguration  `json:"hnsw,omitempty"`
+	Spann *UpdateSpannConfiguration `json:"spann,omitempty"`
+}
+
+func (u *UpdateCollectionConfiguration) GetRaw(key string) (any, bool) {
+	switch key {
+	case "hnsw":
+		return u.Hnsw, u.Hnsw != nil
+	case "spann":
+		return u.Spann, u.Spann != nil
+	default:
+		return nil, false
+	}
+}
+
+// ModifyConfigOption is a functional option for building an UpdateCollectionConfiguration.
+type ModifyConfigOption func(*UpdateCollectionConfiguration)
+
+// NewUpdateCollectionConfiguration creates an UpdateCollectionConfiguration from functional options.
+func NewUpdateCollectionConfiguration(opts ...ModifyConfigOption) *UpdateCollectionConfiguration {
+	cfg := &UpdateCollectionConfiguration{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	return cfg
+}
+
+func WithHNSWEfSearchModify(v int) ModifyConfigOption {
+	return func(c *UpdateCollectionConfiguration) {
+		if c.Hnsw == nil {
+			c.Hnsw = &UpdateHNSWConfiguration{}
+		}
+		c.Hnsw.EfSearch = &v
+	}
+}
+
+func WithHNSWNumThreadsModify(v int) ModifyConfigOption {
+	return func(c *UpdateCollectionConfiguration) {
+		if c.Hnsw == nil {
+			c.Hnsw = &UpdateHNSWConfiguration{}
+		}
+		c.Hnsw.NumThreads = &v
+	}
+}
+
+func WithHNSWBatchSizeModify(v int) ModifyConfigOption {
+	return func(c *UpdateCollectionConfiguration) {
+		if c.Hnsw == nil {
+			c.Hnsw = &UpdateHNSWConfiguration{}
+		}
+		c.Hnsw.BatchSize = &v
+	}
+}
+
+func WithHNSWSyncThresholdModify(v int) ModifyConfigOption {
+	return func(c *UpdateCollectionConfiguration) {
+		if c.Hnsw == nil {
+			c.Hnsw = &UpdateHNSWConfiguration{}
+		}
+		c.Hnsw.SyncThreshold = &v
+	}
+}
+
+func WithHNSWResizeFactorModify(v float64) ModifyConfigOption {
+	return func(c *UpdateCollectionConfiguration) {
+		if c.Hnsw == nil {
+			c.Hnsw = &UpdateHNSWConfiguration{}
+		}
+		c.Hnsw.ResizeFactor = &v
+	}
+}
+
+func WithSpannSearchNprobeModify(v int) ModifyConfigOption {
+	return func(c *UpdateCollectionConfiguration) {
+		if c.Spann == nil {
+			c.Spann = &UpdateSpannConfiguration{}
+		}
+		c.Spann.SearchNprobe = &v
+	}
+}
+
+func WithSpannEfSearchModify(v int) ModifyConfigOption {
+	return func(c *UpdateCollectionConfiguration) {
+		if c.Spann == nil {
+			c.Spann = &UpdateSpannConfiguration{}
+		}
+		c.Spann.EfSearch = &v
+	}
+}

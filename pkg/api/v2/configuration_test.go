@@ -663,3 +663,119 @@ func TestBuildEmbeddingFunctionFromConfig_PrefersDirectConfig(t *testing.T) {
 	// Should prefer the direct config (openai) over schema (consistent_hash)
 	assert.Equal(t, "openai", ef.Name())
 }
+
+func TestUpdateCollectionConfiguration_JSONMarshal(t *testing.T) {
+	t.Run("only set fields appear in JSON", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWEfSearchModify(200))
+		data, err := json.Marshal(cfg)
+		require.NoError(t, err)
+
+		var raw map[string]interface{}
+		err = json.Unmarshal(data, &raw)
+		require.NoError(t, err)
+		assert.Contains(t, raw, "hnsw")
+		assert.NotContains(t, raw, "spann")
+
+		hnsw, ok := raw["hnsw"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, float64(200), hnsw["ef_search"])
+		assert.NotContains(t, hnsw, "num_threads")
+		assert.NotContains(t, hnsw, "batch_size")
+	})
+
+	t.Run("multiple HNSW fields", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(
+			WithHNSWEfSearchModify(100),
+			WithHNSWBatchSizeModify(500),
+			WithHNSWResizeFactorModify(1.5),
+		)
+		data, err := json.Marshal(cfg)
+		require.NoError(t, err)
+
+		var raw map[string]interface{}
+		err = json.Unmarshal(data, &raw)
+		require.NoError(t, err)
+
+		hnsw := raw["hnsw"].(map[string]interface{})
+		assert.Equal(t, float64(100), hnsw["ef_search"])
+		assert.Equal(t, float64(500), hnsw["batch_size"])
+		assert.Equal(t, 1.5, hnsw["resize_factor"])
+	})
+
+	t.Run("SPANN fields", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(
+			WithSpannSearchNprobeModify(32),
+			WithSpannEfSearchModify(64),
+		)
+		data, err := json.Marshal(cfg)
+		require.NoError(t, err)
+
+		var raw map[string]interface{}
+		err = json.Unmarshal(data, &raw)
+		require.NoError(t, err)
+		assert.NotContains(t, raw, "hnsw")
+		assert.Contains(t, raw, "spann")
+
+		spann := raw["spann"].(map[string]interface{})
+		assert.Equal(t, float64(32), spann["search_nprobe"])
+		assert.Equal(t, float64(64), spann["ef_search"])
+	})
+
+	t.Run("empty config marshals to empty object", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration()
+		data, err := json.Marshal(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, `{}`, string(data))
+	})
+}
+
+func TestUpdateCollectionConfiguration_GetRaw(t *testing.T) {
+	t.Run("returns hnsw when set", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWEfSearchModify(100))
+		val, ok := cfg.GetRaw("hnsw")
+		assert.True(t, ok)
+		assert.NotNil(t, val)
+	})
+
+	t.Run("returns false for unset hnsw", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration()
+		_, ok := cfg.GetRaw("hnsw")
+		assert.False(t, ok)
+	})
+
+	t.Run("returns spann when set", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithSpannEfSearchModify(64))
+		val, ok := cfg.GetRaw("spann")
+		assert.True(t, ok)
+		assert.NotNil(t, val)
+	})
+
+	t.Run("returns false for unknown key", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWEfSearchModify(100))
+		_, ok := cfg.GetRaw("unknown")
+		assert.False(t, ok)
+	})
+}
+
+func TestNewUpdateCollectionConfiguration_AllOptions(t *testing.T) {
+	cfg := NewUpdateCollectionConfiguration(
+		WithHNSWEfSearchModify(200),
+		WithHNSWNumThreadsModify(4),
+		WithHNSWBatchSizeModify(500),
+		WithHNSWSyncThresholdModify(1000),
+		WithHNSWResizeFactorModify(1.5),
+		WithSpannSearchNprobeModify(32),
+		WithSpannEfSearchModify(64),
+	)
+
+	require.NotNil(t, cfg.Hnsw)
+	assert.Equal(t, 200, *cfg.Hnsw.EfSearch)
+	assert.Equal(t, 4, *cfg.Hnsw.NumThreads)
+	assert.Equal(t, 500, *cfg.Hnsw.BatchSize)
+	assert.Equal(t, 1000, *cfg.Hnsw.SyncThreshold)
+	assert.Equal(t, 1.5, *cfg.Hnsw.ResizeFactor)
+
+	require.NotNil(t, cfg.Spann)
+	assert.Equal(t, 32, *cfg.Spann.SearchNprobe)
+	assert.Equal(t, 64, *cfg.Spann.EfSearch)
+}

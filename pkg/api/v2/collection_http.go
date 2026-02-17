@@ -361,7 +361,20 @@ func (c *CollectionImpl) Query(ctx context.Context, opts ...CollectionQueryOptio
 }
 
 func (c *CollectionImpl) ModifyConfiguration(ctx context.Context, newConfig CollectionConfiguration) error {
-	return errors.New("not yet supported")
+	if newConfig == nil {
+		return errors.New("newConfig cannot be nil")
+	}
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID())
+	if err != nil {
+		return errors.Wrap(err, "error composing request URL")
+	}
+	_, err = c.client.ExecuteRequest(ctx, http.MethodPut, reqURL, map[string]interface{}{
+		"new_configuration": newConfig,
+	})
+	if err != nil {
+		return errors.Wrap(err, "error modifying collection configuration")
+	}
+	return nil
 }
 
 func (c *CollectionImpl) Metadata() CollectionMetadata {
