@@ -632,9 +632,30 @@ func NewEmptyMetadata() CollectionMetadata {
 	return &CollectionMetadataImpl{metadata: map[string]MetadataValue{}}
 }
 
+// NewMetadataFromMap converts map values into collection metadata.
+//
+// For backward compatibility this function uses best-effort conversion and
+// silently skips unsupported values. In particular, invalid []interface{}
+// arrays (mixed types, empty arrays, nested arrays, unsupported element types,
+// and conversion failures) are omitted without returning an error.
+//
+// Use NewMetadataFromMapStrict when you need error-returning behavior.
 func NewMetadataFromMap(metadata map[string]interface{}) CollectionMetadata {
+	mv, _ := newCollectionMetadataFromMap(metadata, false)
+	return mv
+}
+
+// NewMetadataFromMapStrict converts map values into collection metadata.
+//
+// Unlike NewMetadataFromMap, this function returns an error for unsupported
+// values and invalid []interface{} arrays.
+func NewMetadataFromMapStrict(metadata map[string]interface{}) (CollectionMetadata, error) {
+	return newCollectionMetadataFromMap(metadata, true)
+}
+
+func newCollectionMetadataFromMap(metadata map[string]interface{}, strict bool) (CollectionMetadata, error) {
 	if metadata == nil {
-		return NewMetadata()
+		return NewEmptyMetadata(), nil
 	}
 
 	mv := &CollectionMetadataImpl{metadata: make(map[string]MetadataValue)}
@@ -644,13 +665,23 @@ func NewMetadataFromMap(metadata map[string]interface{}) CollectionMetadata {
 		case json.Number:
 			numStr := string(val)
 			if strings.Contains(numStr, ".") || strings.Contains(numStr, "e") || strings.Contains(numStr, "E") {
-				if floatVal, err := val.Float64(); err == nil {
-					mv.SetFloat(k, floatVal)
+				floatVal, err := val.Float64()
+				if err != nil {
+					if strict {
+						return nil, errors.Errorf("invalid float value for key %q: %v", k, val)
+					}
+					continue
 				}
+				mv.SetFloat(k, floatVal)
 			} else {
-				if intVal, err := val.Int64(); err == nil {
-					mv.SetInt(k, intVal)
+				intVal, err := val.Int64()
+				if err != nil {
+					if strict {
+						return nil, errors.Errorf("invalid int value for key %q: %v", k, val)
+					}
+					continue
 				}
+				mv.SetInt(k, intVal)
 			}
 		case bool:
 			mv.SetBool(k, val)
@@ -675,12 +706,25 @@ func NewMetadataFromMap(metadata map[string]interface{}) CollectionMetadata {
 		case []bool:
 			mv.SetBoolArray(k, val)
 		case []interface{}:
-			if arr, err := convertInterfaceSliceToMetadataValue(val); err == nil {
-				mv.metadata[k] = arr
+			arr, err := convertInterfaceSliceToMetadataValue(val)
+			if err != nil {
+				if strict {
+					return nil, errors.Wrapf(err, "invalid array metadata for key %q", k)
+				}
+				continue
+			}
+			mv.metadata[k] = arr
+		case nil:
+			if strict {
+				return nil, errors.Errorf("invalid metadata value for key %q: null is not supported", k)
+			}
+		default:
+			if strict {
+				return nil, errors.Errorf("invalid metadata value type for key %q: %T", k, v)
 			}
 		}
 	}
-	return mv
+	return mv, nil
 }
 
 func (cm *CollectionMetadataImpl) Keys() []string {

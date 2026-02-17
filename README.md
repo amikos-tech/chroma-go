@@ -200,6 +200,39 @@ func main() {
 }
 ```
 
+### Strict Metadata Map Validation
+
+When metadata comes from `map[string]interface{}`:
+
+- `NewMetadataFromMap` is best-effort and silently skips invalid `[]interface{}` values.
+- `NewMetadataFromMapStrict` returns an error for invalid or unsupported values.
+- `WithCollectionMetadataMapCreateStrict` applies strict conversion in create/get-or-create flows and returns a deferred option error before any HTTP request is sent.
+
+```go
+// Strict create/get-or-create metadata map conversion
+col, err := client.GetOrCreateCollection(context.Background(), "col1",
+	chroma.WithCollectionMetadataMapCreateStrict(map[string]interface{}{
+		"description": "validated metadata",
+		"tags":        []interface{}{"a", "b"},
+	}),
+)
+if err != nil {
+	log.Fatalf("Error creating collection: %s", err)
+}
+
+// Strict metadata map conversion before collection metadata update
+newMetadata, err := chroma.NewMetadataFromMapStrict(map[string]interface{}{
+	"description": "updated description",
+	"tags":        []interface{}{"x", "y"},
+})
+if err != nil {
+	log.Fatalf("Invalid metadata map: %s", err)
+}
+if err := col.ModifyMetadata(context.Background(), newMetadata); err != nil {
+	log.Fatalf("Error modifying metadata: %s", err)
+}
+```
+
 ### Unified Options API
 
 The V2 API provides a unified options pattern where common options work across multiple operations:

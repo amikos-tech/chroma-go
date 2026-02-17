@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
@@ -700,6 +701,89 @@ func TestClientClose(t *testing.T) {
 	err = client.Close()
 	require.NoError(t, err)
 
+}
+
+func TestWithCollectionMetadataMapCreateStrict(t *testing.T) {
+	t.Run("returns deferred error when option is applied", func(t *testing.T) {
+		opt := WithCollectionMetadataMapCreateStrict(map[string]interface{}{
+			"tags": []interface{}{"a", 1},
+		})
+
+		_, err := NewCreateCollectionOp("test", opt)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error converting metadata map")
+		require.Contains(t, err.Error(), `invalid array metadata for key "tags"`)
+	})
+
+	t.Run("sets metadata when map is valid", func(t *testing.T) {
+		op, err := NewCreateCollectionOp("test", WithCollectionMetadataMapCreateStrict(map[string]interface{}{
+			"title": "hello",
+			"tags":  []interface{}{"a", "b"},
+		}))
+		require.NoError(t, err)
+
+		title, ok := op.Metadata.GetString("title")
+		require.True(t, ok)
+		require.Equal(t, "hello", title)
+
+		tags, ok := op.Metadata.GetStringArray("tags")
+		require.True(t, ok)
+		require.Equal(t, []string{"a", "b"}, tags)
+	})
+}
+
+func TestCreateCollectionWithCollectionMetadataMapCreateStrictDeferredError(t *testing.T) {
+	var reqCount atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqCount.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, client.Close())
+	}()
+
+	_, err = client.CreateCollection(
+		context.Background(),
+		"test",
+		WithCollectionMetadataMapCreateStrict(map[string]interface{}{
+			"tags": []interface{}{"a", 1},
+		}),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error preparing collection create request")
+	require.Contains(t, err.Error(), "error converting metadata map")
+	require.Equal(t, int32(0), reqCount.Load())
+}
+
+func TestGetOrCreateCollectionWithCollectionMetadataMapCreateStrictDeferredError(t *testing.T) {
+	var reqCount atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqCount.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, client.Close())
+	}()
+
+	_, err = client.GetOrCreateCollection(
+		context.Background(),
+		"test",
+		WithCollectionMetadataMapCreateStrict(map[string]interface{}{
+			"tags": []interface{}{"a", 1},
+		}),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error preparing collection create request")
+	require.Contains(t, err.Error(), "error converting metadata map")
+	require.Equal(t, int32(0), reqCount.Load())
 }
 
 func TestClientSetup(t *testing.T) {

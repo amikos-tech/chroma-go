@@ -262,6 +262,130 @@ func TestNewMetadataFromMapWithInterfaceSlice(t *testing.T) {
 	require.Equal(t, []string{"a", "b"}, arr)
 }
 
+func TestNewMetadataFromMapDropsInvalidInterfaceSlices(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []interface{}
+	}{
+		{"mixed types", []interface{}{"a", 1}},
+		{"empty", []interface{}{}},
+		{"nested arrays", []interface{}{[]interface{}{"nested"}}},
+		{"unsupported element type", []interface{}{map[string]interface{}{"k": "v"}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewMetadataFromMap(map[string]interface{}{
+				"valid":   "kept",
+				"invalid": tt.input,
+			})
+
+			val, ok := m.GetString("valid")
+			require.True(t, ok)
+			require.Equal(t, "kept", val)
+
+			_, ok = m.GetRaw("invalid")
+			require.False(t, ok)
+		})
+	}
+}
+
+func TestNewMetadataFromMapStrictReturnsErrorForInvalidInterfaceSlices(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []interface{}
+	}{
+		{"mixed types", []interface{}{"a", 1}},
+		{"empty", []interface{}{}},
+		{"nested arrays", []interface{}{[]interface{}{"nested"}}},
+		{"unsupported element type", []interface{}{map[string]interface{}{"k": "v"}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewMetadataFromMapStrict(map[string]interface{}{
+				"invalid": tt.input,
+			})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), `invalid array metadata for key "invalid"`)
+		})
+	}
+}
+
+func TestNewMetadataFromMapStrictReturnsErrorForUnsupportedType(t *testing.T) {
+	_, err := NewMetadataFromMapStrict(map[string]interface{}{
+		"invalid": struct{}{},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid metadata value type")
+	require.Contains(t, err.Error(), `"invalid"`)
+}
+
+func TestNewMetadataFromMapStrictReturnsErrorForJsonNumberFloatOverflow(t *testing.T) {
+	_, err := NewMetadataFromMapStrict(map[string]interface{}{
+		"invalid": json.Number("1e999"),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `invalid float value for key "invalid"`)
+}
+
+func TestNewMetadataFromMapStrictReturnsErrorForJsonNumberIntOverflow(t *testing.T) {
+	_, err := NewMetadataFromMapStrict(map[string]interface{}{
+		"invalid": json.Number("99999999999999999999"),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `invalid int value for key "invalid"`)
+}
+
+func TestNewMetadataFromMapStrictNilMap(t *testing.T) {
+	m, err := NewMetadataFromMapStrict(nil)
+	require.NoError(t, err)
+	require.NotNil(t, m)
+	require.IsType(t, &CollectionMetadataImpl{}, m)
+	require.Empty(t, m.Keys())
+}
+
+func TestNewMetadataFromMapNilMap(t *testing.T) {
+	m := NewMetadataFromMap(nil)
+	require.NotNil(t, m)
+	require.IsType(t, &CollectionMetadataImpl{}, m)
+	require.Empty(t, m.Keys())
+}
+
+func TestNewMetadataFromMapStrictReturnsErrorForNilValue(t *testing.T) {
+	_, err := NewMetadataFromMapStrict(map[string]interface{}{
+		"invalid": nil,
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `invalid metadata value for key "invalid": null is not supported`)
+}
+
+func TestNewMetadataFromMapStrictWithValidValues(t *testing.T) {
+	m, err := NewMetadataFromMapStrict(map[string]interface{}{
+		"title":   "hello",
+		"enabled": true,
+		"count":   json.Number("42"),
+		"tags":    []interface{}{"a", "b"},
+	})
+	require.NoError(t, err)
+
+	title, ok := m.GetString("title")
+	require.True(t, ok)
+	require.Equal(t, "hello", title)
+
+	enabled, ok := m.GetBool("enabled")
+	require.True(t, ok)
+	require.True(t, enabled)
+
+	count, ok := m.GetInt("count")
+	require.True(t, ok)
+	require.Equal(t, int64(42), count)
+
+	tags, ok := m.GetStringArray("tags")
+	require.True(t, ok)
+	require.Equal(t, []string{"a", "b"}, tags)
+}
+
 func TestNewDocumentMetadataFromMapWithArrays(t *testing.T) {
 	md, err := NewDocumentMetadataFromMap(map[string]interface{}{
 		"tags":   []string{"x", "y"},

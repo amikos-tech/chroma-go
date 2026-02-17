@@ -315,6 +315,20 @@ func WithCollectionMetadataCreate(metadata CollectionMetadata) CreateCollectionO
 	}
 }
 
+// WithCollectionMetadataMapCreateStrict converts metadata from a raw map using
+// strict validation. Invalid metadata causes collection operations to fail
+// before any HTTP request is sent.
+func WithCollectionMetadataMapCreateStrict(metadata map[string]interface{}) CreateCollectionOption {
+	return func(op *CreateCollectionOp) error {
+		mv, err := NewMetadataFromMapStrict(metadata)
+		if err != nil {
+			return errors.Wrap(err, "error converting metadata map")
+		}
+		op.Metadata = mv
+		return nil
+	}
+}
+
 // WithDatabaseCreate allows the creation of a collection in a specific database, different from the default one set at Client level.
 func WithDatabaseCreate(database Database) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
