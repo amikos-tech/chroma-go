@@ -364,6 +364,11 @@ func (c *CollectionImpl) ModifyConfiguration(ctx context.Context, newConfig Coll
 	if newConfig == nil {
 		return errors.New("newConfig cannot be nil")
 	}
+	if uc, ok := newConfig.(*UpdateCollectionConfiguration); ok {
+		if err := uc.Validate(); err != nil {
+			return err
+		}
+	}
 	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID())
 	if err != nil {
 		return errors.Wrap(err, "error composing request URL")

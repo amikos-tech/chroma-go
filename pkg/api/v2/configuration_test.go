@@ -764,18 +764,76 @@ func TestNewUpdateCollectionConfiguration_AllOptions(t *testing.T) {
 		WithHNSWBatchSizeModify(500),
 		WithHNSWSyncThresholdModify(1000),
 		WithHNSWResizeFactorModify(1.5),
+	)
+
+	require.NotNil(t, cfg.Hnsw)
+	assert.Equal(t, uint(200), *cfg.Hnsw.EfSearch)
+	assert.Equal(t, uint(4), *cfg.Hnsw.NumThreads)
+	assert.Equal(t, uint(500), *cfg.Hnsw.BatchSize)
+	assert.Equal(t, uint(1000), *cfg.Hnsw.SyncThreshold)
+	assert.Equal(t, 1.5, *cfg.Hnsw.ResizeFactor)
+
+	spannCfg := NewUpdateCollectionConfiguration(
 		WithSpannSearchNprobeModify(32),
 		WithSpannEfSearchModify(64),
 	)
 
-	require.NotNil(t, cfg.Hnsw)
-	assert.Equal(t, 200, *cfg.Hnsw.EfSearch)
-	assert.Equal(t, 4, *cfg.Hnsw.NumThreads)
-	assert.Equal(t, 500, *cfg.Hnsw.BatchSize)
-	assert.Equal(t, 1000, *cfg.Hnsw.SyncThreshold)
-	assert.Equal(t, 1.5, *cfg.Hnsw.ResizeFactor)
-
-	require.NotNil(t, cfg.Spann)
-	assert.Equal(t, 32, *cfg.Spann.SearchNprobe)
-	assert.Equal(t, 64, *cfg.Spann.EfSearch)
+	require.NotNil(t, spannCfg.Spann)
+	assert.Equal(t, uint(32), *spannCfg.Spann.SearchNprobe)
+	assert.Equal(t, uint(64), *spannCfg.Spann.EfSearch)
 }
+
+func TestUpdateCollectionConfiguration_Validate(t *testing.T) {
+	t.Run("empty config returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration()
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "at least one parameter")
+	})
+
+	t.Run("hnsw only is valid", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWEfSearchModify(200))
+		err := cfg.Validate()
+		require.NoError(t, err)
+	})
+
+	t.Run("spann only is valid", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithSpannEfSearchModify(64))
+		err := cfg.Validate()
+		require.NoError(t, err)
+	})
+
+	t.Run("both hnsw and spann returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(
+			WithHNSWEfSearchModify(200),
+			WithSpannEfSearchModify(64),
+		)
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot update both")
+	})
+}
+
+func TestUpdateCollectionConfiguration_JSONMarshal_Combined(t *testing.T) {
+	t.Run("hnsw and spann both present in JSON", func(t *testing.T) {
+		cfg := &UpdateCollectionConfiguration{
+			Hnsw:  &UpdateHNSWConfiguration{EfSearch: ptrUint(200)},
+			Spann: &UpdateSpannConfiguration{SearchNprobe: ptrUint(32)},
+		}
+		data, err := json.Marshal(cfg)
+		require.NoError(t, err)
+
+		var raw map[string]interface{}
+		err = json.Unmarshal(data, &raw)
+		require.NoError(t, err)
+		assert.Contains(t, raw, "hnsw")
+		assert.Contains(t, raw, "spann")
+
+		hnsw := raw["hnsw"].(map[string]interface{})
+		assert.Equal(t, float64(200), hnsw["ef_search"])
+		spann := raw["spann"].(map[string]interface{})
+		assert.Equal(t, float64(32), spann["search_nprobe"])
+	})
+}
+
+func ptrUint(v uint) *uint { return &v }

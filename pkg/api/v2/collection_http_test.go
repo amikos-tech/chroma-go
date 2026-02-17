@@ -746,6 +746,104 @@ func TestCollectionModifyConfiguration_NilConfig(t *testing.T) {
 	require.Contains(t, err.Error(), "newConfig cannot be nil")
 }
 
+func TestCollectionModifyConfiguration_EmptyConfig(t *testing.T) {
+	collection := &CollectionImpl{
+		name:     "test",
+		id:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+		tenant:   NewDefaultTenant(),
+		database: NewDefaultDatabase(),
+	}
+	cfg := NewUpdateCollectionConfiguration()
+	err := collection.ModifyConfiguration(context.Background(), cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "at least one parameter")
+}
+
+func TestCollectionModifyConfiguration_MutualExclusivity(t *testing.T) {
+	collection := &CollectionImpl{
+		name:     "test",
+		id:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+		tenant:   NewDefaultTenant(),
+		database: NewDefaultDatabase(),
+	}
+	cfg := NewUpdateCollectionConfiguration(
+		WithHNSWEfSearchModify(200),
+		WithSpannEfSearchModify(64),
+	)
+	err := collection.ModifyConfiguration(context.Background(), cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot update both")
+}
+
+func TestCollectionModifyConfiguration_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/pre-flight-checks":
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"max_batch_size":100}`))
+			require.NoError(t, err)
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+			_, err := w.Write([]byte(`{"error":"invalid configuration parameter"}`))
+			require.NoError(t, err)
+		}
+	}))
+	defer server.Close()
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	collection := &CollectionImpl{
+		name:              "test",
+		id:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+		tenant:            NewDefaultTenant(),
+		database:          NewDefaultDatabase(),
+		metadata:          NewMetadata(),
+		client:            client.(*APIClientV2),
+		embeddingFunction: embeddings.NewConsistentHashEmbeddingFunction(),
+	}
+	cfg := NewUpdateCollectionConfiguration(WithHNSWEfSearchModify(200))
+	err = collection.ModifyConfiguration(context.Background(), cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error modifying collection configuration")
+}
+
+func TestCollectionModifyConfiguration_SpannWireFormat(t *testing.T) {
+	rx1 := regexp.MustCompile(`/api/v2/tenants/[^/]+/databases/[^/]+/collections/[^/]+`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		respBody := chhttp.ReadRespBody(r.Body)
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/pre-flight-checks":
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"max_batch_size":100}`))
+			require.NoError(t, err)
+		case r.Method == http.MethodPut && rx1.MatchString(r.URL.Path):
+			w.WriteHeader(http.StatusOK)
+			require.Equal(t, `{"new_configuration":{"spann":{"search_nprobe":32,"ef_search":64}}}`, respBody)
+			_, err := w.Write([]byte(`true`))
+			require.NoError(t, err)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	collection := &CollectionImpl{
+		name:              "test",
+		id:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+		tenant:            NewDefaultTenant(),
+		database:          NewDefaultDatabase(),
+		metadata:          NewMetadata(),
+		client:            client.(*APIClientV2),
+		embeddingFunction: embeddings.NewConsistentHashEmbeddingFunction(),
+	}
+	cfg := NewUpdateCollectionConfiguration(
+		WithSpannSearchNprobeModify(32),
+		WithSpannEfSearchModify(64),
+	)
+	err = collection.ModifyConfiguration(context.Background(), cfg)
+	require.NoError(t, err)
+}
+
 func TestCollectionGet(t *testing.T) {
 	var tests = []struct {
 		name                 string
