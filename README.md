@@ -9,7 +9,7 @@
 
 A simple Chroma Vector Database client written in Go
 
-Works with Chroma Version: v0.6.3+
+Works with Chroma Version: v0.6.3 - v1.5.0
 
 We invite users to visit the docs site for the library for more in-depth
 information: [Chroma Go Docs](https://go-client.chromadb.dev/)
@@ -48,7 +48,7 @@ Additional support features:
 - ✅ Chroma Cloud support
 - ✅ [Structured Logging](https://go-client.chromadb.dev/logging/) - Injectable logger with Zap bridge for structured
   logging
-- ⚒️ Persistent Embedding Function support (coming soon) - automatically load embedding function from Chroma collection
+- ✅ Persistent Embedding Function support - automatically load embedding function from Chroma collection
   configuration
 - ⚒️ Persistent Client support (coming soon) - Run/embed full-featured Chroma in your go application without the need
   for Chroma server.
@@ -62,7 +62,7 @@ Additional support features:
 - ✅ [OpenAI Embedding](https://go-client.chromadb.dev/embeddings/#openai) Support
 - ✅ [Cohere](https://go-client.chromadb.dev/embeddings/#cohere) (including Multi-language support)
 - ✅ [Sentence Transformers](https://go-client.chromadb.dev/embeddings/#huggingface-inference-api) (HuggingFace Inference
-  API and [HFEI local server]())
+  API and [HFEI local server](https://go-client.chromadb.dev/embeddings/#huggingface-embedding-inference-server))
 - ✅ [Google Gemini Embedding](https://go-client.chromadb.dev/embeddings/#google-gemini-ai) Support
 - ✅ [HuggingFace Embedding Inference Server Support](https://go-client.chromadb.dev/embeddings/#huggingface-embedding-inference-server)
 - ✅ [Ollama Embedding](https://go-client.chromadb.dev/embeddings/#ollama) Support
@@ -74,6 +74,14 @@ Additional support features:
 - ✅ [Jina AI Embedding](https://go-client.chromadb.dev/embeddings/#jina-ai) Support
 - ✅ [Roboflow CLIP Embedding](https://go-client.chromadb.dev/embeddings/#roboflow) Support (Multimodal: text + images)
 - ✅ [Amazon Bedrock Embedding](https://go-client.chromadb.dev/embeddings/#amazon-bedrock) Support (Titan models, bearer token + SDK auth)
+- ✅ [Baseten Embedding](https://go-client.chromadb.dev/embeddings/#baseten) Support
+- ✅ [Morph Embedding](https://go-client.chromadb.dev/embeddings/#morph) Support
+
+**Sparse & Specialized Embedding Functions:**
+
+- ✅ [Chroma Cloud Embedding](https://go-client.chromadb.dev/embeddings/#chroma-cloud) Support
+- ✅ [Chroma Cloud Splade Embedding](https://go-client.chromadb.dev/embeddings/#chroma-cloud-splade) Support (sparse)
+- ✅ [BM25 Embedding](https://go-client.chromadb.dev/embeddings/#bm25) Support (sparse)
 
 ## Reranking Functions
 
