@@ -220,6 +220,28 @@ func main() {
 {% /codetab %}
 {% /codetabs %}
 
+For Go metadata maps:
+
+- `v2.NewMetadataFromMap` is best-effort and silently skips invalid `[]interface{}` values.
+- `v2.NewMetadataFromMapStrict` returns an error when metadata is invalid.
+- `v2.WithCollectionMetadataMapCreateStrict(...)` uses strict map conversion for collection create/get-or-create options.
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+collection, err := client.CreateCollection(ctx, "my_collection",
+	v2.WithCollectionMetadataMapCreateStrict(map[string]interface{}{
+		"description": "my first Chroma collection",
+		"tags":        []interface{}{"go", "sdk"},
+	}),
+)
+if err != nil {
+	log.Fatalf("Error creating collection: %v", err)
+}
+```
+{% /codetab %}
+{% /codetabs %}
+
 ## Getting Collections
 
 ### Get Collection by Name
@@ -452,17 +474,23 @@ func main() {
 		log.Fatalf("Error getting collection: %v", err)
 	}
 
-	// Modify collection name and metadata
-	err = collection.Modify(ctx,
-		v2.WithCollectionNameUpdate("new-name"),
-		v2.WithCollectionMetadataUpdate(
-			v2.NewMetadata(
-				v2.NewStringAttribute("description", "new description"),
-			),
-		),
-	)
+	// Modify collection name
+	err = collection.ModifyName(ctx, "new-name")
 	if err != nil {
-		log.Fatalf("Error modifying collection: %v", err)
+		log.Fatalf("Error modifying collection name: %v", err)
+	}
+
+	// Modify collection metadata from a raw map with strict validation
+	newMetadata, err := v2.NewMetadataFromMapStrict(map[string]interface{}{
+		"description": "new description",
+	})
+	if err != nil {
+		log.Fatalf("Invalid metadata map: %v", err)
+	}
+
+	err = collection.ModifyMetadata(ctx, newMetadata)
+	if err != nil {
+		log.Fatalf("Error modifying collection metadata: %v", err)
 	}
 
 	log.Println("Collection modified successfully")
