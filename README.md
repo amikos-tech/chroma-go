@@ -185,7 +185,10 @@ func main() {
 	}
 	fmt.Printf("Count collection: %d\n", count)
 
-	qr, err := col.Query(context.Background(), chroma.WithQueryTexts("say hello"))
+	qr, err := col.Query(context.Background(),
+		chroma.WithQueryTexts("say hello"),
+		chroma.WithInclude(chroma.IncludeDocuments),
+	)
 	if err != nil {
 		log.Fatalf("Error querying collection: %s \n", err)
 		return
