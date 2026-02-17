@@ -655,7 +655,7 @@ func NewMetadataFromMapStrict(metadata map[string]interface{}) (CollectionMetada
 
 func newCollectionMetadataFromMap(metadata map[string]interface{}, strict bool) (CollectionMetadata, error) {
 	if metadata == nil {
-		return NewMetadata(), nil
+		return NewEmptyMetadata(), nil
 	}
 
 	mv := &CollectionMetadataImpl{metadata: make(map[string]MetadataValue)}

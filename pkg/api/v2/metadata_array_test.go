@@ -341,6 +341,14 @@ func TestNewMetadataFromMapStrictNilMap(t *testing.T) {
 	m, err := NewMetadataFromMapStrict(nil)
 	require.NoError(t, err)
 	require.NotNil(t, m)
+	require.IsType(t, &CollectionMetadataImpl{}, m)
+	require.Empty(t, m.Keys())
+}
+
+func TestNewMetadataFromMapNilMap(t *testing.T) {
+	m := NewMetadataFromMap(nil)
+	require.NotNil(t, m)
+	require.IsType(t, &CollectionMetadataImpl{}, m)
 	require.Empty(t, m.Keys())
 }
 
