@@ -148,7 +148,7 @@ type Collection interface {
 
 	// ModifyConfiguration updates the collection's configuration.
 	// Note: Not all configuration changes may be supported.
-	ModifyConfiguration(ctx context.Context, newConfig CollectionConfiguration) error
+	ModifyConfiguration(ctx context.Context, newConfig *UpdateCollectionConfiguration) error
 
 	// Get retrieves documents from the collection by ID or filter.
 	//

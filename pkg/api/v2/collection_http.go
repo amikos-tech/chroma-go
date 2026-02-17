@@ -360,14 +360,12 @@ func (c *CollectionImpl) Query(ctx context.Context, opts ...CollectionQueryOptio
 	return queryResult, nil
 }
 
-func (c *CollectionImpl) ModifyConfiguration(ctx context.Context, newConfig CollectionConfiguration) error {
+func (c *CollectionImpl) ModifyConfiguration(ctx context.Context, newConfig *UpdateCollectionConfiguration) error {
 	if newConfig == nil {
 		return errors.New("newConfig cannot be nil")
 	}
-	if uc, ok := newConfig.(*UpdateCollectionConfiguration); ok {
-		if err := uc.Validate(); err != nil {
-			return err
-		}
+	if err := newConfig.Validate(); err != nil {
+		return err
 	}
 	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID())
 	if err != nil {

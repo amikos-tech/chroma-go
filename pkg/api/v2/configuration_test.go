@@ -812,6 +812,62 @@ func TestUpdateCollectionConfiguration_Validate(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot update both")
 	})
+
+	t.Run("hnsw ef_search zero returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWEfSearchModify(0))
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ef_search must be greater than 0")
+	})
+
+	t.Run("hnsw num_threads zero returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWNumThreadsModify(0))
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "num_threads must be greater than 0")
+	})
+
+	t.Run("hnsw batch_size zero returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWBatchSizeModify(0))
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "batch_size must be greater than 0")
+	})
+
+	t.Run("hnsw sync_threshold zero returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWSyncThresholdModify(0))
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "sync_threshold must be greater than 0")
+	})
+
+	t.Run("hnsw resize_factor zero returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWResizeFactorModify(0))
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "resize_factor must be greater than 0")
+	})
+
+	t.Run("hnsw resize_factor negative returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithHNSWResizeFactorModify(-1.5))
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "resize_factor must be greater than 0")
+	})
+
+	t.Run("spann search_nprobe zero returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithSpannSearchNprobeModify(0))
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "search_nprobe must be greater than 0")
+	})
+
+	t.Run("spann ef_search zero returns error", func(t *testing.T) {
+		cfg := NewUpdateCollectionConfiguration(WithSpannEfSearchModify(0))
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ef_search must be greater than 0")
+	})
 }
 
 func TestUpdateCollectionConfiguration_JSONMarshal_Combined(t *testing.T) {

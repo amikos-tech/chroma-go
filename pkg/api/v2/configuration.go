@@ -254,6 +254,31 @@ func (u *UpdateCollectionConfiguration) Validate() error {
 	if u.Hnsw != nil && u.Spann != nil {
 		return errors.New("cannot update both hnsw and spann configuration in the same request")
 	}
+	if u.Hnsw != nil {
+		if u.Hnsw.EfSearch != nil && *u.Hnsw.EfSearch == 0 {
+			return errors.New("ef_search must be greater than 0")
+		}
+		if u.Hnsw.NumThreads != nil && *u.Hnsw.NumThreads == 0 {
+			return errors.New("num_threads must be greater than 0")
+		}
+		if u.Hnsw.BatchSize != nil && *u.Hnsw.BatchSize == 0 {
+			return errors.New("batch_size must be greater than 0")
+		}
+		if u.Hnsw.SyncThreshold != nil && *u.Hnsw.SyncThreshold == 0 {
+			return errors.New("sync_threshold must be greater than 0")
+		}
+		if u.Hnsw.ResizeFactor != nil && *u.Hnsw.ResizeFactor <= 0 {
+			return errors.New("resize_factor must be greater than 0")
+		}
+	}
+	if u.Spann != nil {
+		if u.Spann.SearchNprobe != nil && *u.Spann.SearchNprobe == 0 {
+			return errors.New("search_nprobe must be greater than 0")
+		}
+		if u.Spann.EfSearch != nil && *u.Spann.EfSearch == 0 {
+			return errors.New("ef_search must be greater than 0")
+		}
+	}
 	return nil
 }
 
