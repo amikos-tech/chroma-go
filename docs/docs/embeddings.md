@@ -20,6 +20,15 @@ The following embedding wrappers are available:
 | [Roboflow](#roboflow)                                                             | Roboflow CLIP Embedding (Multimodal: text + images).<br/> For more info see [Roboflow Docs](https://inference.roboflow.com/).                               |
 | [Baseten](#baseten)                                                               | Baseten BEI (Baseten Embeddings Inference).<br/> Deploy your own embedding models. See [Baseten Docs](https://docs.baseten.co/engines/bei/overview).        |
 | [Amazon Bedrock](#amazon-bedrock)                                                 | Amazon Bedrock Embeddings (Titan models).<br/> For more info see [Bedrock Docs](https://docs.aws.amazon.com/bedrock/latest/userguide/embeddings.html).      |
+| [Morph](#morph)                                                                   | Morph AI Embeddings.<br/> For more info see [Morph Docs](https://docs.morphllm.com/).                                                                       |
+
+**Sparse & Specialized Embedding Functions:**
+
+| Embedding Model                                                                   | Description                                                                                                                                                 |
+|-----------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Chroma Cloud](#chroma-cloud)                                                     | Chroma Cloud hosted embeddings. Requires a Chroma Cloud API key.                                                                                            |
+| [Chroma Cloud Splade](#chroma-cloud-splade)                                       | Chroma Cloud SPLADE sparse embeddings for hybrid search.                                                                                                    |
+| [BM25](#bm25)                                                                     | Local BM25 sparse embeddings. No external API needed.                                                                                                       |
 
 ## Default Embeddings
 
@@ -184,7 +193,7 @@ import (
 	"context"
 	"fmt"
 
-	huggingface "github.com/amikos-tech/chroma-go/hf"
+	huggingface "github.com/amikos-tech/chroma-go/pkg/embeddings/hf"
 )
 
 func main() {
@@ -393,7 +402,7 @@ func main() {
 
 To use Mistral AI embeddings, you will need to create an [API Key](https://console.mistral.ai/api-keys/).
 
-Currently, (as of July 2024) only `mistral-embed` model is available, which is the default model we use.
+The default model is `mistral-embed`.
 
 ```go
 package main
@@ -898,5 +907,183 @@ func main() {
 		return
 	}
 	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+## Morph
+
+[Morph](https://docs.morphllm.com/) provides embedding models via an OpenAI-compatible API.
+
+Supported Embedding Function Options:
+
+- `WithAPIKey` - Set the API key directly.
+- `WithEnvAPIKey` - Use the `MORPH_API_KEY` environment variable.
+- `WithAPIKeyFromEnvVar` - Use a custom environment variable for the API key.
+- `WithModel` - Set the model. Default is `morph-embedding-v2`.
+- `WithBaseURL` - Set a custom base URL (default: `https://api.morphllm.com/v1/`).
+- `WithInsecure` - Allow HTTP connections (for local development only).
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	morph "github.com/amikos-tech/chroma-go/pkg/embeddings/morph"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `MORPH_API_KEY` set in your environment
+	ef, err := morph.NewMorphEmbeddingFunction(morph.WithEnvAPIKey())
+	if err != nil {
+		fmt.Printf("Error creating Morph embedding function: %s \n", err)
+		return
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+		return
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+## Chroma Cloud
+
+Chroma Cloud provides hosted dense embeddings via the Chroma embedding service. This requires a Chroma Cloud API key.
+
+The default model is `Qwen/Qwen3-Embedding-0.6B`.
+
+Supported Embedding Function Options:
+
+- `WithAPIKey` - Set the API key directly.
+- `WithEnvAPIKey` - Use the `CHROMA_API_KEY` environment variable.
+- `WithAPIKeyFromEnvVar` - Use a custom environment variable for the API key.
+- `WithModel` - Set the embedding model.
+- `WithTask` - Set a task type (e.g., `TaskNLToCode` for natural language to code retrieval).
+- `WithBaseURL` - Set a custom base URL (default: `https://embed.trychroma.com`).
+- `WithHTTPClient` - Use a custom HTTP client.
+- `WithInsecure` - Allow HTTP connections (for local development only).
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	chromacloud "github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloud"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `CHROMA_API_KEY` set in your environment
+	ef, err := chromacloud.NewEmbeddingFunction(chromacloud.WithEnvAPIKey())
+	if err != nil {
+		fmt.Printf("Error creating Chroma Cloud embedding function: %s \n", err)
+		return
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+		return
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+## Chroma Cloud Splade
+
+Chroma Cloud Splade provides hosted SPLADE sparse embeddings for hybrid search. This is a sparse embedding function that returns `SparseVector` results instead of dense float vectors. Requires a Chroma Cloud API key.
+
+The default model is `prithivida/Splade_PP_en_v1`.
+
+Supported Embedding Function Options:
+
+- `WithAPIKey` - Set the API key directly.
+- `WithEnvAPIKey` - Use the `CHROMA_API_KEY` environment variable.
+- `WithAPIKeyFromEnvVar` - Use a custom environment variable for the API key.
+- `WithModel` - Set the embedding model.
+- `WithBaseURL` - Set a custom base URL (default: `https://embed.trychroma.com/embed_sparse`).
+- `WithHTTPClient` - Use a custom HTTP client.
+- `WithInsecure` - Allow HTTP connections (for local development only).
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	splade "github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloudsplade"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `CHROMA_API_KEY` set in your environment
+	ef, err := splade.NewEmbeddingFunction(splade.WithEnvAPIKey())
+	if err != nil {
+		fmt.Printf("Error creating Chroma Cloud Splade embedding function: %s \n", err)
+		return
+	}
+	resp, err := ef.EmbedDocumentsSparse(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+		return
+	}
+	for i, sv := range resp {
+		fmt.Printf("Document %d: %d non-zero entries\n", i, len(sv.Indices))
+	}
+}
+```
+
+## BM25
+
+BM25 is a local sparse embedding function that requires no external API. It computes term-frequency-based sparse vectors using the BM25 scoring formula with murmur3 hashing, compatible with the Python Chroma client's BM25 implementation.
+
+Supported Embedding Function Options:
+
+- `WithK` - Set the BM25 saturation parameter (default: `1.2`).
+- `WithB` - Set the document length normalization parameter (default: `0.75`).
+- `WithAvgDocLength` - Set the expected average document length (default: `256.0`).
+- `WithTokenMaxLength` - Set the maximum token character length (default: `40`).
+- `WithStopwords` - Set custom stopwords.
+- `WithIncludeTokens` - Include token labels in the output (default: `false`).
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings/bm25"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	ef, err := bm25.NewEmbeddingFunction()
+	if err != nil {
+		fmt.Printf("Error creating BM25 embedding function: %s \n", err)
+		return
+	}
+	resp, err := ef.EmbedDocumentsSparse(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+		return
+	}
+	for i, sv := range resp {
+		fmt.Printf("Document %d: %d non-zero entries\n", i, len(sv.Indices))
+	}
 }
 ```

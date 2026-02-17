@@ -32,7 +32,7 @@ func main() {
 	// Add documents
 	collection.Add(ctx,
 		v2.WithIDs("doc1", "doc2"),
-		v2.WithDocuments("Hello world", "Goodbye world"),
+		v2.WithTexts("Hello world", "Goodbye world"),
 	)
 
 	// Query
@@ -155,8 +155,11 @@ client.DeleteCollection(ctx, "name")
 // Add
 col.Add(ctx,
     v2.WithIDs("id1", "id2"),
-    v2.WithDocuments("doc1", "doc2"),
-    v2.WithMetadatas(map[string]any{"key": "value"}),
+    v2.WithTexts("doc1", "doc2"),
+    v2.WithMetadatas(
+        v2.NewDocumentMetadata(v2.NewStringAttribute("key", "value")),
+        v2.NewDocumentMetadata(v2.NewStringAttribute("key", "value")),
+    ),
 )
 
 // Query
@@ -168,16 +171,16 @@ results, _ := col.Query(ctx,
 
 // Get
 results, _ := col.Get(ctx,
-    v2.WithGetIDs("id1", "id2"),
+    v2.WithIDs("id1", "id2"),
 )
 
 // Update/Upsert
-col.Update(ctx, v2.WithIDs("id1"), v2.WithDocuments("new doc"))
-col.Upsert(ctx, v2.WithIDs("id1"), v2.WithDocuments("doc"))
+col.Update(ctx, v2.WithIDs("id1"), v2.WithTexts("new doc"))
+col.Upsert(ctx, v2.WithIDs("id1"), v2.WithTexts("doc"))
 
 // Delete
-col.Delete(ctx, v2.WithDeleteIDs("id1", "id2"))
-col.Delete(ctx, v2.WithDeleteWhere(v2.EqString("key", "value")))
+col.Delete(ctx, v2.WithIDs("id1", "id2"))
+col.Delete(ctx, v2.WithWhere(v2.EqString("key", "value")))
 ```
 
 ### Search API (Cloud)
