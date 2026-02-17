@@ -73,6 +73,28 @@ chroma.NinString("status", "deleted", "archived")
 chroma.NinInt("level", 0, 1)
 ```
 
+### Array Contains Operators
+
+Filter documents by checking if an array metadata field contains a specific value. Requires Chroma >= 1.5.0.
+
+```go
+// String array contains
+chroma.MetadataContainsString(chroma.K("tags"), "science")
+chroma.MetadataNotContainsString(chroma.K("tags"), "deprecated")
+
+// Integer array contains
+chroma.MetadataContainsInt(chroma.K("scores"), 100)
+chroma.MetadataNotContainsInt(chroma.K("scores"), 0)
+
+// Float array contains
+chroma.MetadataContainsFloat(chroma.K("ratios"), 1.5)
+chroma.MetadataNotContainsFloat(chroma.K("ratios"), 0.0)
+
+// Boolean array contains
+chroma.MetadataContainsBool(chroma.K("flags"), true)
+chroma.MetadataNotContainsBool(chroma.K("flags"), false)
+```
+
 ### Logical Operators
 
 ```go
@@ -194,6 +216,27 @@ err := col.Delete(ctx,
 err := col.Delete(ctx,
     chroma.WithWhere(chroma.LtInt("year", 2020)),
     chroma.WithWhereDocument(chroma.NotContains("classic")),
+)
+```
+
+### Query with Array Contains Filter
+
+```go
+// Find documents where the "tags" array contains "science"
+results, err := col.Query(ctx,
+    chroma.WithQueryTexts("research papers"),
+    chroma.WithWhere(chroma.MetadataContainsString(chroma.K("tags"), "science")),
+    chroma.WithNResults(10),
+)
+
+// Combine array contains with other filters
+results, err := col.Query(ctx,
+    chroma.WithQueryTexts("research"),
+    chroma.WithWhere(chroma.AndFilter(
+        chroma.MetadataContainsString(chroma.K("tags"), "science"),
+        chroma.GtInt(chroma.K("year"), 2022),
+    )),
+    chroma.WithNResults(10),
 )
 ```
 

@@ -730,6 +730,12 @@ func (c *CollectionAddOp) PrepareAndValidate() error {
 		}
 	}
 
+	if len(c.Metadatas) > 0 {
+		if err := validateDocumentMetadatas(c.Metadatas); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -763,7 +769,8 @@ type metadatasOption struct {
 // and [Collection.Update] operations.
 //
 // The number of metadatas must match the number of IDs provided.
-// Each metadata is a map of string keys to values (string, int, float, bool).
+// Each metadata is a map of string keys to values (string, int, float, bool,
+// or arrays of these types).
 //
 // # Add Example
 //
@@ -1013,6 +1020,12 @@ func (c *CollectionUpdateOp) PrepareAndValidate() error {
 			c.Documents = append(c.Documents, recordDocuments)
 			c.Metadatas = append(c.Metadatas, recordMetadata)
 			c.Embeddings = append(c.Embeddings, recordEmbeddings)
+		}
+	}
+
+	if len(c.Metadatas) > 0 {
+		if err := validateDocumentMetadatas(c.Metadatas); err != nil {
+			return err
 		}
 	}
 

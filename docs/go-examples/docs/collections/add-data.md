@@ -219,6 +219,72 @@ func main() {
 {% /codetab %}
 {% /codetabs %}
 
+### Add Documents with Array Metadata
+
+{% codetabs group="lang" %}
+{% codetab label="Python" %}
+```python
+# Array metadata support requires Chroma >= 1.5.0
+collection.add(
+    ids=["id1", "id2"],
+    documents=["doc about science", "doc about math"],
+    metadatas=[
+        {"tags": ["science", "research"], "scores": [95, 87]},
+        {"tags": ["math", "education"], "scores": [100, 92]},
+    ],
+)
+```
+{% /codetab %}
+{% codetab label="Go" %}
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+	client, err := v2.NewHTTPClient()
+	if err != nil {
+		log.Fatalf("Error creating client: %v", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	collection, err := client.GetOrCreateCollection(ctx, "my_collection")
+	if err != nil {
+		log.Fatalf("Error getting collection: %v", err)
+	}
+
+	// Add documents with array metadata (Chroma >= 1.5.0)
+	err = collection.Add(ctx,
+		v2.WithIDs("id1", "id2"),
+		v2.WithTexts("doc about science", "doc about math"),
+		v2.WithMetadatas(
+			v2.NewDocumentMetadata(
+				v2.NewStringArrayAttribute("tags", []string{"science", "research"}),
+				v2.NewIntArrayAttribute("scores", []int64{95, 87}),
+			),
+			v2.NewDocumentMetadata(
+				v2.NewStringArrayAttribute("tags", []string{"math", "education"}),
+				v2.NewIntArrayAttribute("scores", []int64{100, 92}),
+			),
+		),
+	)
+	if err != nil {
+		log.Fatalf("Error adding documents: %v", err)
+	}
+
+	log.Println("Documents with array metadata added successfully")
+}
+```
+{% /codetab %}
+{% /codetabs %}
+
 ### Add with ID Generator
 
 {% codetabs group="lang" %}
@@ -269,3 +335,4 @@ func main() {
 - Use `Upsert` instead of `Add` if you want to update existing records
 - Go uses `float32` slices for embeddings
 - Use `v2.NewDocumentMetadata()` with attribute helpers for type-safe metadata
+- Array metadata (Chroma >= 1.5.0) uses `v2.NewStringArrayAttribute`, `v2.NewIntArrayAttribute`, `v2.NewFloatArrayAttribute`, `v2.NewBoolArrayAttribute`
