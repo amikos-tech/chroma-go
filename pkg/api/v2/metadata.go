@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -490,7 +491,7 @@ func validateDocumentMetadatas(metadatas []DocumentMetadata) error {
 }
 
 type goInt interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32
+	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
 func convertIntSlice[T goInt](slice []interface{}) (MetadataValue, error) {
@@ -499,6 +500,9 @@ func convertIntSlice[T goInt](slice []interface{}) (MetadataValue, error) {
 		n, ok := v.(T)
 		if !ok {
 			return MetadataValue{}, errors.Errorf("metadata array has mixed types: expected integer at index %d, got %T", i, v)
+		}
+		if uint64(n) > math.MaxInt64 && n > 0 {
+			return MetadataValue{}, errors.Errorf("metadata integer overflow at index %d: value %v exceeds int64 range", i, v)
 		}
 		arr[i] = int64(n)
 	}
@@ -599,6 +603,8 @@ func convertInterfaceSliceToMetadataValue(slice []interface{}) (MetadataValue, e
 		return convertIntSlice[uint16](slice)
 	case uint32:
 		return convertIntSlice[uint32](slice)
+	case uint64:
+		return convertIntSlice[uint64](slice)
 	case []interface{}:
 		return MetadataValue{}, errors.New("nested arrays are not supported in metadata values; only flat arrays of string, int, float, or bool are allowed")
 	default:
