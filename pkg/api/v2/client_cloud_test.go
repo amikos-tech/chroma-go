@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
@@ -1350,17 +1351,8 @@ func TestCloudClientConfig(t *testing.T) {
 func TestCloudModifyConfiguration(t *testing.T) {
 	client := setupCloudClient(t)
 
-	t.Run("modify HNSW configuration", func(t *testing.T) {
-		ctx := context.Background()
-		collectionName := "test_modify_hnsw_cfg-" + uuid.New().String()
-		collection, err := client.CreateCollection(ctx, collectionName)
-		require.NoError(t, err)
-		require.NotNil(t, collection)
-
-		cfg := NewUpdateCollectionConfiguration(WithHNSWEfSearchModify(200))
-		err = collection.ModifyConfiguration(ctx, cfg)
-		require.NoError(t, err)
-	})
+	// HNSW modify is tested in integration tests; cloud env defaults to SPANN
+	// and does not support HNSW collections.
 
 	t.Run("modify SPANN configuration", func(t *testing.T) {
 		ctx := context.Background()
@@ -1375,5 +1367,14 @@ func TestCloudModifyConfiguration(t *testing.T) {
 		)
 		err = collection.ModifyConfiguration(ctx, cfg)
 		require.NoError(t, err)
+
+		updated, err := client.GetCollection(ctx, collectionName)
+		require.NoError(t, err)
+		spannCfg, ok := updated.Configuration().GetRaw("spann")
+		require.True(t, ok)
+		spannMap, ok := spannCfg.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, float64(32), spannMap["search_nprobe"])
+		assert.Equal(t, float64(64), spannMap["ef_search"])
 	})
 }
