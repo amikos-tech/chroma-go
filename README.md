@@ -37,7 +37,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/)
 | Collection Update                    | ✅          |
 | Collection Upsert                    | ✅          |
 | Collection Delete (delete documents) | ✅          |
-| Modify Collection                    | ⚒️ partial |
+| Modify Collection                    | ✅          |
 | Search API                           | ✅          |
 
 Additional support features:
