@@ -183,7 +183,8 @@ func WithResizeFactor(factor float64) HnswOption {
 type SpannQuantization string
 
 const (
-	SpannQuantizationNone                      SpannQuantization = "none"
+	SpannQuantizationNone SpannQuantization = "none"
+	// The wire value keeps upstream's "rabit" spelling for API compatibility.
 	SpannQuantizationFourBitRabbitQWithUSearch SpannQuantization = "four_bit_rabit_q_with_u_search"
 	// Deprecated: Use [SpannQuantizationFourBitRabbitQWithUSearch] instead.
 	SpannQuantizationFourBitRabitQWithUSearch = SpannQuantizationFourBitRabbitQWithUSearch
