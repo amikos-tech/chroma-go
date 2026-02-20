@@ -413,8 +413,8 @@ func TestSpaceConstants(t *testing.T) {
 }
 
 func TestSpannQuantizationConstantAliases(t *testing.T) {
-	assert.Equal(t, SpannQuantization("four_bit_rabit_q_with_u_search"), SpannQuantizationFourBitRabbitQWithUSearch)
-	assert.Equal(t, SpannQuantizationFourBitRabbitQWithUSearch, SpannQuantizationFourBitRabitQWithUSearch)
+	assert.Equal(t, SpannQuantization("four_bit_rabit_q_with_u_search"), SpannQuantizationFourBitRabitQWithUSearch)
+	assert.Equal(t, SpannQuantizationFourBitRabitQWithUSearch, SpannQuantizationFourBitRabbitQWithUSearch)
 }
 
 func TestReservedKeyConstants(t *testing.T) {

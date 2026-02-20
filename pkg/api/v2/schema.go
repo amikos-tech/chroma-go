@@ -184,10 +184,10 @@ type SpannQuantization string
 
 const (
 	SpannQuantizationNone SpannQuantization = "none"
-	// The wire value keeps upstream's "rabit" spelling for API compatibility.
-	SpannQuantizationFourBitRabbitQWithUSearch SpannQuantization = "four_bit_rabit_q_with_u_search"
-	// Deprecated: Use [SpannQuantizationFourBitRabbitQWithUSearch] instead.
-	SpannQuantizationFourBitRabitQWithUSearch = SpannQuantizationFourBitRabbitQWithUSearch
+	// RaBitQ naming follows upstream Chroma and the wire value.
+	SpannQuantizationFourBitRabitQWithUSearch SpannQuantization = "four_bit_rabit_q_with_u_search"
+	// Deprecated: Use [SpannQuantizationFourBitRabitQWithUSearch] instead.
+	SpannQuantizationFourBitRabbitQWithUSearch = SpannQuantizationFourBitRabitQWithUSearch
 )
 
 // SpannIndexConfig represents SPANN algorithm configuration for Chroma Cloud
