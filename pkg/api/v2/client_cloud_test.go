@@ -972,6 +972,27 @@ func TestCloudClientSchema(t *testing.T) {
 		require.NotNil(t, searchResults)
 	})
 
+	t.Run("Create collection with SPANN quantize in user schema should fail", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_spann_quantize-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(
+				WithSpace(SpaceL2),
+				WithSpann(NewSpannConfig(
+					WithSpannQuantize(SpannQuantizationFourBitRabitQWithUSearch),
+				)),
+			)),
+		)
+		require.NoError(t, err)
+
+		_, err = client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.Error(t, err)
+		errMsg := strings.ToLower(err.Error())
+		require.True(t, strings.Contains(errMsg, "quantize"),
+			"expected quantize-related error, got: %v", err)
+	})
+
 	t.Run("Create collection with WithVectorIndexCreate", func(t *testing.T) {
 		ctx := context.Background()
 		collectionName := "test_schema_convenience-" + uuid.New().String()
@@ -1158,6 +1179,61 @@ func TestCloudClientSchema(t *testing.T) {
 		require.NotEmpty(t, results.GetDocumentsGroups())
 	})
 
+	t.Run("Create collection with disabled document FTS", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_disabled_fts-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+			DisableFtsIndex(DocumentKey),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+		t.Cleanup(func() {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if deleteErr := client.DeleteCollection(cleanupCtx, collectionName); deleteErr != nil {
+				t.Logf("Warning: failed to delete collection '%s': %v", collectionName, deleteErr)
+			}
+		})
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts(
+				"cats are fluffy pets that purr",
+				"dogs are loyal companions that bark",
+				"lions are big wild cats in Africa",
+			),
+		)
+		require.NoError(t, err)
+
+		// Dense vector queries should still work with FTS disabled once indexing is complete.
+		require.Eventually(t, func() bool {
+			results, queryErr := collection.Query(ctx, WithQueryTexts("pets"), WithNResults(2))
+			if queryErr != nil {
+				return false
+			}
+			return len(results.GetDocumentsGroups()) > 0
+		}, 20*time.Second, 500*time.Millisecond, "expected query results after indexing")
+
+		// Document text filters rely on FTS and should fail when it is disabled.
+		_, err = collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("pets"), WithKnnLimit(10)),
+				WithFilter(DocumentContains("fluffy")),
+				WithPage(PageLimit(5)),
+				WithSelect(KID, KDocument, KScore),
+			),
+		)
+		require.Error(t, err)
+		errMsg := strings.ToLower(err.Error())
+		require.True(t, strings.Contains(errMsg, "fts") || strings.Contains(errMsg, "full-text"),
+			"expected FTS-related error, got: %v", err)
+	})
+
 	t.Run("Comprehensive schema test", func(t *testing.T) {
 		ctx := context.Background()
 		collectionName := "test_schema_comprehensive-" + uuid.New().String()
@@ -1248,7 +1324,6 @@ func TestCloudClientConfig(t *testing.T) {
 		WithCloudAPIKey(os.Getenv("CHROMA_API_KEY")),
 	)
 	require.NoError(t, err)
-
 
 	t.Cleanup(func() {
 		_ = client.Close()
