@@ -972,6 +972,27 @@ func TestCloudClientSchema(t *testing.T) {
 		require.NotNil(t, searchResults)
 	})
 
+	t.Run("Create collection with SPANN quantize in user schema should fail", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_spann_quantize-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(
+				WithSpace(SpaceL2),
+				WithSpann(NewSpannConfig(
+					WithSpannQuantize(SpannQuantizationFourBitRabitQWithUSearch),
+				)),
+			)),
+		)
+		require.NoError(t, err)
+
+		_, err = client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.Error(t, err)
+		errMsg := strings.ToLower(err.Error())
+		require.True(t, strings.Contains(errMsg, "quantize"),
+			"expected quantize-related error, got: %v", err)
+	})
+
 	t.Run("Create collection with WithVectorIndexCreate", func(t *testing.T) {
 		ctx := context.Background()
 		collectionName := "test_schema_convenience-" + uuid.New().String()
