@@ -1181,12 +1181,15 @@ func TestCloudClientSchema(t *testing.T) {
 			),
 		)
 		require.NoError(t, err)
-		time.Sleep(2 * time.Second)
 
-		// Dense vector queries should still work with FTS disabled.
-		results, err := collection.Query(ctx, WithQueryTexts("pets"), WithNResults(2))
-		require.NoError(t, err)
-		require.NotEmpty(t, results.GetDocumentsGroups())
+		// Dense vector queries should still work with FTS disabled once indexing is complete.
+		require.Eventually(t, func() bool {
+			results, queryErr := collection.Query(ctx, WithQueryTexts("pets"), WithNResults(2))
+			if queryErr != nil {
+				return false
+			}
+			return len(results.GetDocumentsGroups()) > 0
+		}, 20*time.Second, 500*time.Millisecond, "expected query results after indexing")
 
 		// Document text filters rely on FTS and should fail when it is disabled.
 		_, err = collection.Search(ctx,

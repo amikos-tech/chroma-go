@@ -991,8 +991,14 @@ func DisableFtsIndex(key string) SchemaOption {
 	}
 }
 
+// DisableDocumentFtsIndex disables full-text search for the reserved [DocumentKey].
+// Chroma applies FTS on [DocumentKey], not on schema defaults.
+func DisableDocumentFtsIndex() SchemaOption {
+	return DisableFtsIndex(DocumentKey)
+}
+
 // Disable default options - disable indexes globally.
-// Note: FTS is applied on #document as required by Chroma.
+// Note: FTS is controlled on [DocumentKey] as required by Chroma.
 
 func DisableDefaultStringIndex() SchemaOption {
 	return func(s *Schema) error {
@@ -1046,22 +1052,11 @@ func DisableDefaultBoolIndex() SchemaOption {
 	}
 }
 
+// DisableDefaultFtsIndex disables FTS on [DocumentKey].
+//
+// Deprecated: Use [DisableDocumentFtsIndex] or [DisableFtsIndex] with [DocumentKey] instead.
 func DisableDefaultFtsIndex() SchemaOption {
-	return func(s *Schema) error {
-		// FTS index must be configured on #document key, not in defaults
-		// (Chroma Cloud requirement)
-		if s.keys[DocumentKey] == nil {
-			s.keys[DocumentKey] = &ValueTypes{}
-		}
-		if s.keys[DocumentKey].String == nil {
-			s.keys[DocumentKey].String = &StringValueType{}
-		}
-		s.keys[DocumentKey].String.FtsIndex = &FtsIndexType{
-			Enabled: false,
-			Config:  &FtsIndexConfig{},
-		}
-		return nil
-	}
+	return DisableDocumentFtsIndex()
 }
 
 // WithCmek sets a customer-managed encryption key for the schema.

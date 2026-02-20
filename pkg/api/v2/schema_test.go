@@ -555,6 +555,17 @@ func TestDisableDefaultBoolIndex(t *testing.T) {
 	assert.False(t, schema.Defaults().Bool.BoolInvertedIndex.Enabled)
 }
 
+func TestDisableDocumentFtsIndex(t *testing.T) {
+	schema, err := NewSchema(DisableDocumentFtsIndex())
+	require.NoError(t, err)
+
+	vt, ok := schema.GetKey(DocumentKey)
+	assert.True(t, ok)
+	require.NotNil(t, vt.String)
+	require.NotNil(t, vt.String.FtsIndex)
+	assert.False(t, vt.String.FtsIndex.Enabled)
+}
+
 func TestDisableDefaultFtsIndex(t *testing.T) {
 	schema, err := NewSchema(DisableDefaultFtsIndex())
 	require.NoError(t, err)
@@ -564,6 +575,7 @@ func TestDisableDefaultFtsIndex(t *testing.T) {
 	require.NotNil(t, vt.String)
 	require.NotNil(t, vt.String.FtsIndex)
 	assert.False(t, vt.String.FtsIndex.Enabled)
+	assert.Nil(t, schema.Defaults().String)
 }
 
 func TestDisableIndex_EmptyKey(t *testing.T) {
