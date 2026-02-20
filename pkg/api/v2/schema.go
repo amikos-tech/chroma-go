@@ -183,8 +183,10 @@ func WithResizeFactor(factor float64) HnswOption {
 type SpannQuantization string
 
 const (
-	SpannQuantizationNone                     SpannQuantization = "none"
-	SpannQuantizationFourBitRabitQWithUSearch SpannQuantization = "four_bit_rabit_q_with_u_search"
+	SpannQuantizationNone                      SpannQuantization = "none"
+	SpannQuantizationFourBitRabbitQWithUSearch SpannQuantization = "four_bit_rabit_q_with_u_search"
+	// Deprecated: Use [SpannQuantizationFourBitRabbitQWithUSearch] instead.
+	SpannQuantizationFourBitRabitQWithUSearch = SpannQuantizationFourBitRabbitQWithUSearch
 )
 
 // SpannIndexConfig represents SPANN algorithm configuration for Chroma Cloud
@@ -1052,11 +1054,21 @@ func DisableDefaultBoolIndex() SchemaOption {
 	}
 }
 
-// DisableDefaultFtsIndex disables FTS on [DocumentKey].
+// DisableDefaultFtsIndex disables FTS on defaults and [DocumentKey].
+// This keeps backward compatibility for callers inspecting schema defaults.
 //
 // Deprecated: Use [DisableDocumentFtsIndex] or [DisableFtsIndex] with [DocumentKey] instead.
 func DisableDefaultFtsIndex() SchemaOption {
-	return DisableDocumentFtsIndex()
+	return func(s *Schema) error {
+		if s.defaults.String == nil {
+			s.defaults.String = &StringValueType{}
+		}
+		s.defaults.String.FtsIndex = &FtsIndexType{
+			Enabled: false,
+			Config:  &FtsIndexConfig{},
+		}
+		return DisableDocumentFtsIndex()(s)
+	}
 }
 
 // WithCmek sets a customer-managed encryption key for the schema.

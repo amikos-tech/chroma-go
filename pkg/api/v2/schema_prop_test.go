@@ -52,7 +52,7 @@ func SpannConfigStrategy() gopter.Gen {
 		"Quantize": gen.OneConstOf(
 			SpannQuantization(""),
 			SpannQuantizationNone,
-			SpannQuantizationFourBitRabitQWithUSearch,
+			SpannQuantizationFourBitRabbitQWithUSearch,
 		),
 	})
 }

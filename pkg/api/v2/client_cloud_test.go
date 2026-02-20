@@ -1171,6 +1171,13 @@ func TestCloudClientSchema(t *testing.T) {
 		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
 		require.NoError(t, err)
 		require.NotNil(t, collection)
+		t.Cleanup(func() {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if deleteErr := client.DeleteCollection(cleanupCtx, collectionName); deleteErr != nil {
+				t.Logf("Warning: failed to delete collection '%s': %v", collectionName, deleteErr)
+			}
+		})
 
 		err = collection.Add(ctx,
 			WithIDs("1", "2", "3"),

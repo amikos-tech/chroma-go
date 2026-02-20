@@ -412,6 +412,11 @@ func TestSpaceConstants(t *testing.T) {
 	assert.Equal(t, Space("ip"), SpaceIP)
 }
 
+func TestSpannQuantizationConstantAliases(t *testing.T) {
+	assert.Equal(t, SpannQuantization("four_bit_rabit_q_with_u_search"), SpannQuantizationFourBitRabbitQWithUSearch)
+	assert.Equal(t, SpannQuantizationFourBitRabbitQWithUSearch, SpannQuantizationFourBitRabitQWithUSearch)
+}
+
 func TestReservedKeyConstants(t *testing.T) {
 	assert.Equal(t, "#document", DocumentKey)
 	assert.Equal(t, "#embedding", EmbeddingKey)
@@ -575,7 +580,9 @@ func TestDisableDefaultFtsIndex(t *testing.T) {
 	require.NotNil(t, vt.String)
 	require.NotNil(t, vt.String.FtsIndex)
 	assert.False(t, vt.String.FtsIndex.Enabled)
-	assert.Nil(t, schema.Defaults().String)
+	require.NotNil(t, schema.Defaults().String)
+	require.NotNil(t, schema.Defaults().String.FtsIndex)
+	assert.False(t, schema.Defaults().String.FtsIndex.Enabled)
 }
 
 func TestDisableIndex_EmptyKey(t *testing.T) {
