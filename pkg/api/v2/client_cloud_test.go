@@ -1158,6 +1158,51 @@ func TestCloudClientSchema(t *testing.T) {
 		require.NotEmpty(t, results.GetDocumentsGroups())
 	})
 
+	t.Run("Create collection with disabled document FTS", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_schema_disabled_fts-" + uuid.New().String()
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+			DisableFtsIndex(DocumentKey),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts(
+				"cats are fluffy pets that purr",
+				"dogs are loyal companions that bark",
+				"lions are big wild cats in Africa",
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Dense vector queries should still work with FTS disabled.
+		results, err := collection.Query(ctx, WithQueryTexts("pets"), WithNResults(2))
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
+
+		// Document text filters rely on FTS and should fail when it is disabled.
+		_, err = collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("pets"), WithKnnLimit(10)),
+				WithFilter(DocumentContains("fluffy")),
+				WithPage(PageLimit(5)),
+				WithSelect(KID, KDocument, KScore),
+			),
+		)
+		require.Error(t, err)
+		errMsg := strings.ToLower(err.Error())
+		require.True(t, strings.Contains(errMsg, "fts") || strings.Contains(errMsg, "full-text"),
+			"expected FTS-related error, got: %v", err)
+	})
+
 	t.Run("Comprehensive schema test", func(t *testing.T) {
 		ctx := context.Background()
 		collectionName := "test_schema_comprehensive-" + uuid.New().String()
@@ -1248,7 +1293,6 @@ func TestCloudClientConfig(t *testing.T) {
 		WithCloudAPIKey(os.Getenv("CHROMA_API_KEY")),
 	)
 	require.NoError(t, err)
-
 
 	t.Cleanup(func() {
 		_ = client.Close()

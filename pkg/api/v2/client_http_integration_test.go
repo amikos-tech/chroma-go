@@ -56,7 +56,7 @@ func supportsEFConfigPersistence(version string) bool {
 
 func TestClientHTTPIntegration(t *testing.T) {
 	ctx := context.Background()
-	var chromaVersion = "1.5.0"
+	var chromaVersion = "1.5.1"
 	var chromaImage = "ghcr.io/chroma-core/chroma"
 	if os.Getenv("CHROMA_VERSION") != "" {
 		chromaVersion = os.Getenv("CHROMA_VERSION")
