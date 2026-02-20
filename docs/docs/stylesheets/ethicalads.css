@@ -1,0 +1,19 @@
+.mdx-ethicalads-container {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.5rem;
+}
+
+[data-ea-style="stickybox"] {
+  z-index: 30;
+}
+
+@media screen and (max-width: 1300px) {
+  .mdx-ethicalads-container {
+    padding-top: 0;
+  }
+
+  [data-ea-publisher] {
+    margin: 0.75rem 0 0;
+  }
+}

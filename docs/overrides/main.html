@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  <script async src="https://media.ethicalads.io/media/client/ethicalads.min.js"></script>
+{% endblock %}
+
+{% block hero %}
+  {{ super() }}
+  <div class="md-grid mdx-ethicalads-container">
+    <div
+      id="go-client-stickybox"
+      class="raised"
+      data-ea-publisher="chromadbdev"
+      data-ea-type="image"
+      data-ea-style="stickybox"
+      data-ea-placement-bottom="56px"
+    ></div>
+  </div>
+{% endblock %}
