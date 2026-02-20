@@ -585,6 +585,54 @@ func TestDisableDefaultFtsIndex(t *testing.T) {
 	assert.False(t, schema.Defaults().String.FtsIndex.Enabled)
 }
 
+func TestSchemaIsFtsEnabled_DefaultsToTrue(t *testing.T) {
+	var nilSchema *Schema
+	assert.True(t, nilSchema.IsFtsEnabled())
+
+	schema, err := NewSchema()
+	require.NoError(t, err)
+	assert.True(t, schema.IsFtsEnabled())
+}
+
+func TestSchemaIsFtsEnabled_LegacyDefaultsFallback(t *testing.T) {
+	schema := &Schema{
+		defaults: &ValueTypes{
+			String: &StringValueType{
+				FtsIndex: &FtsIndexType{
+					Enabled: false,
+					Config:  &FtsIndexConfig{},
+				},
+			},
+		},
+		keys: map[string]*ValueTypes{},
+	}
+	assert.False(t, schema.IsFtsEnabled())
+}
+
+func TestSchemaIsFtsEnabled_DocumentKeyPrecedence(t *testing.T) {
+	schema := &Schema{
+		defaults: &ValueTypes{
+			String: &StringValueType{
+				FtsIndex: &FtsIndexType{
+					Enabled: false,
+					Config:  &FtsIndexConfig{},
+				},
+			},
+		},
+		keys: map[string]*ValueTypes{
+			DocumentKey: {
+				String: &StringValueType{
+					FtsIndex: &FtsIndexType{
+						Enabled: true,
+						Config:  &FtsIndexConfig{},
+					},
+				},
+			},
+		},
+	}
+	assert.True(t, schema.IsFtsEnabled())
+}
+
 func TestDisableIndex_EmptyKey(t *testing.T) {
 	_, err := NewSchema(DisableStringIndex(""))
 	assert.Error(t, err)

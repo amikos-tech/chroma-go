@@ -1056,6 +1056,7 @@ func DisableDefaultBoolIndex() SchemaOption {
 
 // DisableDefaultFtsIndex disables FTS on defaults and [DocumentKey].
 // This keeps backward compatibility for callers inspecting schema defaults.
+// Note: this also adds/updates a [DocumentKey] override and may change serialized schema keys.
 //
 // Deprecated: Use [DisableDocumentFtsIndex] or [DisableFtsIndex] with [DocumentKey] instead.
 func DisableDefaultFtsIndex() SchemaOption {
@@ -1091,6 +1092,23 @@ func WithCmek(cmek *Cmek) SchemaOption {
 // Defaults returns the default value types configuration
 func (s *Schema) Defaults() *ValueTypes {
 	return s.defaults
+}
+
+// IsFtsEnabled reports whether FTS is enabled, preferring [DocumentKey] overrides
+// and falling back to defaults for backward compatibility with legacy schemas.
+func (s *Schema) IsFtsEnabled() bool {
+	if s == nil {
+		return true
+	}
+	if s.keys != nil {
+		if vt, ok := s.keys[DocumentKey]; ok && vt != nil && vt.String != nil && vt.String.FtsIndex != nil {
+			return vt.String.FtsIndex.Enabled
+		}
+	}
+	if s.defaults != nil && s.defaults.String != nil && s.defaults.String.FtsIndex != nil {
+		return s.defaults.String.FtsIndex.Enabled
+	}
+	return true
 }
 
 // Keys returns all keys with overrides
