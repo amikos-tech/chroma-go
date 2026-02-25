@@ -21,6 +21,8 @@ import (
 )
 
 func TestResolveLocalLibraryPath_PrefersExplicitPathThenEnvThenDownload(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	origGetenv := localGetenvFunc
 	origEnsure := localEnsureLibraryDownloadedFunc
 	origDetect := localDetectLibraryVersionFunc
@@ -38,7 +40,7 @@ func TestResolveLocalLibraryPath_PrefersExplicitPathThenEnvThenDownload(t *testi
 		}
 		return ""
 	}
-	localDetectLibraryVersionFunc = func() string { return "v9.9.9" }
+	localDetectLibraryVersionFunc = func() (string, error) { return "v9.9.9", nil }
 	localDefaultLibraryCacheDirFunc = func() (string, error) { return "/tmp/cache", nil }
 	localEnsureLibraryDownloadedFunc = func(version, cacheDir string) (string, error) {
 		return "/downloaded/libchroma_go_shim.so", nil
@@ -64,6 +66,8 @@ func TestResolveLocalLibraryPath_PrefersExplicitPathThenEnvThenDownload(t *testi
 }
 
 func TestResolveLocalLibraryPath_AutoDownloadDisabled(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	origGetenv := localGetenvFunc
 	origEnsure := localEnsureLibraryDownloadedFunc
 	t.Cleanup(func() {
@@ -84,6 +88,32 @@ func TestResolveLocalLibraryPath_AutoDownloadDisabled(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "local runtime library path is not configured")
 	require.Equal(t, "", path)
+}
+
+func TestResolveLocalLibraryPath_RejectsInvalidDetectedVersion(t *testing.T) {
+	lockLocalTestHooks(t)
+
+	origGetenv := localGetenvFunc
+	origDetect := localDetectLibraryVersionFunc
+	origEnsure := localEnsureLibraryDownloadedFunc
+	t.Cleanup(func() {
+		localGetenvFunc = origGetenv
+		localDetectLibraryVersionFunc = origDetect
+		localEnsureLibraryDownloadedFunc = origEnsure
+	})
+
+	localGetenvFunc = func(string) string { return "" }
+	localDetectLibraryVersionFunc = func() (string, error) { return "../malicious", nil }
+	localEnsureLibraryDownloadedFunc = func(version, cacheDir string) (string, error) {
+		t.Fatal("download should not be attempted for invalid detected version")
+		return "", nil
+	}
+
+	_, err := resolveLocalLibraryPath(&localClientConfig{
+		autoDownloadLibrary: true,
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid detected local library version")
 }
 
 func TestEnsureLocalLibraryDownloaded_PropagatesLibraryStatErrors(t *testing.T) {
@@ -110,6 +140,8 @@ func TestEnsureLocalLibraryDownloaded_PropagatesLibraryStatErrors(t *testing.T) 
 }
 
 func TestLocalAcquireDownloadLock_ReportsStaleLockRemovalError(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod-based permission checks are not reliable on windows")
 	}
@@ -171,6 +203,8 @@ func TestLocalReleaseDownloadLock_ReportsRemoveError(t *testing.T) {
 }
 
 func TestLocalAcquireDownloadLock_DoesNotExpireActiveLockWithHeartbeat(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	origWaitTimeout := localLibraryLockWaitTimeout
 	origStaleAfter := localLibraryLockStaleAfter
 	origHeartbeat := localLibraryLockHeartbeatInterval
@@ -205,6 +239,8 @@ func TestLocalAcquireDownloadLock_DoesNotExpireActiveLockWithHeartbeat(t *testin
 }
 
 func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		t.Skipf("runtime not supported for local runtime artifacts: %v", err)
@@ -247,6 +283,8 @@ func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 }
 
 func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		t.Skipf("runtime not supported for local runtime artifacts: %v", err)
@@ -280,6 +318,60 @@ func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 	_, err = ensureLocalLibraryDownloaded("v9.9.9", cacheDir)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "checksum verification failed")
+}
+
+func TestLocalDownloadFile_RejectsOversizedArtifact(t *testing.T) {
+	lockLocalTestHooks(t)
+
+	origMaxSize := localLibraryMaxArtifactBytes
+	localLibraryMaxArtifactBytes = 16
+	t.Cleanup(func() {
+		localLibraryMaxArtifactBytes = origMaxSize
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("this payload is definitely larger than sixteen bytes"))
+	}))
+	defer server.Close()
+
+	targetPath := filepath.Join(t.TempDir(), "artifact.bin")
+	err := localDownloadFile(targetPath, server.URL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "too large")
+}
+
+func TestLocalExtractLibraryFromTarGz_RejectsOversizedLibrary(t *testing.T) {
+	lockLocalTestHooks(t)
+
+	origMaxSize := localLibraryMaxArtifactBytes
+	localLibraryMaxArtifactBytes = 16
+	t.Cleanup(func() {
+		localLibraryMaxArtifactBytes = origMaxSize
+	})
+
+	archivePath := filepath.Join(t.TempDir(), "artifact.tar.gz")
+	archiveBytes := newTarGzWithLibrary(t, "libchroma_go_shim.so", []byte("this payload is too large"))
+	require.NoError(t, os.WriteFile(archivePath, archiveBytes, 0644))
+
+	targetPath := filepath.Join(t.TempDir(), "libchroma_go_shim.so")
+	err := localExtractLibraryFromTarGz(archivePath, "libchroma_go_shim.so", targetPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "exceeds max allowed size")
+}
+
+func TestLocalRejectHTTPSDowngradeRedirect(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/next", nil)
+	require.NoError(t, err)
+	via, err := http.NewRequest(http.MethodGet, "https://example.com/start", nil)
+	require.NoError(t, err)
+
+	err = localRejectHTTPSDowngradeRedirect(req, []*http.Request{via})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "redirect from HTTPS to HTTP is not allowed")
+
+	secureReq, err := http.NewRequest(http.MethodGet, "https://example.com/next", nil)
+	require.NoError(t, err)
+	require.NoError(t, localRejectHTTPSDowngradeRedirect(secureReq, []*http.Request{via}))
 }
 
 func newTarGzWithLibrary(t *testing.T, fileName string, content []byte) []byte {

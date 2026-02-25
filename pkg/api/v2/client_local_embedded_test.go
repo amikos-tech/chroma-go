@@ -493,6 +493,8 @@ func TestWaitForLocalEmbeddedReady_FallsBackToHeartbeatWhenHealthcheckFails(t *t
 }
 
 func TestEmbeddedLocalClient_ContextCancellationShortCircuits(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	runtime := newScriptedEmbeddedRuntime()
 	client := &embeddedLocalClient{
 		state:    &APIClientV2{},

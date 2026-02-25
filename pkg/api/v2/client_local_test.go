@@ -7,8 +7,9 @@ import (
 	"errors"
 	"testing"
 
-	localchroma "github.com/amikos-tech/chroma-go-local"
 	"github.com/stretchr/testify/require"
+
+	localchroma "github.com/amikos-tech/chroma-go-local"
 )
 
 type stubLocalServer struct {
@@ -152,6 +153,8 @@ func TestDefaultLocalClientConfig_UsesRequestedDefaults(t *testing.T) {
 }
 
 func TestNewLocalClient_DefaultsToEmbeddedRuntime(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	origInit := localInitFunc
 	origResolve := localResolveLibraryPathFunc
 	origNewEmbedded := localNewEmbeddedFunc
@@ -226,6 +229,8 @@ func TestNewLocalClient_DefaultsToEmbeddedRuntime(t *testing.T) {
 }
 
 func TestNewLocalClient_UsesBuilderOptionsAndWrapsHTTPClient(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	origInit := localInitFunc
 	origNew := localNewServerFunc
 	origStart := localStartServerFunc
@@ -296,6 +301,8 @@ func TestNewLocalClient_UsesBuilderOptionsAndWrapsHTTPClient(t *testing.T) {
 }
 
 func TestNewLocalClient_UsesRawYAMLStartPath(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	origInit := localInitFunc
 	origNew := localNewServerFunc
 	origStart := localStartServerFunc
@@ -338,6 +345,8 @@ func TestNewLocalClient_UsesRawYAMLStartPath(t *testing.T) {
 }
 
 func TestNewLocalClient_ClosesServerWhenWrappedHTTPClientCreationFails(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	origInit := localInitFunc
 	origNew := localNewServerFunc
 	origStart := localStartServerFunc
@@ -376,6 +385,8 @@ func TestNewLocalClient_ClosesServerWhenWrappedHTTPClientCreationFails(t *testin
 }
 
 func TestNewLocalClient_ClosesServerWhenReadinessCheckFails(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	origInit := localInitFunc
 	origNew := localNewServerFunc
 	origStart := localStartServerFunc
@@ -412,6 +423,8 @@ func TestNewLocalClient_ClosesServerWhenReadinessCheckFails(t *testing.T) {
 }
 
 func TestNewLocalClient_PropagatesInitError(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	origInit := localInitFunc
 	origNew := localNewServerFunc
 	origStart := localStartServerFunc
@@ -455,6 +468,8 @@ func TestStartLocalServer_RejectsMutuallyExclusiveConfigSources(t *testing.T) {
 }
 
 func TestNewLocalClient_PropagatesLibraryResolveError(t *testing.T) {
+	lockLocalTestHooks(t)
+
 	origResolve := localResolveLibraryPathFunc
 	t.Cleanup(func() {
 		localResolveLibraryPathFunc = origResolve

@@ -604,6 +604,8 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 }
 
 type embeddedCollection struct {
+	mu sync.RWMutex
+
 	name          string
 	id            string
 	tenant        Tenant
@@ -618,22 +620,32 @@ type embeddedCollection struct {
 }
 
 func (c *embeddedCollection) Name() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.name
 }
 
 func (c *embeddedCollection) ID() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.id
 }
 
 func (c *embeddedCollection) Tenant() Tenant {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.tenant
 }
 
 func (c *embeddedCollection) Database() Database {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.database
 }
 
 func (c *embeddedCollection) Metadata() CollectionMetadata {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if c.metadata == nil {
 		return NewEmptyMetadata()
 	}
@@ -641,10 +653,15 @@ func (c *embeddedCollection) Metadata() CollectionMetadata {
 }
 
 func (c *embeddedCollection) Dimension() int {
-	return c.client.collectionDimension(c.id, c.dimension)
+	c.mu.RLock()
+	fallback := c.dimension
+	c.mu.RUnlock()
+	return c.client.collectionDimension(c.ID(), fallback)
 }
 
 func (c *embeddedCollection) Configuration() CollectionConfiguration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if c.configuration == nil {
 		return NewCollectionConfiguration()
 	}
@@ -652,7 +669,15 @@ func (c *embeddedCollection) Configuration() CollectionConfiguration {
 }
 
 func (c *embeddedCollection) Schema() *Schema {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.schema
+}
+
+func (c *embeddedCollection) embeddingFunctionSnapshot() embeddingspkg.EmbeddingFunction {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.embeddingFunction
 }
 
 func (c *embeddedCollection) Add(ctx context.Context, opts ...CollectionAddOption) error {
@@ -673,7 +698,8 @@ func (c *embeddedCollection) Add(ctx context.Context, opts ...CollectionAddOptio
 	if err := c.client.state.Satisfies(addObject, len(addObject.Ids), "documents"); err != nil {
 		return errors.Wrap(err, "failed to satisfy add operation")
 	}
-	if err := addObject.EmbedData(ctx, c.embeddingFunction); err != nil {
+	embeddingFunction := c.embeddingFunctionSnapshot()
+	if err := addObject.EmbedData(ctx, embeddingFunction); err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
 
@@ -724,7 +750,8 @@ func (c *embeddedCollection) Upsert(ctx context.Context, opts ...CollectionAddOp
 	if err := c.client.state.Satisfies(upsertObject, len(upsertObject.Ids), "documents"); err != nil {
 		return errors.Wrap(err, "failed to satisfy upsert operation")
 	}
-	if err := upsertObject.EmbedData(ctx, c.embeddingFunction); err != nil {
+	embeddingFunction := c.embeddingFunctionSnapshot()
+	if err := upsertObject.EmbedData(ctx, embeddingFunction); err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
 
@@ -775,7 +802,8 @@ func (c *embeddedCollection) Update(ctx context.Context, opts ...CollectionUpdat
 	if err := c.client.state.Satisfies(updateObject, len(updateObject.Ids), "documents"); err != nil {
 		return errors.Wrap(err, "failed to satisfy update operation")
 	}
-	if err := updateObject.EmbedData(ctx, c.embeddingFunction); err != nil {
+	embeddingFunction := c.embeddingFunctionSnapshot()
+	if err := updateObject.EmbedData(ctx, embeddingFunction); err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
 
@@ -868,7 +896,9 @@ func (c *embeddedCollection) ModifyName(ctx context.Context, newName string) err
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	c.mu.RLock()
 	oldName := c.name
+	c.mu.RUnlock()
 	if err := c.client.embedded.UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest{
 		CollectionID: c.id,
 		NewName:      strings.TrimSpace(newName),
@@ -876,7 +906,9 @@ func (c *embeddedCollection) ModifyName(ctx context.Context, newName string) err
 	}); err != nil {
 		return errors.Wrap(err, "error renaming collection")
 	}
+	c.mu.Lock()
 	c.name = strings.TrimSpace(newName)
+	c.mu.Unlock()
 	c.client.renameCollectionInCache(oldName, c)
 	return nil
 }
@@ -950,7 +982,8 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 	if err := queryObject.PrepareAndValidate(); err != nil {
 		return nil, errors.Wrap(err, "error validating query operation")
 	}
-	if err := queryObject.EmbedData(ctx, c.embeddingFunction); err != nil {
+	embeddingFunction := c.embeddingFunctionSnapshot()
+	if err := queryObject.EmbedData(ctx, embeddingFunction); err != nil {
 		return nil, errors.Wrap(err, "failed to embed data")
 	}
 
@@ -1149,16 +1182,23 @@ func (c *embeddedCollection) Fork(ctx context.Context, newName string) (Collecti
 	if err != nil {
 		return nil, errors.Wrap(err, "error forking collection")
 	}
+	c.mu.RLock()
+	embeddingFunction := c.embeddingFunction
+	metadata := c.metadata
+	configuration := c.configuration
+	schema := c.schema
+	database := c.database
+	c.mu.RUnlock()
 
 	c.client.upsertCollectionState(forked.ID, func(state *embeddedCollectionState) {
-		state.embeddingFunction = c.embeddingFunction
-		state.metadata = c.metadata
-		state.configuration = c.configuration
-		state.schema = c.schema
+		state.embeddingFunction = embeddingFunction
+		state.metadata = metadata
+		state.configuration = configuration
+		state.schema = schema
 		state.dimension = c.Dimension()
 	})
 
-	forkedCollection := c.client.buildEmbeddedCollection(*forked, c.database, c.embeddingFunction)
+	forkedCollection := c.client.buildEmbeddedCollection(*forked, database, embeddingFunction)
 	return forkedCollection, nil
 }
 
@@ -1182,8 +1222,9 @@ func (c *embeddedCollection) IndexingStatus(ctx context.Context) (*IndexingStatu
 }
 
 func (c *embeddedCollection) Close() error {
-	if c.embeddingFunction != nil {
-		if closer, ok := c.embeddingFunction.(io.Closer); ok {
+	embeddingFunction := c.embeddingFunctionSnapshot()
+	if embeddingFunction != nil {
+		if closer, ok := embeddingFunction.(io.Closer); ok {
 			return closer.Close()
 		}
 	}
@@ -1437,16 +1478,20 @@ func (c *embeddedCollection) queryDistanceMetric() embeddingspkg.DistanceMetric 
 	if c == nil {
 		return embeddingspkg.L2
 	}
-	if c.metadata != nil {
-		if value, ok := c.metadata.GetString(HNSWSpace); ok {
+	c.mu.RLock()
+	metadata := c.metadata
+	embeddingFunction := c.embeddingFunction
+	c.mu.RUnlock()
+	if metadata != nil {
+		if value, ok := metadata.GetString(HNSWSpace); ok {
 			switch metric := embeddingspkg.DistanceMetric(strings.ToLower(strings.TrimSpace(value))); metric {
 			case embeddingspkg.L2, embeddingspkg.COSINE, embeddingspkg.IP:
 				return metric
 			}
 		}
 	}
-	if c.embeddingFunction != nil {
-		switch metric := c.embeddingFunction.DefaultSpace(); metric {
+	if embeddingFunction != nil {
+		switch metric := embeddingFunction.DefaultSpace(); metric {
 		case embeddingspkg.L2, embeddingspkg.COSINE, embeddingspkg.IP:
 			return metric
 		}

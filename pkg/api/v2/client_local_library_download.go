@@ -33,17 +33,18 @@ const (
 var (
 	localLibraryReleaseBaseURL        = "https://github.com/amikos-tech/chroma-go-local/releases/download"
 	localLibraryDownloadMu            sync.Mutex
-	localLibraryDownloadAttempts      = 3
-	localLibraryLockWaitTimeout       = 45 * time.Second
-	localLibraryLockStaleAfter        = 10 * time.Minute
-	localLibraryLockHeartbeatInterval = 30 * time.Second
-	localGetenvFunc                   = os.Getenv
-	localUserHomeDirFunc              = os.UserHomeDir
-	localReadBuildInfoFunc            = debug.ReadBuildInfo
-	localDownloadFileFunc             = localDownloadFileWithRetry
-	localEnsureLibraryDownloadedFunc  = ensureLocalLibraryDownloaded
-	localDetectLibraryVersionFunc     = detectLocalLibraryVersion
-	localDefaultLibraryCacheDirFunc   = defaultLocalLibraryCacheDir
+	localLibraryDownloadAttempts            = 3
+	localLibraryLockWaitTimeout             = 45 * time.Second
+	localLibraryLockStaleAfter              = 10 * time.Minute
+	localLibraryLockHeartbeatInterval       = 30 * time.Second
+	localLibraryMaxArtifactBytes      int64 = 500 * 1024 * 1024
+	localGetenvFunc                         = os.Getenv
+	localUserHomeDirFunc                    = os.UserHomeDir
+	localReadBuildInfoFunc                  = debug.ReadBuildInfo
+	localDownloadFileFunc                   = localDownloadFileWithRetry
+	localEnsureLibraryDownloadedFunc        = ensureLocalLibraryDownloaded
+	localDetectLibraryVersionFunc           = detectLocalLibraryVersion
+	localDefaultLibraryCacheDirFunc         = defaultLocalLibraryCacheDir
 )
 
 type localLibraryAsset struct {
@@ -69,9 +70,19 @@ func resolveLocalLibraryPath(cfg *localClientConfig) (string, error) {
 		return "", errors.New("local runtime library path is not configured: set WithLocalLibraryPath(...), CHROMA_LIB_PATH, or enable WithLocalLibraryAutoDownload(true)")
 	}
 
-	version := normalizeLocalLibraryTag(cfg.libraryVersion)
+	version, err := normalizeLocalLibraryTag(cfg.libraryVersion)
+	if err != nil {
+		return "", errors.Wrap(err, "invalid local library version")
+	}
 	if version == "" {
-		version = normalizeLocalLibraryTag(localDetectLibraryVersionFunc())
+		detectedVersion, detectErr := localDetectLibraryVersionFunc()
+		if detectErr != nil {
+			return "", errors.Wrap(detectErr, "failed to detect local library version")
+		}
+		version, err = normalizeLocalLibraryTag(detectedVersion)
+		if err != nil {
+			return "", errors.Wrap(err, "invalid detected local library version")
+		}
 	}
 	if version == "" {
 		version = defaultLocalLibraryVersion
@@ -93,10 +104,14 @@ func resolveLocalLibraryPath(cfg *localClientConfig) (string, error) {
 	return libPath, nil
 }
 
-func detectLocalLibraryVersion() string {
+func detectLocalLibraryVersion() (string, error) {
+	defaultVersion, err := normalizeLocalLibraryTag(defaultLocalLibraryVersion)
+	if err != nil {
+		return "", errors.Wrap(err, "invalid default local library version")
+	}
 	buildInfo, ok := localReadBuildInfoFunc()
 	if !ok || buildInfo == nil {
-		return defaultLocalLibraryVersion
+		return defaultVersion, nil
 	}
 
 	for _, dep := range buildInfo.Deps {
@@ -107,12 +122,15 @@ func detectLocalLibraryVersion() string {
 		if dep.Replace != nil && dep.Replace.Version != "" {
 			version = dep.Replace.Version
 		}
-		version = normalizeLocalLibraryTag(version)
+		version, err = normalizeLocalLibraryTag(version)
+		if err != nil {
+			return "", errors.Wrap(err, "invalid local library version in build info")
+		}
 		if version != "" {
-			return version
+			return version, nil
 		}
 	}
-	return defaultLocalLibraryVersion
+	return defaultVersion, nil
 }
 
 func defaultLocalLibraryCacheDir() (string, error) {
@@ -127,7 +145,11 @@ func defaultLocalLibraryCacheDir() (string, error) {
 }
 
 func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, retErr error) {
-	version = normalizeLocalLibraryTag(version)
+	var err error
+	version, err = normalizeLocalLibraryTag(version)
+	if err != nil {
+		return "", errors.Wrap(err, "invalid local library version")
+	}
 	if version == "" {
 		return "", errors.New("local library version cannot be empty")
 	}
@@ -308,15 +330,50 @@ func localLibraryAssetForRuntime(goos, goarch string) (localLibraryAsset, error)
 	return asset, nil
 }
 
-func normalizeLocalLibraryTag(version string) string {
+func validateLocalLibraryTag(version string) error {
+	if strings.Contains(version, "/") || strings.Contains(version, "\\") || strings.Contains(version, "..") {
+		return errors.New("local library version must be a simple tag (path separators are not allowed)")
+	}
+	return nil
+}
+
+func normalizeLocalLibraryTag(version string) (string, error) {
 	version = strings.TrimSpace(version)
 	if version == "" || version == "(devel)" {
-		return ""
+		return "", nil
+	}
+	if err := validateLocalLibraryTag(version); err != nil {
+		return "", err
 	}
 	if !strings.HasPrefix(version, "v") {
-		return "v" + version
+		return "v" + version, nil
 	}
-	return version
+	return version, nil
+}
+
+func localShouldEvictStaleLock(lockPath string, initialInfo os.FileInfo) (bool, error) {
+	if initialInfo == nil || time.Since(initialInfo.ModTime()) <= localLibraryLockStaleAfter {
+		return false, nil
+	}
+
+	currentInfo, err := os.Stat(lockPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.Wrapf(err, "failed to stat stale lock file %s", lockPath)
+	}
+
+	if !os.SameFile(initialInfo, currentInfo) {
+		return false, nil
+	}
+	if !currentInfo.ModTime().Equal(initialInfo.ModTime()) || currentInfo.Size() != initialInfo.Size() {
+		return false, nil
+	}
+	if time.Since(currentInfo.ModTime()) <= localLibraryLockStaleAfter {
+		return false, nil
+	}
+	return true, nil
 }
 
 func localAcquireDownloadLock(lockPath string) (*os.File, error) {
@@ -338,7 +395,11 @@ func localAcquireDownloadLock(lockPath string) (*os.File, error) {
 		}
 
 		if info, statErr := os.Stat(lockPath); statErr == nil {
-			if time.Since(info.ModTime()) > localLibraryLockStaleAfter {
+			evictStale, staleErr := localShouldEvictStaleLock(lockPath, info)
+			if staleErr != nil {
+				return nil, staleErr
+			}
+			if evictStale {
 				if removeErr := os.Remove(lockPath); removeErr != nil && !os.IsNotExist(removeErr) {
 					return nil, errors.Wrapf(removeErr, "failed to remove stale lock file %s", lockPath)
 				}
@@ -484,6 +545,7 @@ func localDownloadFile(filePath, url string) error {
 			TLSHandshakeTimeout:   10 * time.Second,
 			ResponseHeaderTimeout: 30 * time.Second,
 		},
+		CheckRedirect: localRejectHTTPSDowngradeRedirect,
 	}
 
 	resp, err := client.Get(url)
@@ -494,6 +556,13 @@ func localDownloadFile(filePath, url string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.Errorf("unexpected response %s for URL %s", resp.Status, url)
+	}
+	if resp.ContentLength > localLibraryMaxArtifactBytes {
+		return errors.Errorf(
+			"downloaded artifact is too large: %d bytes exceeds max %d bytes",
+			resp.ContentLength,
+			localLibraryMaxArtifactBytes,
+		)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
@@ -506,11 +575,20 @@ func localDownloadFile(filePath, url string) error {
 		return errors.Wrap(err, "failed to create temp file")
 	}
 
-	written, copyErr := io.Copy(out, resp.Body)
+	limitedBody := io.LimitReader(resp.Body, localLibraryMaxArtifactBytes+1)
+	written, copyErr := io.Copy(out, limitedBody)
 	closeErr := out.Close()
 	if copyErr != nil {
 		_ = os.Remove(tempPath)
 		return errors.Wrap(copyErr, "failed to copy HTTP response")
+	}
+	if written > localLibraryMaxArtifactBytes {
+		_ = os.Remove(tempPath)
+		return errors.Errorf(
+			"downloaded artifact exceeds max allowed size: got %d bytes, max %d bytes",
+			written,
+			localLibraryMaxArtifactBytes,
+		)
 	}
 	if closeErr != nil {
 		_ = os.Remove(tempPath)
@@ -525,6 +603,23 @@ func localDownloadFile(filePath, url string) error {
 	if err := os.Rename(tempPath, filePath); err != nil {
 		_ = os.Remove(tempPath)
 		return errors.Wrap(err, "failed to finalize downloaded file")
+	}
+	return nil
+}
+
+func localRejectHTTPSDowngradeRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) == 0 {
+		return nil
+	}
+	previousReq := via[len(via)-1]
+	if previousReq.URL != nil && req.URL != nil &&
+		strings.EqualFold(previousReq.URL.Scheme, "https") &&
+		strings.EqualFold(req.URL.Scheme, "http") {
+		return errors.Errorf(
+			"redirect from HTTPS to HTTP is not allowed: %s -> %s",
+			previousReq.URL.String(),
+			req.URL.String(),
+		)
 	}
 	return nil
 }
@@ -577,18 +672,46 @@ func localExtractLibraryFromTarGz(archivePath, libraryFileName, destinationPath 
 		if filepath.Base(header.Name) != libraryFileName {
 			continue
 		}
+		if header.Size <= 0 {
+			return errors.Errorf("library %s has invalid size %d in archive", libraryFileName, header.Size)
+		}
+		if header.Size > localLibraryMaxArtifactBytes {
+			return errors.Errorf(
+				"library %s exceeds max allowed size: %d bytes > %d bytes",
+				libraryFileName,
+				header.Size,
+				localLibraryMaxArtifactBytes,
+			)
+		}
 
 		out, err := os.Create(destinationPath)
 		if err != nil {
 			return errors.Wrap(err, "failed to create extracted library file")
 		}
 
-		_, copyErr := io.Copy(out, tarReader)
+		limitedReader := io.LimitReader(tarReader, localLibraryMaxArtifactBytes+1)
+		written, copyErr := io.Copy(out, limitedReader)
 		syncErr := out.Sync()
 		closeErr := out.Close()
 		if copyErr != nil {
 			_ = os.Remove(destinationPath)
 			return errors.Wrap(copyErr, "failed to extract library from archive")
+		}
+		if written > localLibraryMaxArtifactBytes {
+			_ = os.Remove(destinationPath)
+			return errors.Errorf(
+				"extracted library exceeds max allowed size: got %d bytes, max %d bytes",
+				written,
+				localLibraryMaxArtifactBytes,
+			)
+		}
+		if written != header.Size {
+			_ = os.Remove(destinationPath)
+			return errors.Errorf(
+				"extracted library size mismatch: expected %d bytes, got %d bytes",
+				header.Size,
+				written,
+			)
 		}
 		if syncErr != nil {
 			_ = os.Remove(destinationPath)

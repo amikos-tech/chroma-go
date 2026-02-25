@@ -3,7 +3,6 @@ package v2
 import (
 	"context"
 	stderrors "errors"
-	"net"
 	"strings"
 	"time"
 
@@ -336,36 +335,14 @@ func startLocalServer(cfg *localClientConfig) (localServer, error) {
 		return localStartServerFunc(localchroma.StartServerConfig{ConfigString: cfg.rawYAML})
 	}
 
-	port := cfg.port
-	if port == 0 {
-		availablePort, err := findAvailablePort()
-		if err != nil {
-			return nil, errors.Wrap(err, "error allocating local port")
-		}
-		port = availablePort
-	}
-
 	opts := []localchroma.ServerOption{
-		localchroma.WithPort(port),
+		// Let the runtime bind port 0 directly to avoid TOCTOU between probing and binding.
+		localchroma.WithPort(cfg.port),
 		localchroma.WithListenAddress(cfg.listenAddress),
 		localchroma.WithPersistPath(cfg.persistPath),
 		localchroma.WithAllowReset(cfg.allowReset),
 	}
 	return localNewServerFunc(opts...)
-}
-
-func findAvailablePort() (int, error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer func() { _ = ln.Close() }()
-
-	tcpAddr, ok := ln.Addr().(*net.TCPAddr)
-	if !ok {
-		return 0, errors.New("failed to resolve a TCP port")
-	}
-	return tcpAddr.Port, nil
 }
 
 // Close shuts down the local runtime and any wrapped client resources.
@@ -441,8 +418,8 @@ func WithLocalLibraryVersion(version string) LocalClientOption {
 		if version == "" {
 			return errors.New("local library version cannot be empty")
 		}
-		if strings.Contains(version, "/") || strings.Contains(version, "\\") || strings.Contains(version, "..") {
-			return errors.New("local library version must be a simple tag (path separators are not allowed)")
+		if err := validateLocalLibraryTag(version); err != nil {
+			return err
 		}
 		cfg.libraryVersion = version
 		return nil
