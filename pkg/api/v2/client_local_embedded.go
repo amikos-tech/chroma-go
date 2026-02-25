@@ -124,7 +124,10 @@ func (client *embeddedLocalClient) GetIdentity(ctx context.Context) (Identity, e
 	return identity, nil
 }
 
-func (client *embeddedLocalClient) GetTenant(_ context.Context, tenant Tenant) (Tenant, error) {
+func (client *embeddedLocalClient) GetTenant(ctx context.Context, tenant Tenant) (Tenant, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if tenant == nil {
 		return nil, errors.New("tenant cannot be nil")
 	}
@@ -181,7 +184,10 @@ func (client *embeddedLocalClient) CreateTenant(ctx context.Context, tenant Tena
 	return tenant, nil
 }
 
-func (client *embeddedLocalClient) ListDatabases(_ context.Context, tenant Tenant) ([]Database, error) {
+func (client *embeddedLocalClient) ListDatabases(ctx context.Context, tenant Tenant) ([]Database, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if tenant == nil {
 		return nil, errors.New("tenant cannot be nil")
 	}
@@ -204,7 +210,10 @@ func (client *embeddedLocalClient) ListDatabases(_ context.Context, tenant Tenan
 	return result, nil
 }
 
-func (client *embeddedLocalClient) GetDatabase(_ context.Context, db Database) (Database, error) {
+func (client *embeddedLocalClient) GetDatabase(ctx context.Context, db Database) (Database, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if db == nil {
 		return nil, errors.New("database cannot be nil")
 	}
@@ -420,6 +429,16 @@ func (client *embeddedLocalClient) CountCollections(ctx context.Context, opts ..
 	return int(count), nil
 }
 
+func intToUint32(value int, fieldName string) (uint32, error) {
+	if value < 0 {
+		return 0, errors.Errorf("%s must be greater than or equal to 0", fieldName)
+	}
+	if uint64(value) > uint64(math.MaxUint32) {
+		return 0, errors.Errorf("%s cannot exceed %d", fieldName, uint64(math.MaxUint32))
+	}
+	return uint32(value), nil
+}
+
 func (client *embeddedLocalClient) ListCollections(ctx context.Context, opts ...ListCollectionsOption) ([]Collection, error) {
 	newOpts := append([]ListCollectionsOption{WithDatabaseList(client.CurrentDatabase())}, opts...)
 	req, err := NewListCollectionsOp(newOpts...)
@@ -432,12 +451,20 @@ func (client *embeddedLocalClient) ListCollections(ctx context.Context, opts ...
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	limit, err := intToUint32(req.Limit(), "limit")
+	if err != nil {
+		return nil, err
+	}
+	offset, err := intToUint32(req.Offset(), "offset")
+	if err != nil {
+		return nil, err
+	}
 
 	models, err := client.embedded.ListCollections(localchroma.EmbeddedListCollectionsRequest{
 		TenantID:     req.Database.Tenant().Name(),
 		DatabaseName: req.Database.Name(),
-		Limit:        uint32(req.Limit()),
-		Offset:       uint32(req.Offset()),
+		Limit:        limit,
+		Offset:       offset,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing collections")
@@ -890,24 +917,25 @@ func (c *embeddedCollection) Count(ctx context.Context) (int, error) {
 }
 
 func (c *embeddedCollection) ModifyName(ctx context.Context, newName string) error {
-	if strings.TrimSpace(newName) == "" {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
 		return errors.New("newName cannot be empty")
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	c.mu.RLock()
+
+	c.mu.Lock()
 	oldName := c.name
-	c.mu.RUnlock()
 	if err := c.client.embedded.UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest{
 		CollectionID: c.id,
-		NewName:      strings.TrimSpace(newName),
+		NewName:      newName,
 		DatabaseName: c.database.Name(),
 	}); err != nil {
+		c.mu.Unlock()
 		return errors.Wrap(err, "error renaming collection")
 	}
-	c.mu.Lock()
-	c.name = strings.TrimSpace(newName)
+	c.name = newName
 	c.mu.Unlock()
 	c.client.renameCollectionInCache(oldName, c)
 	return nil
@@ -953,14 +981,22 @@ func (c *embeddedCollection) Get(ctx context.Context, opts ...CollectionGetOptio
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert whereDocument filter")
 	}
+	limit, err := intToUint32(getObject.Limit, "limit")
+	if err != nil {
+		return nil, err
+	}
+	offset, err := intToUint32(getObject.Offset, "offset")
+	if err != nil {
+		return nil, err
+	}
 
 	response, err := c.client.embedded.GetRecords(localchroma.EmbeddedGetRecordsRequest{
 		CollectionID:  c.id,
 		IDs:           documentIDsToStrings(getObject.Ids),
 		Where:         where,
 		WhereDocument: whereDocument,
-		Limit:         uint32(getObject.Limit),
-		Offset:        uint32(getObject.Offset),
+		Limit:         limit,
+		Offset:        offset,
 		Include:       sanitizeEmbeddedGetIncludes(getObject.Include),
 		TenantID:      c.tenant.Name(),
 		DatabaseName:  c.database.Name(),
@@ -1057,6 +1093,13 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 	}
 	if needDistances {
 		result.DistancesLists = make([]embeddingspkg.Distances, 0, len(queryResponse.IDs))
+		if len(queryResponse.IDs) > len(queryEmbeddings) {
+			return nil, errors.Errorf(
+				"query response returned %d id groups but only %d query embeddings were provided",
+				len(queryResponse.IDs),
+				len(queryEmbeddings),
+			)
+		}
 	}
 
 	distanceMetric := c.queryDistanceMetric()
@@ -1140,19 +1183,17 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 
 		if needDistances {
 			distances := make(embeddingspkg.Distances, len(group))
-			if groupIdx < len(queryEmbeddings) {
-				queryVector := queryEmbeddings[groupIdx]
-				for i, id := range group {
-					recordIdx, ok := index[id]
-					if !ok || recordIdx >= len(records.Embeddings) {
-						continue
-					}
-					distance, err := computeEmbeddedDistance(distanceMetric, queryVector, records.Embeddings[recordIdx])
-					if err != nil {
-						return nil, errors.Wrap(err, "error computing query distances")
-					}
-					distances[i] = distance
+			queryVector := queryEmbeddings[groupIdx]
+			for i, id := range group {
+				recordIdx, ok := index[id]
+				if !ok || recordIdx >= len(records.Embeddings) {
+					continue
 				}
+				distance, err := computeEmbeddedDistance(distanceMetric, queryVector, records.Embeddings[recordIdx])
+				if err != nil {
+					return nil, errors.Wrap(err, "error computing query distances")
+				}
+				distances[i] = distance
 			}
 			result.DistancesLists = append(result.DistancesLists, distances)
 		}

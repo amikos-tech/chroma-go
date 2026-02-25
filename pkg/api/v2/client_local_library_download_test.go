@@ -372,6 +372,15 @@ func TestLocalRejectHTTPSDowngradeRedirect(t *testing.T) {
 	secureReq, err := http.NewRequest(http.MethodGet, "https://example.com/next", nil)
 	require.NoError(t, err)
 	require.NoError(t, localRejectHTTPSDowngradeRedirect(secureReq, []*http.Request{via}))
+
+	longRedirectChain := make([]*http.Request, 10)
+	for i := range longRedirectChain {
+		longRedirectChain[i], err = http.NewRequest(http.MethodGet, "https://example.com/redirect", nil)
+		require.NoError(t, err)
+	}
+	err = localRejectHTTPSDowngradeRedirect(secureReq, longRedirectChain)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "stopped after 10 redirects")
 }
 
 func newTarGzWithLibrary(t *testing.T, fileName string, content []byte) []byte {

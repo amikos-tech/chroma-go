@@ -300,6 +300,51 @@ func TestNewLocalClient_UsesBuilderOptionsAndWrapsHTTPClient(t *testing.T) {
 	require.Equal(t, 1, server.closeCount)
 }
 
+func TestNewLocalClient_ServerModeBaseURLCannotBeOverridden(t *testing.T) {
+	lockLocalTestHooks(t)
+
+	origInit := localInitFunc
+	origNew := localNewServerFunc
+	origStart := localStartServerFunc
+	origWait := localWaitReadyFunc
+	origResolve := localResolveLibraryPathFunc
+	t.Cleanup(func() {
+		localInitFunc = origInit
+		localNewServerFunc = origNew
+		localStartServerFunc = origStart
+		localWaitReadyFunc = origWait
+		localResolveLibraryPathFunc = origResolve
+	})
+	localWaitReadyFunc = func(client *APIClientV2) error { return nil }
+	localResolveLibraryPathFunc = func(cfg *localClientConfig) (string, error) {
+		return cfg.libraryPath, nil
+	}
+	localInitFunc = func(path string) error { return nil }
+
+	server := &stubLocalServer{url: "http://127.0.0.1:8878"}
+	localNewServerFunc = func(_ ...localchroma.ServerOption) (localServer, error) {
+		return server, nil
+	}
+	localStartServerFunc = func(config localchroma.StartServerConfig) (localServer, error) {
+		t.Fatalf("did not expect StartServer path, got: %+v", config)
+		return nil, nil
+	}
+
+	client, err := NewLocalClient(
+		WithLocalRuntimeMode(LocalRuntimeModeServer),
+		WithLocalLibraryPath("/tmp/chroma-go-shim/libchroma_go_shim.so"),
+		WithLocalClientOption(WithBaseURL("https://example.invalid/api/v2")),
+	)
+	require.NoError(t, err)
+
+	localClient, ok := client.(*LocalClient)
+	require.True(t, ok)
+	require.Equal(t, "http://127.0.0.1:8878/api/v2", localClient.BaseURL())
+
+	require.NoError(t, localClient.Close())
+	require.Equal(t, 1, server.closeCount)
+}
+
 func TestNewLocalClient_UsesRawYAMLStartPath(t *testing.T) {
 	lockLocalTestHooks(t)
 

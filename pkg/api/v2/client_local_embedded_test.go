@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -24,13 +26,19 @@ type scriptedEmbeddedRuntime struct {
 	heartbeatErr      error
 	resetErr          error
 	createTenantErr   error
+	getTenantErr      error
 	createDatabaseErr error
+	listDatabasesErr  error
+	getDatabaseErr    error
 	deleteDatabaseErr error
 
 	healthCalls         int
 	heartbeatCalls      int
 	createTenantCalls   int
+	getTenantCalls      int
 	createDatabaseCalls int
+	listDatabasesCalls  int
+	getDatabaseCalls    int
 	deleteDatabaseCalls int
 }
 
@@ -52,6 +60,20 @@ type memoryEmbeddedRuntime struct {
 	recordOrder map[string][]string
 }
 
+type blockingRenameEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+
+	firstUpdateStarted chan struct{}
+	unblockFirstUpdate chan struct{}
+
+	updateMu    sync.Mutex
+	updateCalls int
+}
+
+type mismatchedQueryEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+}
+
 func newScriptedEmbeddedRuntime() *scriptedEmbeddedRuntime {
 	return &scriptedEmbeddedRuntime{
 		stubEmbeddedRuntime: &stubEmbeddedRuntime{},
@@ -65,6 +87,14 @@ func newMemoryEmbeddedRuntime() *memoryEmbeddedRuntime {
 		collectionByID:      map[string]string{},
 		records:             map[string]map[string]memoryEmbeddedRecord{},
 		recordOrder:         map[string][]string{},
+	}
+}
+
+func newBlockingRenameEmbeddedRuntime() *blockingRenameEmbeddedRuntime {
+	return &blockingRenameEmbeddedRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+		firstUpdateStarted:    make(chan struct{}),
+		unblockFirstUpdate:    make(chan struct{}),
 	}
 }
 
@@ -219,6 +249,20 @@ func (s *memoryEmbeddedRuntime) UpdateCollection(request localchroma.EmbeddedUpd
 	s.collections[newKey] = col
 	s.collectionByID[col.ID] = newKey
 	return nil
+}
+
+func (s *blockingRenameEmbeddedRuntime) UpdateCollection(request localchroma.EmbeddedUpdateCollectionRequest) error {
+	s.updateMu.Lock()
+	s.updateCalls++
+	callNo := s.updateCalls
+	s.updateMu.Unlock()
+
+	if callNo == 1 {
+		close(s.firstUpdateStarted)
+		<-s.unblockFirstUpdate
+	}
+
+	return s.memoryEmbeddedRuntime.UpdateCollection(request)
 }
 
 func (s *memoryEmbeddedRuntime) Add(request localchroma.EmbeddedAddRequest) error {
@@ -407,6 +451,20 @@ func (s *memoryEmbeddedRuntime) Query(request localchroma.EmbeddedQueryRequest) 
 	return &localchroma.EmbeddedQueryResponse{IDs: ids}, nil
 }
 
+func (s *mismatchedQueryEmbeddedRuntime) Query(request localchroma.EmbeddedQueryRequest) (*localchroma.EmbeddedQueryResponse, error) {
+	response, err := s.memoryEmbeddedRuntime.Query(request)
+	if err != nil {
+		return nil, err
+	}
+
+	duplicate := []string{}
+	if len(response.IDs) > 0 {
+		duplicate = append(duplicate, response.IDs[0]...)
+	}
+	response.IDs = append(response.IDs, duplicate)
+	return response, nil
+}
+
 func newEmbeddedClientForRuntime(t *testing.T, runtime localEmbeddedRuntime) *embeddedLocalClient {
 	t.Helper()
 
@@ -460,9 +518,49 @@ func (s *scriptedEmbeddedRuntime) CreateTenant(localchroma.EmbeddedCreateTenantR
 	return s.createTenantErr
 }
 
+func (s *scriptedEmbeddedRuntime) GetTenant(request localchroma.EmbeddedGetTenantRequest) (*localchroma.EmbeddedTenant, error) {
+	s.getTenantCalls++
+	if s.getTenantErr != nil {
+		return nil, s.getTenantErr
+	}
+	tenantName := request.Name
+	if tenantName == "" {
+		tenantName = DefaultTenant
+	}
+	return &localchroma.EmbeddedTenant{Name: tenantName}, nil
+}
+
 func (s *scriptedEmbeddedRuntime) CreateDatabase(localchroma.EmbeddedCreateDatabaseRequest) error {
 	s.createDatabaseCalls++
 	return s.createDatabaseErr
+}
+
+func (s *scriptedEmbeddedRuntime) ListDatabases(request localchroma.EmbeddedListDatabasesRequest) ([]localchroma.EmbeddedDatabase, error) {
+	s.listDatabasesCalls++
+	if s.listDatabasesErr != nil {
+		return nil, s.listDatabasesErr
+	}
+	tenantName := request.TenantID
+	if tenantName == "" {
+		tenantName = DefaultTenant
+	}
+	return []localchroma.EmbeddedDatabase{{Name: DefaultDatabase, Tenant: tenantName}}, nil
+}
+
+func (s *scriptedEmbeddedRuntime) GetDatabase(request localchroma.EmbeddedGetDatabaseRequest) (*localchroma.EmbeddedDatabase, error) {
+	s.getDatabaseCalls++
+	if s.getDatabaseErr != nil {
+		return nil, s.getDatabaseErr
+	}
+	tenantName := request.TenantID
+	if tenantName == "" {
+		tenantName = DefaultTenant
+	}
+	databaseName := request.Name
+	if databaseName == "" {
+		databaseName = DefaultDatabase
+	}
+	return &localchroma.EmbeddedDatabase{Name: databaseName, Tenant: tenantName}, nil
 }
 
 func (s *scriptedEmbeddedRuntime) DeleteDatabase(localchroma.EmbeddedDeleteDatabaseRequest) error {
@@ -534,10 +632,22 @@ func TestEmbeddedLocalClient_ContextCancellationShortCircuits(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 	require.Equal(t, 0, runtime.createTenantCalls)
 
+	_, err = client.GetTenant(ctx, NewTenant(DefaultTenant))
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, 0, runtime.getTenantCalls)
+
 	testDB := NewTenant(DefaultTenant).Database("test_db")
 	_, err = client.CreateDatabase(ctx, testDB)
 	require.ErrorIs(t, err, context.Canceled)
 	require.Equal(t, 0, runtime.createDatabaseCalls)
+
+	_, err = client.ListDatabases(ctx, NewTenant(DefaultTenant))
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, 0, runtime.listDatabasesCalls)
+
+	_, err = client.GetDatabase(ctx, testDB)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, 0, runtime.getDatabaseCalls)
 
 	err = client.DeleteDatabase(ctx, testDB)
 	require.ErrorIs(t, err, context.Canceled)
@@ -594,6 +704,89 @@ func TestEmbeddingsToFloat32Matrix_RejectsNilOrEmptyEmbeddings(t *testing.T) {
 	matrix, err := embeddingsToFloat32Matrix([]embeddingspkg.Embedding{valid})
 	require.NoError(t, err)
 	require.Equal(t, [][]float32{{1, 2, 3}}, matrix)
+}
+
+func TestIntToUint32_ValidatesRange(t *testing.T) {
+	value, err := intToUint32(42, "limit")
+	require.NoError(t, err)
+	require.Equal(t, uint32(42), value)
+
+	_, err = intToUint32(-1, "limit")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "limit must be greater than or equal to 0")
+
+	maxInt := int(^uint(0) >> 1)
+	if uint64(maxInt) > uint64(math.MaxUint32) {
+		_, err = intToUint32(maxInt, "offset")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "offset cannot exceed")
+	}
+}
+
+func TestEmbeddedCollectionModifyName_SerializesRenameAndCacheUpdate(t *testing.T) {
+	runtime := newBlockingRenameEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "rename-start")
+	require.NoError(t, err)
+	embeddedCollection, ok := collection.(*embeddedCollection)
+	require.True(t, ok)
+
+	firstDone := make(chan error, 1)
+	go func() {
+		firstDone <- embeddedCollection.ModifyName(ctx, "rename-first")
+	}()
+	<-runtime.firstUpdateStarted
+
+	secondDone := make(chan error, 1)
+	go func() {
+		secondDone <- embeddedCollection.ModifyName(ctx, "rename-second")
+	}()
+
+	select {
+	case err := <-secondDone:
+		require.Failf(t, "second rename completed before first released", "err=%v", err)
+	case <-time.After(50 * time.Millisecond):
+		// Expected: second rename is blocked while the first rename holds collection lock.
+	}
+
+	close(runtime.unblockFirstUpdate)
+	require.NoError(t, <-firstDone)
+	require.NoError(t, <-secondDone)
+
+	require.Nil(t, client.cachedCollectionByName("rename-start"))
+	require.Nil(t, client.cachedCollectionByName("rename-first"))
+	renamed := client.cachedCollectionByName("rename-second")
+	require.NotNil(t, renamed)
+	require.Equal(t, "rename-second", embeddedCollection.Name())
+}
+
+func TestEmbeddedCollectionQuery_ReturnsErrorOnDistanceEmbeddingMismatch(t *testing.T) {
+	runtime := &mismatchedQueryEmbeddedRuntime{memoryEmbeddedRuntime: newMemoryEmbeddedRuntime()}
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "distance-mismatch")
+	require.NoError(t, err)
+
+	queryEmbedding := embeddingspkg.NewEmbeddingFromFloat32([]float32{1, 0, 0})
+	err = collection.Add(
+		ctx,
+		WithIDs("d1"),
+		WithEmbeddings(queryEmbedding),
+		WithTexts("doc-1"),
+	)
+	require.NoError(t, err)
+
+	_, err = collection.Query(
+		ctx,
+		WithQueryEmbeddings(queryEmbedding),
+		WithNResults(1),
+		WithInclude(IncludeDistances),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "query response returned")
 }
 
 func TestAPIClientV2LocalCollectionCacheHelpers_InitializeNilMap(t *testing.T) {

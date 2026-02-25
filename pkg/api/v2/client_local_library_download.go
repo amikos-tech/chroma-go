@@ -608,6 +608,9 @@ func localDownloadFile(filePath, url string) error {
 }
 
 func localRejectHTTPSDowngradeRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
 	if len(via) == 0 {
 		return nil
 	}

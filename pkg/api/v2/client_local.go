@@ -174,8 +174,8 @@ func NewLocalClient(opts ...LocalClientOption) (Client, error) {
 		}
 
 		clientOptions := make([]ClientOption, 0, len(cfg.clientOptions)+1)
-		clientOptions = append(clientOptions, WithBaseURL(server.URL()))
 		clientOptions = append(clientOptions, cfg.clientOptions...)
+		clientOptions = append(clientOptions, WithBaseURL(server.URL()))
 
 		httpClient, err := NewHTTPClient(clientOptions...)
 		if err != nil {
