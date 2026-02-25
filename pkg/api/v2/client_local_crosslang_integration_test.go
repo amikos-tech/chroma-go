@@ -191,9 +191,24 @@ func oneHotEmbeddings() []embeddings.Embedding {
 	}
 }
 
+func newCrossLangPersistDir(t *testing.T) string {
+	t.Helper()
+
+	persistPath, err := os.MkdirTemp("", "chroma-local-persist-*")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		if removeErr := os.RemoveAll(persistPath); removeErr != nil {
+			t.Logf("best-effort cleanup for local persistence dir failed (%s): %v", persistPath, removeErr)
+		}
+	})
+
+	return persistPath
+}
+
 func TestLocalPersistenceRoundTrip_GoAndPython(t *testing.T) {
 	ctx := context.Background()
-	persistPath := t.TempDir()
+	persistPath := newCrossLangPersistDir(t)
 	goCollectionName := fmt.Sprintf("go_local_py_%d", time.Now().UnixNano())
 	pythonCollectionName := fmt.Sprintf("py_local_go_%d", time.Now().UnixNano())
 
@@ -280,7 +295,7 @@ func TestLocalPersistenceRoundTrip_GoAndPython(t *testing.T) {
 
 func TestLocalPersistenceRoundTrip_GoAndDocker(t *testing.T) {
 	ctx := context.Background()
-	persistPath := t.TempDir()
+	persistPath := newCrossLangPersistDir(t)
 	goCollectionName := fmt.Sprintf("go_local_docker_%d", time.Now().UnixNano())
 	dockerCollectionName := fmt.Sprintf("docker_local_go_%d", time.Now().UnixNano())
 
