@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,22 +64,28 @@ func pythonExecutable(t *testing.T, repoRoot string) string {
 	return pythonExec
 }
 
-func requireLocalLibraryPath(t *testing.T) string {
-	libPath := os.Getenv("CHROMA_LIB_PATH")
+func localLibraryPathIfConfigured(t *testing.T) (string, bool) {
+	libPath := strings.TrimSpace(os.Getenv("CHROMA_LIB_PATH"))
 	if libPath == "" {
-		t.Skip("CHROMA_LIB_PATH is not set; build chroma-go-local and set the shared library path")
+		return "", false
 	}
 	if _, err := os.Stat(libPath); err != nil {
 		t.Skipf("CHROMA_LIB_PATH does not point to a readable file: %v", err)
 	}
-	return libPath
+	return libPath, true
 }
 
 func newLocalClientForRoundTrip(t *testing.T, persistPath string) Client {
-	client, err := NewLocalClient(
-		WithLocalLibraryPath(requireLocalLibraryPath(t)),
+	opts := []LocalClientOption{
 		WithLocalPersistPath(persistPath),
-	)
+	}
+	if libPath, ok := localLibraryPathIfConfigured(t); ok {
+		opts = append(opts, WithLocalLibraryPath(libPath))
+	} else {
+		t.Log("CHROMA_LIB_PATH is not set; using local runtime library auto-download")
+	}
+
+	client, err := NewLocalClient(opts...)
 	require.NoError(t, err)
 	return client
 }

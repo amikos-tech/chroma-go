@@ -384,20 +384,6 @@ jobs:
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
           CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
           CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Install Rust build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev protobuf-compiler
-      - name: Build chroma-go-local Rust shim
-        run: |
-          CHROMA_LOCAL_VERSION="$(go list -m -f '{{.Version}}' github.com/amikos-tech/chroma-go-local)"
-          git clone --depth 1 --branch "${CHROMA_LOCAL_VERSION}" https://github.com/amikos-tech/chroma-go-local.git /tmp/chroma-go-local
-          pushd /tmp/chroma-go-local/shim
-          cargo build --release
-          popd
-          echo "CHROMA_LIB_PATH=/tmp/chroma-go-local/shim/target/release/libchroma_go_shim.so" >> "${GITHUB_ENV}"
       - name: Test local runtime cross-persistence
         run: make test-crosslang-local
       - name: Upload Test Results
