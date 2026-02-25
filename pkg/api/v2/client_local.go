@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	localchroma "github.com/amikos-tech/chroma-go-local"
 	"github.com/pkg/errors"
+
+	localchroma "github.com/amikos-tech/chroma-go-local"
 )
 
 // LocalRuntimeMode controls how [NewLocalClient] hosts Chroma locally.

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	localchroma "github.com/amikos-tech/chroma-go-local"
 	"github.com/pkg/errors"
 
+	localchroma "github.com/amikos-tech/chroma-go-local"
 	embeddingspkg "github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
