@@ -50,7 +50,7 @@ Options:
 
 | Options           | Usage                                        | Description                                                                                    | Value                      | Required                                                 |
 |-------------------|----------------------------------------------|------------------------------------------------------------------------------------------------|----------------------------|----------------------------------------------------------|
-| API Endpoint      | `WithBasePath("http://localhost:8000")`      | The Chroma server base API.                                                                    | Non-empty valid URL string | No (default: `http://localhost:8000`)                    |
+| API Endpoint      | `WithBaseURL("http://localhost:8000")`       | The Chroma server base API.                                                                    | Non-empty valid URL string | No (default: `http://localhost:8000`)                    |
 | Tenant            | `WithTenant("tenant")`                       | The default tenant to use.                                                                     | `string`                   | No (default: `default_tenant`)                           |
 | Database          | `WithDatabaseAndTenant("database","tenant")` | The default database to use.                                                                   | `string`                   | No (default: `default_database`)                         |
 | ~~Debug~~         | ~~`WithDebug()`~~ **DEPRECATED**             | ~~Enable debug mode~~ **Use `WithLogger` with debug level instead**                            | `bool`                     | No (deprecated - use WithLogger)                         |
@@ -93,13 +93,75 @@ func main() {
 
 ```
 
+## Local Persistent Client (v0.3.6+)
+
+`NewLocalClient` starts and manages a local Chroma runtime (via `chroma-go-local`) and exposes the same `Client` interface.
+By default it uses embedded mode (no HTTP server). You can opt into server mode when needed.
+
+### Runtime Options
+
+| Options               | Usage                                             | Description                                    |
+|-----------------------|---------------------------------------------------|------------------------------------------------|
+| Local Runtime Mode    | `WithLocalRuntimeMode(LocalRuntimeModeServer)`    | Select `embedded` (default) or `server`.       |
+| Local Library Path    | `WithLocalLibraryPath("/path/to/lib...")`         | Explicit local runtime library path.           |
+| Local Library Version | `WithLocalLibraryVersion("v0.2.0")`               | Release tag used for auto-download (default `v0.2.0`). |
+| Local Library Cache   | `WithLocalLibraryCacheDir("./.cache/chroma")`     | Cache location for downloaded shim libraries.  |
+| Local Library Download| `WithLocalLibraryAutoDownload(true)`              | Enable/disable auto-download fallback.         |
+| Local Persist Path    | `WithLocalPersistPath("./chroma_data")`           | Persistent storage directory.                  |
+| Local Listen Address  | `WithLocalListenAddress("127.0.0.1")`             | Server-mode bind address.                      |
+| Local Port            | `WithLocalPort(0)`                                | Server-mode port (default `8000`; `0` auto-selects). |
+| Local Allow Reset     | `WithLocalAllowReset(true)`                       | Enable reset endpoint/behavior.                |
+| Local Config Path     | `WithLocalConfigPath("./chroma.yaml")`            | Start runtime from YAML file.                  |
+| Local Raw YAML        | `WithLocalRawYAML("port: 8010\npersist_path:...")` | Start runtime from inline YAML.                |
+| Wrapped Client Option | `WithLocalClientOption(WithDatabaseAndTenant(...))` | Apply regular `ClientOption` to local client state. |
+
+### Example
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+	client, err := chroma.NewLocalClient(
+		chroma.WithLocalPersistPath("./chroma_data"),
+		chroma.WithLocalAllowReset(true),
+		chroma.WithLocalClientOption(chroma.WithDatabaseAndTenant("default_database", "default_tenant")),
+	)
+	if err != nil {
+		log.Fatalf("Error creating local client: %v", err)
+	}
+	defer client.Close()
+
+	version, err := client.GetVersion(context.Background())
+	if err != nil {
+		log.Fatalf("Error getting version: %v", err)
+	}
+	fmt.Println("Chroma version:", version)
+}
+```
+
+### Library Path Resolution
+
+`NewLocalClient` resolves the runtime shared library in this order:
+
+1. `WithLocalLibraryPath(...)`
+2. `CHROMA_LIB_PATH`
+3. Auto-download from `chroma-go-local` GitHub releases (enabled by default)
+
 ## Client version v0.1.4 or lower
 
 !!! warning "V1 API Deprecation Notice"
 
-    The V1 API has been removed in version `v0.3.0` and later. To use the examples below, pin your dependency to `v0.2.5` or earlier:
+    The V1 API has been removed in version `v0.3.0` and later. To use the examples below, pin your dependency to `v0.2.4` or earlier:
     ```bash
-    go get github.com/amikos-tech/chroma-go@v0.2.5
+    go get github.com/amikos-tech/chroma-go@v0.2.4
     ```
 
 Options:

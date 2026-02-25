@@ -138,6 +138,20 @@ test-crosslang: gotestsum-bin setup-python-venv
 		-coverprofile=coverage-crosslang.out \
 		-timeout=30m
 
+.PHONY: test-crosslang-local
+test-crosslang-local: gotestsum-bin setup-python-venv
+	gotestsum \
+		--format short-verbose \
+		--rerun-fails=1 \
+		--packages="./pkg/api/v2" \
+		--junitfile unit-crosslang-local.xml \
+		-- \
+		-v \
+		-tags=crosslang \
+		-run='TestLocalPersistenceRoundTrip' \
+		-coverprofile=coverage-crosslang-local.out \
+		-timeout=30m
+
 .PHONY: setup-python-venv
 setup-python-venv:
 	@if [ ! -d ".venv" ]; then \

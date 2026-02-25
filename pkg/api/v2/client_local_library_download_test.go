@@ -1,0 +1,270 @@
+//go:build basicv2 && !cloud
+// +build basicv2,!cloud
+
+package v2
+
+import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestResolveLocalLibraryPath_PrefersExplicitPathThenEnvThenDownload(t *testing.T) {
+	origGetenv := localGetenvFunc
+	origEnsure := localEnsureLibraryDownloadedFunc
+	origDetect := localDetectLibraryVersionFunc
+	origCache := localDefaultLibraryCacheDirFunc
+	t.Cleanup(func() {
+		localGetenvFunc = origGetenv
+		localEnsureLibraryDownloadedFunc = origEnsure
+		localDetectLibraryVersionFunc = origDetect
+		localDefaultLibraryCacheDirFunc = origCache
+	})
+
+	localGetenvFunc = func(key string) string {
+		if key == "CHROMA_LIB_PATH" {
+			return "/env/libchroma_go_shim.so"
+		}
+		return ""
+	}
+	localDetectLibraryVersionFunc = func() string { return "v9.9.9" }
+	localDefaultLibraryCacheDirFunc = func() (string, error) { return "/tmp/cache", nil }
+	localEnsureLibraryDownloadedFunc = func(version, cacheDir string) (string, error) {
+		return "/downloaded/libchroma_go_shim.so", nil
+	}
+
+	cfg := &localClientConfig{
+		libraryPath:         "/explicit/libchroma_go_shim.so",
+		autoDownloadLibrary: true,
+	}
+	path, err := resolveLocalLibraryPath(cfg)
+	require.NoError(t, err)
+	require.Equal(t, "/explicit/libchroma_go_shim.so", path)
+
+	cfg.libraryPath = ""
+	path, err = resolveLocalLibraryPath(cfg)
+	require.NoError(t, err)
+	require.Equal(t, "/env/libchroma_go_shim.so", path)
+
+	localGetenvFunc = func(string) string { return "" }
+	path, err = resolveLocalLibraryPath(cfg)
+	require.NoError(t, err)
+	require.Equal(t, "/downloaded/libchroma_go_shim.so", path)
+}
+
+func TestResolveLocalLibraryPath_AutoDownloadDisabled(t *testing.T) {
+	origGetenv := localGetenvFunc
+	origEnsure := localEnsureLibraryDownloadedFunc
+	t.Cleanup(func() {
+		localGetenvFunc = origGetenv
+		localEnsureLibraryDownloadedFunc = origEnsure
+	})
+
+	localGetenvFunc = func(string) string { return "" }
+	localEnsureLibraryDownloadedFunc = func(version, cacheDir string) (string, error) {
+		t.Fatal("download should not be attempted when auto-download is disabled")
+		return "", nil
+	}
+
+	cfg := &localClientConfig{
+		autoDownloadLibrary: false,
+	}
+	path, err := resolveLocalLibraryPath(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "local runtime library path is not configured")
+	require.Equal(t, "", path)
+}
+
+func TestEnsureLocalLibraryDownloaded_PropagatesLibraryStatErrors(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based permission checks are not reliable on windows")
+	}
+
+	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skipf("runtime not supported for local runtime artifacts: %v", err)
+	}
+
+	cacheDir := t.TempDir()
+	targetDir := filepath.Join(cacheDir, "v9.9.9", asset.platform)
+	require.NoError(t, os.MkdirAll(targetDir, 0755))
+	require.NoError(t, os.Chmod(targetDir, 0000))
+	t.Cleanup(func() {
+		_ = os.Chmod(targetDir, 0755)
+	})
+
+	_, err = ensureLocalLibraryDownloaded("v9.9.9", cacheDir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to stat local runtime library")
+}
+
+func TestLocalAcquireDownloadLock_ReportsStaleLockRemovalError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based permission checks are not reliable on windows")
+	}
+
+	origWaitTimeout := localLibraryLockWaitTimeout
+	origStaleAfter := localLibraryLockStaleAfter
+	localLibraryLockWaitTimeout = 2 * time.Second
+	localLibraryLockStaleAfter = -1 * time.Second
+	t.Cleanup(func() {
+		localLibraryLockWaitTimeout = origWaitTimeout
+		localLibraryLockStaleAfter = origStaleAfter
+	})
+
+	lockDir := t.TempDir()
+	lockPath := filepath.Join(lockDir, localLibraryLockFileName)
+	require.NoError(t, os.WriteFile(lockPath, []byte("123"), 0644))
+	require.NoError(t, os.Chmod(lockDir, 0555))
+	t.Cleanup(func() {
+		_ = os.Chmod(lockDir, 0755)
+	})
+
+	lockFile, err := localAcquireDownloadLock(lockPath)
+	require.Nil(t, lockFile)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to remove stale lock file")
+}
+
+func TestLocalReleaseDownloadLock_ReportsCloseError(t *testing.T) {
+	lockDir := t.TempDir()
+	lockPath := filepath.Join(lockDir, localLibraryLockFileName)
+
+	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	require.NoError(t, err)
+	require.NoError(t, lockFile.Close())
+
+	err = localReleaseDownloadLock(lockFile)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to close download lock file")
+}
+
+func TestLocalReleaseDownloadLock_ReportsRemoveError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based permission checks are not reliable on windows")
+	}
+
+	lockDir := t.TempDir()
+	lockPath := filepath.Join(lockDir, localLibraryLockFileName)
+	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	require.NoError(t, err)
+
+	require.NoError(t, os.Chmod(lockDir, 0555))
+	t.Cleanup(func() {
+		_ = os.Chmod(lockDir, 0755)
+	})
+
+	err = localReleaseDownloadLock(lockFile)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to remove download lock file")
+}
+
+func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
+	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skipf("runtime not supported for local runtime artifacts: %v", err)
+	}
+
+	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
+	checksum := sha256.Sum256(archiveBytes)
+	checksumHex := hex.EncodeToString(checksum[:])
+	sumsBody := []byte(checksumHex + "  " + asset.archiveName + "\n")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v9.9.9/" + localLibraryChecksumsAsset:
+			_, _ = w.Write(sumsBody)
+		case "/v9.9.9/" + asset.archiveName:
+			_, _ = w.Write(archiveBytes)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	origBaseURL := localLibraryReleaseBaseURL
+	origAttempts := localLibraryDownloadAttempts
+	t.Cleanup(func() {
+		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryDownloadAttempts = origAttempts
+	})
+	localLibraryReleaseBaseURL = server.URL
+	localLibraryDownloadAttempts = 1
+
+	cacheDir := t.TempDir()
+	libPath, err := ensureLocalLibraryDownloaded("v9.9.9", cacheDir)
+	require.NoError(t, err)
+	require.FileExists(t, libPath)
+
+	content, err := os.ReadFile(libPath)
+	require.NoError(t, err)
+	require.Equal(t, "local-shim-bytes", string(content))
+}
+
+func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
+	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skipf("runtime not supported for local runtime artifacts: %v", err)
+	}
+
+	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
+	sumsBody := []byte("deadbeef  " + asset.archiveName + "\n")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v9.9.9/" + localLibraryChecksumsAsset:
+			_, _ = w.Write(sumsBody)
+		case "/v9.9.9/" + asset.archiveName:
+			_, _ = w.Write(archiveBytes)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	origBaseURL := localLibraryReleaseBaseURL
+	origAttempts := localLibraryDownloadAttempts
+	t.Cleanup(func() {
+		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryDownloadAttempts = origAttempts
+	})
+	localLibraryReleaseBaseURL = server.URL
+	localLibraryDownloadAttempts = 1
+
+	cacheDir := t.TempDir()
+	_, err = ensureLocalLibraryDownloaded("v9.9.9", cacheDir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "checksum verification failed")
+}
+
+func newTarGzWithLibrary(t *testing.T, fileName string, content []byte) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	gzWriter := gzip.NewWriter(&buf)
+	tarWriter := tar.NewWriter(gzWriter)
+
+	header := &tar.Header{
+		Name: "./" + fileName,
+		Mode: 0644,
+		Size: int64(len(content)),
+	}
+	require.NoError(t, tarWriter.WriteHeader(header))
+	_, err := tarWriter.Write(content)
+	require.NoError(t, err)
+	require.NoError(t, tarWriter.Close())
+	require.NoError(t, gzWriter.Close())
+
+	return buf.Bytes()
+}

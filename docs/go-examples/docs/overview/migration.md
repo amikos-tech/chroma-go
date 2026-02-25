@@ -10,7 +10,7 @@ This document covers migration notes and breaking changes when upgrading Chroma 
 
 ### Version Compatibility
 
-The chroma-go client is tested against Chroma versions 0.4.8 to 1.5.0. When upgrading your Chroma server, check for any API changes that might affect your client code.
+The chroma-go client is tested against Chroma versions 0.6.3 to 1.5.1. When upgrading your Chroma server, check for any API changes that might affect your client code.
 
 ### API v1 vs v2
 
@@ -361,9 +361,8 @@ func main() {
 
 ## Notes
 
-- chroma-go is an HTTP-only client; it always connects to a Chroma server
-- No in-process/embedded mode is available in Go (unlike Python's PersistentClient/EphemeralClient)
+- chroma-go supports both external HTTP clients (`NewHTTPClient`) and local embedded runtime (`NewLocalClient`)
+- For Python-style local persistence, use `NewLocalClient` with `WithLocalPersistPath(...)`
 - API v2 is recommended for all new projects
 - Always check the [chroma-go releases](https://github.com/amikos-tech/chroma-go/releases) for client-specific changes
 - Server upgrades may require updating your Go client version for full compatibility
-
