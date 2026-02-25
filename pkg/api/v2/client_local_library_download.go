@@ -31,18 +31,19 @@ const (
 )
 
 var (
-	localLibraryReleaseBaseURL       = "https://github.com/amikos-tech/chroma-go-local/releases/download"
-	localLibraryDownloadMu           sync.Mutex
-	localLibraryDownloadAttempts     = 3
-	localLibraryLockWaitTimeout      = 45 * time.Second
-	localLibraryLockStaleAfter       = 10 * time.Minute
-	localGetenvFunc                  = os.Getenv
-	localUserHomeDirFunc             = os.UserHomeDir
-	localReadBuildInfoFunc           = debug.ReadBuildInfo
-	localDownloadFileFunc            = localDownloadFileWithRetry
-	localEnsureLibraryDownloadedFunc = ensureLocalLibraryDownloaded
-	localDetectLibraryVersionFunc    = detectLocalLibraryVersion
-	localDefaultLibraryCacheDirFunc  = defaultLocalLibraryCacheDir
+	localLibraryReleaseBaseURL        = "https://github.com/amikos-tech/chroma-go-local/releases/download"
+	localLibraryDownloadMu            sync.Mutex
+	localLibraryDownloadAttempts      = 3
+	localLibraryLockWaitTimeout       = 45 * time.Second
+	localLibraryLockStaleAfter        = 10 * time.Minute
+	localLibraryLockHeartbeatInterval = 30 * time.Second
+	localGetenvFunc                   = os.Getenv
+	localUserHomeDirFunc              = os.UserHomeDir
+	localReadBuildInfoFunc            = debug.ReadBuildInfo
+	localDownloadFileFunc             = localDownloadFileWithRetry
+	localEnsureLibraryDownloadedFunc  = ensureLocalLibraryDownloaded
+	localDetectLibraryVersionFunc     = detectLocalLibraryVersion
+	localDefaultLibraryCacheDirFunc   = defaultLocalLibraryCacheDir
 )
 
 type localLibraryAsset struct {
@@ -171,6 +172,17 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 	defer func() {
 		if releaseErr := localReleaseDownloadLock(lockFile); releaseErr != nil {
 			wrapped := errors.Wrapf(releaseErr, "failed to release download lock %s", lockFile.Name())
+			if retErr != nil {
+				retErr = stderrors.Join(retErr, wrapped)
+			} else {
+				retErr = wrapped
+			}
+		}
+	}()
+	stopHeartbeat := localStartDownloadLockHeartbeat(lockFile)
+	defer func() {
+		if heartbeatErr := stopHeartbeat(); heartbeatErr != nil {
+			wrapped := errors.Wrapf(heartbeatErr, "failed to stop download lock heartbeat for %s", lockFile.Name())
 			if retErr != nil {
 				retErr = stderrors.Join(retErr, wrapped)
 			} else {
@@ -357,6 +369,43 @@ func localReleaseDownloadLock(lockFile *os.File) error {
 		return stderrors.Join(errs...)
 	}
 	return nil
+}
+
+func localStartDownloadLockHeartbeat(lockFile *os.File) func() error {
+	if lockFile == nil || localLibraryLockHeartbeatInterval <= 0 {
+		return func() error { return nil }
+	}
+
+	lockPath := lockFile.Name()
+	stopCh := make(chan struct{})
+	doneCh := make(chan error, 1)
+	go func() {
+		ticker := time.NewTicker(localLibraryLockHeartbeatInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				now := time.Now()
+				if err := os.Chtimes(lockPath, now, now); err != nil {
+					if os.IsNotExist(err) {
+						doneCh <- nil
+					} else {
+						doneCh <- errors.Wrapf(err, "failed to refresh download lock file %s", lockPath)
+					}
+					return
+				}
+			case <-stopCh:
+				doneCh <- nil
+				return
+			}
+		}
+	}()
+
+	return func() error {
+		close(stopCh)
+		return <-doneCh
+	}
 }
 
 func localChecksumFromSumsFile(sumsFilePath, assetName string) (string, error) {

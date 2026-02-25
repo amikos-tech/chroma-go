@@ -102,7 +102,7 @@ By default it uses embedded mode (no HTTP server). You can opt into server mode 
 
 | Options               | Usage                                             | Description                                    |
 |-----------------------|---------------------------------------------------|------------------------------------------------|
-| Local Runtime Mode    | `WithLocalRuntimeMode(LocalRuntimeModeServer)`    | Select `embedded` (default) or `server`.       |
+| Local Runtime Mode    | `WithLocalRuntimeMode(chroma.LocalRuntimeModeServer)`    | Select `embedded` (default) or `server`.       |
 | Local Library Path    | `WithLocalLibraryPath("/path/to/lib...")`         | Explicit local runtime library path.           |
 | Local Library Version | `WithLocalLibraryVersion("v0.2.0")`               | Release tag used for auto-download (default `v0.2.0`). |
 | Local Library Cache   | `WithLocalLibraryCacheDir("./.cache/chroma")`     | Cache location for downloaded shim libraries.  |
@@ -113,7 +113,7 @@ By default it uses embedded mode (no HTTP server). You can opt into server mode 
 | Local Allow Reset     | `WithLocalAllowReset(true)`                       | Enable reset endpoint/behavior.                |
 | Local Config Path     | `WithLocalConfigPath("./chroma.yaml")`            | Start runtime from YAML file.                  |
 | Local Raw YAML        | `WithLocalRawYAML("port: 8010\npersist_path:...")` | Start runtime from inline YAML.                |
-| Wrapped Client Option | `WithLocalClientOption(WithDatabaseAndTenant(...))` | Apply regular `ClientOption` to local client state. |
+| Wrapped Client Option | `WithLocalClientOption(chroma.WithDatabaseAndTenant(...))` | Apply regular `ClientOption` to local client state. |
 
 ### Example
 

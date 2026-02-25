@@ -165,7 +165,10 @@ func (client *embeddedLocalClient) UseDatabase(ctx context.Context, database Dat
 	return nil
 }
 
-func (client *embeddedLocalClient) CreateTenant(_ context.Context, tenant Tenant) (Tenant, error) {
+func (client *embeddedLocalClient) CreateTenant(ctx context.Context, tenant Tenant) (Tenant, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if tenant == nil {
 		return nil, errors.New("tenant cannot be nil")
 	}
@@ -223,7 +226,10 @@ func (client *embeddedLocalClient) GetDatabase(_ context.Context, db Database) (
 	return NewDatabase(response.Name, NewTenant(tenantName)), nil
 }
 
-func (client *embeddedLocalClient) CreateDatabase(_ context.Context, db Database) (Database, error) {
+func (client *embeddedLocalClient) CreateDatabase(ctx context.Context, db Database) (Database, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if db == nil {
 		return nil, errors.New("database cannot be nil")
 	}
@@ -239,7 +245,10 @@ func (client *embeddedLocalClient) CreateDatabase(_ context.Context, db Database
 	return db, nil
 }
 
-func (client *embeddedLocalClient) DeleteDatabase(_ context.Context, db Database) error {
+func (client *embeddedLocalClient) DeleteDatabase(ctx context.Context, db Database) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if db == nil {
 		return errors.New("database cannot be nil")
 	}

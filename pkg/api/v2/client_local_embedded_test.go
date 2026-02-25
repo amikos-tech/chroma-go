@@ -11,20 +11,27 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	localchroma "github.com/amikos-tech/chroma-go-local"
 	embeddingspkg "github.com/amikos-tech/chroma-go/pkg/embeddings"
-	"github.com/stretchr/testify/require"
 )
 
 type scriptedEmbeddedRuntime struct {
 	*stubEmbeddedRuntime
-	healthResponses []*localchroma.EmbeddedHealthCheckResponse
-	healthErr       error
-	heartbeatErr    error
-	resetErr        error
+	healthResponses   []*localchroma.EmbeddedHealthCheckResponse
+	healthErr         error
+	heartbeatErr      error
+	resetErr          error
+	createTenantErr   error
+	createDatabaseErr error
+	deleteDatabaseErr error
 
-	healthCalls    int
-	heartbeatCalls int
+	healthCalls         int
+	heartbeatCalls      int
+	createTenantCalls   int
+	createDatabaseCalls int
+	deleteDatabaseCalls int
 }
 
 type memoryEmbeddedRecord struct {
@@ -448,6 +455,21 @@ func (s *scriptedEmbeddedRuntime) Reset() error {
 	return s.resetErr
 }
 
+func (s *scriptedEmbeddedRuntime) CreateTenant(localchroma.EmbeddedCreateTenantRequest) error {
+	s.createTenantCalls++
+	return s.createTenantErr
+}
+
+func (s *scriptedEmbeddedRuntime) CreateDatabase(localchroma.EmbeddedCreateDatabaseRequest) error {
+	s.createDatabaseCalls++
+	return s.createDatabaseErr
+}
+
+func (s *scriptedEmbeddedRuntime) DeleteDatabase(localchroma.EmbeddedDeleteDatabaseRequest) error {
+	s.deleteDatabaseCalls++
+	return s.deleteDatabaseErr
+}
+
 func TestWaitForLocalEmbeddedReady_DoesNotBypassHealthcheckReadiness(t *testing.T) {
 	runtime := newScriptedEmbeddedRuntime()
 	runtime.healthResponses = []*localchroma.EmbeddedHealthCheckResponse{
@@ -505,6 +527,19 @@ func TestEmbeddedLocalClient_ContextCancellationShortCircuits(t *testing.T) {
 	collection := &embeddedCollection{client: client}
 	err = collection.ModifyMetadata(ctx, NewMetadataFromMap(map[string]interface{}{"k": "v"}))
 	require.ErrorIs(t, err, context.Canceled)
+
+	_, err = client.CreateTenant(ctx, NewTenant(DefaultTenant))
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, 0, runtime.createTenantCalls)
+
+	testDB := NewTenant(DefaultTenant).Database("test_db")
+	_, err = client.CreateDatabase(ctx, testDB)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, 0, runtime.createDatabaseCalls)
+
+	err = client.DeleteDatabase(ctx, testDB)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, 0, runtime.deleteDatabaseCalls)
 }
 
 func TestEmbeddedCollectionModifyMetadataReturnsExplicitError(t *testing.T) {

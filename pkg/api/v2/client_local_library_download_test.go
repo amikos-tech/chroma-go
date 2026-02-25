@@ -170,6 +170,40 @@ func TestLocalReleaseDownloadLock_ReportsRemoveError(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to remove download lock file")
 }
 
+func TestLocalAcquireDownloadLock_DoesNotExpireActiveLockWithHeartbeat(t *testing.T) {
+	origWaitTimeout := localLibraryLockWaitTimeout
+	origStaleAfter := localLibraryLockStaleAfter
+	origHeartbeat := localLibraryLockHeartbeatInterval
+	localLibraryLockWaitTimeout = 700 * time.Millisecond
+	localLibraryLockStaleAfter = 1500 * time.Millisecond
+	localLibraryLockHeartbeatInterval = 100 * time.Millisecond
+	t.Cleanup(func() {
+		localLibraryLockWaitTimeout = origWaitTimeout
+		localLibraryLockStaleAfter = origStaleAfter
+		localLibraryLockHeartbeatInterval = origHeartbeat
+	})
+
+	lockDir := t.TempDir()
+	lockPath := filepath.Join(lockDir, localLibraryLockFileName)
+	lockFile, err := localAcquireDownloadLock(lockPath)
+	require.NoError(t, err)
+
+	stopHeartbeat := localStartDownloadLockHeartbeat(lockFile)
+	t.Cleanup(func() {
+		require.NoError(t, stopHeartbeat())
+		require.NoError(t, localReleaseDownloadLock(lockFile))
+	})
+
+	old := time.Now().Add(-10 * time.Second)
+	require.NoError(t, os.Chtimes(lockPath, old, old))
+	time.Sleep(3 * localLibraryLockHeartbeatInterval)
+
+	secondLock, err := localAcquireDownloadLock(lockPath)
+	require.Nil(t, secondLock)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "timeout waiting for lock")
+}
+
 func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
