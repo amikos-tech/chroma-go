@@ -71,7 +71,7 @@ func main() {
 
 Runtime options:
 
-- `WithLocalRuntimeMode(v2.LocalRuntimeModeEmbedded|v2.LocalRuntimeModeServer)` - choose runtime mode (default: embedded).
+- `WithLocalRuntimeMode(v2.LocalRuntimeModeEmbedded)` or `WithLocalRuntimeMode(v2.LocalRuntimeModeServer)` - choose runtime mode (default: embedded).
 - `WithLocalPersistPath(path)` - persistence directory.
 - `WithLocalPort(port)` - server-mode port (default `8000`; use `0` to auto-select an available port).
 - `WithLocalListenAddress(addr)` - server-mode bind address.
