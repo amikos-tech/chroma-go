@@ -555,7 +555,7 @@ func localDownloadFile(filePath, url string) error {
 	if resp.StatusCode != http.StatusOK {
 		return errors.Errorf("unexpected response %s for URL %s", resp.Status, url)
 	}
-	if resp.ContentLength > localLibraryMaxArtifactBytes {
+	if resp.ContentLength > 0 && resp.ContentLength > localLibraryMaxArtifactBytes {
 		return errors.Errorf(
 			"downloaded artifact is too large: %d bytes exceeds max %d bytes",
 			resp.ContentLength,
