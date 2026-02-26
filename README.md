@@ -50,8 +50,8 @@ Additional support features:
   logging
 - ✅ Persistent Embedding Function support - automatically load embedding function from Chroma collection
   configuration
-- ⚒️ Persistent Client support (coming soon) - Run/embed full-featured Chroma in your go application without the need
-  for Chroma server.
+- ✅ Persistent Client support - Run/embed full-featured Chroma in your Go application without running an external
+  Chroma server process.
 - ✅ [Search API Support](https://go-client.chromadb.dev/search/)
 - ✅ Array Metadata support with `$contains`/`$not_contains` operators (Chroma >= 1.5.0)
 
@@ -209,6 +209,27 @@ func main() {
 		return
 	}
 }
+```
+
+### Local Persistent Client (Embedded Runtime)
+
+You can run Chroma locally in-process (no external server process) with `NewLocalClient`.
+The runtime uses `chroma-go-local`. By default, `NewLocalClient` auto-downloads the correct shim library from the matching `chroma-go-local` GitHub release and caches it under `~/.cache/chroma/local_shim`.
+You can still override this with `CHROMA_LIB_PATH` or `WithLocalLibraryPath(...)`.
+`NewLocalClient` defaults to embedded mode; use `WithLocalRuntimeMode(chroma.LocalRuntimeModeServer)` (or `WithLocalPort(...)`) when you want a local HTTP server.
+For persistence, `WithLocalPersistPath(...)` is typically all you need.
+In server mode, the default port is `8000` unless overridden.
+
+```go
+client, err := chroma.NewLocalClient(
+	chroma.WithLocalPersistPath("./chroma_data"),
+	chroma.WithLocalAllowReset(true),
+	chroma.WithLocalClientOption(chroma.WithDatabaseAndTenant("default_database", "default_tenant")),
+)
+if err != nil {
+	log.Fatalf("Error creating local client: %s", err)
+}
+defer client.Close()
 ```
 
 ### Strict Metadata Map Validation

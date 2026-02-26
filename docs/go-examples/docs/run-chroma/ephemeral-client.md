@@ -4,9 +4,9 @@
 
 ## Overview
 
-In Python, you can run a Chroma server in-memory with the ephemeral client. This is useful for experimenting and testing without data persistence.
+In Python, you can run a Chroma server in-memory with the ephemeral client. This is useful for experimenting and testing without long-lived persistence.
 
-> **Note**: Go does not have an equivalent ephemeral client. The chroma-go library is an HTTP-only client that connects to a Chroma server. For testing and experimentation in Go, you can use testcontainers to run a temporary Chroma server.
+> **Note**: Go does not expose an in-memory-only runtime yet, but `NewLocalClient` gives a close equivalent: run Chroma in-process and use a temporary directory that you delete after the run.
 
 ## Go Examples
 
@@ -28,16 +28,20 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
 )
 
 func main() {
-	// Go always connects to an external Chroma server
-	// No in-memory mode available - use testcontainers for testing
+	tmpDir, err := os.MkdirTemp("", "chroma-ephemeral-*")
+	if err != nil {
+		log.Fatalf("Error creating temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
 
-	client, err := v2.NewHTTPClient(
-		v2.WithBaseURL("http://localhost:8000"),
+	client, err := v2.NewLocalClient(
+		v2.WithLocalPersistPath(tmpDir),
 	)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
@@ -186,9 +190,8 @@ func main() {
 
 ## Notes
 
-- Go is an HTTP-only client - no in-process Chroma support
+- `NewLocalClient` provides in-process runtime for local/ephemeral workflows
 - Use testcontainers for isolated testing environments
 - Use Docker for local development servers
 - For Cloud development, use `v2.NewCloudClient()`
 - Data in Docker containers without volume mounts is ephemeral by design
-

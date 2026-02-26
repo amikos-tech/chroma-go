@@ -664,14 +664,76 @@ func (client *APIClientV2) Close() error {
 	return nil
 }
 
-func (client *APIClientV2) addCollectionToCache(c Collection) {
+func (client *APIClientV2) localSetPreflightLimit(maxBatchSize int) {
+	if maxBatchSize <= 0 {
+		return
+	}
+	client.preflightMu.Lock()
+	defer client.preflightMu.Unlock()
+
+	if client.preflightCompleted {
+		return
+	}
+
+	client.preflightConditionsRaw = map[string]interface{}{
+		"max_batch_size": maxBatchSize,
+	}
+	if client.preflightLimits == nil {
+		client.preflightLimits = map[string]interface{}{}
+	}
+	for _, op := range []OperationType{OperationCreate, OperationGet, OperationQuery, OperationUpdate, OperationDelete} {
+		key := fmt.Sprintf("%s#%s", string(ResourceCollection), string(op))
+		client.preflightLimits[key] = maxBatchSize
+	}
+	client.preflightCompleted = true
+}
+
+func (client *APIClientV2) localCollectionByName(name string) Collection {
+	client.collectionMu.RLock()
+	defer client.collectionMu.RUnlock()
+	return client.collectionCache[name]
+}
+
+func (client *APIClientV2) localAddCollectionToCache(c Collection) {
+	if c == nil {
+		return
+	}
 	client.collectionMu.Lock()
 	defer client.collectionMu.Unlock()
+	if client.collectionCache == nil {
+		client.collectionCache = map[string]Collection{}
+	}
 	client.collectionCache[c.Name()] = c
 }
 
-func (client *APIClientV2) deleteCollectionFromCache(name string) {
+func (client *APIClientV2) localDeleteCollectionFromCache(name string) {
+	if name == "" {
+		return
+	}
 	client.collectionMu.Lock()
 	defer client.collectionMu.Unlock()
 	delete(client.collectionCache, name)
+}
+
+func (client *APIClientV2) localRenameCollectionInCache(oldName string, collection Collection) {
+	if collection == nil {
+		return
+	}
+	client.collectionMu.Lock()
+	defer client.collectionMu.Unlock()
+	if client.collectionCache == nil {
+		client.collectionCache = map[string]Collection{}
+	}
+	if oldName != "" {
+		delete(client.collectionCache, oldName)
+	}
+	client.collectionCache[collection.Name()] = collection
+}
+
+func (client *APIClientV2) addCollectionToCache(c Collection) {
+	client.localAddCollectionToCache(c)
+}
+
+func (client *APIClientV2) deleteCollectionFromCache(name string) {
+	client.localDeleteCollectionFromCache(name)
 }

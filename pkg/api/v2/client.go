@@ -30,7 +30,8 @@ type Client interface {
 	GetIdentity(ctx context.Context) (Identity, error)
 	// GetTenant gets a tenant with the given name.
 	GetTenant(ctx context.Context, tenant Tenant) (Tenant, error)
-	// UseTenant sets the current tenant to the given name.
+	// UseTenant sets the current tenant to the given name and resets the active
+	// database to [DefaultDatabase] for that tenant.
 	UseTenant(ctx context.Context, tenant Tenant) error
 	// UseDatabase sets a database to use for all collection operations.
 	UseDatabase(ctx context.Context, database Database) error

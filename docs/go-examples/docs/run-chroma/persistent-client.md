@@ -4,63 +4,31 @@
 
 ## Overview
 
-In Python, you can use `PersistentClient` to save and load data from your local machine. In Go, you always connect to a Chroma server via HTTP, so persistence is handled by the server's configuration.
+`chroma-go` supports a local persistent client via `v2.NewLocalClient(...)`.
+It embeds Chroma in your Go process and persists data on disk, similar to Python's `PersistentClient`.
 
-## Go Examples
+## Requirements
 
-### Python vs Go Client
+1. `NewLocalClient` auto-downloads the matching `chroma-go-local` shim library by default.
+2. Optional: set `CHROMA_LIB_PATH` (or pass `WithLocalLibraryPath(...)`) to use a specific local library file instead.
+
+Override example:
+
+```bash
+export CHROMA_LIB_PATH=/absolute/path/to/libchroma_go_shim.dylib
+```
+
+## Python vs Go Client
 
 {% codetabs group="lang" %}
 {% codetab label="Python" %}
 ```python
 import chromadb
 
-# Python can run Chroma embedded with persistence
-client = chromadb.PersistentClient(path="/path/to/save/to")
+client = chromadb.PersistentClient(path="./chroma_data")
 ```
 {% /codetab %}
 {% codetab label="Go" %}
-```go
-package main
-
-import (
-	"log"
-
-	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
-)
-
-func main() {
-	// Go connects to a Chroma server - persistence is server-side
-	// Start server with: chroma run --path /path/to/save/to
-
-	client, err := v2.NewHTTPClient(
-		v2.WithBaseURL("http://localhost:8000"),
-	)
-	if err != nil {
-		log.Fatalf("Error: %v", err)
-	}
-	defer client.Close()
-
-	// Data persists on the server based on server configuration
-}
-```
-{% /codetab %}
-{% /codetabs %}
-
-### Running a Persistent Chroma Server
-
-Start a Chroma server with persistence enabled:
-
-```bash
-# Using the Chroma CLI
-chroma run --path /path/to/save/to
-
-# Using Docker with a volume mount for persistence
-docker run -p 8000:8000 -v /path/to/save/to:/data chromadb/chroma
-```
-
-Then connect from Go:
-
 ```go
 package main
 
@@ -72,188 +40,77 @@ import (
 )
 
 func main() {
-	// Connect to persistent Chroma server
-	client, err := v2.NewHTTPClient(
-		v2.WithBaseURL("http://localhost:8000"),
+	client, err := v2.NewLocalClient(
+		v2.WithLocalPersistPath("./chroma_data"),
+		v2.WithLocalAllowReset(true),
 	)
 	if err != nil {
-		log.Fatalf("Error: %v", err)
+		log.Fatalf("Error creating local client: %v", err)
 	}
 	defer client.Close()
 
 	ctx := context.Background()
-
-	// Data will persist on the server between restarts
-	collection, err := client.GetOrCreateCollection(ctx, "persistent_collection")
+	col, err := client.GetOrCreateCollection(ctx, "persistent_collection")
 	if err != nil {
-		log.Fatalf("Error: %v", err)
+		log.Fatalf("Error creating collection: %v", err)
 	}
 
-	// Add data
-	err = collection.Add(ctx,
+	err = col.Add(ctx,
 		v2.WithIDs("doc1", "doc2"),
-		v2.WithDocuments(
-			"First document content",
-			"Second document content",
-		),
+		v2.WithTexts("First document content", "Second document content"),
 	)
 	if err != nil {
-		log.Fatalf("Error: %v", err)
-	}
-
-	log.Printf("Data added to collection: %s", collection.Name())
-	log.Println("Data will persist on server restart")
-}
-```
-
-### Utility Methods
-
-{% codetabs group="lang" %}
-{% codetab label="Python" %}
-```python
-client.heartbeat()
-client.reset()
-```
-{% /codetab %}
-{% codetab label="Go" %}
-```go
-package main
-
-import (
-	"context"
-	"log"
-
-	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
-)
-
-func main() {
-	client, err := v2.NewHTTPClient()
-	if err != nil {
-		log.Fatalf("Error: %v", err)
-	}
-	defer client.Close()
-
-	ctx := context.Background()
-
-	// Heartbeat - check if server is running
-	heartbeat, err := client.Heartbeat(ctx)
-	if err != nil {
-		log.Fatalf("Server not responding: %v", err)
-	}
-	log.Printf("Server heartbeat: %d nanoseconds", heartbeat)
-
-	// Reset - empties and resets the database
-	// Warning: This is destructive and not reversible!
-	// Server must have allow_reset=true in config
-	err = client.Reset(ctx)
-	if err != nil {
-		log.Printf("Reset failed (may be disabled): %v", err)
+		log.Fatalf("Error adding documents: %v", err)
 	}
 }
 ```
 {% /codetab %}
 {% /codetabs %}
 
-### Docker Compose Example
+## Local Client Options
 
-Create a `docker-compose.yml` for persistent Chroma:
+Runtime options:
 
-```yaml
-version: '3'
-services:
-  chroma:
-    image: chromadb/chroma:latest
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./chroma-data:/data
-    environment:
-      - CHROMA_HOST=0.0.0.0
-```
+- `WithLocalRuntimeMode(v2.LocalRuntimeModeEmbedded)` or `WithLocalRuntimeMode(v2.LocalRuntimeModeServer)` - choose runtime mode (default: embedded).
+- `WithLocalPersistPath(path)` - persistence directory.
+- `WithLocalPort(port)` - server-mode port (default `8000`; use `0` to auto-select an available port).
+- `WithLocalListenAddress(addr)` - server-mode bind address.
+- `WithLocalAllowReset(bool)` - enable `Reset`.
+- `WithLocalConfigPath(path)` - start runtime from YAML file (defaults to server mode).
+- `WithLocalRawYAML(yaml)` - start runtime from inline YAML (defaults to server mode).
+- `WithLocalLibraryPath(path)` - explicit library path (alternative to `CHROMA_LIB_PATH`).
+- `WithLocalLibraryVersion(tag)` - override auto-download release tag (default `v0.2.0`).
+- `WithLocalLibraryCacheDir(path)` - override local shim cache directory.
+- `WithLocalLibraryAutoDownload(false)` - disable auto-download fallback.
 
-Connect from Go:
+Pass regular `ClientOption`s (logger, tenant/database, headers, auth, etc):
 
-```go
-package main
+- `WithLocalClientOption(v2.WithDatabaseAndTenant("db", "tenant"))`
+- `WithLocalClientOptions(...)`
 
-import (
-	"context"
-	"log"
-
-	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
-)
-
-func main() {
-	client, err := v2.NewHTTPClient(
-		v2.WithBaseURL("http://localhost:8000"),
-	)
-	if err != nil {
-		log.Fatalf("Error: %v", err)
-	}
-	defer client.Close()
-
-	ctx := context.Background()
-
-	// Check connection
-	_, err = client.Heartbeat(ctx)
-	if err != nil {
-		log.Fatalf("Cannot connect to Chroma: %v", err)
-	}
-
-	// List existing collections (will persist across restarts)
-	collections, err := client.ListCollections(ctx)
-	if err != nil {
-		log.Fatalf("Error: %v", err)
-	}
-
-	log.Printf("Found %d persistent collections", len(collections))
-	for _, col := range collections {
-		count, _ := col.Count(ctx)
-		log.Printf("  - %s: %d documents", col.Name(), count)
-	}
-}
-```
-
-### Environment Variables
-
-Configure the Go client using environment variables:
+## Starting Server Mode from YAML Config
 
 ```go
-package main
-
-import (
-	"log"
-	"os"
-
-	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+client, err := v2.NewLocalClient(
+	v2.WithLocalConfigPath("./chroma.yaml"),
+	v2.WithLocalClientOption(v2.WithLogger(myLogger)),
 )
+```
 
-func main() {
-	// Set CHROMA_URL environment variable
-	// export CHROMA_URL=http://chroma-server:8000
+Or inline:
 
-	chromaURL := os.Getenv("CHROMA_URL")
-	if chromaURL == "" {
-		chromaURL = "http://localhost:8000"
-	}
-
-	client, err := v2.NewHTTPClient(
-		v2.WithBaseURL(chromaURL),
-	)
-	if err != nil {
-		log.Fatalf("Error: %v", err)
-	}
-	defer client.Close()
-
-	log.Printf("Connected to: %s", chromaURL)
-}
+```go
+client, err := v2.NewLocalClient(
+	v2.WithLocalRawYAML(`
+port: 8010
+persist_path: "./chroma_data"
+allow_reset: true
+`),
+)
 ```
 
 ## Notes
 
-- Go is HTTP-only - persistence is configured on the server side
-- Use Docker volumes to persist data when running Chroma in containers
-- The `reset()` method requires `allow_reset=true` in server configuration
-- For production, always mount a persistent volume to `/data` in the Docker container
-- Consider using Chroma Cloud for managed persistence
-
+- `NewLocalClient` still uses the same `Client` interface, so collection/query code remains unchanged.
+- If you prefer an external server (Docker, CLI, Cloud), continue using `NewHTTPClient` / `NewCloudClient`.
+- `WithLocalConfigPath` and `WithLocalRawYAML` are mutually exclusive.

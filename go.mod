@@ -4,6 +4,7 @@ go 1.24.11
 
 require (
 	github.com/Masterminds/semver v1.5.0
+	github.com/amikos-tech/chroma-go-local v0.2.0
 	github.com/amikos-tech/pure-tokenizers v0.1.1
 	github.com/aws/aws-sdk-go-v2 v1.41.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.7
@@ -59,7 +60,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/ebitengine/purego v0.8.4 // indirect
+	github.com/ebitengine/purego v0.9.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect

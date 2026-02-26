@@ -198,7 +198,7 @@ func sanitizeForLogging(input string) string {
 		default:
 			if unicode.IsControl(r) {
 				// Escape other control characters as unicode
-				result.WriteString(fmt.Sprintf("\\u%04x", r))
+				_, _ = fmt.Fprintf(&result, "\\u%04x", r)
 			} else {
 				result.WriteRune(r)
 			}

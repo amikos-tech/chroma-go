@@ -57,6 +57,10 @@ github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1
 github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
+github.com/amikos-tech/chroma-go-local v0.1.0 h1:XGHQcV1/lDZNqJqLOXl+LQ0kngPj8HnpaSCULZBeqcI=
+github.com/amikos-tech/chroma-go-local v0.1.0/go.mod h1:U37BtxfJldfcpiya6nelgy+SdMesYOVub9kcnRknTrk=
+github.com/amikos-tech/chroma-go-local v0.2.0 h1:ES76NRZLWFVLcF0uGTqE+/H4kfYeXCUDzHeYVInyjxU=
+github.com/amikos-tech/chroma-go-local v0.2.0/go.mod h1:U37BtxfJldfcpiya6nelgy+SdMesYOVub9kcnRknTrk=
 github.com/amikos-tech/pure-tokenizers v0.1.1 h1:AOPMW+GLd7/FapGiyBV7CGKj766zd1VDFbv+0wqGOWA=
 github.com/amikos-tech/pure-tokenizers v0.1.1/go.mod h1:o0ICQtz7tM7pukqwfybBk6FvWKFZLyIWs4uFYbH+CG4=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
@@ -139,6 +143,8 @@ github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/ebitengine/purego v0.8.4 h1:CF7LEKg5FFOsASUj0+QwaXf8Ht6TlFxg09+S9wz0omw=
 github.com/ebitengine/purego v0.8.4/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
+github.com/ebitengine/purego v0.9.1 h1:a/k2f2HQU3Pi399RPW1MOaZyhKJL9w/xFpKAg4q1s0A=
+github.com/ebitengine/purego v0.9.1/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
