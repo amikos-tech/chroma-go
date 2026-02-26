@@ -941,16 +941,21 @@ func (c *embeddedCollection) ModifyName(ctx context.Context, newName string) err
 
 	c.mu.Lock()
 	oldName := c.name
-	if err := c.client.embedded.UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest{
-		CollectionID: c.id,
-		NewName:      newName,
-		DatabaseName: c.database.Name(),
-	}); err != nil {
-		c.mu.Unlock()
-		return errors.Wrap(err, "error renaming collection")
+	renameErr := func() error {
+		defer c.mu.Unlock()
+		if err := c.client.embedded.UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest{
+			CollectionID: c.id,
+			NewName:      newName,
+			DatabaseName: c.database.Name(),
+		}); err != nil {
+			return errors.Wrap(err, "error renaming collection")
+		}
+		c.name = newName
+		return nil
+	}()
+	if renameErr != nil {
+		return renameErr
 	}
-	c.name = newName
-	c.mu.Unlock()
 	c.client.renameCollectionInCache(oldName, c)
 	return nil
 }

@@ -376,6 +376,16 @@ func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 	require.Contains(t, err.Error(), "checksum verification failed")
 }
 
+func TestLocalChecksumFromSumsFile_SupportsBSDFileMarker(t *testing.T) {
+	assetName := "chroma-go-shim-linux-amd64.tar.gz"
+	sumsPath := filepath.Join(t.TempDir(), "SHA256SUMS.txt")
+	require.NoError(t, os.WriteFile(sumsPath, []byte("DEADBEEF  *"+assetName+"\n"), 0644))
+
+	checksum, err := localChecksumFromSumsFile(sumsPath, assetName)
+	require.NoError(t, err)
+	require.Equal(t, "deadbeef", checksum)
+}
+
 func TestLocalDownloadFile_RejectsOversizedArtifact(t *testing.T) {
 	lockLocalTestHooks(t)
 

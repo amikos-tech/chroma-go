@@ -478,7 +478,8 @@ func localChecksumFromSumsFile(sumsFilePath, assetName string) (string, error) {
 		if len(fields) < 2 {
 			continue
 		}
-		if fields[1] == assetName {
+		checksumAssetName := strings.TrimPrefix(fields[1], "*")
+		if checksumAssetName == assetName {
 			return strings.ToLower(fields[0]), nil
 		}
 	}

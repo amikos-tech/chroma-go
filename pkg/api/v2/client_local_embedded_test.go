@@ -71,6 +71,10 @@ type blockingRenameEmbeddedRuntime struct {
 	updateCalls int
 }
 
+type panicRenameEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+}
+
 type mismatchedQueryEmbeddedRuntime struct {
 	*memoryEmbeddedRuntime
 }
@@ -298,6 +302,10 @@ func (s *blockingRenameEmbeddedRuntime) UpdateCollection(request localchroma.Emb
 	}
 
 	return s.memoryEmbeddedRuntime.UpdateCollection(request)
+}
+
+func (s *panicRenameEmbeddedRuntime) UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest) error {
+	panic("panic in UpdateCollection")
 }
 
 func (s *memoryEmbeddedRuntime) Add(request localchroma.EmbeddedAddRequest) error {
@@ -863,6 +871,32 @@ func TestEmbeddedCollectionModifyName_SerializesRenameAndCacheUpdate(t *testing.
 	renamed := client.cachedCollectionByName("rename-second")
 	require.NotNil(t, renamed)
 	require.Equal(t, "rename-second", embeddedCollection.Name())
+}
+
+func TestEmbeddedCollectionModifyName_ReleasesLockWhenRuntimePanics(t *testing.T) {
+	runtime := &panicRenameEmbeddedRuntime{memoryEmbeddedRuntime: newMemoryEmbeddedRuntime()}
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "rename-panic")
+	require.NoError(t, err)
+	embeddedCollection, ok := collection.(*embeddedCollection)
+	require.True(t, ok)
+
+	require.PanicsWithValue(t, "panic in UpdateCollection", func() {
+		_ = embeddedCollection.ModifyName(ctx, "rename-panic-new")
+	})
+
+	nameDone := make(chan string, 1)
+	go func() {
+		nameDone <- embeddedCollection.Name()
+	}()
+	select {
+	case gotName := <-nameDone:
+		require.Equal(t, "rename-panic", gotName)
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("collection lock remained held after panic in ModifyName")
+	}
 }
 
 func TestEmbeddedCollectionQuery_ReturnsErrorOnDistanceEmbeddingMismatch(t *testing.T) {
