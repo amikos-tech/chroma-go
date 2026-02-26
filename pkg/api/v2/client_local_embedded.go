@@ -1164,6 +1164,20 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 		for i, id := range records.IDs {
 			index[id] = i
 		}
+		missingProjectionIDs := make([]string, 0)
+		for _, id := range group {
+			if _, ok := index[id]; !ok {
+				missingProjectionIDs = append(missingProjectionIDs, id)
+			}
+		}
+		if len(missingProjectionIDs) > 0 {
+			return nil, errors.Errorf(
+				"query projections changed during read: %d/%d records are missing (first missing id=%s)",
+				len(missingProjectionIDs),
+				len(group),
+				missingProjectionIDs[0],
+			)
+		}
 
 		if needDocs {
 			docs := make(Documents, len(group))
@@ -1197,9 +1211,12 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 		if needEmbeddings {
 			embeddingsGroup := make(embeddingspkg.Embeddings, len(group))
 			for i, id := range group {
-				recordIdx, ok := index[id]
-				if !ok || recordIdx >= len(records.Embeddings) {
-					continue
+				recordIdx := index[id]
+				if recordIdx >= len(records.Embeddings) {
+					return nil, errors.Errorf("query projections missing embedding for id %s", id)
+				}
+				if len(records.Embeddings[recordIdx]) == 0 {
+					return nil, errors.Errorf("query projections contained empty embedding for id %s", id)
 				}
 				embeddingsGroup[i] = embeddingspkg.NewEmbeddingFromFloat32(records.Embeddings[recordIdx])
 			}
@@ -1210,9 +1227,9 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 			distances := make(embeddingspkg.Distances, len(group))
 			queryVector := queryEmbeddings[groupIdx]
 			for i, id := range group {
-				recordIdx, ok := index[id]
-				if !ok || recordIdx >= len(records.Embeddings) {
-					continue
+				recordIdx := index[id]
+				if recordIdx >= len(records.Embeddings) {
+					return nil, errors.Errorf("query projections missing embedding for id %s", id)
 				}
 				distance, err := computeEmbeddedDistance(distanceMetric, queryVector, records.Embeddings[recordIdx])
 				if err != nil {
@@ -1541,7 +1558,11 @@ func (c *embeddedCollection) queryDistanceMetric() embeddingspkg.DistanceMetric 
 
 func computeEmbeddedDistance(metric embeddingspkg.DistanceMetric, queryVector []float32, resultVector []float32) (embeddingspkg.Distance, error) {
 	if len(queryVector) == 0 || len(resultVector) == 0 {
-		return 0, nil
+		return 0, errors.Errorf(
+			"cannot compute distance for empty embedding vectors: query=%d result=%d",
+			len(queryVector),
+			len(resultVector),
+		)
 	}
 	if len(queryVector) != len(resultVector) {
 		return 0, errors.Errorf(

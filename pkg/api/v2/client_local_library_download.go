@@ -23,14 +23,16 @@ import (
 )
 
 const (
-	defaultLocalLibraryVersion = "v0.2.0"
-	localLibraryModulePath     = "github.com/amikos-tech/chroma-go-local"
-	localLibraryChecksumsAsset = "chroma-go-shim_SHA256SUMS.txt"
-	localLibraryLockFileName   = ".download.lock"
+	defaultLocalLibraryVersion        = "v0.2.0"
+	defaultLocalLibraryReleaseBaseURL = "https://github.com/amikos-tech/chroma-go-local/releases/download"
+	localLibraryModulePath            = "github.com/amikos-tech/chroma-go-local"
+	localLibraryChecksumsAsset        = "chroma-go-shim_SHA256SUMS.txt"
+	localLibraryLockFileName          = ".download.lock"
 )
 
 var (
-	localLibraryReleaseBaseURL        = "https://github.com/amikos-tech/chroma-go-local/releases/download"
+	// Intentionally mutable for tests that use httptest servers.
+	localLibraryReleaseBaseURL        = defaultLocalLibraryReleaseBaseURL
 	localLibraryDownloadMu            sync.Mutex
 	localLibraryDownloadAttempts            = 3
 	localLibraryLockWaitTimeout             = 45 * time.Second

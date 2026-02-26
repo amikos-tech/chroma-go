@@ -79,6 +79,16 @@ type mismatchedQueryEmbeddedRuntime struct {
 	*memoryEmbeddedRuntime
 }
 
+type missingProjectionEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+	dropProjectionOnce sync.Once
+}
+
+type emptyProjectionEmbeddingRuntime struct {
+	*memoryEmbeddedRuntime
+	makeEmptyOnce sync.Once
+}
+
 type countingMemoryEmbeddedRuntime struct {
 	*memoryEmbeddedRuntime
 	mu sync.Mutex
@@ -508,6 +518,37 @@ func (s *mismatchedQueryEmbeddedRuntime) Query(request localchroma.EmbeddedQuery
 	return response, nil
 }
 
+func (s *missingProjectionEmbeddedRuntime) GetRecords(request localchroma.EmbeddedGetRecordsRequest) (*localchroma.EmbeddedGetRecordsResponse, error) {
+	response, err := s.memoryEmbeddedRuntime.GetRecords(request)
+	if err != nil {
+		return nil, err
+	}
+	s.dropProjectionOnce.Do(func() {
+		if len(response.IDs) < 2 {
+			return
+		}
+		lastIdx := len(response.IDs) - 1
+		response.IDs = response.IDs[:lastIdx]
+		response.Embeddings = response.Embeddings[:lastIdx]
+		response.Documents = response.Documents[:lastIdx]
+		response.Metadatas = response.Metadatas[:lastIdx]
+	})
+	return response, nil
+}
+
+func (s *emptyProjectionEmbeddingRuntime) GetRecords(request localchroma.EmbeddedGetRecordsRequest) (*localchroma.EmbeddedGetRecordsResponse, error) {
+	response, err := s.memoryEmbeddedRuntime.GetRecords(request)
+	if err != nil {
+		return nil, err
+	}
+	s.makeEmptyOnce.Do(func() {
+		if len(response.Embeddings) > 0 {
+			response.Embeddings[0] = nil
+		}
+	})
+	return response, nil
+}
+
 func newEmbeddedClientForRuntime(t *testing.T, runtime localEmbeddedRuntime) *embeddedLocalClient {
 	t.Helper()
 
@@ -924,6 +965,61 @@ func TestEmbeddedCollectionQuery_ReturnsErrorOnDistanceEmbeddingMismatch(t *test
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "query response returned")
+}
+
+func TestEmbeddedCollectionQuery_ReturnsErrorWhenProjectionRowsDisappear(t *testing.T) {
+	runtime := &missingProjectionEmbeddedRuntime{memoryEmbeddedRuntime: newMemoryEmbeddedRuntime()}
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "query-projection-toctou")
+	require.NoError(t, err)
+
+	emb1 := embeddingspkg.NewEmbeddingFromFloat32([]float32{1, 0, 0})
+	emb2 := embeddingspkg.NewEmbeddingFromFloat32([]float32{0, 1, 0})
+	err = collection.Add(
+		ctx,
+		WithIDs("q1", "q2"),
+		WithEmbeddings(emb1, emb2),
+		WithTexts("doc-1", "doc-2"),
+	)
+	require.NoError(t, err)
+
+	_, err = collection.Query(
+		ctx,
+		WithQueryEmbeddings(emb1),
+		WithNResults(2),
+		WithInclude(IncludeDocuments),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "query projections changed during read")
+}
+
+func TestEmbeddedCollectionQuery_ReturnsErrorOnEmptyProjectionEmbedding(t *testing.T) {
+	runtime := &emptyProjectionEmbeddingRuntime{memoryEmbeddedRuntime: newMemoryEmbeddedRuntime()}
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "query-empty-projection-embedding")
+	require.NoError(t, err)
+
+	queryEmbedding := embeddingspkg.NewEmbeddingFromFloat32([]float32{1, 0, 0})
+	err = collection.Add(
+		ctx,
+		WithIDs("q1"),
+		WithEmbeddings(queryEmbedding),
+		WithTexts("doc-1"),
+	)
+	require.NoError(t, err)
+
+	_, err = collection.Query(
+		ctx,
+		WithQueryEmbeddings(queryEmbedding),
+		WithNResults(1),
+		WithInclude(IncludeDistances),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot compute distance for empty embedding vectors")
 }
 
 func TestEmbeddedCollectionQuery_RejectsNResultsOverflow(t *testing.T) {
