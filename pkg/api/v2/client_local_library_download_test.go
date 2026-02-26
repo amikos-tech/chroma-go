@@ -238,6 +238,28 @@ func TestLocalAcquireDownloadLock_DoesNotExpireActiveLockWithHeartbeat(t *testin
 	require.Contains(t, err.Error(), "timeout waiting for lock")
 }
 
+func TestLocalStartDownloadLockHeartbeat_StopIsIdempotent(t *testing.T) {
+	lockLocalTestHooks(t)
+
+	origHeartbeat := localLibraryLockHeartbeatInterval
+	localLibraryLockHeartbeatInterval = 50 * time.Millisecond
+	t.Cleanup(func() {
+		localLibraryLockHeartbeatInterval = origHeartbeat
+	})
+
+	lockDir := t.TempDir()
+	lockPath := filepath.Join(lockDir, localLibraryLockFileName)
+	lockFile, err := localAcquireDownloadLock(lockPath)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, localReleaseDownloadLock(lockFile))
+	})
+
+	stopHeartbeat := localStartDownloadLockHeartbeat(lockFile)
+	require.NoError(t, stopHeartbeat())
+	require.NoError(t, stopHeartbeat())
+}
+
 func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 	lockLocalTestHooks(t)
 

@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -440,6 +439,8 @@ func localStartDownloadLockHeartbeat(lockFile *os.File) func() error {
 	lockPath := lockFile.Name()
 	stopCh := make(chan struct{})
 	doneCh := make(chan error, 1)
+	var stopOnce sync.Once
+	var stopErr error
 	go func() {
 		ticker := time.NewTicker(localLibraryLockHeartbeatInterval)
 		defer ticker.Stop()
@@ -464,8 +465,11 @@ func localStartDownloadLockHeartbeat(lockFile *os.File) func() error {
 	}()
 
 	return func() error {
-		close(stopCh)
-		return <-doneCh
+		stopOnce.Do(func() {
+			close(stopCh)
+			stopErr = <-doneCh
+		})
+		return stopErr
 	}
 }
 
@@ -569,11 +573,11 @@ func localDownloadFile(filePath, url string) error {
 		return errors.Wrap(err, "failed to create destination directory")
 	}
 
-	tempPath := filePath + ".download-" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	out, err := os.Create(tempPath)
+	out, err := os.CreateTemp(filepath.Dir(filePath), filepath.Base(filePath)+".download-*")
 	if err != nil {
 		return errors.Wrap(err, "failed to create temp file")
 	}
+	tempPath := out.Name()
 
 	limitedBody := io.LimitReader(resp.Body, localLibraryMaxArtifactBytes+1)
 	written, copyErr := io.Copy(out, limitedBody)
