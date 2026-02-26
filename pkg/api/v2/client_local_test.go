@@ -5,6 +5,9 @@ package v2
 
 import (
 	"errors"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -554,11 +557,13 @@ func TestNewLocalClient_PropagatesInitError(t *testing.T) {
 	require.Contains(t, err.Error(), "error initializing local chroma runtime")
 }
 
-func TestStartLocalServer_RejectsMutuallyExclusiveConfigSources(t *testing.T) {
-	_, err := startLocalServer(&localClientConfig{
-		configPath: "/tmp/chroma.yaml",
-		rawYAML:    "port: 8801",
-	})
+func TestNewLocalClient_RejectsMutuallyExclusiveConfigSources(t *testing.T) {
+	lockLocalTestHooks(t)
+
+	_, err := NewLocalClient(
+		WithLocalConfigPath("/tmp/chroma.yaml"),
+		WithLocalRawYAML("port: 8801"),
+	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "mutually exclusive")
 }
@@ -578,4 +583,36 @@ func TestNewLocalClient_PropagatesLibraryResolveError(t *testing.T) {
 	_, err := NewLocalClient()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "error resolving local chroma runtime library path")
+}
+
+type capturingHeartbeatTransport struct {
+	sawDeadline bool
+}
+
+func (t *capturingHeartbeatTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	_, t.sawDeadline = req.Context().Deadline()
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader("nanosecond heartbeat")),
+		Header:     make(http.Header),
+		Request:    req,
+	}, nil
+}
+
+func TestWaitForLocalServerReady_PassesTimeoutContextToHeartbeat(t *testing.T) {
+	transport := &capturingHeartbeatTransport{}
+	httpClient := &http.Client{Transport: transport}
+
+	client, err := NewHTTPClient(
+		WithBaseURL("http://127.0.0.1:9010"),
+		WithHTTPClient(httpClient),
+	)
+	require.NoError(t, err)
+
+	apiClient, ok := client.(*APIClientV2)
+	require.True(t, ok)
+
+	err = waitForLocalServerReady(apiClient)
+	require.NoError(t, err)
+	require.True(t, transport.sawDeadline)
 }

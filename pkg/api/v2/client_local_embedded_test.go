@@ -1136,6 +1136,31 @@ func TestEmbeddedCollectionCRUD_AddUpsertQueryDelete(t *testing.T) {
 	require.Equal(t, 2, recordCount)
 }
 
+func TestEmbeddedCollectionAdd_WithIDGeneratorGeneratesAndPersistsIDs(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "generated-ids")
+	require.NoError(t, err)
+
+	err = collection.Add(ctx,
+		WithIDGenerator(NewSHA256Generator()),
+		WithTexts("doc-1", "doc-2"),
+	)
+	require.NoError(t, err)
+
+	count, err := collection.Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+
+	result, err := collection.Get(ctx)
+	require.NoError(t, err)
+	require.Len(t, result.GetIDs(), 2)
+	require.NotEqual(t, DocumentID(""), result.GetIDs()[0])
+	require.NotEqual(t, DocumentID(""), result.GetIDs()[1])
+}
+
 func TestEmbeddedCollectionQuery_DefaultIncludesReturnProjections(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)

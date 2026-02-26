@@ -596,12 +596,6 @@ func (client *embeddedLocalClient) upsertCollectionState(collectionID string, up
 		state = &embeddedCollectionState{}
 		client.collectionState[collectionID] = state
 	}
-	if state.metadata == nil {
-		state.metadata = NewEmptyMetadata()
-	}
-	if state.configuration == nil {
-		state.configuration = NewCollectionConfiguration()
-	}
 	if update != nil {
 		update(state)
 	}
@@ -676,9 +670,6 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 			state.embeddingFunction = overrideEF
 		}
 	})
-	if snapshot.embeddingFunction == nil {
-		snapshot.embeddingFunction = overrideEF
-	}
 
 	tenant := NewTenant(tenantName)
 	database := NewDatabase(databaseName, tenant)
@@ -789,163 +780,99 @@ func (c *embeddedCollection) runtimeScopeSnapshot() (collectionID, tenantName, d
 	return collectionID, tenantName, databaseName
 }
 
-func (c *embeddedCollection) Add(ctx context.Context, opts ...CollectionAddOption) error {
+type embeddedWriteOp interface {
+	ResourceOperation
+	EmbedData(ctx context.Context, ef embeddingspkg.EmbeddingFunction) error
+}
+
+func (c *embeddedCollection) executeEmbeddedWrite(
+	ctx context.Context,
+	op embeddedWriteOp,
+	ids []DocumentID,
+	embeddings *[]any,
+	documents []Document,
+	metadatas []DocumentMetadata,
+	runtimeCall func(collectionID, tenantName, databaseName string, ids []string, vectors [][]float32, docs []string, metas []map[string]any) error,
+) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if err := c.client.PreFlight(ctx); err != nil {
 		return errors.Wrap(err, "preflight failed")
 	}
+	if err := c.client.state.Satisfies(op, len(ids), "documents"); err != nil {
+		return errors.Wrap(err, "failed to satisfy operation")
+	}
+	if err := op.EmbedData(ctx, c.embeddingFunctionSnapshot()); err != nil {
+		return errors.Wrap(err, "failed to embed data")
+	}
 
-	addObject, err := NewCollectionAddOp(opts...)
+	vectors, err := embeddingsAnyToFloat32Matrix(*embeddings)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert embeddings")
+	}
+	metas, err := documentMetadatasToMaps(metadatas)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert metadatas")
+	}
+	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
+	if err := runtimeCall(collectionID, tenantName, databaseName, documentIDsToStrings(ids), vectors, documentsToStrings(documents), metas); err != nil {
+		return err
+	}
+	if len(vectors) > 0 && c.Dimension() == 0 {
+		if dim := len(vectors[0]); dim > 0 {
+			c.client.setCollectionDimension(collectionID, dim)
+		}
+	}
+	return nil
+}
+
+func (c *embeddedCollection) Add(ctx context.Context, opts ...CollectionAddOption) error {
+	op, err := NewCollectionAddOp(opts...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create add operation")
 	}
-	if err := addObject.PrepareAndValidate(); err != nil {
+	if err := op.PrepareAndValidate(); err != nil {
 		return errors.Wrap(err, "failed to validate add operation")
 	}
-	if err := c.client.state.Satisfies(addObject, len(addObject.Ids), "documents"); err != nil {
-		return errors.Wrap(err, "failed to satisfy add operation")
-	}
-	embeddingFunction := c.embeddingFunctionSnapshot()
-	if err := addObject.EmbedData(ctx, embeddingFunction); err != nil {
-		return errors.Wrap(err, "failed to embed data")
-	}
-
-	vectors, err := embeddingsAnyToFloat32Matrix(addObject.Embeddings)
-	if err != nil {
-		return errors.Wrap(err, "failed to convert embeddings")
-	}
-	metadatas, err := documentMetadatasToMaps(addObject.Metadatas)
-	if err != nil {
-		return errors.Wrap(err, "failed to convert metadatas")
-	}
-	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
-	if err := c.client.embedded.Add(localchroma.EmbeddedAddRequest{
-		CollectionID: collectionID,
-		IDs:          documentIDsToStrings(addObject.Ids),
-		Embeddings:   vectors,
-		Documents:    documentsToStrings(addObject.Documents),
-		Metadatas:    metadatas,
-		TenantID:     tenantName,
-		DatabaseName: databaseName,
-	}); err != nil {
-		return errors.Wrap(err, "error adding records")
-	}
-
-	if len(vectors) > 0 && c.Dimension() == 0 {
-		dimension := len(vectors[0])
-		if dimension > 0 {
-			c.client.setCollectionDimension(collectionID, dimension)
-		}
-	}
-	return nil
+	return c.executeEmbeddedWrite(ctx, op, op.Ids, &op.Embeddings, op.Documents, op.Metadatas,
+		func(collectionID, tenantName, databaseName string, ids []string, vectors [][]float32, docs []string, metas []map[string]any) error {
+			return c.client.embedded.Add(localchroma.EmbeddedAddRequest{
+				CollectionID: collectionID, IDs: ids, Embeddings: vectors, Documents: docs, Metadatas: metas, TenantID: tenantName, DatabaseName: databaseName,
+			})
+		})
 }
 
 func (c *embeddedCollection) Upsert(ctx context.Context, opts ...CollectionAddOption) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := c.client.PreFlight(ctx); err != nil {
-		return errors.Wrap(err, "preflight failed")
-	}
-
-	upsertObject, err := NewCollectionAddOp(opts...)
+	op, err := NewCollectionAddOp(opts...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create upsert operation")
 	}
-	if err := upsertObject.PrepareAndValidate(); err != nil {
+	if err := op.PrepareAndValidate(); err != nil {
 		return errors.Wrap(err, "failed to validate upsert operation")
 	}
-	if err := c.client.state.Satisfies(upsertObject, len(upsertObject.Ids), "documents"); err != nil {
-		return errors.Wrap(err, "failed to satisfy upsert operation")
-	}
-	embeddingFunction := c.embeddingFunctionSnapshot()
-	if err := upsertObject.EmbedData(ctx, embeddingFunction); err != nil {
-		return errors.Wrap(err, "failed to embed data")
-	}
-
-	vectors, err := embeddingsAnyToFloat32Matrix(upsertObject.Embeddings)
-	if err != nil {
-		return errors.Wrap(err, "failed to convert embeddings")
-	}
-	metadatas, err := documentMetadatasToMaps(upsertObject.Metadatas)
-	if err != nil {
-		return errors.Wrap(err, "failed to convert metadatas")
-	}
-	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
-	if err := c.client.embedded.UpsertRecords(localchroma.EmbeddedUpsertRecordsRequest{
-		CollectionID: collectionID,
-		IDs:          documentIDsToStrings(upsertObject.Ids),
-		Embeddings:   vectors,
-		Documents:    documentsToStrings(upsertObject.Documents),
-		Metadatas:    metadatas,
-		TenantID:     tenantName,
-		DatabaseName: databaseName,
-	}); err != nil {
-		return errors.Wrap(err, "error upserting records")
-	}
-
-	if len(vectors) > 0 && c.Dimension() == 0 {
-		dimension := len(vectors[0])
-		if dimension > 0 {
-			c.client.setCollectionDimension(collectionID, dimension)
-		}
-	}
-	return nil
+	return c.executeEmbeddedWrite(ctx, op, op.Ids, &op.Embeddings, op.Documents, op.Metadatas,
+		func(collectionID, tenantName, databaseName string, ids []string, vectors [][]float32, docs []string, metas []map[string]any) error {
+			return c.client.embedded.UpsertRecords(localchroma.EmbeddedUpsertRecordsRequest{
+				CollectionID: collectionID, IDs: ids, Embeddings: vectors, Documents: docs, Metadatas: metas, TenantID: tenantName, DatabaseName: databaseName,
+			})
+		})
 }
 
 func (c *embeddedCollection) Update(ctx context.Context, opts ...CollectionUpdateOption) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := c.client.PreFlight(ctx); err != nil {
-		return errors.Wrap(err, "preflight failed")
-	}
-
-	updateObject, err := NewCollectionUpdateOp(opts...)
+	op, err := NewCollectionUpdateOp(opts...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create update operation")
 	}
-	if err := updateObject.PrepareAndValidate(); err != nil {
+	if err := op.PrepareAndValidate(); err != nil {
 		return errors.Wrap(err, "failed to validate update operation")
 	}
-	if err := c.client.state.Satisfies(updateObject, len(updateObject.Ids), "documents"); err != nil {
-		return errors.Wrap(err, "failed to satisfy update operation")
-	}
-	embeddingFunction := c.embeddingFunctionSnapshot()
-	if err := updateObject.EmbedData(ctx, embeddingFunction); err != nil {
-		return errors.Wrap(err, "failed to embed data")
-	}
-
-	vectors, err := embeddingsAnyToFloat32Matrix(updateObject.Embeddings)
-	if err != nil {
-		return errors.Wrap(err, "failed to convert embeddings")
-	}
-	metadatas, err := documentMetadatasToMaps(updateObject.Metadatas)
-	if err != nil {
-		return errors.Wrap(err, "failed to convert metadatas")
-	}
-	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
-	if err := c.client.embedded.UpdateRecords(localchroma.EmbeddedUpdateRecordsRequest{
-		CollectionID: collectionID,
-		IDs:          documentIDsToStrings(updateObject.Ids),
-		Embeddings:   vectors,
-		Documents:    documentsToStrings(updateObject.Documents),
-		Metadatas:    metadatas,
-		TenantID:     tenantName,
-		DatabaseName: databaseName,
-	}); err != nil {
-		return errors.Wrap(err, "error updating records")
-	}
-
-	if len(vectors) > 0 && c.Dimension() == 0 {
-		dimension := len(vectors[0])
-		if dimension > 0 {
-			c.client.setCollectionDimension(collectionID, dimension)
-		}
-	}
-	return nil
+	return c.executeEmbeddedWrite(ctx, op, op.Ids, &op.Embeddings, op.Documents, op.Metadatas,
+		func(collectionID, tenantName, databaseName string, ids []string, vectors [][]float32, docs []string, metas []map[string]any) error {
+			return c.client.embedded.UpdateRecords(localchroma.EmbeddedUpdateRecordsRequest{
+				CollectionID: collectionID, IDs: ids, Embeddings: vectors, Documents: docs, Metadatas: metas, TenantID: tenantName, DatabaseName: databaseName,
+			})
+		})
 }
 
 func (c *embeddedCollection) Delete(ctx context.Context, opts ...CollectionDeleteOption) error {
@@ -967,11 +894,11 @@ func (c *embeddedCollection) Delete(ctx context.Context, opts ...CollectionDelet
 		return errors.Wrap(err, "failed to satisfy delete operation")
 	}
 
-	where, err := whereFilterToMap(deleteObject.Where)
+	where, err := marshalFilterToMap(deleteObject.Where)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert where filter")
 	}
-	whereDocument, err := whereDocumentFilterToMap(deleteObject.WhereDocument)
+	whereDocument, err := marshalFilterToMap(deleteObject.WhereDocument)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert whereDocument filter")
 	}
@@ -1060,11 +987,11 @@ func (c *embeddedCollection) Get(ctx context.Context, opts ...CollectionGetOptio
 		return nil, err
 	}
 
-	where, err := whereFilterToMap(getObject.Where)
+	where, err := marshalFilterToMap(getObject.Where)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert where filter")
 	}
-	whereDocument, err := whereDocumentFilterToMap(getObject.WhereDocument)
+	whereDocument, err := marshalFilterToMap(getObject.WhereDocument)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert whereDocument filter")
 	}
@@ -1085,7 +1012,7 @@ func (c *embeddedCollection) Get(ctx context.Context, opts ...CollectionGetOptio
 		WhereDocument: whereDocument,
 		Limit:         limit,
 		Offset:        offset,
-		Include:       sanitizeEmbeddedGetIncludes(getObject.Include),
+		Include:       sanitizeEmbeddedIncludes(getObject.Include, false),
 		TenantID:      tenantName,
 		DatabaseName:  databaseName,
 	})
@@ -1111,11 +1038,11 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 		return nil, errors.Wrap(err, "failed to embed data")
 	}
 
-	where, err := whereFilterToMap(queryObject.Where)
+	where, err := marshalFilterToMap(queryObject.Where)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert where filter")
 	}
-	whereDocument, err := whereDocumentFilterToMap(queryObject.WhereDocument)
+	whereDocument, err := marshalFilterToMap(queryObject.WhereDocument)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert whereDocument filter")
 	}
@@ -1137,7 +1064,7 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 		IDs:             documentIDsToStrings(queryObject.Ids),
 		Where:           where,
 		WhereDocument:   whereDocument,
-		Include:         sanitizeEmbeddedQueryIncludes(queryObject.Include),
+		Include:         sanitizeEmbeddedIncludes(queryObject.Include, true),
 		TenantID:        tenantName,
 		DatabaseName:    databaseName,
 	})
@@ -1220,7 +1147,7 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 		records, err := c.client.embedded.GetRecords(localchroma.EmbeddedGetRecordsRequest{
 			CollectionID: collectionID,
 			IDs:          group,
-			Include:      sanitizeEmbeddedGetIncludes(recordInclude),
+			Include:      sanitizeEmbeddedIncludes(recordInclude, false),
 			TenantID:     tenantName,
 			DatabaseName: databaseName,
 		})
@@ -1538,26 +1465,11 @@ func anyToFloat32Slice(value any) ([]float32, error) {
 	}
 }
 
-func whereFilterToMap(where WhereFilter) (map[string]any, error) {
-	if where == nil {
+func marshalFilterToMap(filter json.Marshaler) (map[string]any, error) {
+	if filter == nil {
 		return nil, nil
 	}
-	payload, err := where.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	var decoded map[string]any
-	if err := json.Unmarshal(payload, &decoded); err != nil {
-		return nil, err
-	}
-	return decoded, nil
-}
-
-func whereDocumentFilterToMap(whereDocument WhereDocumentFilter) (map[string]any, error) {
-	if whereDocument == nil {
-		return nil, nil
-	}
-	payload, err := whereDocument.MarshalJSON()
+	payload, err := filter.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
@@ -1576,7 +1488,7 @@ func includeSet(includes []Include) map[Include]bool {
 	return set
 }
 
-func sanitizeEmbeddedGetIncludes(includes []Include) []string {
+func sanitizeEmbeddedIncludes(includes []Include, allowDistances bool) []string {
 	if len(includes) == 0 {
 		return nil
 	}
@@ -1585,23 +1497,10 @@ func sanitizeEmbeddedGetIncludes(includes []Include) []string {
 		switch include {
 		case IncludeDocuments, IncludeMetadatas, IncludeEmbeddings, IncludeURIs:
 			filtered = append(filtered, string(include))
-		}
-	}
-	if len(filtered) == 0 {
-		return nil
-	}
-	return filtered
-}
-
-func sanitizeEmbeddedQueryIncludes(includes []Include) []string {
-	if len(includes) == 0 {
-		return nil
-	}
-	filtered := make([]string, 0, len(includes))
-	for _, include := range includes {
-		switch include {
-		case IncludeDocuments, IncludeMetadatas, IncludeEmbeddings, IncludeURIs, IncludeDistances:
-			filtered = append(filtered, string(include))
+		case IncludeDistances:
+			if allowDistances {
+				filtered = append(filtered, string(include))
+			}
 		}
 	}
 	if len(filtered) == 0 {

@@ -290,43 +290,26 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 }
 
 func localLibraryAssetForRuntime(goos, goarch string) (localLibraryAsset, error) {
-	var platformOS string
+	var platformOS, requiredArch, libraryFileName string
 	switch goos {
 	case "linux":
-		platformOS = "linux"
+		platformOS, requiredArch, libraryFileName = "linux", "amd64", "libchroma_go_shim.so"
 	case "darwin":
-		platformOS = "macos"
+		platformOS, requiredArch, libraryFileName = "macos", "arm64", "libchroma_go_shim.dylib"
 	case "windows":
-		platformOS = "windows"
+		platformOS, requiredArch, libraryFileName = "windows", "amd64", "chroma_go_shim.dll"
 	default:
 		return localLibraryAsset{}, errors.Errorf("unsupported OS for local runtime download: %s", goos)
 	}
-
-	switch platformOS {
-	case "linux", "windows":
-		if goarch != "amd64" {
-			return localLibraryAsset{}, errors.Errorf("unsupported architecture for %s local runtime download: %s", goos, goarch)
-		}
-	case "macos":
-		if goarch != "arm64" {
-			return localLibraryAsset{}, errors.Errorf("unsupported architecture for %s local runtime download: %s", goos, goarch)
-		}
+	if goarch != requiredArch {
+		return localLibraryAsset{}, errors.Errorf("unsupported architecture for %s local runtime download: %s", goos, goarch)
 	}
-
 	platform := platformOS + "-" + goarch
-	asset := localLibraryAsset{
-		platform:    platform,
-		archiveName: "chroma-go-shim-" + platform + ".tar.gz",
-	}
-	switch goos {
-	case "darwin":
-		asset.libraryFileName = "libchroma_go_shim.dylib"
-	case "windows":
-		asset.libraryFileName = "chroma_go_shim.dll"
-	default:
-		asset.libraryFileName = "libchroma_go_shim.so"
-	}
-	return asset, nil
+	return localLibraryAsset{
+		platform:        platform,
+		archiveName:     "chroma-go-shim-" + platform + ".tar.gz",
+		libraryFileName: libraryFileName,
+	}, nil
 }
 
 func validateLocalLibraryTag(version string) error {

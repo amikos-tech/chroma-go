@@ -219,16 +219,13 @@ func (client *LocalClient) BaseURL() string {
 	return ""
 }
 
-func waitForLocalServerReady(client *APIClientV2) error {
-	if client == nil {
-		return errors.New("client cannot be nil")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), localClientStartupTimeout)
+func pollUntilReady(timeout, interval time.Duration, check func(ctx context.Context) error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	var lastErr error
 	for {
-		if err := client.Heartbeat(ctx); err == nil {
+		if err := check(ctx); err == nil {
 			return nil
 		} else {
 			lastErr = err
@@ -236,7 +233,7 @@ func waitForLocalServerReady(client *APIClientV2) error {
 		if ctx.Err() != nil {
 			break
 		}
-		timer := time.NewTimer(localClientStartupPollInterval)
+		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
@@ -249,49 +246,39 @@ func waitForLocalServerReady(client *APIClientV2) error {
 	return lastErr
 }
 
+func waitForLocalServerReady(client *APIClientV2) error {
+	if client == nil {
+		return errors.New("client cannot be nil")
+	}
+	return pollUntilReady(localClientStartupTimeout, localClientStartupPollInterval, func(ctx context.Context) error {
+		return client.Heartbeat(ctx)
+	})
+}
+
 func waitForLocalEmbeddedReady(embedded localEmbeddedRuntime) error {
 	if embedded == nil {
 		return errors.New("embedded runtime cannot be nil")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), localClientStartupTimeout)
-	defer cancel()
-
-	var lastErr error
-	for {
+	return pollUntilReady(localClientStartupTimeout, localClientStartupPollInterval, func(_ context.Context) error {
 		health, err := embedded.Healthcheck()
 		if err == nil && health != nil {
 			if health.IsExecutorReady && health.IsLogClientReady {
 				return nil
 			}
-			lastErr = errors.Errorf(
+			return errors.Errorf(
 				"embedded runtime not ready: executor_ready=%t log_client_ready=%t",
 				health.IsExecutorReady,
 				health.IsLogClientReady,
 			)
+		}
+		if _, hbErr := embedded.Heartbeat(); hbErr == nil {
+			return nil
+		} else if err != nil {
+			return stderrors.Join(err, hbErr)
 		} else {
-			if _, hbErr := embedded.Heartbeat(); hbErr == nil {
-				return nil
-			} else if err != nil {
-				lastErr = stderrors.Join(err, hbErr)
-			} else {
-				lastErr = hbErr
-			}
+			return hbErr
 		}
-
-		if ctx.Err() != nil {
-			break
-		}
-		timer := time.NewTimer(localClientStartupPollInterval)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-		case <-timer.C:
-		}
-	}
-	if lastErr == nil {
-		lastErr = ctx.Err()
-	}
-	return lastErr
+	})
 }
 
 func validateLocalConfigSource(configPath, rawYAML string) error {
@@ -304,9 +291,6 @@ func validateLocalConfigSource(configPath, rawYAML string) error {
 func startLocalEmbedded(cfg *localClientConfig) (localEmbeddedRuntime, error) {
 	if cfg == nil {
 		return nil, errors.New("local client config cannot be nil")
-	}
-	if err := validateLocalConfigSource(cfg.configPath, cfg.rawYAML); err != nil {
-		return nil, err
 	}
 	if cfg.configPath != "" {
 		return localStartEmbeddedFunc(localchroma.StartEmbeddedConfig{ConfigPath: cfg.configPath})
@@ -325,9 +309,6 @@ func startLocalEmbedded(cfg *localClientConfig) (localEmbeddedRuntime, error) {
 func startLocalServer(cfg *localClientConfig) (localServer, error) {
 	if cfg == nil {
 		return nil, errors.New("local client config cannot be nil")
-	}
-	if err := validateLocalConfigSource(cfg.configPath, cfg.rawYAML); err != nil {
-		return nil, err
 	}
 	if cfg.configPath != "" {
 		return localStartServerFunc(localchroma.StartServerConfig{ConfigPath: cfg.configPath})
