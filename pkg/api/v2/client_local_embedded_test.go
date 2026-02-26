@@ -875,6 +875,27 @@ func TestIntToUint32_ValidatesRange(t *testing.T) {
 	}
 }
 
+func TestMarshalFilterToMap_ReturnsNilForTypedNilMarshaler(t *testing.T) {
+	var typedNilWhere *WhereClauseString
+	var typedNilWhereDocument *WhereDocumentClauseContainsOrNotContains
+
+	testCases := []struct {
+		name   string
+		filter json.Marshaler
+	}{
+		{name: "where filter", filter: typedNilWhere},
+		{name: "where document filter", filter: typedNilWhereDocument},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := marshalFilterToMap(tc.filter)
+			require.NoError(t, err)
+			require.Nil(t, result)
+		})
+	}
+}
+
 func TestEmbeddedCollectionModifyName_SerializesRenameAndCacheUpdate(t *testing.T) {
 	runtime := newBlockingRenameEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)

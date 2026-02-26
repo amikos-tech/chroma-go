@@ -28,6 +28,9 @@ const (
 	localLibraryModulePath            = "github.com/amikos-tech/chroma-go-local"
 	localLibraryChecksumsAsset        = "chroma-go-shim_SHA256SUMS.txt"
 	localLibraryLockFileName          = ".download.lock"
+	localLibraryCacheDirPerm          = os.FileMode(0700)
+	localLibraryLockFilePerm          = os.FileMode(0600)
+	localLibraryArtifactFilePerm      = os.FileMode(0700)
 )
 
 var (
@@ -184,7 +187,7 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 		return targetLibraryPath, nil
 	}
 
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	if err := os.MkdirAll(targetDir, localLibraryCacheDirPerm); err != nil {
 		return "", errors.Wrap(err, "failed to create local library cache dir")
 	}
 
@@ -270,7 +273,7 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 		return "", errors.Wrap(err, "failed to extract local runtime library")
 	}
 	if runtime.GOOS != "windows" {
-		if err := os.Chmod(tempLibraryPath, 0755); err != nil {
+		if err := os.Chmod(tempLibraryPath, localLibraryArtifactFilePerm); err != nil {
 			_ = os.Remove(tempLibraryPath)
 			return "", errors.Wrap(err, "failed to set permissions on local runtime library")
 		}
@@ -367,13 +370,13 @@ func localShouldEvictStaleLock(lockPath string, initialInfo os.FileInfo) (bool, 
 
 func localAcquireDownloadLock(lockPath string) (*os.File, error) {
 	lockDir := filepath.Dir(lockPath)
-	if err := os.MkdirAll(lockDir, 0755); err != nil {
+	if err := os.MkdirAll(lockDir, localLibraryCacheDirPerm); err != nil {
 		return nil, errors.Wrap(err, "failed to create lock directory")
 	}
 
 	deadline := time.Now().Add(localLibraryLockWaitTimeout)
 	for {
-		lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+		lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, localLibraryLockFilePerm)
 		if err == nil {
 			_, _ = fmt.Fprintf(lockFile, "%d", os.Getpid())
 			_ = lockFile.Sync()
@@ -560,7 +563,7 @@ func localDownloadFile(filePath, url string) error {
 		)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(filePath), localLibraryCacheDirPerm); err != nil {
 		return errors.Wrap(err, "failed to create destination directory")
 	}
 
@@ -682,7 +685,7 @@ func localExtractLibraryFromTarGz(archivePath, libraryFileName, destinationPath 
 			)
 		}
 
-		out, err := os.Create(destinationPath)
+		out, err := os.OpenFile(destinationPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, localLibraryArtifactFilePerm)
 		if err != nil {
 			return errors.Wrap(err, "failed to create extracted library file")
 		}

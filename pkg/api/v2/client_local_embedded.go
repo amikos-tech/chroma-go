@@ -6,6 +6,7 @@ import (
 	stderrors "errors"
 	"io"
 	"math"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -1490,6 +1491,13 @@ func anyToFloat32Slice(value any) ([]float32, error) {
 func marshalFilterToMap(filter json.Marshaler) (map[string]any, error) {
 	if filter == nil {
 		return nil, nil
+	}
+	value := reflect.ValueOf(filter)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		if value.IsNil() {
+			return nil, nil
+		}
 	}
 	payload, err := filter.MarshalJSON()
 	if err != nil {

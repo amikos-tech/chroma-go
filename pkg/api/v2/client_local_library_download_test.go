@@ -336,6 +336,16 @@ func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 	content, err := os.ReadFile(libPath)
 	require.NoError(t, err)
 	require.Equal(t, "local-shim-bytes", string(content))
+
+	if runtime.GOOS != "windows" {
+		libInfo, err := os.Stat(libPath)
+		require.NoError(t, err)
+		require.Equal(t, localLibraryArtifactFilePerm, libInfo.Mode().Perm())
+
+		dirInfo, err := os.Stat(filepath.Dir(libPath))
+		require.NoError(t, err)
+		require.Equal(t, localLibraryCacheDirPerm, dirInfo.Mode().Perm())
+	}
 }
 
 func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
