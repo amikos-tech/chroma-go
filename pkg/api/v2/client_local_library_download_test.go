@@ -116,6 +116,40 @@ func TestResolveLocalLibraryPath_RejectsInvalidDetectedVersion(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid detected local library version")
 }
 
+func TestNormalizeLocalLibraryTag_AllowlistsSafeCharacters(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		want        string
+		wantErrPart string
+	}{
+		{name: "empty", input: "", want: ""},
+		{name: "devel", input: "(devel)", want: ""},
+		{name: "plain semver", input: "0.2.0", want: "v0.2.0"},
+		{name: "prefixed semver", input: "v0.2.0", want: "v0.2.0"},
+		{name: "pre-release", input: "v0.2.0-rc.1", want: "v0.2.0-rc.1"},
+		{name: "underscore", input: "v0_2_0", want: "v0_2_0"},
+		{name: "reject slash", input: "v0.2.0/next", wantErrPart: "only ASCII letters"},
+		{name: "reject query", input: "v0.2.0?x=y", wantErrPart: "only ASCII letters"},
+		{name: "reject fragment", input: "v0.2.0#frag", wantErrPart: "only ASCII letters"},
+		{name: "reject percent", input: "v0.2.0%2f", wantErrPart: "only ASCII letters"},
+		{name: "reject backslash", input: "v0.2.0\\win", wantErrPart: "only ASCII letters"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := normalizeLocalLibraryTag(tc.input)
+			if tc.wantErrPart != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.wantErrPart)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestEnsureLocalLibraryDownloaded_PropagatesLibraryStatErrors(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod-based permission checks are not reliable on windows")

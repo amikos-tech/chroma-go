@@ -330,8 +330,13 @@ func localLibraryAssetForRuntime(goos, goarch string) (localLibraryAsset, error)
 }
 
 func validateLocalLibraryTag(version string) error {
-	if strings.Contains(version, "/") || strings.Contains(version, "\\") || strings.Contains(version, "..") {
-		return errors.New("local library version must be a simple tag (path separators are not allowed)")
+	for _, r := range version {
+		isLetter := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+		isDigit := r >= '0' && r <= '9'
+		isAllowedPunct := r == '.' || r == '_' || r == '-'
+		if !isLetter && !isDigit && !isAllowedPunct {
+			return errors.New("local library version must contain only ASCII letters, digits, '.', '_' and '-'")
+		}
 	}
 	return nil
 }

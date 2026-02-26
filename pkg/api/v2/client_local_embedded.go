@@ -53,25 +53,43 @@ func newEmbeddedLocalClient(cfg *localClientConfig, embedded localEmbeddedRuntim
 		return nil, errors.New("embedded runtime cannot be nil")
 	}
 
-	stateClient, err := NewHTTPClient(cfg.clientOptions...)
+	stateClient, err := newEmbeddedLocalStateClient(cfg.clientOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating local client state")
 	}
-	apiState, ok := stateClient.(localClientState)
-	if !ok {
-		_ = stateClient.Close()
-		return nil, errors.New("unexpected client type returned by NewHTTPClient for local state")
-	}
 
 	if err := localWaitEmbeddedReadyFunc(embedded); err != nil {
-		_ = apiState.Close()
+		_ = stateClient.Close()
 		return nil, errors.Wrap(err, "embedded runtime failed readiness checks")
 	}
 
 	return &embeddedLocalClient{
-		state:           apiState,
+		state:           stateClient,
 		embedded:        embedded,
 		collectionState: map[string]*embeddedCollectionState{},
+	}, nil
+}
+
+func newEmbeddedLocalStateClient(options ...ClientOption) (localClientState, error) {
+	updatedOptions := make([]ClientOption, 0, len(options)+1)
+	for _, option := range options {
+		if option != nil {
+			updatedOptions = append(updatedOptions, option)
+		}
+	}
+	// Local runtime should not implicitly inherit CHROMA_DATABASE/CHROMA_TENANT.
+	updatedOptions = append(updatedOptions, WithDefaultDatabaseAndTenant())
+
+	baseClient, err := newBaseAPIClient(updatedOptions...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &APIClientV2{
+		BaseAPIClient:      *baseClient,
+		preflightLimits:    map[string]interface{}{},
+		preflightCompleted: false,
+		collectionCache:    map[string]Collection{},
 	}, nil
 }
 
@@ -298,6 +316,16 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		return nil, err
 	}
 
+	isNewCreation := true
+	if req.CreateIfNotExists {
+		existingCollection, lookupErr := client.embedded.GetCollection(localchroma.EmbeddedGetCollectionRequest{
+			Name:         req.Name,
+			TenantID:     req.Database.Tenant().Name(),
+			DatabaseName: req.Database.Name(),
+		})
+		isNewCreation = lookupErr != nil || existingCollection == nil
+	}
+
 	model, err := client.embedded.CreateCollection(localchroma.EmbeddedCreateCollectionRequest{
 		Name:         req.Name,
 		TenantID:     req.Database.Tenant().Name(),
@@ -308,26 +336,66 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		return nil, errors.Wrap(err, "error creating collection")
 	}
 
-	client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
-		state.embeddingFunction = req.embeddingFunction
-		if req.Metadata != nil {
-			state.metadata = req.Metadata
-		}
-		if req.Configuration != nil {
-			state.configuration = req.Configuration
-		}
-		if req.Schema != nil {
-			state.schema = req.Schema
-		}
-	})
+	overrideEF := req.embeddingFunction
+	if isNewCreation {
+		client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
+			state.embeddingFunction = req.embeddingFunction
+			if req.Metadata != nil {
+				state.metadata = req.Metadata
+			}
+			if req.Configuration != nil {
+				state.configuration = req.Configuration
+			}
+			if req.Schema != nil {
+				state.schema = req.Schema
+			}
+		})
+	} else {
+		overrideEF = nil
+	}
 
-	collection := client.buildEmbeddedCollection(*model, req.Database, req.embeddingFunction)
+	collection := client.buildEmbeddedCollection(*model, req.Database, overrideEF)
 	return collection, nil
 }
 
 func (client *embeddedLocalClient) GetOrCreateCollection(ctx context.Context, name string, options ...CreateCollectionOption) (Collection, error) {
-	options = append(options, WithIfNotExistsCreate())
-	return client.CreateCollection(ctx, name, options...)
+	newOptions := append([]CreateCollectionOption{WithDatabaseCreate(client.CurrentDatabase())}, options...)
+	req, err := NewCreateCollectionOp(name, newOptions...)
+	if err != nil {
+		return nil, errors.Wrap(err, "error preparing collection get-or-create request")
+	}
+	if req.Name == "" {
+		return nil, errors.New("collection name cannot be empty")
+	}
+	if req.Database == nil {
+		return nil, errors.New("database cannot be nil")
+	}
+	if err := req.Database.Validate(); err != nil {
+		return nil, errors.Wrap(err, "error validating database")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	getOptions := []GetCollectionOption{WithDatabaseGet(req.Database)}
+	if req.embeddingFunction != nil {
+		getOptions = append(getOptions, WithEmbeddingFunctionGet(req.embeddingFunction))
+	}
+	collection, getErr := client.GetCollection(ctx, req.Name, getOptions...)
+	if getErr == nil {
+		return collection, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	createOptions := append([]CreateCollectionOption{}, options...)
+	createOptions = append(createOptions, WithIfNotExistsCreate())
+	collection, createErr := client.CreateCollection(ctx, req.Name, createOptions...)
+	if createErr != nil {
+		return nil, errors.Wrap(stderrors.Join(getErr, createErr), "error get-or-creating collection")
+	}
+	return collection, nil
 }
 
 func (client *embeddedLocalClient) DeleteCollection(ctx context.Context, name string, options ...DeleteCollectionOption) error {
@@ -681,9 +749,10 @@ func (c *embeddedCollection) Metadata() CollectionMetadata {
 
 func (c *embeddedCollection) Dimension() int {
 	c.mu.RLock()
+	collectionID := c.id
 	fallback := c.dimension
 	c.mu.RUnlock()
-	return c.client.collectionDimension(c.ID(), fallback)
+	return c.client.collectionDimension(collectionID, fallback)
 }
 
 func (c *embeddedCollection) Configuration() CollectionConfiguration {
@@ -750,7 +819,7 @@ func (c *embeddedCollection) Add(ctx context.Context, opts ...CollectionAddOptio
 		return errors.Wrap(err, "error adding records")
 	}
 
-	if len(vectors) > 0 {
+	if len(vectors) > 0 && c.Dimension() == 0 {
 		dimension := len(vectors[0])
 		if dimension > 0 {
 			c.client.setCollectionDimension(c.id, dimension)
@@ -802,7 +871,7 @@ func (c *embeddedCollection) Upsert(ctx context.Context, opts ...CollectionAddOp
 		return errors.Wrap(err, "error upserting records")
 	}
 
-	if len(vectors) > 0 {
+	if len(vectors) > 0 && c.Dimension() == 0 {
 		dimension := len(vectors[0])
 		if dimension > 0 {
 			c.client.setCollectionDimension(c.id, dimension)
@@ -854,7 +923,7 @@ func (c *embeddedCollection) Update(ctx context.Context, opts ...CollectionUpdat
 		return errors.Wrap(err, "error updating records")
 	}
 
-	if len(vectors) > 0 {
+	if len(vectors) > 0 && c.Dimension() == 0 {
 		dimension := len(vectors[0])
 		if dimension > 0 {
 			c.client.setCollectionDimension(c.id, dimension)
@@ -1036,11 +1105,15 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert query embeddings")
 	}
+	nResults, err := intToUint32(queryObject.NResults, "nResults")
+	if err != nil {
+		return nil, err
+	}
 
 	queryResponse, err := c.client.embedded.Query(localchroma.EmbeddedQueryRequest{
 		CollectionID:    c.id,
 		QueryEmbeddings: queryEmbeddings,
-		NResults:        uint32(queryObject.NResults),
+		NResults:        nResults,
 		IDs:             documentIDsToStrings(queryObject.Ids),
 		Where:           where,
 		WhereDocument:   whereDocument,

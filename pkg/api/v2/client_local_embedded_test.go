@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -74,6 +75,14 @@ type mismatchedQueryEmbeddedRuntime struct {
 	*memoryEmbeddedRuntime
 }
 
+type countingMemoryEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+	mu sync.Mutex
+
+	createCollectionCalls int
+	getCollectionCalls    int
+}
+
 func newScriptedEmbeddedRuntime() *scriptedEmbeddedRuntime {
 	return &scriptedEmbeddedRuntime{
 		stubEmbeddedRuntime: &stubEmbeddedRuntime{},
@@ -96,6 +105,32 @@ func newBlockingRenameEmbeddedRuntime() *blockingRenameEmbeddedRuntime {
 		firstUpdateStarted:    make(chan struct{}),
 		unblockFirstUpdate:    make(chan struct{}),
 	}
+}
+
+func newCountingMemoryEmbeddedRuntime() *countingMemoryEmbeddedRuntime {
+	return &countingMemoryEmbeddedRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+	}
+}
+
+func (s *countingMemoryEmbeddedRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	s.mu.Lock()
+	s.createCollectionCalls++
+	s.mu.Unlock()
+	return s.memoryEmbeddedRuntime.CreateCollection(request)
+}
+
+func (s *countingMemoryEmbeddedRuntime) GetCollection(request localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	s.mu.Lock()
+	s.getCollectionCalls++
+	s.mu.Unlock()
+	return s.memoryEmbeddedRuntime.GetCollection(request)
+}
+
+func (s *countingMemoryEmbeddedRuntime) callCounts() (createCalls int, getCalls int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.createCollectionCalls, s.getCollectionCalls
 }
 
 func normalizeEmbeddedTenant(tenant string) string {
@@ -690,6 +725,74 @@ func TestEmbeddedCollectionDimensionReadsStateSnapshot(t *testing.T) {
 	require.Equal(t, 9, collection.Dimension())
 }
 
+func TestEmbeddedCollectionAdd_DoesNotOverrideKnownDimension(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "dimension-guard-add")
+	require.NoError(t, err)
+
+	client.setCollectionDimension(collection.ID(), 42)
+
+	err = collection.Add(
+		ctx,
+		WithIDs("a1"),
+		WithEmbeddings(embeddingspkg.NewEmbeddingFromFloat32([]float32{1, 2, 3})),
+		WithTexts("doc-a1"),
+	)
+	require.NoError(t, err)
+	require.Equal(t, 42, collection.Dimension())
+}
+
+func TestEmbeddedCollectionUpsert_DoesNotOverrideKnownDimension(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "dimension-guard-upsert")
+	require.NoError(t, err)
+
+	client.setCollectionDimension(collection.ID(), 42)
+
+	err = collection.Upsert(
+		ctx,
+		WithIDs("u1"),
+		WithEmbeddings(embeddingspkg.NewEmbeddingFromFloat32([]float32{1, 2, 3})),
+		WithTexts("doc-u1"),
+	)
+	require.NoError(t, err)
+	require.Equal(t, 42, collection.Dimension())
+}
+
+func TestEmbeddedCollectionUpdate_DoesNotOverrideKnownDimension(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "dimension-guard-update")
+	require.NoError(t, err)
+
+	err = collection.Add(
+		ctx,
+		WithIDs("x1"),
+		WithEmbeddings(embeddingspkg.NewEmbeddingFromFloat32([]float32{9, 9, 9})),
+		WithTexts("doc-x1"),
+	)
+	require.NoError(t, err)
+
+	client.setCollectionDimension(collection.ID(), 42)
+
+	err = collection.Update(
+		ctx,
+		WithIDs("x1"),
+		WithEmbeddings(embeddingspkg.NewEmbeddingFromFloat32([]float32{1, 2, 3, 4})),
+		WithTexts("doc-x1-updated"),
+	)
+	require.NoError(t, err)
+	require.Equal(t, 42, collection.Dimension())
+}
+
 func TestEmbeddingsToFloat32Matrix_RejectsNilOrEmptyEmbeddings(t *testing.T) {
 	_, err := embeddingsToFloat32Matrix([]embeddingspkg.Embedding{nil})
 	require.Error(t, err)
@@ -789,6 +892,29 @@ func TestEmbeddedCollectionQuery_ReturnsErrorOnDistanceEmbeddingMismatch(t *test
 	require.Contains(t, err.Error(), "query response returned")
 }
 
+func TestEmbeddedCollectionQuery_RejectsNResultsOverflow(t *testing.T) {
+	if strconv.IntSize < 64 {
+		t.Skip("requires 64-bit int to exceed uint32 range")
+	}
+
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "query-overflow")
+	require.NoError(t, err)
+
+	queryEmbedding := embeddingspkg.NewEmbeddingFromFloat32([]float32{1, 0, 0})
+	tooLargeNResults := int(uint64(math.MaxUint32) + 1)
+	_, err = collection.Query(
+		ctx,
+		WithQueryEmbeddings(queryEmbedding),
+		WithNResults(tooLargeNResults),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "nResults cannot exceed")
+}
+
 func TestAPIClientV2LocalCollectionCacheHelpers_InitializeNilMap(t *testing.T) {
 	client := &APIClientV2{}
 	first := &embeddedCollection{name: "first"}
@@ -830,6 +956,122 @@ func TestEmbeddedLocalClientCRUD_CollectionsLifecycle(t *testing.T) {
 	count, err = client.CountCollections(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
+}
+
+func TestEmbeddedLocalClientGetOrCreateCollection_ExistingWithoutEFPreservesLocalState(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	initialEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	created, err := client.CreateCollection(ctx, "idempotent-existing", WithEmbeddingFunctionCreate(initialEF))
+	require.NoError(t, err)
+
+	got, err := client.GetOrCreateCollection(ctx, "idempotent-existing")
+	require.NoError(t, err)
+	require.Equal(t, created.ID(), got.ID())
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, initialEF, gotCollection.embeddingFunctionSnapshot())
+
+	createCalls, getCalls := runtime.callCounts()
+	require.Equal(t, 1, createCalls)
+	require.Equal(t, 1, getCalls)
+}
+
+func TestEmbeddedLocalClientGetOrCreateCollection_ExistingWithEFUpdatesLocalState(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	initialEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	_, err := client.CreateCollection(ctx, "idempotent-existing-override", WithEmbeddingFunctionCreate(initialEF))
+	require.NoError(t, err)
+
+	overrideEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	got, err := client.GetOrCreateCollection(
+		ctx,
+		"idempotent-existing-override",
+		WithEmbeddingFunctionCreate(overrideEF),
+	)
+	require.NoError(t, err)
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, overrideEF, gotCollection.embeddingFunctionSnapshot())
+
+	again, err := client.GetCollection(ctx, "idempotent-existing-override")
+	require.NoError(t, err)
+	againEmbedded, ok := again.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, overrideEF, againEmbedded.embeddingFunctionSnapshot())
+
+	createCalls, getCalls := runtime.callCounts()
+	require.Equal(t, 1, createCalls)
+	require.Equal(t, 2, getCalls)
+}
+
+func TestEmbeddedLocalClientGetOrCreateCollection_CreatesWhenMissing(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	ef := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	got, err := client.GetOrCreateCollection(
+		ctx,
+		"idempotent-missing-create",
+		WithEmbeddingFunctionCreate(ef),
+	)
+	require.NoError(t, err)
+	require.NotEmpty(t, got.ID())
+	require.Equal(t, "idempotent-missing-create", got.Name())
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, ef, gotCollection.embeddingFunctionSnapshot())
+
+	createCalls, getCalls := runtime.callCounts()
+	require.Equal(t, 1, createCalls)
+	require.Equal(t, 2, getCalls)
+}
+
+func TestEmbeddedLocalClientCreateCollection_IfNotExistsExistingDoesNotOverrideState(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	initialEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	initialMetadata := NewMetadataFromMap(map[string]interface{}{"source": "initial"})
+	created, err := client.CreateCollection(
+		ctx,
+		"create-if-not-exists-idempotent",
+		WithEmbeddingFunctionCreate(initialEF),
+		WithCollectionMetadataCreate(initialMetadata),
+	)
+	require.NoError(t, err)
+
+	overrideEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	overrideMetadata := NewMetadataFromMap(map[string]interface{}{"source": "override"})
+	got, err := client.CreateCollection(
+		ctx,
+		"create-if-not-exists-idempotent",
+		WithIfNotExistsCreate(),
+		WithEmbeddingFunctionCreate(overrideEF),
+		WithCollectionMetadataCreate(overrideMetadata),
+	)
+	require.NoError(t, err)
+	require.Equal(t, created.ID(), got.ID())
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, initialEF, gotCollection.embeddingFunctionSnapshot())
+	source, ok := gotCollection.Metadata().GetString("source")
+	require.True(t, ok)
+	require.Equal(t, "initial", source)
+
+	createCalls, getCalls := runtime.callCounts()
+	require.Equal(t, 2, createCalls)
+	require.Equal(t, 1, getCalls)
 }
 
 func TestEmbeddedCollectionCRUD_AddUpsertQueryDelete(t *testing.T) {

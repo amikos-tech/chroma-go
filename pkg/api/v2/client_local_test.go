@@ -154,6 +154,8 @@ func TestDefaultLocalClientConfig_UsesRequestedDefaults(t *testing.T) {
 
 func TestNewLocalClient_DefaultsToEmbeddedRuntime(t *testing.T) {
 	lockLocalTestHooks(t)
+	t.Setenv("CHROMA_TENANT", "cloud-tenant-from-env")
+	t.Setenv("CHROMA_DATABASE", "cloud-db-from-env")
 
 	origInit := localInitFunc
 	origResolve := localResolveLibraryPathFunc
@@ -218,6 +220,8 @@ func TestNewLocalClient_DefaultsToEmbeddedRuntime(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, LocalRuntimeModeEmbedded, localClient.mode)
 	require.Equal(t, "", localClient.BaseURL())
+	require.Equal(t, DefaultTenant, localClient.CurrentTenant().Name())
+	require.Equal(t, DefaultDatabase, localClient.CurrentDatabase().Name())
 	require.Equal(t, "/tmp/chroma-go-shim/libchroma_go_shim.so", gotInitPath)
 	require.NotNil(t, embeddedCfg)
 	require.Equal(t, "/tmp/chroma-embedded", embeddedCfg.PersistPath)
