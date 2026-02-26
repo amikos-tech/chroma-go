@@ -776,6 +776,19 @@ func (c *embeddedCollection) embeddingFunctionSnapshot() embeddingspkg.Embedding
 	return c.embeddingFunction
 }
 
+func (c *embeddedCollection) runtimeScopeSnapshot() (collectionID, tenantName, databaseName string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	collectionID = c.id
+	if c.tenant != nil {
+		tenantName = c.tenant.Name()
+	}
+	if c.database != nil {
+		databaseName = c.database.Name()
+	}
+	return collectionID, tenantName, databaseName
+}
+
 func (c *embeddedCollection) Add(ctx context.Context, opts ...CollectionAddOption) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -807,14 +820,15 @@ func (c *embeddedCollection) Add(ctx context.Context, opts ...CollectionAddOptio
 	if err != nil {
 		return errors.Wrap(err, "failed to convert metadatas")
 	}
+	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
 	if err := c.client.embedded.Add(localchroma.EmbeddedAddRequest{
-		CollectionID: c.id,
+		CollectionID: collectionID,
 		IDs:          documentIDsToStrings(addObject.Ids),
 		Embeddings:   vectors,
 		Documents:    documentsToStrings(addObject.Documents),
 		Metadatas:    metadatas,
-		TenantID:     c.tenant.Name(),
-		DatabaseName: c.database.Name(),
+		TenantID:     tenantName,
+		DatabaseName: databaseName,
 	}); err != nil {
 		return errors.Wrap(err, "error adding records")
 	}
@@ -822,7 +836,7 @@ func (c *embeddedCollection) Add(ctx context.Context, opts ...CollectionAddOptio
 	if len(vectors) > 0 && c.Dimension() == 0 {
 		dimension := len(vectors[0])
 		if dimension > 0 {
-			c.client.setCollectionDimension(c.id, dimension)
+			c.client.setCollectionDimension(collectionID, dimension)
 		}
 	}
 	return nil
@@ -859,14 +873,15 @@ func (c *embeddedCollection) Upsert(ctx context.Context, opts ...CollectionAddOp
 	if err != nil {
 		return errors.Wrap(err, "failed to convert metadatas")
 	}
+	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
 	if err := c.client.embedded.UpsertRecords(localchroma.EmbeddedUpsertRecordsRequest{
-		CollectionID: c.id,
+		CollectionID: collectionID,
 		IDs:          documentIDsToStrings(upsertObject.Ids),
 		Embeddings:   vectors,
 		Documents:    documentsToStrings(upsertObject.Documents),
 		Metadatas:    metadatas,
-		TenantID:     c.tenant.Name(),
-		DatabaseName: c.database.Name(),
+		TenantID:     tenantName,
+		DatabaseName: databaseName,
 	}); err != nil {
 		return errors.Wrap(err, "error upserting records")
 	}
@@ -874,7 +889,7 @@ func (c *embeddedCollection) Upsert(ctx context.Context, opts ...CollectionAddOp
 	if len(vectors) > 0 && c.Dimension() == 0 {
 		dimension := len(vectors[0])
 		if dimension > 0 {
-			c.client.setCollectionDimension(c.id, dimension)
+			c.client.setCollectionDimension(collectionID, dimension)
 		}
 	}
 	return nil
@@ -911,14 +926,15 @@ func (c *embeddedCollection) Update(ctx context.Context, opts ...CollectionUpdat
 	if err != nil {
 		return errors.Wrap(err, "failed to convert metadatas")
 	}
+	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
 	if err := c.client.embedded.UpdateRecords(localchroma.EmbeddedUpdateRecordsRequest{
-		CollectionID: c.id,
+		CollectionID: collectionID,
 		IDs:          documentIDsToStrings(updateObject.Ids),
 		Embeddings:   vectors,
 		Documents:    documentsToStrings(updateObject.Documents),
 		Metadatas:    metadatas,
-		TenantID:     c.tenant.Name(),
-		DatabaseName: c.database.Name(),
+		TenantID:     tenantName,
+		DatabaseName: databaseName,
 	}); err != nil {
 		return errors.Wrap(err, "error updating records")
 	}
@@ -926,7 +942,7 @@ func (c *embeddedCollection) Update(ctx context.Context, opts ...CollectionUpdat
 	if len(vectors) > 0 && c.Dimension() == 0 {
 		dimension := len(vectors[0])
 		if dimension > 0 {
-			c.client.setCollectionDimension(c.id, dimension)
+			c.client.setCollectionDimension(collectionID, dimension)
 		}
 	}
 	return nil
@@ -959,14 +975,15 @@ func (c *embeddedCollection) Delete(ctx context.Context, opts ...CollectionDelet
 	if err != nil {
 		return errors.Wrap(err, "failed to convert whereDocument filter")
 	}
+	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
 
 	return c.client.embedded.DeleteRecords(localchroma.EmbeddedDeleteRecordsRequest{
-		CollectionID:  c.id,
+		CollectionID:  collectionID,
 		IDs:           documentIDsToStrings(deleteObject.Ids),
 		Where:         where,
 		WhereDocument: whereDocument,
-		TenantID:      c.tenant.Name(),
-		DatabaseName:  c.database.Name(),
+		TenantID:      tenantName,
+		DatabaseName:  databaseName,
 	})
 }
 
@@ -974,10 +991,11 @@ func (c *embeddedCollection) Count(ctx context.Context) (int, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
+	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
 	count, err := c.client.embedded.CountRecords(localchroma.EmbeddedCountRecordsRequest{
-		CollectionID: c.id,
-		TenantID:     c.tenant.Name(),
-		DatabaseName: c.database.Name(),
+		CollectionID: collectionID,
+		TenantID:     tenantName,
+		DatabaseName: databaseName,
 	})
 	if err != nil {
 		return 0, errors.Wrap(err, "error counting records")
@@ -1058,17 +1076,18 @@ func (c *embeddedCollection) Get(ctx context.Context, opts ...CollectionGetOptio
 	if err != nil {
 		return nil, err
 	}
+	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
 
 	response, err := c.client.embedded.GetRecords(localchroma.EmbeddedGetRecordsRequest{
-		CollectionID:  c.id,
+		CollectionID:  collectionID,
 		IDs:           documentIDsToStrings(getObject.Ids),
 		Where:         where,
 		WhereDocument: whereDocument,
 		Limit:         limit,
 		Offset:        offset,
 		Include:       sanitizeEmbeddedGetIncludes(getObject.Include),
-		TenantID:      c.tenant.Name(),
-		DatabaseName:  c.database.Name(),
+		TenantID:      tenantName,
+		DatabaseName:  databaseName,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting records")
@@ -1109,17 +1128,18 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 	if err != nil {
 		return nil, err
 	}
+	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
 
 	queryResponse, err := c.client.embedded.Query(localchroma.EmbeddedQueryRequest{
-		CollectionID:    c.id,
+		CollectionID:    collectionID,
 		QueryEmbeddings: queryEmbeddings,
 		NResults:        nResults,
 		IDs:             documentIDsToStrings(queryObject.Ids),
 		Where:           where,
 		WhereDocument:   whereDocument,
 		Include:         sanitizeEmbeddedQueryIncludes(queryObject.Include),
-		TenantID:        c.tenant.Name(),
-		DatabaseName:    c.database.Name(),
+		TenantID:        tenantName,
+		DatabaseName:    databaseName,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error executing query")
@@ -1198,11 +1218,11 @@ func (c *embeddedCollection) Query(ctx context.Context, opts ...CollectionQueryO
 		}
 
 		records, err := c.client.embedded.GetRecords(localchroma.EmbeddedGetRecordsRequest{
-			CollectionID: c.id,
+			CollectionID: collectionID,
 			IDs:          group,
 			Include:      sanitizeEmbeddedGetIncludes(recordInclude),
-			TenantID:     c.tenant.Name(),
-			DatabaseName: c.database.Name(),
+			TenantID:     tenantName,
+			DatabaseName: databaseName,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error loading query projections")
@@ -1286,12 +1306,13 @@ func (c *embeddedCollection) Fork(ctx context.Context, newName string) (Collecti
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
 
 	forked, err := c.client.embedded.ForkCollection(localchroma.EmbeddedForkCollectionRequest{
-		SourceCollectionID:   c.id,
+		SourceCollectionID:   collectionID,
 		TargetCollectionName: strings.TrimSpace(newName),
-		TenantID:             c.tenant.Name(),
-		DatabaseName:         c.database.Name(),
+		TenantID:             tenantName,
+		DatabaseName:         databaseName,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error forking collection")
@@ -1320,9 +1341,10 @@ func (c *embeddedCollection) IndexingStatus(ctx context.Context) (*IndexingStatu
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	collectionID, _, databaseName := c.runtimeScopeSnapshot()
 	status, err := c.client.embedded.IndexingStatus(localchroma.EmbeddedIndexingStatusRequest{
-		CollectionID: c.id,
-		DatabaseName: c.database.Name(),
+		CollectionID: collectionID,
+		DatabaseName: databaseName,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting indexing status")

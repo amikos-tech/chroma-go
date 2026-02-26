@@ -173,7 +173,8 @@ func NewLocalClient(opts ...LocalClientOption) (Client, error) {
 			return nil, errors.Wrap(err, "error starting local chroma runtime")
 		}
 
-		clientOptions := make([]ClientOption, 0, len(cfg.clientOptions)+1)
+		clientOptions := make([]ClientOption, 0, len(cfg.clientOptions)+2)
+		clientOptions = append(clientOptions, WithDatabaseAndTenant(DefaultDatabase, DefaultTenant))
 		clientOptions = append(clientOptions, cfg.clientOptions...)
 		clientOptions = append(clientOptions, WithBaseURL(server.URL()))
 
