@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -24,9 +25,14 @@ import (
 
 const (
 	defaultLocalLibraryVersion        = "v0.2.0"
-	defaultLocalLibraryReleaseBaseURL = "https://github.com/amikos-tech/chroma-go-local/releases/download"
+	defaultLocalLibraryReleaseBaseURL = "https://releases.amikos.tech/chroma-go-local"
 	localLibraryModulePath            = "github.com/amikos-tech/chroma-go-local"
-	localLibraryChecksumsAsset        = "chroma-go-shim_SHA256SUMS.txt"
+	localLibraryChecksumsAsset        = "SHA256SUMS"
+	localLibraryChecksumsSignature    = "SHA256SUMS.sig"
+	localLibraryChecksumsCertificate  = "SHA256SUMS.pem"
+	localLibraryArchivePrefix         = "chroma-go-local"
+	localLibraryCosignIssuer          = "https://token.actions.githubusercontent.com"
+	localLibraryCosignIdentityPattern = "https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/tags/%s"
 	localLibraryLockFileName          = ".download.lock"
 	localLibraryCacheDirPerm          = os.FileMode(0700)
 	localLibraryLockFilePerm          = os.FileMode(0600)
@@ -46,6 +52,9 @@ var (
 	localUserHomeDirFunc                    = os.UserHomeDir
 	localReadBuildInfoFunc                  = debug.ReadBuildInfo
 	localDownloadFileFunc                   = localDownloadFileWithRetry
+	localVerifyChecksumSignatureFunc        = localVerifyChecksumSignature
+	localLookPathFunc                       = exec.LookPath
+	localExecCommandFunc                    = exec.Command
 	localEnsureLibraryDownloadedFunc        = ensureLocalLibraryDownloaded
 	localDetectLibraryVersionFunc           = detectLocalLibraryVersion
 	localDefaultLibraryCacheDirFunc         = defaultLocalLibraryCacheDir
@@ -161,7 +170,7 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 		return "", errors.New("local library cache dir cannot be empty")
 	}
 
-	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
+	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH, version)
 	if err != nil {
 		return "", err
 	}
@@ -226,9 +235,22 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 	}
 
 	checksumsPath := filepath.Join(targetDir, localLibraryChecksumsAsset)
-	checksumsURL := fmt.Sprintf("%s/%s/%s", localLibraryReleaseBaseURL, version, localLibraryChecksumsAsset)
+	checksumsSigPath := filepath.Join(targetDir, localLibraryChecksumsSignature)
+	checksumsCertificatePath := filepath.Join(targetDir, localLibraryChecksumsCertificate)
+	checksumsURL := localReleaseAssetURL(version, localLibraryChecksumsAsset)
 	if err := localDownloadFileFunc(checksumsPath, checksumsURL); err != nil {
 		return "", errors.Wrap(err, "failed to download local library checksums")
+	}
+	checksumsSignatureURL := localReleaseAssetURL(version, localLibraryChecksumsSignature)
+	if err := localDownloadFileFunc(checksumsSigPath, checksumsSignatureURL); err != nil {
+		return "", errors.Wrap(err, "failed to download local library checksum signature")
+	}
+	checksumsCertificateURL := localReleaseAssetURL(version, localLibraryChecksumsCertificate)
+	if err := localDownloadFileFunc(checksumsCertificatePath, checksumsCertificateURL); err != nil {
+		return "", errors.Wrap(err, "failed to download local library checksum certificate")
+	}
+	if err := localVerifyChecksumSignatureFunc(version, checksumsPath, checksumsSigPath, checksumsCertificatePath); err != nil {
+		return "", errors.Wrap(err, "failed to verify signed local library checksums")
 	}
 
 	expectedChecksum, err := localChecksumFromSumsFile(checksumsPath, asset.archiveName)
@@ -251,7 +273,7 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 		return "", errors.Wrapf(err, "failed to stat local runtime archive at %s", archivePath)
 	}
 	if !exists {
-		archiveURL := fmt.Sprintf("%s/%s/%s", localLibraryReleaseBaseURL, version, asset.archiveName)
+		archiveURL := localReleaseAssetURL(version, asset.archiveName)
 		if err := localDownloadFileFunc(archivePath, archiveURL); err != nil {
 			return "", errors.Wrap(err, "failed to download local library archive")
 		}
@@ -294,15 +316,15 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 	return targetLibraryPath, nil
 }
 
-func localLibraryAssetForRuntime(goos, goarch string) (localLibraryAsset, error) {
+func localLibraryAssetForRuntime(goos, goarch, version string) (localLibraryAsset, error) {
 	var platformOS, requiredArch, libraryFileName string
 	switch goos {
 	case "linux":
-		platformOS, requiredArch, libraryFileName = "linux", "amd64", "libchroma_go_shim.so"
+		platformOS, requiredArch, libraryFileName = "linux", "amd64", "libchroma_shim.so"
 	case "darwin":
-		platformOS, requiredArch, libraryFileName = "macos", "arm64", "libchroma_go_shim.dylib"
+		platformOS, requiredArch, libraryFileName = "darwin", "arm64", "libchroma_shim.dylib"
 	case "windows":
-		platformOS, requiredArch, libraryFileName = "windows", "amd64", "chroma_go_shim.dll"
+		platformOS, requiredArch, libraryFileName = "windows", "amd64", "chroma_shim.dll"
 	default:
 		return localLibraryAsset{}, errors.Errorf("unsupported OS for local runtime download: %s", goos)
 	}
@@ -312,9 +334,45 @@ func localLibraryAssetForRuntime(goos, goarch string) (localLibraryAsset, error)
 	platform := platformOS + "-" + goarch
 	return localLibraryAsset{
 		platform:        platform,
-		archiveName:     "chroma-go-shim-" + platform + ".tar.gz",
+		archiveName:     fmt.Sprintf("%s-%s-%s.tar.gz", localLibraryArchivePrefix, version, platform),
 		libraryFileName: libraryFileName,
 	}, nil
+}
+
+func localReleaseAssetURL(version, assetName string) string {
+	base := strings.TrimRight(localLibraryReleaseBaseURL, "/")
+	return fmt.Sprintf("%s/%s/%s", base, version, assetName)
+}
+
+func localVerifyChecksumSignature(version, checksumsPath, signaturePath, certificatePath string) error {
+	if strings.TrimSpace(version) == "" {
+		return errors.New("version must be set for checksum signature verification")
+	}
+
+	cosignPath, err := localLookPathFunc("cosign")
+	if err != nil {
+		return errors.New("cosign is required for signature verification but was not found in PATH")
+	}
+
+	identity := fmt.Sprintf(localLibraryCosignIdentityPattern, version)
+	cmd := localExecCommandFunc(
+		cosignPath,
+		"verify-blob",
+		"--signature", signaturePath,
+		"--certificate", certificatePath,
+		"--certificate-identity", identity,
+		"--certificate-oidc-issuer", localLibraryCosignIssuer,
+		checksumsPath,
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		details := strings.TrimSpace(string(output))
+		if details == "" {
+			details = err.Error()
+		}
+		return errors.Errorf("cosign verify-blob failed: %s", details)
+	}
+	return nil
 }
 
 func validateLocalLibraryTag(version string) error {
