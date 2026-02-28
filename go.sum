@@ -59,8 +59,12 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/amikos-tech/chroma-go-local v0.1.0 h1:XGHQcV1/lDZNqJqLOXl+LQ0kngPj8HnpaSCULZBeqcI=
 github.com/amikos-tech/chroma-go-local v0.1.0/go.mod h1:U37BtxfJldfcpiya6nelgy+SdMesYOVub9kcnRknTrk=
+github.com/amikos-tech/chroma-go-local v0.1.1-0.20260226192805-76b78b95ffd9 h1:fK9oua/6gj9a3qy9MSavmVs9fm7zK+qEM/7MPeFrWH4=
+github.com/amikos-tech/chroma-go-local v0.1.1-0.20260226192805-76b78b95ffd9/go.mod h1:U37BtxfJldfcpiya6nelgy+SdMesYOVub9kcnRknTrk=
 github.com/amikos-tech/chroma-go-local v0.2.0 h1:ES76NRZLWFVLcF0uGTqE+/H4kfYeXCUDzHeYVInyjxU=
 github.com/amikos-tech/chroma-go-local v0.2.0/go.mod h1:U37BtxfJldfcpiya6nelgy+SdMesYOVub9kcnRknTrk=
+github.com/amikos-tech/chroma-go-local v0.3.0 h1:GVgHahs4gczcJwwkmbLFQLxgslsQbhV2BJ8nlZCHDtg=
+github.com/amikos-tech/chroma-go-local v0.3.0/go.mod h1:U37BtxfJldfcpiya6nelgy+SdMesYOVub9kcnRknTrk=
 github.com/amikos-tech/pure-tokenizers v0.1.1 h1:AOPMW+GLd7/FapGiyBV7CGKj766zd1VDFbv+0wqGOWA=
 github.com/amikos-tech/pure-tokenizers v0.1.1/go.mod h1:o0ICQtz7tM7pukqwfybBk6FvWKFZLyIWs4uFYbH+CG4=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=

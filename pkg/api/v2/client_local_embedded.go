@@ -316,6 +316,18 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	metadataMap, err := collectionMetadataToMap(req.Metadata)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting collection metadata")
+	}
+	configurationMap, err := collectionConfigurationToMap(req.Configuration)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting collection configuration")
+	}
+	schemaMap, err := schemaToMap(req.Schema)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting collection schema")
+	}
 
 	isNewCreation := true
 	if req.CreateIfNotExists {
@@ -328,10 +340,13 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 	}
 
 	model, err := client.embedded.CreateCollection(localchroma.EmbeddedCreateCollectionRequest{
-		Name:         req.Name,
-		TenantID:     req.Database.Tenant().Name(),
-		DatabaseName: req.Database.Name(),
-		GetOrCreate:  req.CreateIfNotExists,
+		Name:          req.Name,
+		TenantID:      req.Database.Tenant().Name(),
+		DatabaseName:  req.Database.Name(),
+		Metadata:      metadataMap,
+		Configuration: configurationMap,
+		Schema:        schemaMap,
+		GetOrCreate:   req.CreateIfNotExists,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating collection")
@@ -670,6 +685,17 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		if overrideEF != nil {
 			state.embeddingFunction = overrideEF
 		}
+		if model.Metadata != nil {
+			state.metadata = collectionMetadataFromMap(model.Metadata)
+		}
+		if model.ConfigurationJSON != nil {
+			state.configuration = NewCollectionConfigurationFromMap(model.ConfigurationJSON)
+		}
+		if model.Schema != nil {
+			if parsed := schemaFromMap(model.Schema); parsed != nil {
+				state.schema = parsed
+			}
+		}
 	})
 
 	tenant := NewTenant(tenantName)
@@ -968,7 +994,35 @@ func (c *embeddedCollection) ModifyMetadata(ctx context.Context, newMetadata Col
 	if newMetadata == nil {
 		return errors.New("newMetadata cannot be nil")
 	}
-	return errors.New("embedded local mode does not support persisting collection metadata updates")
+	newMetadataMap, err := collectionMetadataToMap(newMetadata)
+	if err != nil {
+		return errors.Wrap(err, "error converting new metadata")
+	}
+	if len(newMetadataMap) == 0 {
+		return errors.New("newMetadata cannot be empty")
+	}
+	for key, value := range newMetadataMap {
+		if value == nil {
+			return errors.Errorf("invalid new_metadata: metadata.%s cannot be null", key)
+		}
+	}
+
+	collectionID, _, databaseName := c.runtimeScopeSnapshot()
+	if err := c.client.embedded.UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest{
+		CollectionID: collectionID,
+		DatabaseName: databaseName,
+		NewMetadata:  newMetadataMap,
+	}); err != nil {
+		return errors.Wrap(err, "error modifying collection metadata")
+	}
+
+	c.mu.Lock()
+	c.metadata = newMetadata
+	c.mu.Unlock()
+	c.client.upsertCollectionState(collectionID, func(state *embeddedCollectionState) {
+		state.metadata = newMetadata
+	})
+	return nil
 }
 
 func (c *embeddedCollection) ModifyConfiguration(_ context.Context, newConfig *UpdateCollectionConfiguration) error {
@@ -1362,6 +1416,71 @@ func documentsToStrings(documents []Document) []string {
 		result[i] = document.ContentString()
 	}
 	return result
+}
+
+func marshalToMap(v any) (map[string]any, error) {
+	if v == nil {
+		return nil, nil
+	}
+	payload, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	if string(payload) == "null" {
+		return nil, nil
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
+func collectionMetadataToMap(metadata CollectionMetadata) (map[string]any, error) {
+	if metadata == nil {
+		return nil, nil
+	}
+	return marshalToMap(metadata)
+}
+
+func collectionConfigurationToMap(configuration *CollectionConfigurationImpl) (map[string]any, error) {
+	if configuration == nil {
+		return nil, nil
+	}
+	return marshalToMap(configuration)
+}
+
+func schemaToMap(schema *Schema) (map[string]any, error) {
+	if schema == nil {
+		return nil, nil
+	}
+	return marshalToMap(schema)
+}
+
+func collectionMetadataFromMap(metadata map[string]any) CollectionMetadata {
+	if metadata == nil {
+		return nil
+	}
+	parsed, err := NewMetadataFromMapStrict(metadata)
+	if err == nil {
+		return parsed
+	}
+	return NewMetadataFromMap(metadata)
+}
+
+func schemaFromMap(raw map[string]any) *Schema {
+	if raw == nil {
+		return nil
+	}
+	payload, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var schema Schema
+	if err := json.Unmarshal(payload, &schema); err != nil {
+		return nil
+	}
+	return &schema
 }
 
 func documentMetadatasToMaps(metadatas []DocumentMetadata) ([]map[string]any, error) {
