@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	stderrors "errors"
@@ -370,7 +371,10 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		overrideEF = nil
 	}
 
-	collection := client.buildEmbeddedCollection(*model, req.Database, overrideEF)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF)
+	if err != nil {
+		return nil, errors.Wrap(err, "error building collection")
+	}
 	return collection, nil
 }
 
@@ -486,7 +490,10 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 			state.embeddingFunction = req.embeddingFunction
 		})
 	}
-	collection := client.buildEmbeddedCollection(*model, req.Database, req.embeddingFunction)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, req.embeddingFunction)
+	if err != nil {
+		return nil, errors.Wrap(err, "error building collection")
+	}
 	return collection, nil
 }
 
@@ -556,7 +563,11 @@ func (client *embeddedLocalClient) ListCollections(ctx context.Context, opts ...
 
 	collections := make([]Collection, 0, len(models))
 	for _, model := range models {
-		collections = append(collections, client.buildEmbeddedCollection(model, req.Database, nil))
+		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil)
+		if buildErr != nil {
+			return nil, errors.Wrapf(buildErr, "error building listed collection %s", model.ID)
+		}
+		collections = append(collections, collection)
 	}
 	return collections, nil
 }
@@ -654,7 +665,7 @@ func (client *embeddedLocalClient) collectionDimension(collectionID string, fall
 	return state.dimension
 }
 
-func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction) *embeddedCollection {
+func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction) (*embeddedCollection, error) {
 	tenantName := model.Tenant
 	databaseName := model.Database
 
@@ -681,20 +692,36 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		}
 	}
 
+	var metadata CollectionMetadata
+	if model.Metadata != nil {
+		parsedMetadata, err := collectionMetadataFromMap(model.Metadata)
+		if err != nil {
+			return nil, errors.Wrap(err, "error parsing collection metadata")
+		}
+		metadata = parsedMetadata
+	}
+
+	var schema *Schema
+	if model.Schema != nil {
+		parsedSchema, err := schemaFromMap(model.Schema)
+		if err != nil {
+			return nil, errors.Wrap(err, "error parsing collection schema")
+		}
+		schema = parsedSchema
+	}
+
 	snapshot := client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
 		if overrideEF != nil {
 			state.embeddingFunction = overrideEF
 		}
-		if model.Metadata != nil {
-			state.metadata = collectionMetadataFromMap(model.Metadata)
+		if metadata != nil {
+			state.metadata = metadata
 		}
 		if model.ConfigurationJSON != nil {
 			state.configuration = NewCollectionConfigurationFromMap(model.ConfigurationJSON)
 		}
-		if model.Schema != nil {
-			if parsed := schemaFromMap(model.Schema); parsed != nil {
-				state.schema = parsed
-			}
+		if schema != nil {
+			state.schema = schema
 		}
 	})
 
@@ -713,7 +740,7 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		client:            client,
 	}
 	client.state.localAddCollectionToCache(collection)
-	return collection
+	return collection, nil
 }
 
 type embeddedCollection struct {
@@ -1007,18 +1034,20 @@ func (c *embeddedCollection) ModifyMetadata(ctx context.Context, newMetadata Col
 		}
 	}
 
-	collectionID, _, databaseName := c.runtimeScopeSnapshot()
+	c.mu.Lock()
+	collectionID := c.id
+	databaseName := c.database.Name()
 	if err := c.client.embedded.UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest{
 		CollectionID: collectionID,
 		DatabaseName: databaseName,
 		NewMetadata:  newMetadataMap,
 	}); err != nil {
+		c.mu.Unlock()
 		return errors.Wrap(err, "error modifying collection metadata")
 	}
-
-	c.mu.Lock()
 	c.metadata = newMetadata
 	c.mu.Unlock()
+
 	c.client.upsertCollectionState(collectionID, func(state *embeddedCollectionState) {
 		state.metadata = newMetadata
 	})
@@ -1337,7 +1366,10 @@ func (c *embeddedCollection) Fork(ctx context.Context, newName string) (Collecti
 		state.dimension = c.Dimension()
 	})
 
-	forkedCollection := c.client.buildEmbeddedCollection(*forked, database, embeddingFunction)
+	forkedCollection, err := c.client.buildEmbeddedCollection(*forked, database, embeddingFunction)
+	if err != nil {
+		return nil, errors.Wrap(err, "error building forked collection")
+	}
 	return forkedCollection, nil
 }
 
@@ -1426,11 +1458,10 @@ func marshalToMap(v any) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if string(payload) == "null" {
-		return nil, nil
-	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.UseNumber()
 	var decoded map[string]any
-	if err := json.Unmarshal(payload, &decoded); err != nil {
+	if err := decoder.Decode(&decoded); err != nil {
 		return nil, err
 	}
 	return decoded, nil
@@ -1457,30 +1488,30 @@ func schemaToMap(schema *Schema) (map[string]any, error) {
 	return marshalToMap(schema)
 }
 
-func collectionMetadataFromMap(metadata map[string]any) CollectionMetadata {
+func collectionMetadataFromMap(metadata map[string]any) (CollectionMetadata, error) {
 	if metadata == nil {
-		return nil
+		return nil, nil
 	}
 	parsed, err := NewMetadataFromMapStrict(metadata)
-	if err == nil {
-		return parsed
+	if err != nil {
+		return nil, err
 	}
-	return NewMetadataFromMap(metadata)
+	return parsed, nil
 }
 
-func schemaFromMap(raw map[string]any) *Schema {
+func schemaFromMap(raw map[string]any) (*Schema, error) {
 	if raw == nil {
-		return nil
+		return nil, nil
 	}
 	payload, err := json.Marshal(raw)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	var schema Schema
 	if err := json.Unmarshal(payload, &schema); err != nil {
-		return nil
+		return nil, err
 	}
-	return &schema
+	return &schema, nil
 }
 
 func documentMetadatasToMaps(metadatas []DocumentMetadata) ([]map[string]any, error) {
