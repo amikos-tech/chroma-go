@@ -4,6 +4,7 @@
 package v2
 
 import (
+	"strings"
 	"sync"
 	"testing"
 
@@ -19,6 +20,7 @@ func lockLocalTestHooks(t *testing.T) {
 	t.Helper()
 	localTestHooksMu.Lock()
 	originalDownloadFileFunc := localDownloadFileFunc
+	originalValidateFunc := localValidateReleaseBaseURLFunc
 	localDownloadFileFunc = func(filePath, url string) error {
 		return errors.WithStack(downloadutil.DownloadFileWithRetry(
 			filePath,
@@ -31,8 +33,16 @@ func lockLocalTestHooks(t *testing.T) {
 			},
 		))
 	}
+	localValidateReleaseBaseURLFunc = func(baseURL string) (string, error) {
+		baseURL = strings.TrimSpace(strings.TrimRight(baseURL, "/"))
+		if baseURL == "" {
+			return "", errors.New("release base URL cannot be empty")
+		}
+		return baseURL, nil
+	}
 	t.Cleanup(func() {
 		localDownloadFileFunc = originalDownloadFileFunc
+		localValidateReleaseBaseURLFunc = originalValidateFunc
 		localTestHooksMu.Unlock()
 	})
 }

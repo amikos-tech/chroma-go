@@ -9,6 +9,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -60,6 +61,7 @@ var (
 	localDetectLibraryVersionFunc               = detectLocalLibraryVersion
 	localDefaultLibraryCacheDirFunc             = defaultLocalLibraryCacheDir
 	localVerifyCosignCertificateChainFunc       = cosignutil.VerifyFulcioCertificateChain
+	localValidateReleaseBaseURLFunc             = localValidateReleaseBaseURL
 )
 
 type localLibraryAsset struct {
@@ -527,17 +529,38 @@ func localReleaseBaseURLs() []string {
 	seen := make(map[string]struct{}, len(candidates))
 	bases := make([]string, 0, len(candidates))
 	for _, base := range candidates {
-		base = strings.TrimRight(base, "/")
-		if base == "" {
+		normalized, err := localValidateReleaseBaseURLFunc(base)
+		if err != nil {
 			continue
 		}
-		if _, ok := seen[base]; ok {
+		if _, ok := seen[normalized]; ok {
 			continue
 		}
-		seen[base] = struct{}{}
-		bases = append(bases, base)
+		seen[normalized] = struct{}{}
+		bases = append(bases, normalized)
 	}
 	return bases
+}
+
+func localValidateReleaseBaseURL(baseURL string) (string, error) {
+	baseURL = strings.TrimSpace(strings.TrimRight(baseURL, "/"))
+	if baseURL == "" {
+		return "", errors.New("release base URL cannot be empty")
+	}
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return "", errors.Wrap(err, "invalid release base URL")
+	}
+	if !parsedURL.IsAbs() {
+		return "", errors.New("release base URL must be absolute")
+	}
+	if !strings.EqualFold(parsedURL.Scheme, "https") {
+		return "", errors.Errorf("release base URL must use https scheme: %s", parsedURL.Redacted())
+	}
+	if strings.TrimSpace(parsedURL.Host) == "" {
+		return "", errors.Errorf("release base URL host cannot be empty: %s", parsedURL.Redacted())
+	}
+	return baseURL, nil
 }
 
 func localPrepareSignedChecksumsFromBase(baseURL, version, targetDir string, archiveNames []string) (string, string, error) {
@@ -587,13 +610,13 @@ func localPrepareSignedChecksumsFromBase(baseURL, version, targetDir string, arc
 }
 
 func localDownloadReleaseAssetFromBase(baseURL, version, assetName, destinationPath string) error {
-	baseURL = strings.TrimSpace(strings.TrimRight(baseURL, "/"))
-	if baseURL == "" {
-		return errors.New("release base URL cannot be empty")
+	normalizedBaseURL, err := localValidateReleaseBaseURLFunc(baseURL)
+	if err != nil {
+		return err
 	}
-	url := fmt.Sprintf("%s/%s/%s", baseURL, version, assetName)
-	if err := localDownloadFileFunc(destinationPath, url); err != nil {
-		return errors.Wrapf(err, "download from %s failed", baseURL)
+	assetURL := fmt.Sprintf("%s/%s/%s", normalizedBaseURL, version, assetName)
+	if err := localDownloadFileFunc(destinationPath, assetURL); err != nil {
+		return errors.Wrapf(err, "download from %s failed", normalizedBaseURL)
 	}
 	return nil
 }

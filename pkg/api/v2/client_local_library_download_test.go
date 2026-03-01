@@ -194,6 +194,44 @@ func TestNormalizeLocalLibraryTag_AllowlistsSafeCharacters(t *testing.T) {
 	}
 }
 
+func TestLocalReleaseBaseURLsRejectsHTTP(t *testing.T) {
+	originalPrimary := localLibraryReleaseBaseURL
+	originalFallback := localLibraryReleaseFallbackBaseURL
+	t.Cleanup(func() {
+		localLibraryReleaseBaseURL = originalPrimary
+		localLibraryReleaseFallbackBaseURL = originalFallback
+	})
+
+	localLibraryReleaseBaseURL = "http://insecure.example.com/chroma-go-local"
+	localLibraryReleaseFallbackBaseURL = "https://releases.amikos.tech/chroma-go-local"
+
+	urls := localReleaseBaseURLs()
+	require.Equal(t, []string{"https://releases.amikos.tech/chroma-go-local"}, urls)
+}
+
+func TestLocalValidateReleaseBaseURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{name: "valid https", url: "https://releases.amikos.tech/chroma-go-local"},
+		{name: "rejects http", url: "http://insecure.example.com", wantErr: true},
+		{name: "rejects empty", url: "", wantErr: true},
+		{name: "rejects relative", url: "/some/path", wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := localValidateReleaseBaseURL(tc.url)
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestEnsureLocalLibraryDownloaded_PropagatesLibraryStatErrors(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod-based permission checks are not reliable on windows")
