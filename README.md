@@ -76,6 +76,7 @@ Additional support features:
 - ✅ [Amazon Bedrock Embedding](https://go-client.chromadb.dev/embeddings/#amazon-bedrock) Support (Titan models, bearer token + SDK auth)
 - ✅ [Baseten Embedding](https://go-client.chromadb.dev/embeddings/#baseten) Support
 - ✅ [Morph Embedding](https://go-client.chromadb.dev/embeddings/#morph) Support
+- ✅ [Perplexity Embedding](https://go-client.chromadb.dev/embeddings/#perplexity) Support
 
 **Sparse & Specialized Embedding Functions:**
 

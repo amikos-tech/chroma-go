@@ -21,6 +21,7 @@ The following embedding wrappers are available:
 | [Baseten](#baseten)                                                               | Baseten BEI (Baseten Embeddings Inference).<br/> Deploy your own embedding models. See [Baseten Docs](https://docs.baseten.co/engines/bei/overview).        |
 | [Amazon Bedrock](#amazon-bedrock)                                                 | Amazon Bedrock Embeddings (Titan models).<br/> For more info see [Bedrock Docs](https://docs.aws.amazon.com/bedrock/latest/userguide/embeddings.html).      |
 | [Morph](#morph)                                                                   | Morph AI Embeddings.<br/> For more info see [Morph Docs](https://docs.morphllm.com/).                                                                       |
+| [Perplexity](#perplexity)                                                         | Perplexity Embeddings.<br/> For more info see [Perplexity API docs](https://docs.perplexity.ai/api-reference/embeddings-post).                               |
 
 **Sparse & Specialized Embedding Functions:**
 
@@ -941,6 +942,54 @@ func main() {
 	ef, err := morph.NewMorphEmbeddingFunction(morph.WithEnvAPIKey())
 	if err != nil {
 		fmt.Printf("Error creating Morph embedding function: %s \n", err)
+		return
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+		return
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+## Perplexity
+
+[Perplexity](https://docs.perplexity.ai/api-reference/embeddings-post) provides embedding models that return
+`base64_int8` vectors. `chroma-go` decodes these vectors automatically to `[]float32`.
+
+Supported Embedding Function Options:
+
+- `WithAPIKey` - Set the API key directly.
+- `WithEnvAPIKey` - Use the `PERPLEXITY_API_KEY` environment variable.
+- `WithAPIKeyFromEnvVar` - Use a custom environment variable for the API key.
+- `WithModel` - Set the model. Default is `pplx-embed-v1-0.6b`.
+- `WithDimensions` - Set reduced output dimensions (must be greater than 0).
+- `WithBaseURL` - Set a custom base URL (default: `https://api.perplexity.ai/v1/embeddings`).
+- `WithHTTPClient` - Use a custom HTTP client.
+- `WithInsecure` - Allow HTTP connections (for local development only).
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	perplexity "github.com/amikos-tech/chroma-go/pkg/embeddings/perplexity"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `PERPLEXITY_API_KEY` set in your environment
+	ef, err := perplexity.NewPerplexityEmbeddingFunction(
+		perplexity.WithEnvAPIKey(),
+		perplexity.WithModel("pplx-embed-v1-0.6b"),
+	)
+	if err != nil {
+		fmt.Printf("Error creating Perplexity embedding function: %s \n", err)
 		return
 	}
 	resp, err := ef.EmbedDocuments(context.Background(), documents)

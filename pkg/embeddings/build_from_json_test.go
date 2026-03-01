@@ -27,6 +27,7 @@ import (
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/nomic"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/ollama"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
+	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/perplexity"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/together"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/voyage"
 )
@@ -102,6 +103,17 @@ func TestBuildDenseFromJSON(t *testing.T) {
 			}`,
 			requiresAPIKey: true,
 			envVar:         "MORPH_API_KEY",
+		},
+		{
+			name:   "Perplexity",
+			efName: "perplexity",
+			jsonConfig: `{
+				"api_key_env_var": "PERPLEXITY_API_KEY",
+				"model_name": "pplx-embed-v1-0.6b",
+				"dimensions": 512
+			}`,
+			requiresAPIKey: true,
+			envVar:         "PERPLEXITY_API_KEY",
 		},
 		{
 			name:   "Nomic",
@@ -351,6 +363,7 @@ func TestAllRegisteredProvidersHaveFactories(t *testing.T) {
 		"voyageai",
 		"mistral",
 		"morph",
+		"perplexity",
 		"nomic",
 		"together_ai",
 		"huggingface",
@@ -363,8 +376,8 @@ func TestAllRegisteredProvidersHaveFactories(t *testing.T) {
 	}
 
 	expectedSparse := []string{
-		"chroma_bm25",         // Primary name (matches Python client)
-		"bm25",                // Alias for backward compatibility
+		"chroma_bm25", // Primary name (matches Python client)
+		"bm25",        // Alias for backward compatibility
 		"chroma-cloud-splade",
 	}
 
