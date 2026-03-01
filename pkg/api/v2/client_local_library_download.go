@@ -46,25 +46,55 @@ const (
 	localLibraryCacheDirPerm                  = os.FileMode(0700)
 	localLibraryLockFilePerm                  = os.FileMode(0600)
 	localLibraryArtifactFilePerm              = os.FileMode(0700)
+	// Pinned Sigstore Fulcio trust anchors used to verify release signing certificates.
+	// Source: https://fulcio.sigstore.dev/api/v1/rootCert
+	localLibraryCosignFulcioIntermediatePEM = `-----BEGIN CERTIFICATE-----
+MIICGjCCAaGgAwIBAgIUALnViVfnU0brJasmRkHrn/UnfaQwCgYIKoZIzj0EAwMw
+KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
+MjA0MTMyMDA2MTVaFw0zMTEwMDUxMzU2NThaMDcxFTATBgNVBAoTDHNpZ3N0b3Jl
+LmRldjEeMBwGA1UEAxMVc2lnc3RvcmUtaW50ZXJtZWRpYXRlMHYwEAYHKoZIzj0C
+AQYFK4EEACIDYgAE8RVS/ysH+NOvuDZyPIZtilgUF9NlarYpAd9HP1vBBH1U5CV7
+7LSS7s0ZiH4nE7Hv7ptS6LvvR/STk798LVgMzLlJ4HeIfF3tHSaexLcYpSASr1kS
+0N/RgBJz/9jWCiXno3sweTAOBgNVHQ8BAf8EBAMCAQYwEwYDVR0lBAwwCgYIKwYB
+BQUHAwMwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU39Ppz1YkEZb5qNjp
+KFWixi4YZD8wHwYDVR0jBBgwFoAUWMAeX5FFpWapesyQoZMi0CrFxfowCgYIKoZI
+zj0EAwMDZwAwZAIwPCsQK4DYiZYDPIaDi5HFKnfxXx6ASSVmERfsynYBiX2X6SJR
+nZU84/9DZdnFvvxmAjBOt6QpBlc4J/0DxvkTCqpclvziL6BCCPnjdlIB3Pu3BxsP
+mygUY7Ii2zbdCdliiow=
+-----END CERTIFICATE-----`
+	localLibraryCosignFulcioRootPEM = `-----BEGIN CERTIFICATE-----
+MIIB9zCCAXygAwIBAgIUALZNAPFdxHPwjeDloDwyYChAO/4wCgYIKoZIzj0EAwMw
+KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
+MTEwMDcxMzU2NTlaFw0zMTEwMDUxMzU2NThaMCoxFTATBgNVBAoTDHNpZ3N0b3Jl
+LmRldjERMA8GA1UEAxMIc2lnc3RvcmUwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAAT7
+XeFT4rb3PQGwS4IajtLk3/OlnpgangaBclYpsYBr5i+4ynB07ceb3LP0OIOZdxex
+X69c5iVuyJRQ+Hz05yi+UF3uBWAlHpiS5sh0+H2GHE7SXrk1EC5m1Tr19L9gg92j
+YzBhMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBRY
+wB5fkUWlZql6zJChkyLQKsXF+jAfBgNVHSMEGDAWgBRYwB5fkUWlZql6zJChkyLQ
+KsXF+jAKBggqhkjOPQQDAwNpADBmAjEAj1nHeXZp+13NWBNa+EDsDP8G1WWg1tCM
+WP/WHPqpaVo0jhsweNFZgSs0eE7wYI4qAjEA2WB9ot98sIkoF3vZYdd3/VtWB5b9
+TNMea7Ix/stJ5TfcLLeABLE4BNJOsQ4vnBHJ
+-----END CERTIFICATE-----`
 )
 
 var (
 	// Intentionally mutable for tests that use httptest servers.
-	localLibraryReleaseBaseURL         = defaultLocalLibraryReleaseBaseURL
-	localLibraryReleaseFallbackBaseURL = defaultLocalLibraryReleaseFallbackBaseURL
-	localLibraryDownloadMu             sync.Mutex
-	localLibraryDownloadAttempts             = 3
-	localLibraryLockWaitTimeout              = 45 * time.Second
-	localLibraryLockStaleAfter               = 10 * time.Minute
-	localLibraryLockHeartbeatInterval        = 30 * time.Second
-	localLibraryMaxArtifactBytes       int64 = 500 * 1024 * 1024
-	localGetenvFunc                          = os.Getenv
-	localUserHomeDirFunc                     = os.UserHomeDir
-	localReadBuildInfoFunc                   = debug.ReadBuildInfo
-	localDownloadFileFunc                    = localDownloadFileWithRetry
-	localEnsureLibraryDownloadedFunc         = ensureLocalLibraryDownloaded
-	localDetectLibraryVersionFunc            = detectLocalLibraryVersion
-	localDefaultLibraryCacheDirFunc          = defaultLocalLibraryCacheDir
+	localLibraryReleaseBaseURL            = defaultLocalLibraryReleaseBaseURL
+	localLibraryReleaseFallbackBaseURL    = defaultLocalLibraryReleaseFallbackBaseURL
+	localLibraryDownloadMu                sync.Mutex
+	localLibraryDownloadAttempts                = 3
+	localLibraryLockWaitTimeout                 = 45 * time.Second
+	localLibraryLockStaleAfter                  = 10 * time.Minute
+	localLibraryLockHeartbeatInterval           = 30 * time.Second
+	localLibraryMaxArtifactBytes          int64 = 500 * 1024 * 1024
+	localGetenvFunc                             = os.Getenv
+	localUserHomeDirFunc                        = os.UserHomeDir
+	localReadBuildInfoFunc                      = debug.ReadBuildInfo
+	localDownloadFileFunc                       = localDownloadFileWithRetry
+	localEnsureLibraryDownloadedFunc            = ensureLocalLibraryDownloaded
+	localDetectLibraryVersionFunc               = detectLocalLibraryVersion
+	localDefaultLibraryCacheDirFunc             = defaultLocalLibraryCacheDir
+	localVerifyCosignCertificateChainFunc       = localVerifyCosignCertificateChain
 )
 
 var localLibraryCosignOIDCIssuerExtensionOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
@@ -648,6 +678,9 @@ func localValidateCosignCertificate(certificate *x509.Certificate, expectedIdent
 			certificate.NotBefore.UTC().Format(time.RFC3339),
 		)
 	}
+	if err := localVerifyCosignCertificateChainFunc(certificate); err != nil {
+		return err
+	}
 
 	hasCodeSigningUsage := false
 	for _, usage := range certificate.ExtKeyUsage {
@@ -680,6 +713,37 @@ func localValidateCosignCertificate(certificate *x509.Certificate, expectedIdent
 	}
 	if issuerValue != expectedOIDCIssuer {
 		return errors.Errorf("certificate OIDC issuer mismatch: expected %s, got %s", expectedOIDCIssuer, issuerValue)
+	}
+	return nil
+}
+
+func localVerifyCosignCertificateChain(certificate *x509.Certificate) error {
+	if certificate == nil {
+		return errors.New("certificate is nil")
+	}
+
+	roots := x509.NewCertPool()
+	if ok := roots.AppendCertsFromPEM([]byte(localLibraryCosignFulcioRootPEM)); !ok {
+		return errors.New("failed to load Fulcio root certificate")
+	}
+	intermediates := x509.NewCertPool()
+	if ok := intermediates.AppendCertsFromPEM([]byte(localLibraryCosignFulcioIntermediatePEM)); !ok {
+		return errors.New("failed to load Fulcio intermediate certificate")
+	}
+
+	// Fulcio leaf certs are short-lived; verify chain validity at issuance time.
+	verifyAt := certificate.NotBefore
+	if certificate.NotAfter.After(certificate.NotBefore) {
+		verifyAt = certificate.NotBefore.Add(certificate.NotAfter.Sub(certificate.NotBefore) / 2)
+	}
+
+	if _, err := certificate.Verify(x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: intermediates,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		CurrentTime:   verifyAt,
+	}); err != nil {
+		return errors.Wrap(err, "certificate chain verification failed")
 	}
 	return nil
 }

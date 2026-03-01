@@ -1035,23 +1035,16 @@ func (c *embeddedCollection) ModifyMetadata(ctx context.Context, newMetadata Col
 	}
 
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	collectionID := c.id
-	modifyErr := func() error {
-		defer c.mu.Unlock()
-		if err := c.client.embedded.UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest{
-			CollectionID: collectionID,
-			DatabaseName: c.database.Name(),
-			NewMetadata:  newMetadataMap,
-		}); err != nil {
-			return errors.Wrap(err, "error modifying collection metadata")
-		}
-		c.metadata = newMetadata
-		return nil
-	}()
-	if modifyErr != nil {
-		return modifyErr
+	if err := c.client.embedded.UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest{
+		CollectionID: collectionID,
+		DatabaseName: c.database.Name(),
+		NewMetadata:  newMetadataMap,
+	}); err != nil {
+		return errors.Wrap(err, "error modifying collection metadata")
 	}
-
+	c.metadata = newMetadata
 	c.client.upsertCollectionState(collectionID, func(state *embeddedCollectionState) {
 		state.metadata = newMetadata
 	})

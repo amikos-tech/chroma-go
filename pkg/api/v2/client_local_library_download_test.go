@@ -35,6 +35,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func bypassLocalCosignChainVerification(t *testing.T) {
+	t.Helper()
+	orig := localVerifyCosignCertificateChainFunc
+	localVerifyCosignCertificateChainFunc = func(*x509.Certificate) error { return nil }
+	t.Cleanup(func() {
+		localVerifyCosignCertificateChainFunc = orig
+	})
+}
+
 func TestResolveLocalLibraryPath_PrefersExplicitPathThenEnvThenDownload(t *testing.T) {
 	lockLocalTestHooks(t)
 
@@ -311,6 +320,7 @@ func TestLocalStartDownloadLockHeartbeat_StopIsIdempotent(t *testing.T) {
 
 func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
 
 	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
@@ -376,6 +386,7 @@ func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 
 func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
 
 	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
@@ -423,6 +434,7 @@ func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 
 func TestEnsureLocalLibraryDownloaded_FailsOnSignedChecksumsVerification(t *testing.T) {
 	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
 
 	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
@@ -473,6 +485,7 @@ func TestEnsureLocalLibraryDownloaded_FailsOnSignedChecksumsVerification(t *test
 
 func TestEnsureLocalLibraryDownloaded_FallsBackToSecondaryReleaseURL(t *testing.T) {
 	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
 
 	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
@@ -536,6 +549,9 @@ func TestEnsureLocalLibraryDownloaded_FallsBackToSecondaryReleaseURL(t *testing.
 }
 
 func TestLocalValidateCosignCertificate_AllowsExpiredFulcioCertificate(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
 	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
 		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		oidcIssuer:  localLibraryCosignOIDCIssuer,
@@ -553,6 +569,9 @@ func TestLocalValidateCosignCertificate_AllowsExpiredFulcioCertificate(t *testin
 }
 
 func TestLocalValidateCosignCertificate_AllowsRawOIDCIssuerExtension(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
 	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
 		identity:           fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		oidcIssuer:         localLibraryCosignOIDCIssuer,
@@ -571,6 +590,9 @@ func TestLocalValidateCosignCertificate_AllowsRawOIDCIssuerExtension(t *testing.
 }
 
 func TestLocalValidateCosignCertificate_RejectsFutureNotBefore(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
 	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
 		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		oidcIssuer:  localLibraryCosignOIDCIssuer,
@@ -589,6 +611,9 @@ func TestLocalValidateCosignCertificate_RejectsFutureNotBefore(t *testing.T) {
 }
 
 func TestLocalValidateCosignCertificate_RejectsMissingCodeSigningUsage(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
 	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
 		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		oidcIssuer:  localLibraryCosignOIDCIssuer,
@@ -607,6 +632,9 @@ func TestLocalValidateCosignCertificate_RejectsMissingCodeSigningUsage(t *testin
 }
 
 func TestLocalValidateCosignCertificate_RejectsWrongIdentityAndIssuer(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
 	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
 		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v0.0.1"),
 		oidcIssuer:  "https://example.invalid/issuer",
@@ -625,6 +653,9 @@ func TestLocalValidateCosignCertificate_RejectsWrongIdentityAndIssuer(t *testing
 }
 
 func TestLocalValidateCosignCertificate_RejectsWrongOIDCIssuer(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
 	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
 		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		oidcIssuer:  "https://example.invalid/issuer",
@@ -640,6 +671,26 @@ func TestLocalValidateCosignCertificate_RejectsWrongOIDCIssuer(t *testing.T) {
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "OIDC issuer mismatch")
+}
+
+func TestLocalValidateCosignCertificate_RejectsUntrustedChain(t *testing.T) {
+	lockLocalTestHooks(t)
+
+	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
+		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		oidcIssuer:  localLibraryCosignOIDCIssuer,
+		notBefore:   time.Now().Add(-1 * time.Minute),
+		notAfter:    time.Now().Add(10 * time.Minute),
+		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+
+	err := localValidateCosignCertificate(
+		certificate,
+		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		localLibraryCosignOIDCIssuer,
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "certificate chain verification failed")
 }
 
 func TestLocalReadBase64EncodedFile_DecodePaths(t *testing.T) {
