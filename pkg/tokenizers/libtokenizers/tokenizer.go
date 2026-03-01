@@ -3,6 +3,7 @@ package tokenizers
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	puretokenizers "github.com/amikos-tech/pure-tokenizers"
@@ -37,13 +38,15 @@ type tokenizerOpts struct {
 var (
 	libraryInitOnce sync.Once
 	libraryInitErr  error
+	libraryInitPath string
 )
 
 // Ensure the shared library is available once per process.
 // If download/cache fails, fail fast to avoid cascading cgo crashes.
 func ensureTokenizerLibraryReady() error {
 	libraryInitOnce.Do(func() {
-		if os.Getenv("TOKENIZERS_LIB_PATH") != "" {
+		if envPath := strings.TrimSpace(os.Getenv("TOKENIZERS_LIB_PATH")); envPath != "" {
+			libraryInitPath = envPath
 			return
 		}
 
@@ -52,9 +55,7 @@ func ensureTokenizerLibraryReady() error {
 			libraryInitErr = errors.Wrap(err, "failed to prepare tokenizers shared library")
 			return
 		}
-		if err := os.Setenv("TOKENIZERS_LIB_PATH", libraryPath); err != nil {
-			libraryInitErr = errors.Wrap(err, "failed to set TOKENIZERS_LIB_PATH")
-		}
+		libraryInitPath = libraryPath
 	})
 
 	return libraryInitErr
@@ -144,6 +145,9 @@ func FromBytes(data []byte, opts ...TokenizerOption) (*Tokenizer, error) {
 	if err := ensureTokenizerLibraryReady(); err != nil {
 		return nil, err
 	}
+	if libraryInitPath != "" {
+		pureOpts = append(pureOpts, puretokenizers.WithLibraryPath(libraryInitPath))
+	}
 
 	tk, err := puretokenizers.FromBytes(data, pureOpts...)
 	if err != nil {
@@ -178,14 +182,17 @@ func FromBytesWithTruncation(data []byte, maxLen uint32, dir TruncationDirection
 	if err := ensureTokenizerLibraryReady(); err != nil {
 		return nil, err
 	}
+	var pureOpts []puretokenizers.TokenizerOption
+	if libraryInitPath != "" {
+		pureOpts = append(pureOpts, puretokenizers.WithLibraryPath(libraryInitPath))
+	}
+	pureOpts = append(pureOpts, puretokenizers.WithTruncation(
+		uintptr(maxLen),
+		truncDir,
+		puretokenizers.TruncationStrategyLongestFirst,
+	))
 
-	tk, err := puretokenizers.FromBytes(data,
-		puretokenizers.WithTruncation(
-			uintptr(maxLen),
-			truncDir,
-			puretokenizers.TruncationStrategyLongestFirst,
-		),
-	)
+	tk, err := puretokenizers.FromBytes(data, pureOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -201,8 +208,12 @@ func FromFile(path string) (*Tokenizer, error) {
 	if err := ensureTokenizerLibraryReady(); err != nil {
 		return nil, err
 	}
+	var pureOpts []puretokenizers.TokenizerOption
+	if libraryInitPath != "" {
+		pureOpts = append(pureOpts, puretokenizers.WithLibraryPath(libraryInitPath))
+	}
 
-	tk, err := puretokenizers.FromFile(path)
+	tk, err := puretokenizers.FromFile(path, pureOpts...)
 	if err != nil {
 		return nil, err
 	}

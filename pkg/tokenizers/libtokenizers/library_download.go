@@ -35,8 +35,10 @@ const (
 	tokenizerGitHubAPIVersion                    = "2022-11-28"
 	tokenizerCacheDirPerm                        = os.FileMode(0700)
 	tokenizerArtifactFilePerm                    = os.FileMode(0700)
+	tokenizerMaxVersionTagLength                 = 128
 	tokenizerMaxLibraryBytes               int64 = 200 * 1024 * 1024
 	tokenizerMaxArtifactBytes              int64 = 500 * 1024 * 1024
+	tokenizerMaxMetadataBytes              int64 = 5 * 1024 * 1024
 )
 
 var (
@@ -113,80 +115,96 @@ func ensureTokenizerLibraryDownloaded() (string, error) {
 		return "", errors.New("no tokenizers release base URL configured")
 	}
 
-	var selectedReleaseBase string
-	var expectedChecksum string
-	var checksumsDownloadErrs []error
+	archivePath := filepath.Join(targetDir, asset.archiveFileName)
+	var mirrorErrs []error
 	for _, releaseBase := range releaseBases {
 		checksum, prepareErr := tokenizerPrepareChecksumFromBase(releaseBase, version, asset.archiveFileName, targetDir)
 		if prepareErr != nil {
-			checksumsDownloadErrs = append(checksumsDownloadErrs, errors.Wrapf(prepareErr, "release mirror %s failed", releaseBase))
+			mirrorErrs = append(mirrorErrs, errors.Wrapf(prepareErr, "release mirror %s failed preparing checksums", releaseBase))
 			continue
 		}
-		selectedReleaseBase = releaseBase
-		expectedChecksum = checksum
-		break
-	}
-	if selectedReleaseBase == "" || expectedChecksum == "" {
-		return "", errors.Wrap(stderrors.Join(checksumsDownloadErrs...), "failed to prepare tokenizers checksums")
-	}
 
-	archivePath := filepath.Join(targetDir, asset.archiveFileName)
-	exists, err = tokenizerFileExistsNonEmpty(archivePath)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to stat tokenizers archive at %s", archivePath)
-	}
-	if exists {
-		if err := tokenizerVerifyFileChecksum(archivePath, expectedChecksum); err != nil {
-			verifyErr := errors.Wrap(err, "existing tokenizers archive checksum verification failed")
-			if removeErr := tokenizerRemoveCorruptedArchive(archivePath); removeErr != nil {
-				return "", stderrors.Join(verifyErr, removeErr)
+		exists, err = tokenizerFileExistsNonEmpty(archivePath)
+		if err != nil {
+			mirrorErrs = append(mirrorErrs, errors.Wrapf(err, "release mirror %s failed stat tokenizers archive at %s", releaseBase, archivePath))
+			continue
+		}
+		if exists {
+			if err := tokenizerVerifyFileChecksum(archivePath, checksum); err != nil {
+				verifyErr := errors.Wrap(err, "existing tokenizers archive checksum verification failed")
+				if removeErr := tokenizerRemoveCorruptedArchive(archivePath); removeErr != nil {
+					mirrorErrs = append(mirrorErrs, errors.Wrapf(stderrors.Join(verifyErr, removeErr), "release mirror %s failed", releaseBase))
+					continue
+				}
+				exists = false
 			}
 		}
-	}
-	exists, err = tokenizerFileExistsNonEmpty(archivePath)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to stat tokenizers archive at %s", archivePath)
-	}
-	if !exists {
-		if err := tokenizerDownloadReleaseAssetFromBase(selectedReleaseBase, version, asset.archiveFileName, archivePath); err != nil {
-			return "", errors.Wrap(err, "failed to download tokenizers archive")
+		if !exists {
+			if err := tokenizerDownloadReleaseAssetFromBase(releaseBase, version, asset.archiveFileName, archivePath); err != nil {
+				mirrorErrs = append(mirrorErrs, errors.Wrapf(err, "release mirror %s failed downloading tokenizers archive", releaseBase))
+				continue
+			}
 		}
-	}
 
-	if err := tokenizerVerifyFileChecksum(archivePath, expectedChecksum); err != nil {
-		return "", tokenizerFailWithArchiveCleanup(archivePath, err, "tokenizers archive checksum verification failed")
-	}
-	if err := tokenizerVerifyTarGzFile(archivePath); err != nil {
-		return "", tokenizerFailWithArchiveCleanup(archivePath, err, "tokenizers archive verification failed")
-	}
+		if err := tokenizerVerifyFileChecksum(archivePath, checksum); err != nil {
+			mirrorErrs = append(
+				mirrorErrs,
+				errors.Wrapf(
+					tokenizerFailWithArchiveCleanup(archivePath, err, "tokenizers archive checksum verification failed"),
+					"release mirror %s failed",
+					releaseBase,
+				),
+			)
+			continue
+		}
+		if err := tokenizerVerifyTarGzContainsLibrary(archivePath, asset.libraryFileName); err != nil {
+			mirrorErrs = append(
+				mirrorErrs,
+				errors.Wrapf(
+					tokenizerFailWithArchiveCleanup(archivePath, err, "tokenizers archive verification failed"),
+					"release mirror %s failed",
+					releaseBase,
+				),
+			)
+			continue
+		}
 
-	tempLibraryPath := targetLibraryPath + ".tmp"
-	_ = os.Remove(tempLibraryPath)
-	if err := tokenizerExtractLibraryFromTarGz(archivePath, asset.libraryFileName, tempLibraryPath); err != nil {
+		tempLibraryPath := targetLibraryPath + ".tmp"
 		_ = os.Remove(tempLibraryPath)
-		return "", errors.Wrap(err, "failed to extract tokenizers shared library")
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(tempLibraryPath, tokenizerArtifactFilePerm); err != nil {
+		if err := tokenizerExtractLibraryFromTarGz(archivePath, asset.libraryFileName, tempLibraryPath); err != nil {
 			_ = os.Remove(tempLibraryPath)
-			return "", errors.Wrap(err, "failed to set permissions on tokenizers shared library")
+			mirrorErrs = append(mirrorErrs, errors.Wrapf(err, "release mirror %s failed extracting tokenizers shared library", releaseBase))
+			continue
 		}
-	}
-	_ = os.Remove(targetLibraryPath)
-	if err := os.Rename(tempLibraryPath, targetLibraryPath); err != nil {
-		_ = os.Remove(tempLibraryPath)
-		return "", errors.Wrap(err, "failed to finalize tokenizers shared library")
-	}
+		if runtime.GOOS != "windows" {
+			if err := os.Chmod(tempLibraryPath, tokenizerArtifactFilePerm); err != nil {
+				_ = os.Remove(tempLibraryPath)
+				mirrorErrs = append(mirrorErrs, errors.Wrapf(err, "release mirror %s failed setting permissions on tokenizers shared library", releaseBase))
+				continue
+			}
+		}
+		_ = os.Remove(targetLibraryPath)
+		if err := os.Rename(tempLibraryPath, targetLibraryPath); err != nil {
+			_ = os.Remove(tempLibraryPath)
+			mirrorErrs = append(mirrorErrs, errors.Wrapf(err, "release mirror %s failed finalizing tokenizers shared library", releaseBase))
+			continue
+		}
 
-	exists, err = tokenizerFileExistsNonEmpty(targetLibraryPath)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to stat extracted tokenizers shared library at %s", targetLibraryPath)
+		exists, err = tokenizerFileExistsNonEmpty(targetLibraryPath)
+		if err != nil {
+			mirrorErrs = append(mirrorErrs, errors.Wrapf(err, "release mirror %s failed stat extracted tokenizers shared library at %s", releaseBase, targetLibraryPath))
+			continue
+		}
+		if !exists {
+			mirrorErrs = append(mirrorErrs, errors.Wrapf(errors.Errorf("tokenizers shared library not found after extraction: %s", targetLibraryPath), "release mirror %s failed", releaseBase))
+			continue
+		}
+		return targetLibraryPath, nil
 	}
-	if !exists {
-		return "", errors.Errorf("tokenizers shared library not found after extraction: %s", targetLibraryPath)
+	if len(mirrorErrs) == 0 {
+		return "", errors.New("failed to download tokenizers library: no release mirrors available")
 	}
-
-	return targetLibraryPath, nil
+	return "", errors.Wrap(stderrors.Join(mirrorErrs...), "failed to download and extract tokenizers library from all release mirrors")
 }
 
 func tokenizerResolveDownloadVersion() (string, error) {
@@ -425,7 +443,7 @@ func tokenizerFetchLatestVersionFromBase(baseURL string) (string, error) {
 	}
 
 	var latest tokenizerLatestRelease
-	if err := json.NewDecoder(resp.Body).Decode(&latest); err != nil {
+	if err := tokenizerDecodeJSONResponse(resp.Body, tokenizerMaxMetadataBytes, &latest); err != nil {
 		return "", errors.Wrap(err, "failed to decode latest version metadata")
 	}
 	if strings.TrimSpace(latest.Version) == "" {
@@ -469,7 +487,7 @@ func tokenizerFetchLatestVersionFromGitHub() (string, error) {
 	}
 
 	var releases []tokenizerGitHubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+	if err := tokenizerDecodeJSONResponse(resp.Body, tokenizerMaxMetadataBytes, &releases); err != nil {
 		return "", errors.Wrap(err, "failed to decode GitHub releases response")
 	}
 	for _, release := range releases {
@@ -479,6 +497,32 @@ func tokenizerFetchLatestVersionFromGitHub() (string, error) {
 		}
 	}
 	return "", errors.New("no rust-v* release found in GitHub releases")
+}
+
+func tokenizerDecodeJSONResponse(body io.Reader, maxBytes int64, out any) error {
+	if body == nil {
+		return errors.New("response body is nil")
+	}
+	if maxBytes <= 0 {
+		return errors.New("max metadata size must be greater than zero")
+	}
+
+	payload, err := io.ReadAll(io.LimitReader(body, maxBytes+1))
+	if err != nil {
+		return errors.Wrap(err, "failed to read metadata response")
+	}
+	if int64(len(payload)) > maxBytes {
+		return errors.Errorf(
+			"metadata response is too large: %d bytes exceeds max %d bytes",
+			len(payload),
+			maxBytes,
+		)
+	}
+
+	if err := json.Unmarshal(payload, out); err != nil {
+		return errors.Wrap(err, "failed to decode metadata JSON")
+	}
+	return nil
 }
 
 func normalizeTokenizerTag(version string) (string, error) {
@@ -514,6 +558,12 @@ func normalizeTokenizerTag(version string) (string, error) {
 }
 
 func validateTokenizerTag(version string) error {
+	if len(version) > tokenizerMaxVersionTagLength {
+		return errors.Errorf(
+			"tokenizers library version exceeds max length of %d characters",
+			tokenizerMaxVersionTagLength,
+		)
+	}
 	for _, r := range version {
 		isLetter := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
 		isDigit := r >= '0' && r <= '9'
@@ -561,12 +611,32 @@ func tokenizerChecksumFromSumsFile(sumsFilePath, assetName string) (string, erro
 		if checksumAssetName == "" || checksumAssetName != assetName {
 			continue
 		}
-		return strings.ToLower(fields[0]), nil
+		checksum := strings.ToLower(fields[0])
+		if !tokenizerLooksLikeSHA256(checksum) {
+			return "", errors.Errorf("invalid checksum format for asset %s: %q", assetName, fields[0])
+		}
+		return checksum, nil
 	}
 	if err := scanner.Err(); err != nil {
 		return "", errors.Wrap(err, "failed to read checksum file")
 	}
 	return "", errors.Errorf("checksum entry not found for asset %s", assetName)
+}
+
+func tokenizerLooksLikeSHA256(v string) bool {
+	if len(v) != 64 {
+		return false
+	}
+	for _, r := range v {
+		switch {
+		case r >= '0' && r <= '9':
+		case r >= 'a' && r <= 'f':
+		case r >= 'A' && r <= 'F':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func tokenizerVerifyFileChecksum(filePath, expectedChecksum string) error {
@@ -707,7 +777,7 @@ func tokenizerRejectHTTPSDowngradeRedirect(req *http.Request, via []*http.Reques
 	return nil
 }
 
-func tokenizerVerifyTarGzFile(filePath string) error {
+func tokenizerVerifyTarGzContainsLibrary(filePath, libraryFileName string) error {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return errors.Wrap(err, "could not open archive for verification")
@@ -721,10 +791,34 @@ func tokenizerVerifyTarGzFile(filePath string) error {
 	defer gzipReader.Close()
 
 	tarReader := tar.NewReader(gzipReader)
-	if _, err := tarReader.Next(); err != nil {
-		return errors.Wrap(err, "invalid tar archive")
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return errors.Wrap(err, "invalid tar archive")
+		}
+		if header.Typeflag != tar.TypeReg {
+			continue
+		}
+		if filepath.Base(header.Name) != libraryFileName {
+			continue
+		}
+		if header.Size <= 0 {
+			return errors.Errorf("library %s has invalid size %d in archive", libraryFileName, header.Size)
+		}
+		if header.Size > tokenizerMaxLibraryBytes {
+			return errors.Errorf(
+				"library %s exceeds max allowed size: %d bytes > %d bytes",
+				libraryFileName,
+				header.Size,
+				tokenizerMaxLibraryBytes,
+			)
+		}
+		return nil
 	}
-	return nil
+	return errors.Errorf("library %s not found in archive", libraryFileName)
 }
 
 func tokenizerExtractLibraryFromTarGz(archivePath, libraryFileName, destinationPath string) error {
