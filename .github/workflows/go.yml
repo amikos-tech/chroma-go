@@ -90,6 +90,24 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1
+  smoke-cross-platform:
+    name: Smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Compile all packages
+        run: go test -run '^$' ./...
+      - name: Run basicv2 smoke test
+        run: go test -v -tags=basicv2 -run '^TestPageNumber$' ./pkg/api/v2
   api:
     name: Test Chroma API
     runs-on: ubuntu-latest
