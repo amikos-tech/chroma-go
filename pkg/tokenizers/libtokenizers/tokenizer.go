@@ -47,8 +47,13 @@ func ensureTokenizerLibraryReady() error {
 			return
 		}
 
-		if err := puretokenizers.DownloadAndCacheLibrary(); err != nil {
+		libraryPath, err := ensureTokenizerLibraryDownloaded()
+		if err != nil {
 			libraryInitErr = errors.Wrap(err, "failed to prepare tokenizers shared library")
+			return
+		}
+		if err := os.Setenv("TOKENIZERS_LIB_PATH", libraryPath); err != nil {
+			libraryInitErr = errors.Wrap(err, "failed to set TOKENIZERS_LIB_PATH")
 		}
 	})
 
