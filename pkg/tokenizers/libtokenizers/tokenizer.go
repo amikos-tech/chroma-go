@@ -2,6 +2,8 @@ package tokenizers
 
 import (
 	"fmt"
+	"os"
+	"sync"
 
 	puretokenizers "github.com/amikos-tech/pure-tokenizers"
 	"github.com/pkg/errors"
@@ -30,6 +32,27 @@ type TokenizerOption func(to *tokenizerOpts)
 
 type tokenizerOpts struct {
 	encodeSpecialTokens bool
+}
+
+var (
+	libraryInitOnce sync.Once
+	libraryInitErr  error
+)
+
+// Ensure the shared library is available once per process.
+// If download/cache fails, fail fast to avoid cascading cgo crashes.
+func ensureTokenizerLibraryReady() error {
+	libraryInitOnce.Do(func() {
+		if os.Getenv("TOKENIZERS_LIB_PATH") != "" {
+			return
+		}
+
+		if err := puretokenizers.DownloadAndCacheLibrary(); err != nil {
+			libraryInitErr = errors.Wrap(err, "failed to prepare tokenizers shared library")
+		}
+	})
+
+	return libraryInitErr
 }
 
 func WithEncodeSpecialTokens() TokenizerOption {
@@ -113,6 +136,10 @@ func FromBytes(data []byte, opts ...TokenizerOption) (*Tokenizer, error) {
 
 	var pureOpts []puretokenizers.TokenizerOption
 
+	if err := ensureTokenizerLibraryReady(); err != nil {
+		return nil, err
+	}
+
 	tk, err := puretokenizers.FromBytes(data, pureOpts...)
 	if err != nil {
 		return nil, err
@@ -143,6 +170,10 @@ func FromBytesWithTruncation(data []byte, maxLen uint32, dir TruncationDirection
 		truncDir = puretokenizers.TruncationDirectionRight
 	}
 
+	if err := ensureTokenizerLibraryReady(); err != nil {
+		return nil, err
+	}
+
 	tk, err := puretokenizers.FromBytes(data,
 		puretokenizers.WithTruncation(
 			uintptr(maxLen),
@@ -162,6 +193,10 @@ func FromBytesWithTruncation(data []byte, maxLen uint32, dir TruncationDirection
 
 // FromFile creates a tokenizer from a file path
 func FromFile(path string) (*Tokenizer, error) {
+	if err := ensureTokenizerLibraryReady(); err != nil {
+		return nil, err
+	}
+
 	tk, err := puretokenizers.FromFile(path)
 	if err != nil {
 		return nil, err

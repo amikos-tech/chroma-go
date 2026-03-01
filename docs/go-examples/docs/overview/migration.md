@@ -10,7 +10,7 @@ This document covers migration notes and breaking changes when upgrading Chroma 
 
 ### Version Compatibility
 
-The chroma-go client is tested against Chroma versions 0.6.3 to 1.5.1. When upgrading your Chroma server, check for any API changes that might affect your client code.
+The chroma-go client is tested against Chroma versions 0.6.3 to 1.5.2. When upgrading your Chroma server, check for any API changes that might affect your client code.
 
 ### API v1 vs v2
 

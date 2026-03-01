@@ -9,7 +9,7 @@
 
 A simple Chroma Vector Database client written in Go
 
-Works with Chroma Version: v0.6.3 - v1.5.1
+Works with Chroma Version: v0.6.3 - v1.5.2
 
 We invite users to visit the docs site for the library for more in-depth
 information: [Chroma Go Docs](https://go-client.chromadb.dev/)
