@@ -32,8 +32,11 @@ func TestNormalizeTokenizerTag(t *testing.T) {
 		{name: "go tag", in: "v0.1.4", expected: "rust-v0.1.4"},
 		{name: "rust prefix", in: "rust-v0.1.4", expected: "rust-v0.1.4"},
 		{name: "bare rust prefix", in: "rust-0.1.4", expected: "rust-v0.1.4"},
+		{name: "bare rust v prefix", in: "rust-v0.1.4", expected: "rust-v0.1.4"},
 		{name: "empty rust suffix", in: "rust-", expectErr: true},
 		{name: "non-digit rust suffix", in: "rust-abc", expectErr: true},
+		{name: "empty go v suffix", in: "v", expectErr: true},
+		{name: "default non-digit", in: "abc", expectErr: true},
 		{name: "invalid chars", in: "v0.1.4/../../", expectErr: true},
 		{name: "too long", in: "rust-v" + strings.Repeat("1", tokenizerMaxVersionTagLength), expectErr: true},
 	}
@@ -130,13 +133,15 @@ func TestEnsureTokenizerLibraryDownloadedRetriesAcrossMirrors(t *testing.T) {
 	originalPrimary := tokenizerReleaseBaseURL
 	originalFallback := tokenizerFallbackReleaseBaseURL
 	originalHomeDir := tokenizerUserHomeDirFunc
-	originalDownloadFunc := tokenizerDownloadFileFunc
+	originalArtifactDownloadFunc := tokenizerDownloadArtifactFileFunc
+	originalMetadataDownloadFunc := tokenizerDownloadMetadataFileFunc
 	originalBuildInfo := tokenizerReadBuildInfoFunc
 	t.Cleanup(func() {
 		tokenizerReleaseBaseURL = originalPrimary
 		tokenizerFallbackReleaseBaseURL = originalFallback
 		tokenizerUserHomeDirFunc = originalHomeDir
-		tokenizerDownloadFileFunc = originalDownloadFunc
+		tokenizerDownloadArtifactFileFunc = originalArtifactDownloadFunc
+		tokenizerDownloadMetadataFileFunc = originalMetadataDownloadFunc
 		tokenizerReadBuildInfoFunc = originalBuildInfo
 	})
 
@@ -155,7 +160,7 @@ func TestEnsureTokenizerLibraryDownloadedRetriesAcrossMirrors(t *testing.T) {
 	archiveChecksum := sha256.Sum256(archiveBytes)
 	sumsContents := fmt.Sprintf("%s  %s\n", hex.EncodeToString(archiveChecksum[:]), asset.archiveFileName)
 
-	tokenizerDownloadFileFunc = func(filePath, url string) error {
+	stubDownload := func(filePath, url string) error {
 		switch {
 		case strings.Contains(url, "mirror-a.invalid") && strings.HasSuffix(url, "/"+tokenizerChecksumsAsset):
 			return os.WriteFile(filePath, []byte(sumsContents), 0600)
@@ -169,6 +174,8 @@ func TestEnsureTokenizerLibraryDownloadedRetriesAcrossMirrors(t *testing.T) {
 			return fmt.Errorf("unexpected URL: %s", url)
 		}
 	}
+	tokenizerDownloadArtifactFileFunc = stubDownload
+	tokenizerDownloadMetadataFileFunc = stubDownload
 
 	libPath, err := ensureTokenizerLibraryDownloaded()
 	require.NoError(t, err)
@@ -186,19 +193,22 @@ func TestEnsureTokenizerLibraryDownloadedFromPrimaryWhenFallbackUnavailable(t *t
 	originalPrimary := tokenizerReleaseBaseURL
 	originalFallback := tokenizerFallbackReleaseBaseURL
 	originalHomeDir := tokenizerUserHomeDirFunc
-	originalDownloadFunc := tokenizerDownloadFileFunc
+	originalArtifactDownloadFunc := tokenizerDownloadArtifactFileFunc
+	originalMetadataDownloadFunc := tokenizerDownloadMetadataFileFunc
 	originalBuildInfo := tokenizerReadBuildInfoFunc
 	t.Cleanup(func() {
 		tokenizerReleaseBaseURL = originalPrimary
 		tokenizerFallbackReleaseBaseURL = originalFallback
 		tokenizerUserHomeDirFunc = originalHomeDir
-		tokenizerDownloadFileFunc = originalDownloadFunc
+		tokenizerDownloadArtifactFileFunc = originalArtifactDownloadFunc
+		tokenizerDownloadMetadataFileFunc = originalMetadataDownloadFunc
 		tokenizerReadBuildInfoFunc = originalBuildInfo
 	})
 
 	tempHome := t.TempDir()
 	tokenizerUserHomeDirFunc = func() (string, error) { return tempHome, nil }
-	tokenizerDownloadFileFunc = tokenizerDownloadFileWithRetry
+	tokenizerDownloadArtifactFileFunc = tokenizerDownloadArtifactFileWithRetry
+	tokenizerDownloadMetadataFileFunc = tokenizerDownloadMetadataFileWithRetry
 	tokenizerReadBuildInfoFunc = func() (*debug.BuildInfo, bool) { return nil, false }
 	tokenizerReleaseBaseURL = defaultTokenizerReleaseBaseURL
 	tokenizerFallbackReleaseBaseURL = "https://127.0.0.1.invalid/pure-tokenizers"

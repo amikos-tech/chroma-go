@@ -18,7 +18,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"path"
@@ -30,6 +29,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	downloadutil "github.com/amikos-tech/chroma-go/pkg/internal/downloadutil"
 	"github.com/pkg/errors"
 )
 
@@ -922,110 +922,30 @@ func localVerifyFileChecksum(filePath, expectedChecksum string) error {
 }
 
 func localDownloadFileWithRetry(filePath, url string) error {
-	var lastErr error
-	for attempt := 1; attempt <= localLibraryDownloadAttempts; attempt++ {
-		if err := localDownloadFile(filePath, url); err != nil {
-			lastErr = err
-			if attempt < localLibraryDownloadAttempts {
-				time.Sleep(time.Duration(attempt) * time.Second)
-			}
-			continue
-		}
-		return nil
-	}
-	return errors.Wrap(lastErr, "download failed after retries")
+	return errors.WithStack(downloadutil.DownloadFileWithRetry(
+		filePath,
+		url,
+		localLibraryDownloadAttempts,
+		downloadutil.Config{
+			MaxBytes: localLibraryMaxArtifactBytes,
+			DirPerm:  localLibraryCacheDirPerm,
+		},
+	))
 }
 
 func localDownloadFile(filePath, url string) error {
-	client := &http.Client{
-		Timeout: 10 * time.Minute,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: 30 * time.Second,
-			}).DialContext,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 30 * time.Second,
+	return errors.WithStack(downloadutil.DownloadFile(
+		filePath,
+		url,
+		downloadutil.Config{
+			MaxBytes: localLibraryMaxArtifactBytes,
+			DirPerm:  localLibraryCacheDirPerm,
 		},
-		CheckRedirect: localRejectHTTPSDowngradeRedirect,
-	}
-
-	resp, err := client.Get(url)
-	if err != nil {
-		return errors.Wrap(err, "failed to make HTTP request")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return errors.Errorf("unexpected response %s for URL %s", resp.Status, url)
-	}
-	if resp.ContentLength > 0 && resp.ContentLength > localLibraryMaxArtifactBytes {
-		return errors.Errorf(
-			"downloaded artifact is too large: %d bytes exceeds max %d bytes",
-			resp.ContentLength,
-			localLibraryMaxArtifactBytes,
-		)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(filePath), localLibraryCacheDirPerm); err != nil {
-		return errors.Wrap(err, "failed to create destination directory")
-	}
-
-	out, err := os.CreateTemp(filepath.Dir(filePath), filepath.Base(filePath)+".download-*")
-	if err != nil {
-		return errors.Wrap(err, "failed to create temp file")
-	}
-	tempPath := out.Name()
-
-	limitedBody := io.LimitReader(resp.Body, localLibraryMaxArtifactBytes+1)
-	written, copyErr := io.Copy(out, limitedBody)
-	closeErr := out.Close()
-	if copyErr != nil {
-		_ = os.Remove(tempPath)
-		return errors.Wrap(copyErr, "failed to copy HTTP response")
-	}
-	if written > localLibraryMaxArtifactBytes {
-		_ = os.Remove(tempPath)
-		return errors.Errorf(
-			"downloaded artifact exceeds max allowed size: got %d bytes, max %d bytes",
-			written,
-			localLibraryMaxArtifactBytes,
-		)
-	}
-	if closeErr != nil {
-		_ = os.Remove(tempPath)
-		return errors.Wrap(closeErr, "failed to close temp file")
-	}
-	if resp.ContentLength > 0 && written != resp.ContentLength {
-		_ = os.Remove(tempPath)
-		return errors.Errorf("download incomplete: expected %d bytes, got %d bytes", resp.ContentLength, written)
-	}
-
-	_ = os.Remove(filePath)
-	if err := os.Rename(tempPath, filePath); err != nil {
-		_ = os.Remove(tempPath)
-		return errors.Wrap(err, "failed to finalize downloaded file")
-	}
-	return nil
+	))
 }
 
 func localRejectHTTPSDowngradeRedirect(req *http.Request, via []*http.Request) error {
-	if len(via) >= 10 {
-		return errors.New("stopped after 10 redirects")
-	}
-	if len(via) == 0 {
-		return nil
-	}
-	previousReq := via[len(via)-1]
-	if previousReq.URL != nil && req.URL != nil &&
-		strings.EqualFold(previousReq.URL.Scheme, "https") &&
-		strings.EqualFold(req.URL.Scheme, "http") {
-		return errors.Errorf(
-			"redirect from HTTPS to HTTP is not allowed: %s -> %s",
-			previousReq.URL.String(),
-			req.URL.String(),
-		)
-	}
-	return nil
+	return errors.WithStack(downloadutil.RejectHTTPSDowngradeRedirect(req, via))
 }
 
 func localVerifyTarGzFile(filePath string) error {

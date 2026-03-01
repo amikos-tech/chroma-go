@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	downloadutil "github.com/amikos-tech/chroma-go/pkg/internal/downloadutil"
 	"github.com/pkg/errors"
 )
 
@@ -42,18 +44,17 @@ const (
 )
 
 var (
-	tokenizerReleaseBaseURL         = defaultTokenizerReleaseBaseURL
-	tokenizerFallbackReleaseBaseURL = defaultTokenizerFallbackReleaseBaseURL
-	tokenizerDownloadMu             sync.Mutex
-	tokenizerDownloadAttempts       = 3
-	tokenizerDownloadFileFunc       = tokenizerDownloadFileWithRetry
-	tokenizerReadBuildInfoFunc      = debug.ReadBuildInfo
-	tokenizerUserHomeDirFunc        = os.UserHomeDir
+	tokenizerReleaseBaseURL           = defaultTokenizerReleaseBaseURL
+	tokenizerFallbackReleaseBaseURL   = defaultTokenizerFallbackReleaseBaseURL
+	tokenizerDownloadMu               sync.Mutex
+	tokenizerDownloadAttempts         = 3
+	tokenizerDownloadArtifactFileFunc = tokenizerDownloadArtifactFileWithRetry
+	tokenizerDownloadMetadataFileFunc = tokenizerDownloadMetadataFileWithRetry
+	tokenizerReadBuildInfoFunc        = debug.ReadBuildInfo
+	tokenizerUserHomeDirFunc          = os.UserHomeDir
 
 	tokenizerMetadataClientOnce sync.Once
 	tokenizerMetadataClient     *http.Client
-	tokenizerDownloadClientOnce sync.Once
-	tokenizerDownloadClient     *http.Client
 )
 
 func tokenizerGetMetadataHTTPClient() *http.Client {
@@ -67,27 +68,10 @@ func tokenizerGetMetadataHTTPClient() *http.Client {
 				TLSHandshakeTimeout:   10 * time.Second,
 				ResponseHeaderTimeout: 30 * time.Second,
 			},
-			CheckRedirect: tokenizerRejectHTTPSDowngradeRedirect,
+			CheckRedirect: downloadutil.RejectHTTPSDowngradeRedirect,
 		}
 	})
 	return tokenizerMetadataClient
-}
-
-func tokenizerGetDownloadHTTPClient() *http.Client {
-	tokenizerDownloadClientOnce.Do(func() {
-		tokenizerDownloadClient = &http.Client{
-			Timeout: 10 * time.Minute,
-			Transport: &http.Transport{
-				DialContext: (&net.Dialer{
-					Timeout: 30 * time.Second,
-				}).DialContext,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ResponseHeaderTimeout: 30 * time.Second,
-			},
-			CheckRedirect: tokenizerRejectHTTPSDowngradeRedirect,
-		}
-	})
-	return tokenizerDownloadClient
 }
 
 type tokenizerLibraryAsset struct {
@@ -357,7 +341,13 @@ func tokenizerIsMuslLinux() bool {
 	if _, err := os.Stat("/etc/alpine-release"); err == nil {
 		return true
 	}
-	lddContents, err := os.ReadFile("/usr/bin/ldd")
+	lddFile, err := os.Open("/usr/bin/ldd")
+	if err != nil {
+		return false
+	}
+	defer lddFile.Close()
+
+	lddContents, err := io.ReadAll(io.LimitReader(lddFile, 128*1024))
 	if err != nil {
 		return false
 	}
@@ -372,25 +362,43 @@ func tokenizerReleaseBaseURLs() []string {
 	seen := make(map[string]struct{}, len(candidates))
 	bases := make([]string, 0, len(candidates))
 	for _, base := range candidates {
-		base = strings.TrimRight(base, "/")
-		if base == "" {
+		normalized, err := tokenizerValidateReleaseBaseURL(base)
+		if err != nil {
 			continue
 		}
-		if !strings.HasPrefix(base, "https://") {
+		if _, ok := seen[normalized]; ok {
 			continue
 		}
-		if _, ok := seen[base]; ok {
-			continue
-		}
-		seen[base] = struct{}{}
-		bases = append(bases, base)
+		seen[normalized] = struct{}{}
+		bases = append(bases, normalized)
 	}
 	return bases
 }
 
+func tokenizerValidateReleaseBaseURL(baseURL string) (string, error) {
+	baseURL = strings.TrimSpace(strings.TrimRight(baseURL, "/"))
+	if baseURL == "" {
+		return "", errors.New("release base URL cannot be empty")
+	}
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return "", errors.Wrap(err, "invalid release base URL")
+	}
+	if !parsedURL.IsAbs() {
+		return "", errors.New("release base URL must be absolute")
+	}
+	if !strings.EqualFold(parsedURL.Scheme, "https") {
+		return "", errors.Errorf("release base URL must use https scheme: %s", baseURL)
+	}
+	if strings.TrimSpace(parsedURL.Host) == "" {
+		return "", errors.Errorf("release base URL host cannot be empty: %s", baseURL)
+	}
+	return baseURL, nil
+}
+
 func tokenizerPrepareChecksumFromBase(baseURL, version, archiveName, targetDir string) (string, error) {
 	checksumsPath := filepath.Join(targetDir, tokenizerChecksumsAsset)
-	if err := tokenizerDownloadReleaseAssetFromBase(baseURL, version, tokenizerChecksumsAsset, checksumsPath); err != nil {
+	if err := tokenizerDownloadMetadataAssetFromBase(baseURL, version, tokenizerChecksumsAsset, checksumsPath); err != nil {
 		return "", errors.Wrap(err, "failed to download tokenizers checksums")
 	}
 	checksum, err := tokenizerChecksumFromSumsFile(checksumsPath, archiveName)
@@ -401,13 +409,25 @@ func tokenizerPrepareChecksumFromBase(baseURL, version, archiveName, targetDir s
 }
 
 func tokenizerDownloadReleaseAssetFromBase(baseURL, version, assetName, destinationPath string) error {
-	baseURL = strings.TrimSpace(strings.TrimRight(baseURL, "/"))
-	if baseURL == "" {
-		return errors.New("release base URL cannot be empty")
+	normalizedBaseURL, err := tokenizerValidateReleaseBaseURL(baseURL)
+	if err != nil {
+		return err
 	}
-	url := fmt.Sprintf("%s/%s/%s", baseURL, version, assetName)
-	if err := tokenizerDownloadFileFunc(destinationPath, url); err != nil {
-		return errors.Wrapf(err, "download from %s failed", baseURL)
+	url := fmt.Sprintf("%s/%s/%s", normalizedBaseURL, version, assetName)
+	if err := tokenizerDownloadArtifactFileFunc(destinationPath, url); err != nil {
+		return errors.Wrapf(err, "download from %s failed", normalizedBaseURL)
+	}
+	return nil
+}
+
+func tokenizerDownloadMetadataAssetFromBase(baseURL, version, assetName, destinationPath string) error {
+	normalizedBaseURL, err := tokenizerValidateReleaseBaseURL(baseURL)
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("%s/%s/%s", normalizedBaseURL, version, assetName)
+	if err := tokenizerDownloadMetadataFileFunc(destinationPath, url); err != nil {
+		return errors.Wrapf(err, "download from %s failed", normalizedBaseURL)
 	}
 	return nil
 }
@@ -452,11 +472,11 @@ func tokenizerResolveLatestVersion() (string, error) {
 }
 
 func tokenizerFetchLatestVersionFromBase(baseURL string) (string, error) {
-	baseURL = strings.TrimSpace(strings.TrimRight(baseURL, "/"))
-	if baseURL == "" {
-		return "", errors.New("release base URL cannot be empty")
+	normalizedBaseURL, err := tokenizerValidateReleaseBaseURL(baseURL)
+	if err != nil {
+		return "", err
 	}
-	url := baseURL + "/latest.json"
+	url := normalizedBaseURL + "/latest.json"
 	client := tokenizerGetMetadataHTTPClient()
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -555,6 +575,13 @@ func normalizeTokenizerTag(version string) (string, error) {
 	case strings.EqualFold(version, tokenizerLatestTag):
 		return tokenizerLatestTag, nil
 	case strings.HasPrefix(version, "rust-v"):
+		if len(version) == len("rust-v") {
+			return "", errors.New("tokenizers library version has empty suffix after 'rust-v' prefix")
+		}
+		suffix := strings.TrimPrefix(version, "rust-v")
+		if suffix[0] < '0' || suffix[0] > '9' {
+			return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-v' prefix: must start with a digit", version)
+		}
 		if err := validateTokenizerTag(version); err != nil {
 			return "", err
 		}
@@ -566,12 +593,29 @@ func normalizeTokenizerTag(version string) (string, error) {
 		}
 		if suffix[0] >= '0' && suffix[0] <= '9' {
 			version = "rust-v" + suffix
+		} else if strings.HasPrefix(suffix, "v") {
+			if len(suffix) == 1 {
+				return "", errors.New("tokenizers library version has empty suffix after 'rust-v' prefix")
+			}
+			if suffix[1] < '0' || suffix[1] > '9' {
+				return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-v' prefix: must start with a digit", version)
+			}
+			version = "rust-" + suffix
 		} else {
 			return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-' prefix: must start with a digit or 'v'", version)
 		}
 	case strings.HasPrefix(version, "v"):
+		if len(version) == 1 {
+			return "", errors.New("tokenizers library version has empty suffix after 'v' prefix")
+		}
+		if version[1] < '0' || version[1] > '9' {
+			return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'v' prefix: must start with a digit", version)
+		}
 		version = "rust-" + version
 	default:
+		if version[0] < '0' || version[0] > '9' {
+			return "", errors.Errorf("tokenizers library version %q must start with a digit unless prefixed with 'rust-v' or 'v'", version)
+		}
 		version = "rust-v" + version
 	}
 
@@ -687,108 +731,32 @@ func tokenizerVerifyFileChecksum(filePath, expectedChecksum string) error {
 	return nil
 }
 
-func tokenizerDownloadFileWithRetry(filePath, url string) error {
-	var lastErr error
-	for attempt := 1; attempt <= tokenizerDownloadAttempts; attempt++ {
-		if err := tokenizerDownloadFile(filePath, url); err != nil {
-			lastErr = err
-			if attempt < tokenizerDownloadAttempts {
-				time.Sleep(time.Duration(attempt) * time.Second)
-			}
-			continue
-		}
-		return nil
-	}
-	return errors.Wrap(lastErr, "download failed after retries")
+func tokenizerDownloadArtifactFileWithRetry(filePath, url string) error {
+	return errors.WithStack(downloadutil.DownloadFileWithRetry(
+		filePath,
+		url,
+		tokenizerDownloadAttempts,
+		downloadutil.Config{
+			MaxBytes:  tokenizerMaxArtifactBytes,
+			DirPerm:   tokenizerCacheDirPerm,
+			Accept:    "*/*",
+			UserAgent: "chroma-go-tokenizers-downloader",
+		},
+	))
 }
 
-func tokenizerDownloadFile(filePath, url string) error {
-	client := tokenizerGetDownloadHTTPClient()
-
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return errors.Wrap(err, "failed to create HTTP request")
-	}
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("User-Agent", "chroma-go-tokenizers-downloader")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return errors.Wrap(err, "failed to make HTTP request")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return errors.Errorf("unexpected response %s for URL %s", resp.Status, url)
-	}
-	if resp.ContentLength > 0 && resp.ContentLength > tokenizerMaxArtifactBytes {
-		return errors.Errorf(
-			"downloaded artifact is too large: %d bytes exceeds max %d bytes",
-			resp.ContentLength,
-			tokenizerMaxArtifactBytes,
-		)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(filePath), tokenizerCacheDirPerm); err != nil {
-		return errors.Wrap(err, "failed to create destination directory")
-	}
-
-	out, err := os.CreateTemp(filepath.Dir(filePath), filepath.Base(filePath)+".download-*")
-	if err != nil {
-		return errors.Wrap(err, "failed to create temp file")
-	}
-	tempPath := out.Name()
-
-	limitedBody := io.LimitReader(resp.Body, tokenizerMaxArtifactBytes+1)
-	written, copyErr := io.Copy(out, limitedBody)
-	closeErr := out.Close()
-	if copyErr != nil {
-		_ = os.Remove(tempPath)
-		return errors.Wrap(copyErr, "failed to copy HTTP response")
-	}
-	if written > tokenizerMaxArtifactBytes {
-		_ = os.Remove(tempPath)
-		return errors.Errorf(
-			"downloaded artifact exceeds max allowed size: got %d bytes, max %d bytes",
-			written,
-			tokenizerMaxArtifactBytes,
-		)
-	}
-	if closeErr != nil {
-		_ = os.Remove(tempPath)
-		return errors.Wrap(closeErr, "failed to close temp file")
-	}
-	if resp.ContentLength > 0 && written != resp.ContentLength {
-		_ = os.Remove(tempPath)
-		return errors.Errorf("download incomplete: expected %d bytes, got %d bytes", resp.ContentLength, written)
-	}
-
-	_ = os.Remove(filePath)
-	if err := os.Rename(tempPath, filePath); err != nil {
-		_ = os.Remove(tempPath)
-		return errors.Wrap(err, "failed to finalize downloaded file")
-	}
-	return nil
-}
-
-func tokenizerRejectHTTPSDowngradeRedirect(req *http.Request, via []*http.Request) error {
-	if len(via) >= 10 {
-		return errors.New("stopped after 10 redirects")
-	}
-	if len(via) == 0 {
-		return nil
-	}
-	previousReq := via[len(via)-1]
-	if previousReq.URL != nil && req.URL != nil &&
-		strings.EqualFold(previousReq.URL.Scheme, "https") &&
-		strings.EqualFold(req.URL.Scheme, "http") {
-		return errors.Errorf(
-			"redirect from HTTPS to HTTP is not allowed: %s -> %s",
-			previousReq.URL.String(),
-			req.URL.String(),
-		)
-	}
-	return nil
+func tokenizerDownloadMetadataFileWithRetry(filePath, url string) error {
+	return errors.WithStack(downloadutil.DownloadFileWithRetry(
+		filePath,
+		url,
+		tokenizerDownloadAttempts,
+		downloadutil.Config{
+			MaxBytes:  tokenizerMaxMetadataBytes,
+			DirPerm:   tokenizerCacheDirPerm,
+			Accept:    "text/plain,application/json;q=0.9,*/*;q=0.8",
+			UserAgent: "chroma-go-tokenizers-downloader",
+		},
+	))
 }
 
 func tokenizerVerifyTarGzContainsLibrary(filePath, libraryFileName string) error {
