@@ -321,11 +321,11 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting collection metadata")
 	}
-	configurationMap, err := collectionConfigurationToMap(req.Configuration)
+	configurationMap, err := marshalToMap(req.Configuration)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting collection configuration")
 	}
-	schemaMap, err := schemaToMap(req.Schema)
+	schemaMap, err := marshalToMap(req.Schema)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting collection schema")
 	}
@@ -1036,17 +1036,21 @@ func (c *embeddedCollection) ModifyMetadata(ctx context.Context, newMetadata Col
 
 	c.mu.Lock()
 	collectionID := c.id
-	databaseName := c.database.Name()
-	if err := c.client.embedded.UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest{
-		CollectionID: collectionID,
-		DatabaseName: databaseName,
-		NewMetadata:  newMetadataMap,
-	}); err != nil {
-		c.mu.Unlock()
-		return errors.Wrap(err, "error modifying collection metadata")
+	modifyErr := func() error {
+		defer c.mu.Unlock()
+		if err := c.client.embedded.UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest{
+			CollectionID: collectionID,
+			DatabaseName: c.database.Name(),
+			NewMetadata:  newMetadataMap,
+		}); err != nil {
+			return errors.Wrap(err, "error modifying collection metadata")
+		}
+		c.metadata = newMetadata
+		return nil
+	}()
+	if modifyErr != nil {
+		return modifyErr
 	}
-	c.metadata = newMetadata
-	c.mu.Unlock()
 
 	c.client.upsertCollectionState(collectionID, func(state *embeddedCollectionState) {
 		state.metadata = newMetadata
@@ -1474,29 +1478,11 @@ func collectionMetadataToMap(metadata CollectionMetadata) (map[string]any, error
 	return marshalToMap(metadata)
 }
 
-func collectionConfigurationToMap(configuration *CollectionConfigurationImpl) (map[string]any, error) {
-	if configuration == nil {
-		return nil, nil
-	}
-	return marshalToMap(configuration)
-}
-
-func schemaToMap(schema *Schema) (map[string]any, error) {
-	if schema == nil {
-		return nil, nil
-	}
-	return marshalToMap(schema)
-}
-
 func collectionMetadataFromMap(metadata map[string]any) (CollectionMetadata, error) {
 	if metadata == nil {
 		return nil, nil
 	}
-	parsed, err := NewMetadataFromMapStrict(metadata)
-	if err != nil {
-		return nil, err
-	}
-	return parsed, nil
+	return NewMetadataFromMapStrict(metadata)
 }
 
 func schemaFromMap(raw map[string]any) (*Schema, error) {
