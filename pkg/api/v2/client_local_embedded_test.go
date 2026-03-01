@@ -97,6 +97,14 @@ type countingMemoryEmbeddedRuntime struct {
 	getCollectionCalls    int
 }
 
+type failingUpdateEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+
+	updateErr error
+	updateMu  sync.Mutex
+	updateCnt int
+}
+
 func newScriptedEmbeddedRuntime() *scriptedEmbeddedRuntime {
 	return &scriptedEmbeddedRuntime{
 		stubEmbeddedRuntime: &stubEmbeddedRuntime{},
@@ -127,6 +135,13 @@ func newCountingMemoryEmbeddedRuntime() *countingMemoryEmbeddedRuntime {
 	}
 }
 
+func newFailingUpdateEmbeddedRuntime(updateErr error) *failingUpdateEmbeddedRuntime {
+	return &failingUpdateEmbeddedRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+		updateErr:             updateErr,
+	}
+}
+
 func (s *countingMemoryEmbeddedRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
 	s.mu.Lock()
 	s.createCollectionCalls++
@@ -139,6 +154,22 @@ func (s *countingMemoryEmbeddedRuntime) GetCollection(request localchroma.Embedd
 	s.getCollectionCalls++
 	s.mu.Unlock()
 	return s.memoryEmbeddedRuntime.GetCollection(request)
+}
+
+func (s *failingUpdateEmbeddedRuntime) UpdateCollection(request localchroma.EmbeddedUpdateCollectionRequest) error {
+	s.updateMu.Lock()
+	s.updateCnt++
+	s.updateMu.Unlock()
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	return s.memoryEmbeddedRuntime.UpdateCollection(request)
+}
+
+func (s *failingUpdateEmbeddedRuntime) UpdateCalls() int {
+	s.updateMu.Lock()
+	defer s.updateMu.Unlock()
+	return s.updateCnt
 }
 
 func (s *countingMemoryEmbeddedRuntime) callCounts() (createCalls int, getCalls int) {
@@ -171,9 +202,36 @@ func cloneMetadataMap(src map[string]any) map[string]any {
 	}
 	dst := make(map[string]any, len(src))
 	for key, value := range src {
-		dst[key] = value
+		dst[key] = cloneMetadataValue(value)
 	}
 	return dst
+}
+
+func cloneMetadataValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneMetadataMap(typed)
+	case []any:
+		cloned := make([]any, len(typed))
+		for i, item := range typed {
+			cloned[i] = cloneMetadataValue(item)
+		}
+		return cloned
+	case []string:
+		return append([]string(nil), typed...)
+	case []int:
+		return append([]int(nil), typed...)
+	case []int64:
+		return append([]int64(nil), typed...)
+	case []float32:
+		return append([]float32(nil), typed...)
+	case []float64:
+		return append([]float64(nil), typed...)
+	case []bool:
+		return append([]bool(nil), typed...)
+	default:
+		return typed
+	}
 }
 
 func cloneEmbedding(src []float32) []float32 {
@@ -200,10 +258,13 @@ func (s *memoryEmbeddedRuntime) CreateCollection(request localchroma.EmbeddedCre
 
 	s.nextCollectionID++
 	col := localchroma.EmbeddedCollection{
-		ID:       fmt.Sprintf("mem-col-%d", s.nextCollectionID),
-		Name:     request.Name,
-		Tenant:   normalizeEmbeddedTenant(request.TenantID),
-		Database: normalizeEmbeddedDatabase(request.DatabaseName),
+		ID:                fmt.Sprintf("mem-col-%d", s.nextCollectionID),
+		Name:              request.Name,
+		Tenant:            normalizeEmbeddedTenant(request.TenantID),
+		Database:          normalizeEmbeddedDatabase(request.DatabaseName),
+		Metadata:          cloneMetadataMap(request.Metadata),
+		ConfigurationJSON: cloneMetadataMap(request.Configuration),
+		Schema:            cloneMetadataMap(request.Schema),
 	}
 	s.collections[key] = col
 	s.collectionByID[col.ID] = key
@@ -288,11 +349,22 @@ func (s *memoryEmbeddedRuntime) UpdateCollection(request localchroma.EmbeddedUpd
 		return errors.New("collection not found")
 	}
 	col := s.collections[oldKey]
-	newKey := collectionRuntimeKey(col.Tenant, request.DatabaseName, request.NewName)
-	col.Name = request.NewName
+	if request.NewName != "" {
+		col.Name = request.NewName
+	}
 	if request.DatabaseName != "" {
 		col.Database = request.DatabaseName
 	}
+	if request.NewMetadata != nil {
+		for key, value := range request.NewMetadata {
+			if value == nil {
+				return fmt.Errorf("invalid new_metadata: metadata.%s cannot be null", key)
+			}
+		}
+		col.Metadata = cloneMetadataMap(request.NewMetadata)
+	}
+
+	newKey := collectionRuntimeKey(col.Tenant, col.Database, col.Name)
 
 	delete(s.collections, oldKey)
 	s.collections[newKey] = col
@@ -738,23 +810,146 @@ func TestEmbeddedLocalClient_ContextCancellationShortCircuits(t *testing.T) {
 	require.Equal(t, 0, runtime.deleteDatabaseCalls)
 }
 
-func TestEmbeddedCollectionModifyMetadataReturnsExplicitError(t *testing.T) {
-	client := &embeddedLocalClient{
-		state:           &APIClientV2{},
-		embedded:        newScriptedEmbeddedRuntime(),
-		collectionState: map[string]*embeddedCollectionState{},
-	}
-	oldMetadata := NewMetadataFromMap(map[string]interface{}{"old": "value"})
-	collection := &embeddedCollection{
-		id:       "c1",
-		metadata: oldMetadata,
-		client:   client,
-	}
+func TestEmbeddedCollectionModifyMetadataUsesReplacementSemantics(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
 
-	err := collection.ModifyMetadata(context.Background(), NewMetadataFromMap(map[string]interface{}{"new": "value"}))
+	collection, err := client.CreateCollection(
+		ctx,
+		"modify-metadata",
+		WithCollectionMetadataCreate(NewMetadataFromMap(map[string]interface{}{
+			"old": "value",
+		})),
+	)
+	require.NoError(t, err)
+
+	newMetadata := NewMetadataFromMap(map[string]interface{}{
+		"new": "value",
+	})
+	err = collection.ModifyMetadata(ctx, newMetadata)
+	require.NoError(t, err)
+
+	immediateNew, ok := collection.Metadata().GetString("new")
+	require.True(t, ok)
+	require.Equal(t, "value", immediateNew)
+	_, hasOld := collection.Metadata().GetString("old")
+	require.False(t, hasOld)
+
+	reloaded, err := client.GetCollection(ctx, "modify-metadata")
+	require.NoError(t, err)
+	reloadedNew, ok := reloaded.Metadata().GetString("new")
+	require.True(t, ok)
+	require.Equal(t, "value", reloadedNew)
+	_, hasReloadedOld := reloaded.Metadata().GetString("old")
+	require.False(t, hasReloadedOld)
+}
+
+func TestEmbeddedCollectionModifyMetadataRejectsNilValues(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(
+		ctx,
+		"modify-metadata-nil",
+		WithCollectionMetadataCreate(NewMetadataFromMap(map[string]interface{}{
+			"old": "value",
+		})),
+	)
+	require.NoError(t, err)
+
+	err = collection.ModifyMetadata(ctx, NewMetadata(RemoveAttribute("old")))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "does not support persisting collection metadata updates")
-	require.Equal(t, oldMetadata, collection.metadata)
+	require.Contains(t, err.Error(), "cannot be null")
+
+	immediateOld, ok := collection.Metadata().GetString("old")
+	require.True(t, ok)
+	require.Equal(t, "value", immediateOld)
+
+	reloaded, err := client.GetCollection(ctx, "modify-metadata-nil")
+	require.NoError(t, err)
+	reloadedOld, ok := reloaded.Metadata().GetString("old")
+	require.True(t, ok)
+	require.Equal(t, "value", reloadedOld)
+}
+
+func TestEmbeddedCollectionModifyMetadataRejectsNilArgument(t *testing.T) {
+	runtime := newFailingUpdateEmbeddedRuntime(nil)
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(
+		ctx,
+		"modify-metadata-nil-arg",
+		WithCollectionMetadataCreate(NewMetadataFromMap(map[string]interface{}{"old": "value"})),
+	)
+	require.NoError(t, err)
+
+	err = collection.ModifyMetadata(ctx, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "newMetadata cannot be nil")
+	require.Equal(t, 0, runtime.UpdateCalls())
+}
+
+func TestEmbeddedCollectionModifyMetadataRejectsEmptyMetadata(t *testing.T) {
+	runtime := newFailingUpdateEmbeddedRuntime(nil)
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(
+		ctx,
+		"modify-metadata-empty",
+		WithCollectionMetadataCreate(NewMetadataFromMap(map[string]interface{}{"old": "value"})),
+	)
+	require.NoError(t, err)
+
+	err = collection.ModifyMetadata(ctx, NewMetadata())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "newMetadata cannot be empty")
+	require.Equal(t, 0, runtime.UpdateCalls())
+}
+
+func TestEmbeddedCollectionModifyMetadataUpdateFailureLeavesStateUntouched(t *testing.T) {
+	runtime := newFailingUpdateEmbeddedRuntime(errors.New("update failed"))
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(
+		ctx,
+		"modify-metadata-update-failure",
+		WithCollectionMetadataCreate(NewMetadataFromMap(map[string]interface{}{"old": "value"})),
+	)
+	require.NoError(t, err)
+
+	err = collection.ModifyMetadata(ctx, NewMetadataFromMap(map[string]interface{}{"new": "value"}))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error modifying collection metadata")
+	require.Equal(t, 1, runtime.UpdateCalls())
+
+	_, hasNew := collection.Metadata().GetString("new")
+	require.False(t, hasNew)
+	immediateOld, ok := collection.Metadata().GetString("old")
+	require.True(t, ok)
+	require.Equal(t, "value", immediateOld)
+
+	client.collectionStateMu.RLock()
+	state := client.collectionState[collection.ID()]
+	client.collectionStateMu.RUnlock()
+	require.NotNil(t, state)
+	_, stateHasNew := state.metadata.GetString("new")
+	require.False(t, stateHasNew)
+	stateOld, ok := state.metadata.GetString("old")
+	require.True(t, ok)
+	require.Equal(t, "value", stateOld)
+
+	reloaded, err := client.GetCollection(ctx, "modify-metadata-update-failure")
+	require.NoError(t, err)
+	_, reloadedHasNew := reloaded.Metadata().GetString("new")
+	require.False(t, reloadedHasNew)
+	reloadedOld, ok := reloaded.Metadata().GetString("old")
+	require.True(t, ok)
+	require.Equal(t, "value", reloadedOld)
 }
 
 func TestEmbeddedCollectionDimensionReadsStateSnapshot(t *testing.T) {
@@ -1107,6 +1302,130 @@ func TestEmbeddedLocalClientCRUD_CollectionsLifecycle(t *testing.T) {
 	count, err = client.CountCollections(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
+}
+
+func TestEmbeddedLocalClientCreateCollection_PersistsMetadataConfigurationAndSchemaAcrossClients(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	writer := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	metadata := NewMetadataFromMap(map[string]interface{}{
+		"owner":  "qa",
+		"active": true,
+		"count":  7,
+		"score":  0.75,
+	})
+	configuration := NewCollectionConfiguration()
+	configuration.SetRaw("hnsw", map[string]any{
+		"space": "cosine",
+	})
+	schema, err := NewSchemaWithDefaults()
+	require.NoError(t, err)
+
+	created, err := writer.CreateCollection(
+		ctx,
+		"collection-with-config",
+		WithCollectionMetadataCreate(metadata),
+		WithConfigurationCreate(configuration),
+		WithSchemaCreate(schema),
+	)
+	require.NoError(t, err)
+	require.NotEmpty(t, created.ID())
+
+	reader := newEmbeddedClientForRuntime(t, runtime)
+
+	got, err := reader.GetCollection(ctx, "collection-with-config")
+	require.NoError(t, err)
+	require.Equal(t, created.ID(), got.ID())
+
+	owner, ok := got.Metadata().GetString("owner")
+	require.True(t, ok)
+	require.Equal(t, "qa", owner)
+	active, ok := got.Metadata().GetBool("active")
+	require.True(t, ok)
+	require.True(t, active)
+	count, ok := got.Metadata().GetInt("count")
+	require.True(t, ok)
+	require.EqualValues(t, 7, count)
+	score, ok := got.Metadata().GetFloat("score")
+	require.True(t, ok)
+	require.InDelta(t, 0.75, score, 1e-9)
+
+	hnswRaw, ok := got.Configuration().GetRaw("hnsw")
+	require.True(t, ok)
+	hnswMap, ok := hnswRaw.(map[string]any)
+	require.True(t, ok)
+	space, ok := hnswMap["space"].(string)
+	require.True(t, ok)
+	require.Equal(t, "cosine", space)
+
+	require.NotNil(t, got.Schema())
+
+	listed, err := reader.ListCollections(ctx)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	require.Equal(t, created.ID(), listed[0].ID())
+
+	listedOwner, ok := listed[0].Metadata().GetString("owner")
+	require.True(t, ok)
+	require.Equal(t, "qa", listedOwner)
+	listedCount, ok := listed[0].Metadata().GetInt("count")
+	require.True(t, ok)
+	require.EqualValues(t, 7, listedCount)
+}
+
+func TestEmbeddedLocalClientGetCollectionFailsOnInvalidRuntimeMetadata(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	created, err := client.CreateCollection(
+		ctx,
+		"invalid-runtime-metadata",
+		WithCollectionMetadataCreate(NewMetadataFromMap(map[string]interface{}{"owner": "qa"})),
+	)
+	require.NoError(t, err)
+
+	runtime.mu.Lock()
+	key := runtime.collectionByID[created.ID()]
+	col := runtime.collections[key]
+	col.Metadata = map[string]any{
+		"invalid": map[string]any{"nested": "object"},
+	}
+	runtime.collections[key] = col
+	runtime.mu.Unlock()
+
+	_, err = client.GetCollection(ctx, "invalid-runtime-metadata")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error parsing collection metadata")
+}
+
+func TestEmbeddedLocalClientListCollectionsFailsOnInvalidRuntimeSchema(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+	schema, err := NewSchemaWithDefaults()
+	require.NoError(t, err)
+
+	created, err := client.CreateCollection(
+		ctx,
+		"invalid-runtime-schema",
+		WithSchemaCreate(schema),
+	)
+	require.NoError(t, err)
+
+	runtime.mu.Lock()
+	key := runtime.collectionByID[created.ID()]
+	col := runtime.collections[key]
+	col.Schema = map[string]any{
+		"keys": "invalid",
+	}
+	runtime.collections[key] = col
+	runtime.mu.Unlock()
+
+	_, err = client.ListCollections(ctx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error parsing collection schema")
 }
 
 func TestEmbeddedLocalClientGetOrCreateCollection_ExistingWithoutEFPreservesLocalState(t *testing.T) {

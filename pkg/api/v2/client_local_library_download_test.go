@@ -7,18 +7,42 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/pem"
+	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func bypassLocalCosignChainVerification(t *testing.T) {
+	t.Helper()
+	orig := localVerifyCosignCertificateChainFunc
+	localVerifyCosignCertificateChainFunc = func(*x509.Certificate) error { return nil }
+	t.Cleanup(func() {
+		localVerifyCosignCertificateChainFunc = orig
+	})
+}
 
 func TestResolveLocalLibraryPath_PrefersExplicitPathThenEnvThenDownload(t *testing.T) {
 	lockLocalTestHooks(t)
@@ -36,33 +60,33 @@ func TestResolveLocalLibraryPath_PrefersExplicitPathThenEnvThenDownload(t *testi
 
 	localGetenvFunc = func(key string) string {
 		if key == "CHROMA_LIB_PATH" {
-			return "/env/libchroma_go_shim.so"
+			return "/env/libchroma_shim.so"
 		}
 		return ""
 	}
 	localDetectLibraryVersionFunc = func() (string, error) { return "v9.9.9", nil }
 	localDefaultLibraryCacheDirFunc = func() (string, error) { return "/tmp/cache", nil }
 	localEnsureLibraryDownloadedFunc = func(version, cacheDir string) (string, error) {
-		return "/downloaded/libchroma_go_shim.so", nil
+		return "/downloaded/libchroma_shim.so", nil
 	}
 
 	cfg := &localClientConfig{
-		libraryPath:         "/explicit/libchroma_go_shim.so",
+		libraryPath:         "/explicit/libchroma_shim.so",
 		autoDownloadLibrary: true,
 	}
 	path, err := resolveLocalLibraryPath(cfg)
 	require.NoError(t, err)
-	require.Equal(t, "/explicit/libchroma_go_shim.so", path)
+	require.Equal(t, "/explicit/libchroma_shim.so", path)
 
 	cfg.libraryPath = ""
 	path, err = resolveLocalLibraryPath(cfg)
 	require.NoError(t, err)
-	require.Equal(t, "/env/libchroma_go_shim.so", path)
+	require.Equal(t, "/env/libchroma_shim.so", path)
 
 	localGetenvFunc = func(string) string { return "" }
 	path, err = resolveLocalLibraryPath(cfg)
 	require.NoError(t, err)
-	require.Equal(t, "/downloaded/libchroma_go_shim.so", path)
+	require.Equal(t, "/downloaded/libchroma_shim.so", path)
 }
 
 func TestResolveLocalLibraryPath_AutoDownloadDisabled(t *testing.T) {
@@ -296,6 +320,7 @@ func TestLocalStartDownloadLockHeartbeat_StopIsIdempotent(t *testing.T) {
 
 func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
 
 	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
@@ -303,15 +328,23 @@ func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 	}
 
 	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
+	archiveName := localLibraryArchiveName("v9.9.9", asset.platform)
 	checksum := sha256.Sum256(archiveBytes)
 	checksumHex := hex.EncodeToString(checksum[:])
-	sumsBody := []byte(checksumHex + "  " + asset.archiveName + "\n")
+	sumsBody := []byte(checksumHex + "  " + archiveName + "\n")
+	sumsSignatureBody, sumsCertificatePEM := newSignedChecksumArtifacts(t, "v9.9.9", sumsBody)
+	// Mirror currently serves .pem files as base64-encoded PEM payloads.
+	sumsCertificateBody := []byte(base64.StdEncoding.EncodeToString(sumsCertificatePEM))
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v9.9.9/" + localLibraryChecksumsAsset:
 			_, _ = w.Write(sumsBody)
-		case "/v9.9.9/" + asset.archiveName:
+		case "/v9.9.9/" + localLibraryChecksumsSignatureAsset:
+			_, _ = w.Write(sumsSignatureBody)
+		case "/v9.9.9/" + localLibraryChecksumsCertificateAsset:
+			_, _ = w.Write(sumsCertificateBody)
+		case "/v9.9.9/" + archiveName:
 			_, _ = w.Write(archiveBytes)
 		default:
 			http.NotFound(w, r)
@@ -320,12 +353,15 @@ func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 	defer server.Close()
 
 	origBaseURL := localLibraryReleaseBaseURL
+	origFallbackURL := localLibraryReleaseFallbackBaseURL
 	origAttempts := localLibraryDownloadAttempts
 	t.Cleanup(func() {
 		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryReleaseFallbackBaseURL = origFallbackURL
 		localLibraryDownloadAttempts = origAttempts
 	})
 	localLibraryReleaseBaseURL = server.URL
+	localLibraryReleaseFallbackBaseURL = ""
 	localLibraryDownloadAttempts = 1
 
 	cacheDir := t.TempDir()
@@ -350,6 +386,7 @@ func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 
 func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
 
 	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
@@ -357,13 +394,19 @@ func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 	}
 
 	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
-	sumsBody := []byte("deadbeef  " + asset.archiveName + "\n")
+	archiveName := localLibraryArchiveName("v9.9.9", asset.platform)
+	sumsBody := []byte("deadbeef  " + archiveName + "\n")
+	sumsSignatureBody, sumsCertificateBody := newSignedChecksumArtifacts(t, "v9.9.9", sumsBody)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v9.9.9/" + localLibraryChecksumsAsset:
 			_, _ = w.Write(sumsBody)
-		case "/v9.9.9/" + asset.archiveName:
+		case "/v9.9.9/" + localLibraryChecksumsSignatureAsset:
+			_, _ = w.Write(sumsSignatureBody)
+		case "/v9.9.9/" + localLibraryChecksumsCertificateAsset:
+			_, _ = w.Write(sumsCertificateBody)
+		case "/v9.9.9/" + archiveName:
 			_, _ = w.Write(archiveBytes)
 		default:
 			http.NotFound(w, r)
@@ -372,12 +415,15 @@ func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 	defer server.Close()
 
 	origBaseURL := localLibraryReleaseBaseURL
+	origFallbackURL := localLibraryReleaseFallbackBaseURL
 	origAttempts := localLibraryDownloadAttempts
 	t.Cleanup(func() {
 		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryReleaseFallbackBaseURL = origFallbackURL
 		localLibraryDownloadAttempts = origAttempts
 	})
 	localLibraryReleaseBaseURL = server.URL
+	localLibraryReleaseFallbackBaseURL = ""
 	localLibraryDownloadAttempts = 1
 
 	cacheDir := t.TempDir()
@@ -386,8 +432,351 @@ func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 	require.Contains(t, err.Error(), "checksum verification failed")
 }
 
+func TestEnsureLocalLibraryDownloaded_FailsOnSignedChecksumsVerification(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
+	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skipf("runtime not supported for local runtime artifacts: %v", err)
+	}
+
+	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
+	archiveName := localLibraryArchiveName("v9.9.9", asset.platform)
+	checksum := sha256.Sum256(archiveBytes)
+	checksumHex := hex.EncodeToString(checksum[:])
+	sumsBody := []byte(checksumHex + "  " + archiveName + "\n")
+	_, sumsCertificateBody := newSignedChecksumArtifacts(t, "v9.9.9", sumsBody)
+	invalidSignatureBody := []byte(base64.StdEncoding.EncodeToString([]byte("invalid-signature")))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v9.9.9/" + localLibraryChecksumsAsset:
+			_, _ = w.Write(sumsBody)
+		case "/v9.9.9/" + localLibraryChecksumsSignatureAsset:
+			_, _ = w.Write(invalidSignatureBody)
+		case "/v9.9.9/" + localLibraryChecksumsCertificateAsset:
+			_, _ = w.Write(sumsCertificateBody)
+		case "/v9.9.9/" + archiveName:
+			_, _ = w.Write(archiveBytes)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	origBaseURL := localLibraryReleaseBaseURL
+	origFallbackURL := localLibraryReleaseFallbackBaseURL
+	origAttempts := localLibraryDownloadAttempts
+	t.Cleanup(func() {
+		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryReleaseFallbackBaseURL = origFallbackURL
+		localLibraryDownloadAttempts = origAttempts
+	})
+	localLibraryReleaseBaseURL = server.URL
+	localLibraryReleaseFallbackBaseURL = ""
+	localLibraryDownloadAttempts = 1
+
+	cacheDir := t.TempDir()
+	_, err = ensureLocalLibraryDownloaded("v9.9.9", cacheDir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "checksums signature")
+}
+
+func TestEnsureLocalLibraryDownloaded_FallsBackToSecondaryReleaseURL(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
+	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skipf("runtime not supported for local runtime artifacts: %v", err)
+	}
+
+	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
+	archiveName := localLibraryArchiveName("v9.9.9", asset.platform)
+	checksum := sha256.Sum256(archiveBytes)
+	checksumHex := hex.EncodeToString(checksum[:])
+	sumsBody := []byte(checksumHex + "  " + archiveName + "\n")
+	sumsSignatureBody, sumsCertificateBody := newSignedChecksumArtifacts(t, "v9.9.9", sumsBody)
+	var primaryArchiveRequests int32
+
+	primaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v9.9.9/" + localLibraryChecksumsAsset:
+			_, _ = w.Write(sumsBody)
+		case "/v9.9.9/" + archiveName:
+			atomic.AddInt32(&primaryArchiveRequests, 1)
+			http.Error(w, "primary archive should not be requested", http.StatusInternalServerError)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer primaryServer.Close()
+
+	fallbackServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v9.9.9/" + localLibraryChecksumsAsset:
+			_, _ = w.Write(sumsBody)
+		case "/v9.9.9/" + localLibraryChecksumsSignatureAsset:
+			_, _ = w.Write(sumsSignatureBody)
+		case "/v9.9.9/" + localLibraryChecksumsCertificateAsset:
+			_, _ = w.Write(sumsCertificateBody)
+		case "/v9.9.9/" + archiveName:
+			_, _ = w.Write(archiveBytes)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer fallbackServer.Close()
+
+	origBaseURL := localLibraryReleaseBaseURL
+	origFallbackURL := localLibraryReleaseFallbackBaseURL
+	origAttempts := localLibraryDownloadAttempts
+	t.Cleanup(func() {
+		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryReleaseFallbackBaseURL = origFallbackURL
+		localLibraryDownloadAttempts = origAttempts
+	})
+	localLibraryReleaseBaseURL = primaryServer.URL
+	localLibraryReleaseFallbackBaseURL = fallbackServer.URL
+	localLibraryDownloadAttempts = 1
+
+	cacheDir := t.TempDir()
+	libPath, err := ensureLocalLibraryDownloaded("v9.9.9", cacheDir)
+	require.NoError(t, err)
+	require.FileExists(t, libPath)
+	require.EqualValues(t, 0, atomic.LoadInt32(&primaryArchiveRequests))
+}
+
+func TestLocalValidateCosignCertificate_AllowsExpiredFulcioCertificate(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
+	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
+		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		oidcIssuer:  localLibraryCosignOIDCIssuer,
+		notBefore:   time.Now().Add(-2 * time.Hour),
+		notAfter:    time.Now().Add(-1 * time.Hour),
+		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+
+	err := localValidateCosignCertificate(
+		certificate,
+		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		localLibraryCosignOIDCIssuer,
+	)
+	require.NoError(t, err)
+}
+
+func TestLocalValidateCosignCertificate_AllowsRawOIDCIssuerExtension(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
+	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
+		identity:           fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		oidcIssuer:         localLibraryCosignOIDCIssuer,
+		oidcIssuerRawValue: true,
+		notBefore:          time.Now().Add(-1 * time.Minute),
+		notAfter:           time.Now().Add(10 * time.Minute),
+		extKeyUsage:        []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+
+	err := localValidateCosignCertificate(
+		certificate,
+		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		localLibraryCosignOIDCIssuer,
+	)
+	require.NoError(t, err)
+}
+
+func TestLocalValidateCosignCertificate_RejectsFutureNotBefore(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
+	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
+		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		oidcIssuer:  localLibraryCosignOIDCIssuer,
+		notBefore:   time.Now().Add(10 * time.Minute),
+		notAfter:    time.Now().Add(20 * time.Minute),
+		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+
+	err := localValidateCosignCertificate(
+		certificate,
+		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		localLibraryCosignOIDCIssuer,
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not yet valid")
+}
+
+func TestLocalValidateCosignCertificate_RejectsMissingCodeSigningUsage(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
+	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
+		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		oidcIssuer:  localLibraryCosignOIDCIssuer,
+		notBefore:   time.Now().Add(-1 * time.Minute),
+		notAfter:    time.Now().Add(10 * time.Minute),
+		extKeyUsage: nil,
+	})
+
+	err := localValidateCosignCertificate(
+		certificate,
+		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		localLibraryCosignOIDCIssuer,
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "code signing")
+}
+
+func TestLocalValidateCosignCertificate_RejectsWrongIdentityAndIssuer(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
+	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
+		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v0.0.1"),
+		oidcIssuer:  "https://example.invalid/issuer",
+		notBefore:   time.Now().Add(-1 * time.Minute),
+		notAfter:    time.Now().Add(10 * time.Minute),
+		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+
+	err := localValidateCosignCertificate(
+		certificate,
+		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		localLibraryCosignOIDCIssuer,
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "identity")
+}
+
+func TestLocalValidateCosignCertificate_RejectsWrongOIDCIssuer(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
+	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
+		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		oidcIssuer:  "https://example.invalid/issuer",
+		notBefore:   time.Now().Add(-1 * time.Minute),
+		notAfter:    time.Now().Add(10 * time.Minute),
+		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+
+	err := localValidateCosignCertificate(
+		certificate,
+		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		localLibraryCosignOIDCIssuer,
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "OIDC issuer mismatch")
+}
+
+func TestLocalValidateCosignCertificate_RejectsUntrustedChain(t *testing.T) {
+	lockLocalTestHooks(t)
+
+	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
+		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		oidcIssuer:  localLibraryCosignOIDCIssuer,
+		notBefore:   time.Now().Add(-1 * time.Minute),
+		notAfter:    time.Now().Add(10 * time.Minute),
+		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+
+	err := localValidateCosignCertificate(
+		certificate,
+		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		localLibraryCosignOIDCIssuer,
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "certificate chain verification failed")
+}
+
+func TestLocalReadBase64EncodedFile_DecodePaths(t *testing.T) {
+	dir := t.TempDir()
+	rawPath := filepath.Join(dir, "raw.txt")
+	invalidPath := filepath.Join(dir, "invalid.txt")
+
+	payload := []byte("hello-base64")
+	require.NoError(t, os.WriteFile(rawPath, []byte(base64.RawStdEncoding.EncodeToString(payload)), 0644))
+	require.NoError(t, os.WriteFile(invalidPath, []byte("%%%not-base64%%%"), 0644))
+
+	decoded, err := localReadBase64EncodedFile(rawPath)
+	require.NoError(t, err)
+	require.Equal(t, payload, decoded)
+
+	_, err = localReadBase64EncodedFile(invalidPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid base64 payload")
+}
+
+func TestLocalReadCosignCertificate_RejectsInvalidAndTrailingPEM(t *testing.T) {
+	dir := t.TempDir()
+	invalidPath := filepath.Join(dir, "invalid.pem")
+	trailingPath := filepath.Join(dir, "trailing.pem")
+	require.NoError(t, os.WriteFile(invalidPath, []byte("definitely-not-a-cert"), 0644))
+
+	validPEM := newCosignCertificatePEM(t, localTestCosignCertificateOptions{
+		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		oidcIssuer:  localLibraryCosignOIDCIssuer,
+		notBefore:   time.Now().Add(-1 * time.Minute),
+		notAfter:    time.Now().Add(10 * time.Minute),
+		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+	require.NoError(t, os.WriteFile(trailingPath, append(validPEM, []byte("\nTRAILING")...), 0644))
+
+	_, err := localReadCosignCertificate(invalidPath)
+	require.Error(t, err)
+
+	_, err = localReadCosignCertificate(trailingPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "trailing data")
+}
+
+func TestLocalReadCosignCertificate_ReadErrorIncludesPath(t *testing.T) {
+	missingPath := filepath.Join(t.TempDir(), "missing.pem")
+	_, err := localReadCosignCertificate(missingPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), missingPath)
+}
+
+func TestLocalCertificateExtensionValue_ReportsASN1DecodeError(t *testing.T) {
+	certificate := &x509.Certificate{
+		Extensions: []pkix.Extension{
+			{
+				Id:    localLibraryCosignOIDCIssuerExtensionOID,
+				Value: []byte{0xff, 0xfe},
+			},
+		},
+	}
+
+	_, _, err := localCertificateExtensionValue(certificate, localLibraryCosignOIDCIssuerExtensionOID)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to decode certificate extension")
+	require.Contains(t, err.Error(), "asn1")
+}
+
+func TestLocalVerifyBlobSignature_SupportsRSAAndEd25519(t *testing.T) {
+	payload := []byte("blob-for-signature-verification")
+	digest := sha256.Sum256(payload)
+
+	rsaPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	rsaCertificate := newSelfSignedCertificate(t, rsaPrivateKey.Public(), rsaPrivateKey)
+	rsaSignature, err := rsa.SignPKCS1v15(rand.Reader, rsaPrivateKey, crypto.SHA256, digest[:])
+	require.NoError(t, err)
+	require.NoError(t, localVerifyBlobSignature(rsaCertificate, payload, rsaSignature))
+
+	edPublicKey, edPrivateKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	edCertificate := newSelfSignedCertificate(t, edPublicKey, edPrivateKey)
+	edSignature := ed25519.Sign(edPrivateKey, payload)
+	require.NoError(t, localVerifyBlobSignature(edCertificate, payload, edSignature))
+}
+
 func TestLocalChecksumFromSumsFile_SupportsBSDFileMarker(t *testing.T) {
-	assetName := "chroma-go-shim-linux-amd64.tar.gz"
+	assetName := "chroma-go-local-v9.9.9-linux-amd64.tar.gz"
 	sumsPath := filepath.Join(t.TempDir(), "SHA256SUMS.txt")
 	require.NoError(t, os.WriteFile(sumsPath, []byte("DEADBEEF  *"+assetName+"\n"), 0644))
 
@@ -426,11 +815,11 @@ func TestLocalExtractLibraryFromTarGz_RejectsOversizedLibrary(t *testing.T) {
 	})
 
 	archivePath := filepath.Join(t.TempDir(), "artifact.tar.gz")
-	archiveBytes := newTarGzWithLibrary(t, "libchroma_go_shim.so", []byte("this payload is too large"))
+	archiveBytes := newTarGzWithLibrary(t, "libchroma_shim.so", []byte("this payload is too large"))
 	require.NoError(t, os.WriteFile(archivePath, archiveBytes, 0644))
 
-	targetPath := filepath.Join(t.TempDir(), "libchroma_go_shim.so")
-	err := localExtractLibraryFromTarGz(archivePath, "libchroma_go_shim.so", targetPath)
+	targetPath := filepath.Join(t.TempDir(), "libchroma_shim.so")
+	err := localExtractLibraryFromTarGz(archivePath, "libchroma_shim.so", targetPath)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "exceeds max allowed size")
 }
@@ -478,4 +867,123 @@ func newTarGzWithLibrary(t *testing.T, fileName string, content []byte) []byte {
 	require.NoError(t, gzWriter.Close())
 
 	return buf.Bytes()
+}
+
+type localTestCosignCertificateOptions struct {
+	identity           string
+	oidcIssuer         string
+	oidcIssuerRawValue bool
+	notBefore          time.Time
+	notAfter           time.Time
+	extKeyUsage        []x509.ExtKeyUsage
+}
+
+func newCosignCertificatePEM(t *testing.T, opts localTestCosignCertificateOptions) []byte {
+	t.Helper()
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	certificate := newCosignCertificateWithKey(t, opts, &privateKey.PublicKey, privateKey)
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw})
+}
+
+func newCosignCertificate(t *testing.T, opts localTestCosignCertificateOptions) *x509.Certificate {
+	t.Helper()
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	return newCosignCertificateWithKey(t, opts, &privateKey.PublicKey, privateKey)
+}
+
+func newCosignCertificateWithKey(t *testing.T, opts localTestCosignCertificateOptions, publicKey any, signer any) *x509.Certificate {
+	t.Helper()
+
+	identityURI, err := url.Parse(opts.identity)
+	require.NoError(t, err)
+	oidcIssuerValue := []byte(opts.oidcIssuer)
+	if !opts.oidcIssuerRawValue {
+		oidcIssuerValue, err = asn1.Marshal(opts.oidcIssuer)
+		require.NoError(t, err)
+	}
+
+	certTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		NotBefore:    opts.notBefore,
+		NotAfter:     opts.notAfter,
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  opts.extKeyUsage,
+		URIs:         []*url.URL{identityURI},
+		ExtraExtensions: []pkix.Extension{
+			{
+				Id:    localLibraryCosignOIDCIssuerExtensionOID,
+				Value: oidcIssuerValue,
+			},
+		},
+	}
+
+	certificateDER, err := x509.CreateCertificate(rand.Reader, certTemplate, certTemplate, publicKey, signer)
+	require.NoError(t, err)
+	certificate, err := x509.ParseCertificate(certificateDER)
+	require.NoError(t, err)
+	return certificate
+}
+
+func newSelfSignedCertificate(t *testing.T, publicKey any, signer any) *x509.Certificate {
+	t.Helper()
+
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		NotBefore:    time.Now().Add(-1 * time.Minute),
+		NotAfter:     time.Now().Add(10 * time.Minute),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, publicKey, signer)
+	require.NoError(t, err)
+	certificate, err := x509.ParseCertificate(der)
+	require.NoError(t, err)
+	return certificate
+}
+
+func newSignedChecksumArtifacts(t *testing.T, version string, checksumBody []byte) ([]byte, []byte) {
+	t.Helper()
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	expectedIdentity := fmt.Sprintf(localLibraryCosignIdentityTemplate, version)
+	identityURI, err := url.Parse(expectedIdentity)
+	require.NoError(t, err)
+
+	oidcIssuerValue, err := asn1.Marshal(localLibraryCosignOIDCIssuer)
+	require.NoError(t, err)
+
+	certTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now().Add(-1 * time.Minute),
+		NotAfter:     time.Now().Add(10 * time.Minute),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		URIs:         []*url.URL{identityURI},
+		ExtraExtensions: []pkix.Extension{
+			{
+				Id:    localLibraryCosignOIDCIssuerExtensionOID,
+				Value: oidcIssuerValue,
+			},
+		},
+	}
+
+	certificateDER, err := x509.CreateCertificate(rand.Reader, certTemplate, certTemplate, &privateKey.PublicKey, privateKey)
+	require.NoError(t, err)
+	certificatePEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certificateDER,
+	})
+	require.NotEmpty(t, certificatePEM)
+
+	digest := sha256.Sum256(checksumBody)
+	signature, err := ecdsa.SignASN1(rand.Reader, privateKey, digest[:])
+	require.NoError(t, err)
+
+	return []byte(base64.StdEncoding.EncodeToString(signature)), certificatePEM
 }
