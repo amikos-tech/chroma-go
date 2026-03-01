@@ -1063,6 +1063,7 @@ func TestLocalNormalizedChecksumAssetName(t *testing.T) {
 		{name: "windows path", input: `chroma-go-local\v0.4.0\local-chroma-v0.4.0-linux-amd64.tar.gz`, want: "local-chroma-v0.4.0-linux-amd64.tar.gz"},
 		{name: "deep path", input: "prefix/nested/path/chroma-go-local-v0.4.0-linux-amd64.tar.gz", want: "chroma-go-local-v0.4.0-linux-amd64.tar.gz"},
 		{name: "blank", input: "   ", want: ""},
+		{name: "parent directory", input: "..", want: ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

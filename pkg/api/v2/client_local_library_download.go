@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	defaultLocalLibraryVersion                = "v0.4.0"
+	defaultLocalLibraryVersion                = "v0.3.1"
 	defaultLocalLibraryReleaseBaseURL         = "https://releases.amikos.tech/chroma-go-local"
 	defaultLocalLibraryReleaseFallbackBaseURL = "https://github.com/amikos-tech/chroma-go-local/releases/download"
 	localLibraryModulePath                    = "github.com/amikos-tech/chroma-go-local"
@@ -892,7 +892,7 @@ func localNormalizedChecksumAssetName(assetName string) string {
 	normalized = strings.TrimPrefix(normalized, "./")
 	normalized = strings.ReplaceAll(normalized, "\\", "/")
 	normalized = path.Base(normalized)
-	if normalized == "." || normalized == "/" {
+	if normalized == "." || normalized == "/" || normalized == ".." {
 		return ""
 	}
 	return strings.TrimSpace(normalized)
