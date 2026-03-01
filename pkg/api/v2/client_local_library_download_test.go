@@ -479,7 +479,7 @@ func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 
 	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
 	archiveName := localLibraryArchiveName("v9.9.9", asset.platform)
-	sumsBody := []byte("deadbeef  " + archiveName + "\n")
+	sumsBody := []byte(strings.Repeat("0", 64) + "  " + archiveName + "\n")
 	sumsSignatureBody, sumsCertificateBody := newSignedChecksumArtifacts(t, "v9.9.9", sumsBody)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -583,7 +583,7 @@ func TestEnsureLocalLibraryDownloaded_VerifyFailure_JoinsRemoveError(t *testing.
 				t.Helper()
 				require.NoError(t, os.MkdirAll(targetDir, 0755))
 				require.NoError(t, os.WriteFile(filepath.Join(targetDir, archiveName), []byte("existing-corrupt-archive"), 0644))
-				return nil, []byte("deadbeef  " + archiveName + "\n"), localLibraryChecksumsCertificateAsset
+				return nil, []byte(strings.Repeat("0", 64) + "  " + archiveName + "\n"), localLibraryChecksumsCertificateAsset
 			},
 			expectedMessages: []string{"existing local runtime archive checksum verification failed", "failed to remove corrupted local runtime archive"},
 		},
@@ -592,7 +592,7 @@ func TestEnsureLocalLibraryDownloaded_VerifyFailure_JoinsRemoveError(t *testing.
 			setupArchive: func(t *testing.T, asset localLibraryAsset, targetDir, archiveName string) ([]byte, []byte, string) {
 				t.Helper()
 				archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
-				return archiveBytes, []byte("deadbeef  " + archiveName + "\n"), archiveName
+				return archiveBytes, []byte(strings.Repeat("0", 64) + "  " + archiveName + "\n"), archiveName
 			},
 			expectedMessages: []string{"local library archive checksum verification failed", "failed to remove corrupted local runtime archive"},
 		},
@@ -936,11 +936,42 @@ func TestLocalReadCosignCertificate_RejectsInvalidAndTrailingPEM(t *testing.T) {
 	require.Contains(t, err.Error(), "trailing data")
 }
 
+func TestLocalReadCosignCertificate_RejectsNonCertificatePEMType(t *testing.T) {
+	dir := t.TempDir()
+	wrongTypePath := filepath.Join(dir, "wrong-type.pem")
+
+	validPEM := newCosignCertificatePEM(t, localTestCosignCertificateOptions{
+		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		oidcIssuer:  localLibraryCosignOIDCIssuer,
+		notBefore:   time.Now().Add(-1 * time.Minute),
+		notAfter:    time.Now().Add(10 * time.Minute),
+		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+	block, _ := pem.Decode(validPEM)
+	require.NotNil(t, block)
+
+	wrongTypePEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: block.Bytes,
+	})
+	require.NoError(t, os.WriteFile(wrongTypePath, wrongTypePEM, 0644))
+
+	_, err := cosignutil.ReadCosignCertificate(wrongTypePath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unexpected PEM block type")
+}
+
 func TestLocalReadCosignCertificate_ReadErrorIncludesPath(t *testing.T) {
 	missingPath := filepath.Join(t.TempDir(), "missing.pem")
 	_, err := cosignutil.ReadCosignCertificate(missingPath)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), missingPath)
+}
+
+func TestLocalCertificateExtensionValue_RejectsNilCertificate(t *testing.T) {
+	_, _, err := cosignutil.CertificateExtensionValue(nil, cosignutil.OIDCIssuerExtensionOID())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "certificate is nil")
 }
 
 func TestLocalCertificateExtensionValue_ReportsASN1DecodeError(t *testing.T) {
@@ -980,41 +1011,44 @@ func TestLocalVerifyBlobSignature_SupportsRSAAndEd25519(t *testing.T) {
 func TestLocalChecksumFromSumsFile_SupportsBSDFileMarker(t *testing.T) {
 	assetName := "chroma-go-local-v9.9.9-linux-amd64.tar.gz"
 	sumsPath := filepath.Join(t.TempDir(), "SHA256SUMS.txt")
-	require.NoError(t, os.WriteFile(sumsPath, []byte("DEADBEEF  *"+assetName+"\n"), 0644))
+	expectedChecksum := strings.Repeat("A", 64)
+	require.NoError(t, os.WriteFile(sumsPath, []byte(expectedChecksum+"  *"+assetName+"\n"), 0644))
 
 	checksum, err := localChecksumFromSumsFile(sumsPath, assetName)
 	require.NoError(t, err)
-	require.Equal(t, "deadbeef", checksum)
+	require.Equal(t, strings.ToLower(expectedChecksum), checksum)
 }
 
 func TestLocalChecksumFromSumsFileAny_SupportsPrefixedAssetPaths(t *testing.T) {
 	legacyAssetName := "chroma-go-local-v9.9.9-linux-amd64.tar.gz"
 	localChromaAssetName := "local-chroma-v9.9.9-linux-amd64.tar.gz"
 	sumsPath := filepath.Join(t.TempDir(), "SHA256SUMS.txt")
-	line := "DEADBEEF  chroma-go-local/v9.9.9/" + localChromaAssetName + "\n"
+	expectedChecksum := strings.Repeat("B", 64)
+	line := expectedChecksum + "  chroma-go-local/v9.9.9/" + localChromaAssetName + "\n"
 	require.NoError(t, os.WriteFile(sumsPath, []byte(line), 0644))
 
 	assetName, checksum, err := localChecksumFromSumsFileAny(sumsPath, []string{legacyAssetName, localChromaAssetName})
 	require.NoError(t, err)
 	require.Equal(t, localChromaAssetName, assetName)
-	require.Equal(t, "deadbeef", checksum)
+	require.Equal(t, strings.ToLower(expectedChecksum), checksum)
 }
 
 func TestLocalChecksumFromSumsFileAny_ReturnsOriginalCandidateName(t *testing.T) {
 	localChromaAssetName := "local-chroma-v9.9.9-linux-amd64.tar.gz"
 	candidateName := "./" + localChromaAssetName
 	sumsPath := filepath.Join(t.TempDir(), "SHA256SUMS.txt")
-	require.NoError(t, os.WriteFile(sumsPath, []byte("DEADBEEF  "+localChromaAssetName+"\n"), 0644))
+	expectedChecksum := strings.Repeat("C", 64)
+	require.NoError(t, os.WriteFile(sumsPath, []byte(expectedChecksum+"  "+localChromaAssetName+"\n"), 0644))
 
 	assetName, checksum, err := localChecksumFromSumsFileAny(sumsPath, []string{candidateName})
 	require.NoError(t, err)
 	require.Equal(t, candidateName, assetName)
-	require.Equal(t, "deadbeef", checksum)
+	require.Equal(t, strings.ToLower(expectedChecksum), checksum)
 }
 
 func TestLocalChecksumFromSumsFileAny_ReturnsNotFound(t *testing.T) {
 	sumsPath := filepath.Join(t.TempDir(), "SHA256SUMS.txt")
-	require.NoError(t, os.WriteFile(sumsPath, []byte("DEADBEEF  other-asset.tar.gz\n"), 0644))
+	require.NoError(t, os.WriteFile(sumsPath, []byte(strings.Repeat("D", 64)+"  other-asset.tar.gz\n"), 0644))
 
 	_, _, err := localChecksumFromSumsFileAny(sumsPath, []string{
 		"chroma-go-local-v9.9.9-linux-amd64.tar.gz",
@@ -1022,6 +1056,16 @@ func TestLocalChecksumFromSumsFileAny_ReturnsNotFound(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "checksum entry not found for assets")
+}
+
+func TestLocalChecksumFromSumsFileAny_RejectsInvalidChecksumFormat(t *testing.T) {
+	assetName := "local-chroma-v9.9.9-linux-amd64.tar.gz"
+	sumsPath := filepath.Join(t.TempDir(), "SHA256SUMS.txt")
+	require.NoError(t, os.WriteFile(sumsPath, []byte("deadbeef  "+assetName+"\n"), 0644))
+
+	_, _, err := localChecksumFromSumsFileAny(sumsPath, []string{assetName})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid checksum format")
 }
 
 func TestLocalChecksumFromSumsFileAny_RejectsEmptyAssetNames(t *testing.T) {
@@ -1051,15 +1095,15 @@ func TestLocalChecksumFromSumsFileAny_PrefersFirstMatchingFileLine(t *testing.T)
 	localChromaAssetName := "local-chroma-v9.9.9-linux-amd64.tar.gz"
 	sumsPath := filepath.Join(t.TempDir(), "SHA256SUMS.txt")
 	sumsBody := strings.Join([]string{
-		"1111  " + localChromaAssetName,
-		"2222  " + legacyAssetName,
+		strings.Repeat("1", 64) + "  " + localChromaAssetName,
+		strings.Repeat("2", 64) + "  " + legacyAssetName,
 	}, "\n") + "\n"
 	require.NoError(t, os.WriteFile(sumsPath, []byte(sumsBody), 0644))
 
 	assetName, checksum, err := localChecksumFromSumsFileAny(sumsPath, []string{legacyAssetName, localChromaAssetName})
 	require.NoError(t, err)
 	require.Equal(t, localChromaAssetName, assetName)
-	require.Equal(t, "1111", checksum)
+	require.Equal(t, strings.Repeat("1", 64), checksum)
 }
 
 func TestLocalNormalizedChecksumAssetName(t *testing.T) {

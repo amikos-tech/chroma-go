@@ -34,6 +34,8 @@ import (
 )
 
 func TestNormalizeTokenizerTag(t *testing.T) {
+	tooLongSemver := "v1.2.3-" + strings.Repeat("a", tokenizerMaxVersionTagLength)
+
 	tests := []struct {
 		name      string
 		in        string
@@ -42,17 +44,21 @@ func TestNormalizeTokenizerTag(t *testing.T) {
 	}{
 		{name: "empty", in: "", expectErr: true},
 		{name: "latest", in: "latest", expected: "latest"},
+		{name: "latest case-insensitive", in: "LATEST", expected: "latest"},
 		{name: "semver", in: "0.1.4", expected: "rust-v0.1.4"},
 		{name: "go tag", in: "v0.1.4", expected: "rust-v0.1.4"},
 		{name: "rust prefix", in: "rust-v0.1.4", expected: "rust-v0.1.4"},
 		{name: "bare rust prefix", in: "rust-0.1.4", expected: "rust-v0.1.4"},
-		{name: "bare rust v prefix", in: "rust-v0.1.4", expected: "rust-v0.1.4"},
+		{name: "prerelease", in: "v0.1.4-rc.1", expected: "rust-v0.1.4-rc.1"},
+		{name: "build metadata", in: "rust-v0.1.4+build.7", expected: "rust-v0.1.4+build.7"},
 		{name: "empty rust suffix", in: "rust-", expectErr: true},
 		{name: "non-digit rust suffix", in: "rust-abc", expectErr: true},
 		{name: "empty go v suffix", in: "v", expectErr: true},
+		{name: "partial go v suffix", in: "v1", expectErr: true},
+		{name: "partial semver", in: "1.2", expectErr: true},
 		{name: "default non-digit", in: "abc", expectErr: true},
 		{name: "invalid chars", in: "v0.1.4/../../", expectErr: true},
-		{name: "too long", in: "rust-v" + strings.Repeat("1", tokenizerMaxVersionTagLength), expectErr: true},
+		{name: "too long", in: tooLongSemver, expectErr: true},
 	}
 
 	for _, tc := range tests {
@@ -69,6 +75,8 @@ func TestNormalizeTokenizerTag(t *testing.T) {
 }
 
 func TestTokenizerReleaseBaseURLsDeduplicates(t *testing.T) {
+	lockTokenizerTestHooks(t)
+
 	originalPrimary := tokenizerReleaseBaseURL
 	originalFallback := tokenizerFallbackReleaseBaseURL
 	t.Cleanup(func() {
@@ -83,6 +91,8 @@ func TestTokenizerReleaseBaseURLsDeduplicates(t *testing.T) {
 }
 
 func TestTokenizerReleaseBaseURLsRejectsHTTP(t *testing.T) {
+	lockTokenizerTestHooks(t)
+
 	originalPrimary := tokenizerReleaseBaseURL
 	originalFallback := tokenizerFallbackReleaseBaseURL
 	t.Cleanup(func() {
@@ -153,6 +163,8 @@ func TestTokenizerGetMetadataHTTPClient_TransportHardening(t *testing.T) {
 }
 
 func TestTokenizerFetchLatestVersionFromBase_UsesInjectableClient(t *testing.T) {
+	lockTokenizerTestHooks(t)
+
 	originalClientFunc := tokenizerGetMetadataHTTPClientFunc
 	t.Cleanup(func() {
 		tokenizerGetMetadataHTTPClientFunc = originalClientFunc
@@ -186,7 +198,62 @@ func TestTokenizerFetchLatestVersionFromBase_UsesInjectableClient(t *testing.T) 
 	require.Equal(t, "chroma-go-tokenizers-downloader", requestedUserAgent)
 }
 
+func TestTokenizerResolveLatestVersion_FallsBackToGitHub(t *testing.T) {
+	lockTokenizerTestHooks(t)
+
+	originalPrimary := tokenizerReleaseBaseURL
+	originalFallback := tokenizerFallbackReleaseBaseURL
+	originalClientFunc := tokenizerGetMetadataHTTPClientFunc
+	t.Cleanup(func() {
+		tokenizerReleaseBaseURL = originalPrimary
+		tokenizerFallbackReleaseBaseURL = originalFallback
+		tokenizerGetMetadataHTTPClientFunc = originalClientFunc
+	})
+
+	tokenizerReleaseBaseURL = "https://mirror-a.invalid/pure-tokenizers"
+	tokenizerFallbackReleaseBaseURL = "https://mirror-b.invalid/pure-tokenizers"
+
+	var latestMetadataRequests int
+	var githubRequests int
+	tokenizerGetMetadataHTTPClientFunc = func() *http.Client {
+		return &http.Client{
+			Transport: tokenizerRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+				switch {
+				case strings.HasSuffix(req.URL.Path, "/latest.json"):
+					latestMetadataRequests++
+					return &http.Response{
+						StatusCode: http.StatusInternalServerError,
+						Status:     "500 Internal Server Error",
+						Body:       io.NopCloser(strings.NewReader(`{"error":"metadata unavailable"}`)),
+						Header:     make(http.Header),
+						Request:    req,
+					}, nil
+				case req.URL.String() == tokenizerGitHubReleasesAPI:
+					githubRequests++
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Status:     "200 OK",
+						Body:       io.NopCloser(strings.NewReader(`[{"tag_name":"rust-v9.9.9"}]`)),
+						Header:     make(http.Header),
+						Request:    req,
+					}, nil
+				default:
+					return nil, fmt.Errorf("unexpected URL: %s", req.URL.String())
+				}
+			}),
+		}
+	}
+
+	version, err := tokenizerResolveLatestVersion()
+	require.NoError(t, err)
+	require.Equal(t, "rust-v9.9.9", version)
+	require.Equal(t, 2, latestMetadataRequests)
+	require.Equal(t, 1, githubRequests)
+}
+
 func TestTokenizerVerifySignedChecksums(t *testing.T) {
+	lockTokenizerTestHooks(t)
+
 	bypassTokenizerCosignChainVerification(t)
 
 	version := "rust-v0.1.4"
@@ -205,6 +272,8 @@ func TestTokenizerVerifySignedChecksums(t *testing.T) {
 }
 
 func TestTokenizerVerifySignedChecksums_RejectsInvalidSignature(t *testing.T) {
+	lockTokenizerTestHooks(t)
+
 	bypassTokenizerCosignChainVerification(t)
 
 	version := "rust-v0.1.4"
@@ -226,6 +295,8 @@ func TestTokenizerVerifySignedChecksums_RejectsInvalidSignature(t *testing.T) {
 }
 
 func TestEnsureTokenizerLibraryDownloadedRetriesAcrossMirrors(t *testing.T) {
+	lockTokenizerTestHooks(t)
+
 	originalPrimary := tokenizerReleaseBaseURL
 	originalFallback := tokenizerFallbackReleaseBaseURL
 	originalHomeDir := tokenizerUserHomeDirFunc
@@ -293,7 +364,72 @@ func TestEnsureTokenizerLibraryDownloadedRetriesAcrossMirrors(t *testing.T) {
 	require.Equal(t, []byte("dummy-tokenizer-library"), data)
 }
 
+func TestEnsureTokenizerLibraryDownloaded_FailsOnChecksumMismatchAfterDownload(t *testing.T) {
+	lockTokenizerTestHooks(t)
+	bypassTokenizerCosignChainVerification(t)
+
+	originalPrimary := tokenizerReleaseBaseURL
+	originalFallback := tokenizerFallbackReleaseBaseURL
+	originalHomeDir := tokenizerUserHomeDirFunc
+	originalArtifactDownloadFunc := tokenizerDownloadArtifactFileFunc
+	originalMetadataDownloadFunc := tokenizerDownloadMetadataFileFunc
+	originalBuildInfo := tokenizerReadBuildInfoFunc
+	t.Cleanup(func() {
+		tokenizerReleaseBaseURL = originalPrimary
+		tokenizerFallbackReleaseBaseURL = originalFallback
+		tokenizerUserHomeDirFunc = originalHomeDir
+		tokenizerDownloadArtifactFileFunc = originalArtifactDownloadFunc
+		tokenizerDownloadMetadataFileFunc = originalMetadataDownloadFunc
+		tokenizerReadBuildInfoFunc = originalBuildInfo
+	})
+
+	tempHome := t.TempDir()
+	tokenizerUserHomeDirFunc = func() (string, error) { return tempHome, nil }
+	tokenizerReadBuildInfoFunc = func() (*debug.BuildInfo, bool) { return nil, false }
+	tokenizerReleaseBaseURL = "https://mirror.invalid/pure-tokenizers"
+	tokenizerFallbackReleaseBaseURL = ""
+	t.Setenv("TOKENIZERS_VERSION", "rust-v0.1.4")
+
+	asset, err := tokenizerLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skipf("runtime not supported for tokenizer artifacts: %v", err)
+	}
+
+	archiveBytes, err := buildTestTokenizerArchive(asset.libraryFileName, []byte("dummy-tokenizer-library"))
+	require.NoError(t, err)
+	incorrectChecksum := sha256.Sum256([]byte("different-archive-bytes"))
+	sumsContents := fmt.Sprintf("%s  %s\n", hex.EncodeToString(incorrectChecksum[:]), asset.archiveFileName)
+	sumsSignatureBody, sumsCertificateBody := newTokenizerSignedChecksumArtifacts(t, "rust-v0.1.4", []byte(sumsContents))
+
+	stubDownload := func(filePath, url string) error {
+		switch {
+		case strings.HasSuffix(url, "/"+tokenizerChecksumsAsset):
+			return os.WriteFile(filePath, []byte(sumsContents), 0600)
+		case strings.HasSuffix(url, "/"+tokenizerChecksumsSignatureAsset):
+			return os.WriteFile(filePath, sumsSignatureBody, 0600)
+		case strings.HasSuffix(url, "/"+tokenizerChecksumsCertificateAsset):
+			return os.WriteFile(filePath, sumsCertificateBody, 0600)
+		case strings.HasSuffix(url, "/"+asset.archiveFileName):
+			return os.WriteFile(filePath, archiveBytes, 0600)
+		default:
+			return fmt.Errorf("unexpected URL: %s", url)
+		}
+	}
+	tokenizerDownloadArtifactFileFunc = stubDownload
+	tokenizerDownloadMetadataFileFunc = stubDownload
+
+	_, err = ensureTokenizerLibraryDownloaded()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "tokenizers archive checksum verification failed")
+
+	archivePath := filepath.Join(tempHome, ".cache", "chroma", "pure_tokenizers", "rust-v0.1.4", asset.platform, asset.archiveFileName)
+	_, statErr := os.Stat(archivePath)
+	require.True(t, os.IsNotExist(statErr), "corrupted archive should be cleaned up after checksum mismatch")
+}
+
 func TestEnsureTokenizerLibraryDownloadedFromPrimaryWhenFallbackUnavailable(t *testing.T) {
+	lockTokenizerTestHooks(t)
+
 	if os.Getenv("RUN_LIVE_TOKENIZERS_DOWNLOAD_TESTS") != "1" {
 		t.Skip("set RUN_LIVE_TOKENIZERS_DOWNLOAD_TESTS=1 to run live download integration test")
 	}

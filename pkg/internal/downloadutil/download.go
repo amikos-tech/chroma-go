@@ -19,16 +19,26 @@ const (
 
 // Config controls network and file constraints for downloads.
 type Config struct {
-	MaxBytes              int64
-	DirPerm               os.FileMode
-	AllowHTTP             bool
-	Timeout               time.Duration
-	DialTimeout           time.Duration
-	TLSHandshakeTimeout   time.Duration
+	// MaxBytes is required and must be greater than zero.
+	MaxBytes int64
+	// DirPerm controls destination directory permissions; defaults to 0700 when zero.
+	DirPerm os.FileMode
+	// AllowHTTP permits insecure HTTP downloads when explicitly set.
+	AllowHTTP bool
+	// Timeout configures whole-request timeout; defaults when zero or negative.
+	Timeout time.Duration
+	// DialTimeout configures connection timeout; defaults when zero or negative.
+	DialTimeout time.Duration
+	// TLSHandshakeTimeout configures TLS handshake timeout; defaults when zero or negative.
+	TLSHandshakeTimeout time.Duration
+	// ResponseHeaderTimeout configures response header timeout; defaults when zero or negative.
 	ResponseHeaderTimeout time.Duration
-	IdleConnTimeout       time.Duration
-	Accept                string
-	UserAgent             string
+	// IdleConnTimeout configures idle connection timeout; defaults when zero or negative.
+	IdleConnTimeout time.Duration
+	// Accept sets the Accept request header when non-empty.
+	Accept string
+	// UserAgent sets the User-Agent request header when non-empty.
+	UserAgent string
 }
 
 var newHTTPClientFunc = newHTTPClient

@@ -263,6 +263,7 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 	}
 
 	archivePath := filepath.Join(targetDir, selectedArchiveName)
+	archiveChecksumVerified := false
 	exists, err = localFileExistsNonEmpty(archivePath)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to stat local runtime archive at %s", archivePath)
@@ -274,6 +275,8 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 				return "", stderrors.Join(verifyErr, removeErr)
 			}
 			// Existing archive was corrupted and successfully removed; continue to re-download.
+		} else {
+			archiveChecksumVerified = true
 		}
 	}
 	exists, err = localFileExistsNonEmpty(archivePath)
@@ -281,13 +284,16 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 		return "", errors.Wrapf(err, "failed to stat local runtime archive at %s", archivePath)
 	}
 	if !exists {
+		archiveChecksumVerified = false
 		if err := localDownloadReleaseAssetFromBase(selectedReleaseBase, version, selectedArchiveName, archivePath); err != nil {
 			return "", errors.Wrap(err, "failed to download local library archive")
 		}
 	}
 
-	if err := localVerifyFileChecksum(archivePath, expectedChecksum); err != nil {
-		return "", localFailWithArchiveCleanup(archivePath, err, "local library archive checksum verification failed")
+	if !archiveChecksumVerified {
+		if err := localVerifyFileChecksum(archivePath, expectedChecksum); err != nil {
+			return "", localFailWithArchiveCleanup(archivePath, err, "local library archive checksum verification failed")
+		}
 	}
 	if err := localVerifyTarGzContainsLibrary(archivePath, asset.libraryFileName); err != nil {
 		return "", localFailWithArchiveCleanup(archivePath, err, "local library archive verification failed")
@@ -551,18 +557,22 @@ func localPrepareSignedChecksumsFromBase(baseURL, version, targetDir string, arc
 	var wg sync.WaitGroup
 	for i, dl := range downloads {
 		wg.Add(1)
-		go func() {
+		go func(index int, download metaDownload) {
 			defer wg.Done()
-			if err := localDownloadReleaseAssetFromBase(baseURL, version, dl.asset, dl.dest); err != nil {
-				errs[i] = errors.Wrap(err, dl.errMsg)
+			if err := localDownloadReleaseAssetFromBase(baseURL, version, download.asset, download.dest); err != nil {
+				errs[index] = errors.Wrap(err, download.errMsg)
 			}
-		}()
+		}(i, dl)
 	}
 	wg.Wait()
+	downloadErrs := make([]error, 0, len(errs))
 	for _, err := range errs {
 		if err != nil {
-			return "", "", err
+			downloadErrs = append(downloadErrs, err)
 		}
+	}
+	if len(downloadErrs) > 0 {
+		return "", "", errors.Wrap(stderrors.Join(downloadErrs...), "failed to download local library checksum metadata")
 	}
 
 	if err := localVerifySignedChecksums(version, checksumsPath, checksumsSignaturePath, checksumsCertificatePath); err != nil {
@@ -639,7 +649,11 @@ func localChecksumFromSumsFileAny(sumsFilePath string, assetNames []string) (str
 			continue
 		}
 		if originalAssetName, ok := candidates[checksumAssetName]; ok {
-			return originalAssetName, strings.ToLower(fields[0]), nil
+			checksum := strings.ToLower(fields[0])
+			if !localLooksLikeSHA256(checksum) {
+				return "", "", errors.Errorf("invalid checksum format for asset %s: %q", originalAssetName, fields[0])
+			}
+			return originalAssetName, checksum, nil
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -680,6 +694,22 @@ func localVerifyFileChecksum(filePath, expectedChecksum string) error {
 		return errors.Errorf("checksum mismatch for %s: expected %s, got %s", filePath, expectedChecksum, actualChecksum)
 	}
 	return nil
+}
+
+func localLooksLikeSHA256(v string) bool {
+	if len(v) != 64 {
+		return false
+	}
+	for _, r := range v {
+		switch {
+		case r >= '0' && r <= '9':
+		case r >= 'a' && r <= 'f':
+		case r >= 'A' && r <= 'F':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func localDownloadFileWithRetry(filePath, url string) error {

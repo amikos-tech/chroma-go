@@ -109,6 +109,9 @@ func ReadCosignCertificate(filePath string) (*x509.Certificate, error) {
 	if block == nil {
 		return nil, errors.New("failed to decode certificate PEM")
 	}
+	if !strings.EqualFold(strings.TrimSpace(block.Type), "CERTIFICATE") {
+		return nil, errors.Errorf("unexpected PEM block type %q: expected CERTIFICATE", block.Type)
+	}
 	if len(bytes.TrimSpace(remainder)) > 0 {
 		return nil, errors.New("certificate PEM contains unexpected trailing data")
 	}
@@ -121,6 +124,10 @@ func ReadCosignCertificate(filePath string) (*x509.Certificate, error) {
 
 // CertificateExtensionValue extracts a string value from a certificate extension by OID.
 func CertificateExtensionValue(certificate *x509.Certificate, oid asn1.ObjectIdentifier) (string, bool, error) {
+	if certificate == nil {
+		return "", false, errors.New("certificate is nil")
+	}
+
 	for _, extension := range certificate.Extensions {
 		if !extension.Id.Equal(oid) {
 			continue
@@ -189,11 +196,11 @@ func VerifyCertificateChain(certificate *x509.Certificate, rootPEM, intermediate
 
 	roots := x509.NewCertPool()
 	if ok := roots.AppendCertsFromPEM([]byte(rootPEM)); !ok {
-		return errors.New("failed to load Fulcio root certificate")
+		return errors.New("failed to load root certificate")
 	}
 	intermediates := x509.NewCertPool()
 	if ok := intermediates.AppendCertsFromPEM([]byte(intermediatePEM)); !ok {
-		return errors.New("failed to load Fulcio intermediate certificate")
+		return errors.New("failed to load intermediate certificate")
 	}
 
 	// Fulcio leaf certs are short-lived; verify chain validity at issuance time.
@@ -222,6 +229,15 @@ func VerifyFulcioCertificateChain(certificate *x509.Certificate) error {
 func ValidateCosignCertificate(certificate *x509.Certificate, expectedIdentity, expectedOIDCIssuer string, chainVerifier func(*x509.Certificate) error) error {
 	if certificate == nil {
 		return errors.New("certificate is nil")
+	}
+	if strings.TrimSpace(expectedIdentity) == "" {
+		return errors.New("expected certificate identity cannot be empty")
+	}
+	if strings.TrimSpace(expectedOIDCIssuer) == "" {
+		return errors.New("expected certificate OIDC issuer cannot be empty")
+	}
+	if chainVerifier == nil {
+		return errors.New("certificate chain verifier function is nil")
 	}
 	// Sigstore Fulcio certificates are intentionally short-lived (typically ~10 minutes).
 	// Downloads often happen after certificate expiry, so we only reject not-yet-valid certs
@@ -273,10 +289,12 @@ func ValidateCosignCertificate(certificate *x509.Certificate, expectedIdentity, 
 	return nil
 }
 
-// VerifySignedChecksums verifies a signed checksums file: reads the checksums, decodes
-// the base64 signature, parses the certificate, validates identity/issuer/chain, and
-// verifies the signature over the checksums content.
+// VerifySignedChecksums verifies a cosign-signed checksums file.
 func VerifySignedChecksums(checksumsPath, signaturePath, certificatePath, expectedIdentity, expectedOIDCIssuer string, chainVerifier func(*x509.Certificate) error) error {
+	if strings.TrimSpace(expectedIdentity) == "" || strings.TrimSpace(expectedOIDCIssuer) == "" {
+		return errors.New("expectedIdentity and expectedOIDCIssuer must be non-empty")
+	}
+
 	checksumsBytes, err := os.ReadFile(checksumsPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to read checksum file")

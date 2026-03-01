@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	semver "github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/internal/cosignutil"
@@ -411,18 +412,22 @@ func tokenizerPrepareChecksumFromBase(baseURL, version, archiveName, targetDir s
 	var wg sync.WaitGroup
 	for i, dl := range downloads {
 		wg.Add(1)
-		go func() {
+		go func(index int, download metaDownload) {
 			defer wg.Done()
-			if err := tokenizerDownloadMetadataAssetFromBase(baseURL, version, dl.asset, dl.dest); err != nil {
-				errs[i] = errors.Wrap(err, dl.errMsg)
+			if err := tokenizerDownloadMetadataAssetFromBase(baseURL, version, download.asset, download.dest); err != nil {
+				errs[index] = errors.Wrap(err, download.errMsg)
 			}
-		}()
+		}(i, dl)
 	}
 	wg.Wait()
+	downloadErrs := make([]error, 0, len(errs))
 	for _, err := range errs {
 		if err != nil {
-			return "", err
+			downloadErrs = append(downloadErrs, err)
 		}
+	}
+	if len(downloadErrs) > 0 {
+		return "", errors.Wrap(stderrors.Join(downloadErrs...), "failed to download tokenizers checksum metadata")
 	}
 
 	if err := tokenizerVerifySignedChecksums(version, checksumsPath, checksumsSignaturePath, checksumsCertificatePath); err != nil {
@@ -611,64 +616,36 @@ func normalizeTokenizerTag(version string) (string, error) {
 		return "", errors.New("tokenizers library version cannot be empty")
 	case strings.EqualFold(version, tokenizerLatestTag):
 		return tokenizerLatestTag, nil
+	}
+
+	semverPart := version
+	switch {
 	case strings.HasPrefix(version, "rust-v"):
-		if len(version) == len("rust-v") {
-			return "", errors.New("tokenizers library version has empty suffix after 'rust-v' prefix")
-		}
-		suffix := strings.TrimPrefix(version, "rust-v")
-		if suffix[0] < '0' || suffix[0] > '9' {
-			return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-v' prefix: must start with a digit", version)
-		}
-		if err := validateTokenizerTag(version); err != nil {
-			return "", err
-		}
-		return version, nil
+		semverPart = strings.TrimPrefix(version, "rust-v")
 	case strings.HasPrefix(version, "rust-"):
-		suffix := strings.TrimPrefix(version, "rust-")
-		if suffix == "" {
-			return "", errors.New("tokenizers library version has empty suffix after 'rust-' prefix")
-		}
-		if suffix[0] < '0' || suffix[0] > '9' {
-			return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-' prefix: must start with a digit", version)
-		}
-		version = "rust-v" + suffix
+		semverPart = strings.TrimPrefix(version, "rust-")
 	case strings.HasPrefix(version, "v"):
-		if len(version) == 1 {
-			return "", errors.New("tokenizers library version has empty suffix after 'v' prefix")
-		}
-		if version[1] < '0' || version[1] > '9' {
-			return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'v' prefix: must start with a digit", version)
-		}
-		version = "rust-" + version
-	default:
-		if version[0] < '0' || version[0] > '9' {
-			return "", errors.Errorf("tokenizers library version %q must start with a digit unless prefixed with 'rust-v' or 'v'", version)
-		}
-		version = "rust-v" + version
+		semverPart = strings.TrimPrefix(version, "v")
+	}
+	semverPart = strings.TrimSpace(semverPart)
+	if semverPart == "" {
+		return "", errors.Errorf("tokenizers library version %q has empty semantic version suffix", version)
 	}
 
-	if err := validateTokenizerTag(version); err != nil {
-		return "", err
+	parsedVersion, err := semver.StrictNewVersion(semverPart)
+	if err != nil {
+		return "", errors.Errorf("tokenizers library version %q must be a valid semantic version", version)
 	}
-	return version, nil
-}
 
-func validateTokenizerTag(version string) error {
-	if len(version) > tokenizerMaxVersionTagLength {
-		return errors.Errorf(
+	normalizedVersion := "rust-v" + parsedVersion.String()
+	if len(normalizedVersion) > tokenizerMaxVersionTagLength {
+		return "", errors.Errorf(
 			"tokenizers library version exceeds max length of %d characters",
 			tokenizerMaxVersionTagLength,
 		)
 	}
-	for _, r := range version {
-		isLetter := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
-		isDigit := r >= '0' && r <= '9'
-		isAllowedPunct := r == '.' || r == '_' || r == '-'
-		if !isLetter && !isDigit && !isAllowedPunct {
-			return errors.New("tokenizers library version must contain only ASCII letters, digits, '.', '_' and '-'")
-		}
-	}
-	return nil
+
+	return normalizedVersion, nil
 }
 
 func tokenizerNormalizedChecksumAssetName(assetName string) string {

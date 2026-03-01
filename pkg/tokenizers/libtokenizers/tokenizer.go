@@ -36,29 +36,39 @@ type tokenizerOpts struct {
 }
 
 var (
-	libraryInitOnce sync.Once
-	libraryInitErr  error
-	libraryInitPath string
+	libraryInitMu                      sync.Mutex
+	libraryInitErr                     error
+	libraryInitPath                    string
+	libraryInitReady                   bool
+	ensureTokenizerLibraryDownloadedFn = ensureTokenizerLibraryDownloaded
 )
 
-// Ensure the shared library is available once per process.
-// If download/cache fails, fail fast to avoid cascading cgo crashes.
+// Ensure the shared library is available before tokenizer usage.
+// Successful initialization is cached; failed attempts remain retryable.
 func ensureTokenizerLibraryReady() error {
-	libraryInitOnce.Do(func() {
-		if envPath := strings.TrimSpace(os.Getenv("TOKENIZERS_LIB_PATH")); envPath != "" {
-			libraryInitPath = envPath
-			return
-		}
+	libraryInitMu.Lock()
+	defer libraryInitMu.Unlock()
 
-		libraryPath, err := ensureTokenizerLibraryDownloaded()
-		if err != nil {
-			libraryInitErr = errors.Wrap(err, "failed to prepare tokenizers shared library")
-			return
-		}
-		libraryInitPath = libraryPath
-	})
+	if libraryInitReady {
+		return libraryInitErr
+	}
 
-	return libraryInitErr
+	if envPath := strings.TrimSpace(os.Getenv("TOKENIZERS_LIB_PATH")); envPath != "" {
+		libraryInitPath = envPath
+		libraryInitErr = nil
+		libraryInitReady = true
+		return nil
+	}
+
+	libraryPath, err := ensureTokenizerLibraryDownloadedFn()
+	if err != nil {
+		libraryInitErr = errors.Wrap(err, "failed to prepare tokenizers shared library")
+		return libraryInitErr
+	}
+	libraryInitPath = libraryPath
+	libraryInitErr = nil
+	libraryInitReady = true
+	return nil
 }
 
 func WithEncodeSpecialTokens() TokenizerOption {

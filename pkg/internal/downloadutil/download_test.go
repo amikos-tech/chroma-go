@@ -1,10 +1,13 @@
 package downloadutil
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -48,6 +51,26 @@ func TestValidateSourceURL_RejectsCredentials(t *testing.T) {
 	require.Contains(t, err.Error(), "source URL must not contain credentials")
 	require.NotContains(t, err.Error(), "super-secret")
 	require.Contains(t, err.Error(), "xxxxx")
+}
+
+func TestValidateSourceURL_RejectsRelativeURLAndEmptyHost(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "relative URL", raw: "/artifact.tgz", want: "must be absolute"},
+		{name: "empty host", raw: "https:///artifact.tgz", want: "host cannot be empty"},
+		{name: "file scheme", raw: "file://localhost/tmp/artifact.tgz", want: "only HTTPS URLs are supported"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := validateSourceURL(tc.raw, false)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.want)
+		})
+	}
 }
 
 func TestRejectHTTPSDowngradeRedirect_RedactsCredentials(t *testing.T) {
@@ -95,4 +118,33 @@ func TestDownloadFileWithRetry_ReusesSingleHTTPClient(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, atomic.LoadInt32(&clientCreations))
 	require.EqualValues(t, 3, atomic.LoadInt32(&requestCount))
+}
+
+func TestDownloadFileWithClient_RejectsIncompleteDownload(t *testing.T) {
+	client := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode:    http.StatusOK,
+				Status:        "200 OK",
+				Header:        make(http.Header),
+				Body:          io.NopCloser(strings.NewReader("abc")),
+				ContentLength: 10,
+				Request:       req,
+			}, nil
+		}),
+	}
+
+	targetPath := filepath.Join(t.TempDir(), "artifact.bin")
+	parsedURL, err := url.Parse("https://example.com/artifact.bin")
+	require.NoError(t, err)
+
+	err = downloadFileWithClient(targetPath, parsedURL, withDefaults(Config{MaxBytes: 1024, DirPerm: 0700}), client)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "download incomplete")
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
