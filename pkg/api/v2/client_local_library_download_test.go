@@ -7,10 +7,21 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/pem"
+	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -36,33 +47,33 @@ func TestResolveLocalLibraryPath_PrefersExplicitPathThenEnvThenDownload(t *testi
 
 	localGetenvFunc = func(key string) string {
 		if key == "CHROMA_LIB_PATH" {
-			return "/env/libchroma_go_shim.so"
+			return "/env/libchroma_shim.so"
 		}
 		return ""
 	}
 	localDetectLibraryVersionFunc = func() (string, error) { return "v9.9.9", nil }
 	localDefaultLibraryCacheDirFunc = func() (string, error) { return "/tmp/cache", nil }
 	localEnsureLibraryDownloadedFunc = func(version, cacheDir string) (string, error) {
-		return "/downloaded/libchroma_go_shim.so", nil
+		return "/downloaded/libchroma_shim.so", nil
 	}
 
 	cfg := &localClientConfig{
-		libraryPath:         "/explicit/libchroma_go_shim.so",
+		libraryPath:         "/explicit/libchroma_shim.so",
 		autoDownloadLibrary: true,
 	}
 	path, err := resolveLocalLibraryPath(cfg)
 	require.NoError(t, err)
-	require.Equal(t, "/explicit/libchroma_go_shim.so", path)
+	require.Equal(t, "/explicit/libchroma_shim.so", path)
 
 	cfg.libraryPath = ""
 	path, err = resolveLocalLibraryPath(cfg)
 	require.NoError(t, err)
-	require.Equal(t, "/env/libchroma_go_shim.so", path)
+	require.Equal(t, "/env/libchroma_shim.so", path)
 
 	localGetenvFunc = func(string) string { return "" }
 	path, err = resolveLocalLibraryPath(cfg)
 	require.NoError(t, err)
-	require.Equal(t, "/downloaded/libchroma_go_shim.so", path)
+	require.Equal(t, "/downloaded/libchroma_shim.so", path)
 }
 
 func TestResolveLocalLibraryPath_AutoDownloadDisabled(t *testing.T) {
@@ -303,15 +314,23 @@ func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 	}
 
 	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
+	archiveName := localLibraryArchiveName("v9.9.9", asset.platform)
 	checksum := sha256.Sum256(archiveBytes)
 	checksumHex := hex.EncodeToString(checksum[:])
-	sumsBody := []byte(checksumHex + "  " + asset.archiveName + "\n")
+	sumsBody := []byte(checksumHex + "  " + archiveName + "\n")
+	sumsSignatureBody, sumsCertificatePEM := newSignedChecksumArtifacts(t, "v9.9.9", sumsBody)
+	// Mirror currently serves .pem files as base64-encoded PEM payloads.
+	sumsCertificateBody := []byte(base64.StdEncoding.EncodeToString(sumsCertificatePEM))
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v9.9.9/" + localLibraryChecksumsAsset:
 			_, _ = w.Write(sumsBody)
-		case "/v9.9.9/" + asset.archiveName:
+		case "/v9.9.9/" + localLibraryChecksumsSignatureAsset:
+			_, _ = w.Write(sumsSignatureBody)
+		case "/v9.9.9/" + localLibraryChecksumsCertificateAsset:
+			_, _ = w.Write(sumsCertificateBody)
+		case "/v9.9.9/" + archiveName:
 			_, _ = w.Write(archiveBytes)
 		default:
 			http.NotFound(w, r)
@@ -320,12 +339,15 @@ func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 	defer server.Close()
 
 	origBaseURL := localLibraryReleaseBaseURL
+	origFallbackURL := localLibraryReleaseFallbackBaseURL
 	origAttempts := localLibraryDownloadAttempts
 	t.Cleanup(func() {
 		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryReleaseFallbackBaseURL = origFallbackURL
 		localLibraryDownloadAttempts = origAttempts
 	})
 	localLibraryReleaseBaseURL = server.URL
+	localLibraryReleaseFallbackBaseURL = ""
 	localLibraryDownloadAttempts = 1
 
 	cacheDir := t.TempDir()
@@ -357,13 +379,19 @@ func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 	}
 
 	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
-	sumsBody := []byte("deadbeef  " + asset.archiveName + "\n")
+	archiveName := localLibraryArchiveName("v9.9.9", asset.platform)
+	sumsBody := []byte("deadbeef  " + archiveName + "\n")
+	sumsSignatureBody, sumsCertificateBody := newSignedChecksumArtifacts(t, "v9.9.9", sumsBody)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v9.9.9/" + localLibraryChecksumsAsset:
 			_, _ = w.Write(sumsBody)
-		case "/v9.9.9/" + asset.archiveName:
+		case "/v9.9.9/" + localLibraryChecksumsSignatureAsset:
+			_, _ = w.Write(sumsSignatureBody)
+		case "/v9.9.9/" + localLibraryChecksumsCertificateAsset:
+			_, _ = w.Write(sumsCertificateBody)
+		case "/v9.9.9/" + archiveName:
 			_, _ = w.Write(archiveBytes)
 		default:
 			http.NotFound(w, r)
@@ -372,12 +400,15 @@ func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 	defer server.Close()
 
 	origBaseURL := localLibraryReleaseBaseURL
+	origFallbackURL := localLibraryReleaseFallbackBaseURL
 	origAttempts := localLibraryDownloadAttempts
 	t.Cleanup(func() {
 		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryReleaseFallbackBaseURL = origFallbackURL
 		localLibraryDownloadAttempts = origAttempts
 	})
 	localLibraryReleaseBaseURL = server.URL
+	localLibraryReleaseFallbackBaseURL = ""
 	localLibraryDownloadAttempts = 1
 
 	cacheDir := t.TempDir()
@@ -386,8 +417,112 @@ func TestEnsureLocalLibraryDownloaded_FailsOnChecksumMismatch(t *testing.T) {
 	require.Contains(t, err.Error(), "checksum verification failed")
 }
 
+func TestEnsureLocalLibraryDownloaded_FailsOnSignedChecksumsVerification(t *testing.T) {
+	lockLocalTestHooks(t)
+
+	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skipf("runtime not supported for local runtime artifacts: %v", err)
+	}
+
+	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
+	archiveName := localLibraryArchiveName("v9.9.9", asset.platform)
+	checksum := sha256.Sum256(archiveBytes)
+	checksumHex := hex.EncodeToString(checksum[:])
+	sumsBody := []byte(checksumHex + "  " + archiveName + "\n")
+	_, sumsCertificateBody := newSignedChecksumArtifacts(t, "v9.9.9", sumsBody)
+	invalidSignatureBody := []byte(base64.StdEncoding.EncodeToString([]byte("invalid-signature")))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v9.9.9/" + localLibraryChecksumsAsset:
+			_, _ = w.Write(sumsBody)
+		case "/v9.9.9/" + localLibraryChecksumsSignatureAsset:
+			_, _ = w.Write(invalidSignatureBody)
+		case "/v9.9.9/" + localLibraryChecksumsCertificateAsset:
+			_, _ = w.Write(sumsCertificateBody)
+		case "/v9.9.9/" + archiveName:
+			_, _ = w.Write(archiveBytes)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	origBaseURL := localLibraryReleaseBaseURL
+	origFallbackURL := localLibraryReleaseFallbackBaseURL
+	origAttempts := localLibraryDownloadAttempts
+	t.Cleanup(func() {
+		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryReleaseFallbackBaseURL = origFallbackURL
+		localLibraryDownloadAttempts = origAttempts
+	})
+	localLibraryReleaseBaseURL = server.URL
+	localLibraryReleaseFallbackBaseURL = ""
+	localLibraryDownloadAttempts = 1
+
+	cacheDir := t.TempDir()
+	_, err = ensureLocalLibraryDownloaded("v9.9.9", cacheDir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "checksums signature")
+}
+
+func TestEnsureLocalLibraryDownloaded_FallsBackToSecondaryReleaseURL(t *testing.T) {
+	lockLocalTestHooks(t)
+
+	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skipf("runtime not supported for local runtime artifacts: %v", err)
+	}
+
+	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bytes"))
+	archiveName := localLibraryArchiveName("v9.9.9", asset.platform)
+	checksum := sha256.Sum256(archiveBytes)
+	checksumHex := hex.EncodeToString(checksum[:])
+	sumsBody := []byte(checksumHex + "  " + archiveName + "\n")
+	sumsSignatureBody, sumsCertificateBody := newSignedChecksumArtifacts(t, "v9.9.9", sumsBody)
+
+	primaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	defer primaryServer.Close()
+
+	fallbackServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v9.9.9/" + localLibraryChecksumsAsset:
+			_, _ = w.Write(sumsBody)
+		case "/v9.9.9/" + localLibraryChecksumsSignatureAsset:
+			_, _ = w.Write(sumsSignatureBody)
+		case "/v9.9.9/" + localLibraryChecksumsCertificateAsset:
+			_, _ = w.Write(sumsCertificateBody)
+		case "/v9.9.9/" + archiveName:
+			_, _ = w.Write(archiveBytes)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer fallbackServer.Close()
+
+	origBaseURL := localLibraryReleaseBaseURL
+	origFallbackURL := localLibraryReleaseFallbackBaseURL
+	origAttempts := localLibraryDownloadAttempts
+	t.Cleanup(func() {
+		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryReleaseFallbackBaseURL = origFallbackURL
+		localLibraryDownloadAttempts = origAttempts
+	})
+	localLibraryReleaseBaseURL = primaryServer.URL
+	localLibraryReleaseFallbackBaseURL = fallbackServer.URL
+	localLibraryDownloadAttempts = 1
+
+	cacheDir := t.TempDir()
+	libPath, err := ensureLocalLibraryDownloaded("v9.9.9", cacheDir)
+	require.NoError(t, err)
+	require.FileExists(t, libPath)
+}
+
 func TestLocalChecksumFromSumsFile_SupportsBSDFileMarker(t *testing.T) {
-	assetName := "chroma-go-shim-linux-amd64.tar.gz"
+	assetName := "chroma-go-local-v9.9.9-linux-amd64.tar.gz"
 	sumsPath := filepath.Join(t.TempDir(), "SHA256SUMS.txt")
 	require.NoError(t, os.WriteFile(sumsPath, []byte("DEADBEEF  *"+assetName+"\n"), 0644))
 
@@ -426,11 +561,11 @@ func TestLocalExtractLibraryFromTarGz_RejectsOversizedLibrary(t *testing.T) {
 	})
 
 	archivePath := filepath.Join(t.TempDir(), "artifact.tar.gz")
-	archiveBytes := newTarGzWithLibrary(t, "libchroma_go_shim.so", []byte("this payload is too large"))
+	archiveBytes := newTarGzWithLibrary(t, "libchroma_shim.so", []byte("this payload is too large"))
 	require.NoError(t, os.WriteFile(archivePath, archiveBytes, 0644))
 
-	targetPath := filepath.Join(t.TempDir(), "libchroma_go_shim.so")
-	err := localExtractLibraryFromTarGz(archivePath, "libchroma_go_shim.so", targetPath)
+	targetPath := filepath.Join(t.TempDir(), "libchroma_shim.so")
+	err := localExtractLibraryFromTarGz(archivePath, "libchroma_shim.so", targetPath)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "exceeds max allowed size")
 }
@@ -478,4 +613,47 @@ func newTarGzWithLibrary(t *testing.T, fileName string, content []byte) []byte {
 	require.NoError(t, gzWriter.Close())
 
 	return buf.Bytes()
+}
+
+func newSignedChecksumArtifacts(t *testing.T, version string, checksumBody []byte) ([]byte, []byte) {
+	t.Helper()
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	expectedIdentity := fmt.Sprintf(localLibraryCosignIdentityTemplate, version)
+	identityURI, err := url.Parse(expectedIdentity)
+	require.NoError(t, err)
+
+	oidcIssuerValue, err := asn1.Marshal(localLibraryCosignOIDCIssuer)
+	require.NoError(t, err)
+
+	certTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now().Add(-1 * time.Minute),
+		NotAfter:     time.Now().Add(10 * time.Minute),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		URIs:         []*url.URL{identityURI},
+		ExtraExtensions: []pkix.Extension{
+			{
+				Id:    localLibraryCosignOIDCIssuerExtensionOID,
+				Value: oidcIssuerValue,
+			},
+		},
+	}
+
+	certificateDER, err := x509.CreateCertificate(rand.Reader, certTemplate, certTemplate, &privateKey.PublicKey, privateKey)
+	require.NoError(t, err)
+	certificatePEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certificateDER,
+	})
+	require.NotEmpty(t, certificatePEM)
+
+	digest := sha256.Sum256(checksumBody)
+	signature, err := ecdsa.SignASN1(rand.Reader, privateKey, digest[:])
+	require.NoError(t, err)
+
+	return []byte(base64.StdEncoding.EncodeToString(signature)), certificatePEM
 }

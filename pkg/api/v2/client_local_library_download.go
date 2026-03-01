@@ -3,9 +3,18 @@ package v2
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
 	"compress/gzip"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/asn1"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/pem"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -23,37 +32,44 @@ import (
 )
 
 const (
-	defaultLocalLibraryVersion        = "v0.2.0"
-	defaultLocalLibraryReleaseBaseURL = "https://github.com/amikos-tech/chroma-go-local/releases/download"
-	localLibraryModulePath            = "github.com/amikos-tech/chroma-go-local"
-	localLibraryChecksumsAsset        = "chroma-go-shim_SHA256SUMS.txt"
-	localLibraryLockFileName          = ".download.lock"
-	localLibraryCacheDirPerm          = os.FileMode(0700)
-	localLibraryLockFilePerm          = os.FileMode(0600)
-	localLibraryArtifactFilePerm      = os.FileMode(0700)
+	defaultLocalLibraryVersion                = "v0.3.1"
+	defaultLocalLibraryReleaseBaseURL         = "https://releases.amikos.tech/chroma-go-local"
+	defaultLocalLibraryReleaseFallbackBaseURL = "https://github.com/amikos-tech/chroma-go-local/releases/download"
+	localLibraryModulePath                    = "github.com/amikos-tech/chroma-go-local"
+	localLibraryChecksumsAsset                = "SHA256SUMS"
+	localLibraryChecksumsSignatureAsset       = "SHA256SUMS.sig"
+	localLibraryChecksumsCertificateAsset     = "SHA256SUMS.pem"
+	localLibraryCosignOIDCIssuer              = "https://token.actions.githubusercontent.com"
+	localLibraryCosignIdentityTemplate        = "https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/tags/%s"
+	localLibraryLockFileName                  = ".download.lock"
+	localLibraryCacheDirPerm                  = os.FileMode(0700)
+	localLibraryLockFilePerm                  = os.FileMode(0600)
+	localLibraryArtifactFilePerm              = os.FileMode(0700)
 )
 
 var (
 	// Intentionally mutable for tests that use httptest servers.
-	localLibraryReleaseBaseURL        = defaultLocalLibraryReleaseBaseURL
-	localLibraryDownloadMu            sync.Mutex
-	localLibraryDownloadAttempts            = 3
-	localLibraryLockWaitTimeout             = 45 * time.Second
-	localLibraryLockStaleAfter              = 10 * time.Minute
-	localLibraryLockHeartbeatInterval       = 30 * time.Second
-	localLibraryMaxArtifactBytes      int64 = 500 * 1024 * 1024
-	localGetenvFunc                         = os.Getenv
-	localUserHomeDirFunc                    = os.UserHomeDir
-	localReadBuildInfoFunc                  = debug.ReadBuildInfo
-	localDownloadFileFunc                   = localDownloadFileWithRetry
-	localEnsureLibraryDownloadedFunc        = ensureLocalLibraryDownloaded
-	localDetectLibraryVersionFunc           = detectLocalLibraryVersion
-	localDefaultLibraryCacheDirFunc         = defaultLocalLibraryCacheDir
+	localLibraryReleaseBaseURL         = defaultLocalLibraryReleaseBaseURL
+	localLibraryReleaseFallbackBaseURL = defaultLocalLibraryReleaseFallbackBaseURL
+	localLibraryDownloadMu             sync.Mutex
+	localLibraryDownloadAttempts             = 3
+	localLibraryLockWaitTimeout              = 45 * time.Second
+	localLibraryLockStaleAfter               = 10 * time.Minute
+	localLibraryLockHeartbeatInterval        = 30 * time.Second
+	localLibraryMaxArtifactBytes       int64 = 500 * 1024 * 1024
+	localGetenvFunc                          = os.Getenv
+	localUserHomeDirFunc                     = os.UserHomeDir
+	localReadBuildInfoFunc                   = debug.ReadBuildInfo
+	localDownloadFileFunc                    = localDownloadFileWithRetry
+	localEnsureLibraryDownloadedFunc         = ensureLocalLibraryDownloaded
+	localDetectLibraryVersionFunc            = detectLocalLibraryVersion
+	localDefaultLibraryCacheDirFunc          = defaultLocalLibraryCacheDir
 )
+
+var localLibraryCosignOIDCIssuerExtensionOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
 
 type localLibraryAsset struct {
 	platform        string
-	archiveName     string
 	libraryFileName string
 }
 
@@ -165,6 +181,7 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 	if err != nil {
 		return "", err
 	}
+	archiveName := localLibraryArchiveName(version, asset.platform)
 
 	targetDir := filepath.Join(cacheDir, version, asset.platform)
 	targetLibraryPath := filepath.Join(targetDir, asset.libraryFileName)
@@ -226,17 +243,27 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 	}
 
 	checksumsPath := filepath.Join(targetDir, localLibraryChecksumsAsset)
-	checksumsURL := fmt.Sprintf("%s/%s/%s", localLibraryReleaseBaseURL, version, localLibraryChecksumsAsset)
-	if err := localDownloadFileFunc(checksumsPath, checksumsURL); err != nil {
+	if err := localDownloadReleaseAsset(version, localLibraryChecksumsAsset, checksumsPath); err != nil {
 		return "", errors.Wrap(err, "failed to download local library checksums")
 	}
+	checksumsSignaturePath := filepath.Join(targetDir, localLibraryChecksumsSignatureAsset)
+	if err := localDownloadReleaseAsset(version, localLibraryChecksumsSignatureAsset, checksumsSignaturePath); err != nil {
+		return "", errors.Wrap(err, "failed to download local library checksums signature")
+	}
+	checksumsCertificatePath := filepath.Join(targetDir, localLibraryChecksumsCertificateAsset)
+	if err := localDownloadReleaseAsset(version, localLibraryChecksumsCertificateAsset, checksumsCertificatePath); err != nil {
+		return "", errors.Wrap(err, "failed to download local library checksums certificate")
+	}
+	if err := localVerifySignedChecksums(version, checksumsPath, checksumsSignaturePath, checksumsCertificatePath); err != nil {
+		return "", errors.Wrap(err, "failed to verify local library checksums signature")
+	}
 
-	expectedChecksum, err := localChecksumFromSumsFile(checksumsPath, asset.archiveName)
+	expectedChecksum, err := localChecksumFromSumsFile(checksumsPath, archiveName)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to resolve local library checksum")
 	}
 
-	archivePath := filepath.Join(targetDir, asset.archiveName)
+	archivePath := filepath.Join(targetDir, archiveName)
 	exists, err = localFileExistsNonEmpty(archivePath)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to stat local runtime archive at %s", archivePath)
@@ -251,8 +278,7 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 		return "", errors.Wrapf(err, "failed to stat local runtime archive at %s", archivePath)
 	}
 	if !exists {
-		archiveURL := fmt.Sprintf("%s/%s/%s", localLibraryReleaseBaseURL, version, asset.archiveName)
-		if err := localDownloadFileFunc(archivePath, archiveURL); err != nil {
+		if err := localDownloadReleaseAsset(version, archiveName, archivePath); err != nil {
 			return "", errors.Wrap(err, "failed to download local library archive")
 		}
 	}
@@ -298,11 +324,11 @@ func localLibraryAssetForRuntime(goos, goarch string) (localLibraryAsset, error)
 	var platformOS, requiredArch, libraryFileName string
 	switch goos {
 	case "linux":
-		platformOS, requiredArch, libraryFileName = "linux", "amd64", "libchroma_go_shim.so"
+		platformOS, requiredArch, libraryFileName = "linux", "amd64", "libchroma_shim.so"
 	case "darwin":
-		platformOS, requiredArch, libraryFileName = "macos", "arm64", "libchroma_go_shim.dylib"
+		platformOS, requiredArch, libraryFileName = "darwin", "arm64", "libchroma_shim.dylib"
 	case "windows":
-		platformOS, requiredArch, libraryFileName = "windows", "amd64", "chroma_go_shim.dll"
+		platformOS, requiredArch, libraryFileName = "windows", "amd64", "chroma_shim.dll"
 	default:
 		return localLibraryAsset{}, errors.Errorf("unsupported OS for local runtime download: %s", goos)
 	}
@@ -312,9 +338,12 @@ func localLibraryAssetForRuntime(goos, goarch string) (localLibraryAsset, error)
 	platform := platformOS + "-" + goarch
 	return localLibraryAsset{
 		platform:        platform,
-		archiveName:     "chroma-go-shim-" + platform + ".tar.gz",
 		libraryFileName: libraryFileName,
 	}, nil
+}
+
+func localLibraryArchiveName(version, platform string) string {
+	return fmt.Sprintf("chroma-go-local-%s-%s.tar.gz", version, platform)
 }
 
 func validateLocalLibraryTag(version string) error {
@@ -463,6 +492,211 @@ func localStartDownloadLockHeartbeat(lockFile *os.File) func() error {
 			stopErr = <-doneCh
 		})
 		return stopErr
+	}
+}
+
+func localReleaseBaseURLs() []string {
+	candidates := []string{
+		strings.TrimSpace(localLibraryReleaseBaseURL),
+		strings.TrimSpace(localLibraryReleaseFallbackBaseURL),
+	}
+	seen := make(map[string]struct{}, len(candidates))
+	bases := make([]string, 0, len(candidates))
+	for _, base := range candidates {
+		base = strings.TrimRight(base, "/")
+		if base == "" {
+			continue
+		}
+		if _, ok := seen[base]; ok {
+			continue
+		}
+		seen[base] = struct{}{}
+		bases = append(bases, base)
+	}
+	return bases
+}
+
+func localDownloadReleaseAsset(version, assetName, destinationPath string) error {
+	bases := localReleaseBaseURLs()
+	if len(bases) == 0 {
+		return errors.New("no release base URL configured")
+	}
+	var errs []error
+	for _, base := range bases {
+		url := fmt.Sprintf("%s/%s/%s", base, version, assetName)
+		if err := localDownloadFileFunc(destinationPath, url); err != nil {
+			errs = append(errs, errors.Wrapf(err, "download from %s failed", base))
+			continue
+		}
+		return nil
+	}
+	return stderrors.Join(errs...)
+}
+
+func localVerifySignedChecksums(version, checksumsPath, signaturePath, certificatePath string) error {
+	checksumsBytes, err := os.ReadFile(checksumsPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to read checksum file")
+	}
+
+	signature, err := localReadBase64EncodedFile(signaturePath)
+	if err != nil {
+		return errors.Wrap(err, "failed to decode checksum signature")
+	}
+
+	certificate, err := localReadCosignCertificate(certificatePath)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse checksum certificate")
+	}
+
+	expectedIdentity := fmt.Sprintf(localLibraryCosignIdentityTemplate, version)
+	if err := localValidateCosignCertificate(certificate, expectedIdentity, localLibraryCosignOIDCIssuer); err != nil {
+		return err
+	}
+
+	if err := localVerifyBlobSignature(certificate, checksumsBytes, signature); err != nil {
+		return errors.Wrap(err, "invalid checksum signature")
+	}
+	return nil
+}
+
+func localReadBase64EncodedFile(filePath string) ([]byte, error) {
+	raw, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	encoded := string(bytes.Join(bytes.Fields(raw), nil))
+	if encoded == "" {
+		return nil, errors.New("base64 payload is empty")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err == nil {
+		return decoded, nil
+	}
+	decoded, rawErr := base64.RawStdEncoding.DecodeString(encoded)
+	if rawErr == nil {
+		return decoded, nil
+	}
+	return nil, errors.Wrap(err, "invalid base64 payload")
+}
+
+func localReadCosignCertificate(filePath string) (*x509.Certificate, error) {
+	raw, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	certPEM := bytes.TrimSpace(raw)
+	if len(certPEM) == 0 {
+		return nil, errors.New("certificate payload is empty")
+	}
+	if !bytes.Contains(certPEM, []byte("BEGIN CERTIFICATE")) {
+		decoded, decodeErr := localReadBase64EncodedFile(filePath)
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+		certPEM = decoded
+	}
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return nil, errors.New("failed to decode certificate PEM")
+	}
+	certificate, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return certificate, nil
+}
+
+func localValidateCosignCertificate(certificate *x509.Certificate, expectedIdentity, expectedOIDCIssuer string) error {
+	if certificate == nil {
+		return errors.New("certificate is nil")
+	}
+	now := time.Now()
+	if now.Before(certificate.NotBefore) || now.After(certificate.NotAfter) {
+		return errors.Errorf(
+			"certificate is not currently valid: valid between %s and %s",
+			certificate.NotBefore.UTC().Format(time.RFC3339),
+			certificate.NotAfter.UTC().Format(time.RFC3339),
+		)
+	}
+
+	hasCodeSigningUsage := false
+	for _, usage := range certificate.ExtKeyUsage {
+		if usage == x509.ExtKeyUsageCodeSigning {
+			hasCodeSigningUsage = true
+			break
+		}
+	}
+	if len(certificate.ExtKeyUsage) > 0 && !hasCodeSigningUsage {
+		return errors.New("certificate is missing code signing extended key usage")
+	}
+
+	hasExpectedIdentity := false
+	for _, uri := range certificate.URIs {
+		if uri != nil && uri.String() == expectedIdentity {
+			hasExpectedIdentity = true
+			break
+		}
+	}
+	if !hasExpectedIdentity {
+		return errors.Errorf("certificate identity does not match expected release identity %s", expectedIdentity)
+	}
+
+	issuerValue, foundIssuer, err := localCertificateExtensionValue(certificate, localLibraryCosignOIDCIssuerExtensionOID)
+	if err != nil {
+		return err
+	}
+	if !foundIssuer {
+		return errors.Errorf("certificate missing OIDC issuer extension %s", localLibraryCosignOIDCIssuerExtensionOID.String())
+	}
+	if issuerValue != expectedOIDCIssuer {
+		return errors.Errorf("certificate OIDC issuer mismatch: expected %s, got %s", expectedOIDCIssuer, issuerValue)
+	}
+	return nil
+}
+
+func localCertificateExtensionValue(certificate *x509.Certificate, oid asn1.ObjectIdentifier) (string, bool, error) {
+	for _, extension := range certificate.Extensions {
+		if !extension.Id.Equal(oid) {
+			continue
+		}
+		var value string
+		if _, err := asn1.Unmarshal(extension.Value, &value); err != nil {
+			return "", false, errors.Wrapf(err, "failed to decode certificate extension %s", oid.String())
+		}
+		return value, true, nil
+	}
+	return "", false, nil
+}
+
+func localVerifyBlobSignature(certificate *x509.Certificate, payload, signature []byte) error {
+	if certificate == nil {
+		return errors.New("certificate is nil")
+	}
+	if len(signature) == 0 {
+		return errors.New("signature is empty")
+	}
+
+	payloadDigest := sha256.Sum256(payload)
+
+	switch pubKey := certificate.PublicKey.(type) {
+	case *ecdsa.PublicKey:
+		if !ecdsa.VerifyASN1(pubKey, payloadDigest[:], signature) {
+			return errors.New("ECDSA signature verification failed")
+		}
+		return nil
+	case *rsa.PublicKey:
+		if err := rsa.VerifyPKCS1v15(pubKey, crypto.SHA256, payloadDigest[:], signature); err != nil {
+			return errors.Wrap(err, "RSA signature verification failed")
+		}
+		return nil
+	case ed25519.PublicKey:
+		if !ed25519.Verify(pubKey, payload, signature) {
+			return errors.New("Ed25519 signature verification failed")
+		}
+		return nil
+	default:
+		return errors.Errorf("unsupported certificate public key type %T", certificate.PublicKey)
 	}
 }
 
