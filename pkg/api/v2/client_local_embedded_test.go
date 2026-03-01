@@ -933,7 +933,9 @@ func TestEmbeddedCollectionModifyMetadataUpdateFailureLeavesStateUntouched(t *te
 	require.True(t, ok)
 	require.Equal(t, "value", immediateOld)
 
+	client.collectionStateMu.RLock()
 	state := client.collectionState[collection.ID()]
+	client.collectionStateMu.RUnlock()
 	require.NotNil(t, state)
 	_, stateHasNew := state.metadata.GetString("new")
 	require.False(t, stateHasNew)
