@@ -3,23 +3,13 @@ package v2
 import (
 	"archive/tar"
 	"bufio"
-	"bytes"
 	"compress/gzip"
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
-	"encoding/asn1"
-	"encoding/base64"
 	"encoding/hex"
-	"encoding/pem"
 	stderrors "errors"
 	"fmt"
 	"io"
-	"net"
-	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -28,9 +18,11 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/internal/cosignutil"
+	downloadutil "github.com/amikos-tech/chroma-go/pkg/internal/downloadutil"
 )
 
 const (
@@ -49,35 +41,6 @@ const (
 	localLibraryCacheDirPerm                  = os.FileMode(0700)
 	localLibraryLockFilePerm                  = os.FileMode(0600)
 	localLibraryArtifactFilePerm              = os.FileMode(0700)
-	// Pinned Sigstore Fulcio trust anchors used to verify release signing certificates.
-	// Source: https://fulcio.sigstore.dev/api/v1/rootCert
-	localLibraryCosignFulcioIntermediatePEM = `-----BEGIN CERTIFICATE-----
-MIICGjCCAaGgAwIBAgIUALnViVfnU0brJasmRkHrn/UnfaQwCgYIKoZIzj0EAwMw
-KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
-MjA0MTMyMDA2MTVaFw0zMTEwMDUxMzU2NThaMDcxFTATBgNVBAoTDHNpZ3N0b3Jl
-LmRldjEeMBwGA1UEAxMVc2lnc3RvcmUtaW50ZXJtZWRpYXRlMHYwEAYHKoZIzj0C
-AQYFK4EEACIDYgAE8RVS/ysH+NOvuDZyPIZtilgUF9NlarYpAd9HP1vBBH1U5CV7
-7LSS7s0ZiH4nE7Hv7ptS6LvvR/STk798LVgMzLlJ4HeIfF3tHSaexLcYpSASr1kS
-0N/RgBJz/9jWCiXno3sweTAOBgNVHQ8BAf8EBAMCAQYwEwYDVR0lBAwwCgYIKwYB
-BQUHAwMwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU39Ppz1YkEZb5qNjp
-KFWixi4YZD8wHwYDVR0jBBgwFoAUWMAeX5FFpWapesyQoZMi0CrFxfowCgYIKoZI
-zj0EAwMDZwAwZAIwPCsQK4DYiZYDPIaDi5HFKnfxXx6ASSVmERfsynYBiX2X6SJR
-nZU84/9DZdnFvvxmAjBOt6QpBlc4J/0DxvkTCqpclvziL6BCCPnjdlIB3Pu3BxsP
-mygUY7Ii2zbdCdliiow=
------END CERTIFICATE-----`
-	localLibraryCosignFulcioRootPEM = `-----BEGIN CERTIFICATE-----
-MIIB9zCCAXygAwIBAgIUALZNAPFdxHPwjeDloDwyYChAO/4wCgYIKoZIzj0EAwMw
-KjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTAeFw0y
-MTEwMDcxMzU2NTlaFw0zMTEwMDUxMzU2NThaMCoxFTATBgNVBAoTDHNpZ3N0b3Jl
-LmRldjERMA8GA1UEAxMIc2lnc3RvcmUwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAAT7
-XeFT4rb3PQGwS4IajtLk3/OlnpgangaBclYpsYBr5i+4ynB07ceb3LP0OIOZdxex
-X69c5iVuyJRQ+Hz05yi+UF3uBWAlHpiS5sh0+H2GHE7SXrk1EC5m1Tr19L9gg92j
-YzBhMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBRY
-wB5fkUWlZql6zJChkyLQKsXF+jAfBgNVHSMEGDAWgBRYwB5fkUWlZql6zJChkyLQ
-KsXF+jAKBggqhkjOPQQDAwNpADBmAjEAj1nHeXZp+13NWBNa+EDsDP8G1WWg1tCM
-WP/WHPqpaVo0jhsweNFZgSs0eE7wYI4qAjEA2WB9ot98sIkoF3vZYdd3/VtWB5b9
-TNMea7Ix/stJ5TfcLLeABLE4BNJOsQ4vnBHJ
------END CERTIFICATE-----`
 )
 
 var (
@@ -97,10 +60,9 @@ var (
 	localEnsureLibraryDownloadedFunc            = ensureLocalLibraryDownloaded
 	localDetectLibraryVersionFunc               = detectLocalLibraryVersion
 	localDefaultLibraryCacheDirFunc             = defaultLocalLibraryCacheDir
-	localVerifyCosignCertificateChainFunc       = localVerifyCosignCertificateChain
+	localVerifyCosignCertificateChainFunc       = cosignutil.VerifyFulcioCertificateChain
+	localValidateReleaseBaseURLFunc             = localValidateReleaseBaseURL
 )
-
-var localLibraryCosignOIDCIssuerExtensionOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
 
 type localLibraryAsset struct {
 	platform        string
@@ -303,6 +265,7 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 	}
 
 	archivePath := filepath.Join(targetDir, selectedArchiveName)
+	archiveChecksumVerified := false
 	exists, err = localFileExistsNonEmpty(archivePath)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to stat local runtime archive at %s", archivePath)
@@ -314,6 +277,8 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 				return "", stderrors.Join(verifyErr, removeErr)
 			}
 			// Existing archive was corrupted and successfully removed; continue to re-download.
+		} else {
+			archiveChecksumVerified = true
 		}
 	}
 	exists, err = localFileExistsNonEmpty(archivePath)
@@ -321,18 +286,20 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 		return "", errors.Wrapf(err, "failed to stat local runtime archive at %s", archivePath)
 	}
 	if !exists {
+		archiveChecksumVerified = false
 		if err := localDownloadReleaseAssetFromBase(selectedReleaseBase, version, selectedArchiveName, archivePath); err != nil {
 			return "", errors.Wrap(err, "failed to download local library archive")
 		}
 	}
 
-	if err := localVerifyFileChecksum(archivePath, expectedChecksum); err != nil {
-		return "", localFailWithArchiveCleanup(archivePath, err, "local library archive checksum verification failed")
+	if !archiveChecksumVerified {
+		if err := localVerifyFileChecksum(archivePath, expectedChecksum); err != nil {
+			return "", localFailWithArchiveCleanup(archivePath, err, "local library archive checksum verification failed")
+		}
 	}
-	if err := localVerifyTarGzFile(archivePath); err != nil {
+	if err := localVerifyTarGzContainsLibrary(archivePath, asset.libraryFileName); err != nil {
 		return "", localFailWithArchiveCleanup(archivePath, err, "local library archive verification failed")
 	}
-
 	tempLibraryPath := targetLibraryPath + ".tmp"
 	_ = os.Remove(tempLibraryPath)
 	if err := localExtractLibraryFromTarGz(archivePath, asset.libraryFileName, tempLibraryPath); err != nil {
@@ -562,32 +529,75 @@ func localReleaseBaseURLs() []string {
 	seen := make(map[string]struct{}, len(candidates))
 	bases := make([]string, 0, len(candidates))
 	for _, base := range candidates {
-		base = strings.TrimRight(base, "/")
-		if base == "" {
+		normalized, err := localValidateReleaseBaseURLFunc(base)
+		if err != nil {
 			continue
 		}
-		if _, ok := seen[base]; ok {
+		if _, ok := seen[normalized]; ok {
 			continue
 		}
-		seen[base] = struct{}{}
-		bases = append(bases, base)
+		seen[normalized] = struct{}{}
+		bases = append(bases, normalized)
 	}
 	return bases
 }
 
+func localValidateReleaseBaseURL(baseURL string) (string, error) {
+	baseURL = strings.TrimSpace(strings.TrimRight(baseURL, "/"))
+	if baseURL == "" {
+		return "", errors.New("release base URL cannot be empty")
+	}
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return "", errors.Wrap(err, "invalid release base URL")
+	}
+	if !parsedURL.IsAbs() {
+		return "", errors.New("release base URL must be absolute")
+	}
+	if !strings.EqualFold(parsedURL.Scheme, "https") {
+		return "", errors.Errorf("release base URL must use https scheme: %s", parsedURL.Redacted())
+	}
+	if strings.TrimSpace(parsedURL.Host) == "" {
+		return "", errors.Errorf("release base URL host cannot be empty: %s", parsedURL.Redacted())
+	}
+	return baseURL, nil
+}
+
 func localPrepareSignedChecksumsFromBase(baseURL, version, targetDir string, archiveNames []string) (string, string, error) {
 	checksumsPath := filepath.Join(targetDir, localLibraryChecksumsAsset)
-	if err := localDownloadReleaseAssetFromBase(baseURL, version, localLibraryChecksumsAsset, checksumsPath); err != nil {
-		return "", "", errors.Wrap(err, "failed to download local library checksums")
-	}
 	checksumsSignaturePath := filepath.Join(targetDir, localLibraryChecksumsSignatureAsset)
-	if err := localDownloadReleaseAssetFromBase(baseURL, version, localLibraryChecksumsSignatureAsset, checksumsSignaturePath); err != nil {
-		return "", "", errors.Wrap(err, "failed to download local library checksums signature")
-	}
 	checksumsCertificatePath := filepath.Join(targetDir, localLibraryChecksumsCertificateAsset)
-	if err := localDownloadReleaseAssetFromBase(baseURL, version, localLibraryChecksumsCertificateAsset, checksumsCertificatePath); err != nil {
-		return "", "", errors.Wrap(err, "failed to download local library checksums certificate")
+
+	type metaDownload struct {
+		asset, dest, errMsg string
 	}
+	downloads := []metaDownload{
+		{localLibraryChecksumsAsset, checksumsPath, "failed to download local library checksums"},
+		{localLibraryChecksumsSignatureAsset, checksumsSignaturePath, "failed to download local library checksums signature"},
+		{localLibraryChecksumsCertificateAsset, checksumsCertificatePath, "failed to download local library checksums certificate"},
+	}
+	errs := make([]error, len(downloads))
+	var wg sync.WaitGroup
+	for i, dl := range downloads {
+		wg.Add(1)
+		go func(index int, download metaDownload) {
+			defer wg.Done()
+			if err := localDownloadReleaseAssetFromBase(baseURL, version, download.asset, download.dest); err != nil {
+				errs[index] = errors.Wrap(err, download.errMsg)
+			}
+		}(i, dl)
+	}
+	wg.Wait()
+	downloadErrs := make([]error, 0, len(errs))
+	for _, err := range errs {
+		if err != nil {
+			downloadErrs = append(downloadErrs, err)
+		}
+	}
+	if len(downloadErrs) > 0 {
+		return "", "", errors.Wrap(stderrors.Join(downloadErrs...), "failed to download local library checksum metadata")
+	}
+
 	if err := localVerifySignedChecksums(version, checksumsPath, checksumsSignaturePath, checksumsCertificatePath); err != nil {
 		return "", "", errors.Wrap(err, "failed to verify local library checksums signature")
 	}
@@ -600,240 +610,24 @@ func localPrepareSignedChecksumsFromBase(baseURL, version, targetDir string, arc
 }
 
 func localDownloadReleaseAssetFromBase(baseURL, version, assetName, destinationPath string) error {
-	baseURL = strings.TrimSpace(strings.TrimRight(baseURL, "/"))
-	if baseURL == "" {
-		return errors.New("release base URL cannot be empty")
+	normalizedBaseURL, err := localValidateReleaseBaseURLFunc(baseURL)
+	if err != nil {
+		return err
 	}
-	url := fmt.Sprintf("%s/%s/%s", baseURL, version, assetName)
-	if err := localDownloadFileFunc(destinationPath, url); err != nil {
-		return errors.Wrapf(err, "download from %s failed", baseURL)
+	assetURL := fmt.Sprintf("%s/%s/%s", normalizedBaseURL, version, assetName)
+	if err := localDownloadFileFunc(destinationPath, assetURL); err != nil {
+		return errors.Wrapf(err, "download from %s failed", normalizedBaseURL)
 	}
 	return nil
 }
 
 func localVerifySignedChecksums(version, checksumsPath, signaturePath, certificatePath string) error {
-	checksumsBytes, err := os.ReadFile(checksumsPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to read checksum file")
-	}
-
-	signature, err := localReadBase64EncodedFile(signaturePath)
-	if err != nil {
-		return errors.Wrap(err, "failed to decode checksum signature")
-	}
-
-	certificate, err := localReadCosignCertificate(certificatePath)
-	if err != nil {
-		return errors.Wrap(err, "failed to parse checksum certificate")
-	}
-
 	expectedIdentity := fmt.Sprintf(localLibraryCosignIdentityTemplate, version)
-	if err := localValidateCosignCertificate(certificate, expectedIdentity, localLibraryCosignOIDCIssuer); err != nil {
-		return errors.Wrap(err, "certificate validation failed")
-	}
-
-	if err := localVerifyBlobSignature(certificate, checksumsBytes, signature); err != nil {
-		return errors.Wrap(err, "invalid checksum signature")
-	}
-	return nil
-}
-
-func localReadBase64EncodedFile(filePath string) ([]byte, error) {
-	raw, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-	return localDecodeBase64Bytes(raw)
-}
-
-func localDecodeBase64Bytes(raw []byte) ([]byte, error) {
-	encoded := string(bytes.Join(bytes.Fields(raw), nil))
-	if encoded == "" {
-		return nil, errors.New("base64 payload is empty")
-	}
-	decoded, err := base64.StdEncoding.DecodeString(encoded)
-	if err == nil {
-		return decoded, nil
-	}
-	decoded, rawErr := base64.RawStdEncoding.DecodeString(encoded)
-	if rawErr == nil {
-		return decoded, nil
-	}
-	return nil, errors.Wrap(stderrors.Join(err, rawErr), "invalid base64 payload")
-}
-
-func localReadCosignCertificate(filePath string) (*x509.Certificate, error) {
-	raw, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read certificate file %s", filePath)
-	}
-	certPEM := bytes.TrimSpace(raw)
-	if len(certPEM) == 0 {
-		return nil, errors.New("certificate payload is empty")
-	}
-	if !bytes.Contains(certPEM, []byte("BEGIN CERTIFICATE")) {
-		decoded, decodeErr := localDecodeBase64Bytes(certPEM)
-		if decodeErr != nil {
-			return nil, decodeErr
-		}
-		certPEM = decoded
-	}
-	block, remainder := pem.Decode(certPEM)
-	if block == nil {
-		return nil, errors.New("failed to decode certificate PEM")
-	}
-	if len(bytes.TrimSpace(remainder)) > 0 {
-		return nil, errors.New("certificate PEM contains unexpected trailing data")
-	}
-	certificate, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse certificate from %s", filePath)
-	}
-	return certificate, nil
-}
-
-func localValidateCosignCertificate(certificate *x509.Certificate, expectedIdentity, expectedOIDCIssuer string) error {
-	if certificate == nil {
-		return errors.New("certificate is nil")
-	}
-	// Sigstore Fulcio certificates are intentionally short-lived (typically ~10 minutes).
-	// Downloads often happen after certificate expiry, so we only reject not-yet-valid certs
-	// and rely on signature + identity + OIDC issuer validation here.
-	now := time.Now()
-	if now.Before(certificate.NotBefore) {
-		return errors.Errorf(
-			"certificate is not yet valid: valid starting at %s",
-			certificate.NotBefore.UTC().Format(time.RFC3339),
-		)
-	}
-	if err := localVerifyCosignCertificateChainFunc(certificate); err != nil {
-		return err
-	}
-
-	hasCodeSigningUsage := false
-	for _, usage := range certificate.ExtKeyUsage {
-		if usage == x509.ExtKeyUsageCodeSigning {
-			hasCodeSigningUsage = true
-			break
-		}
-	}
-	if !hasCodeSigningUsage {
-		return errors.New("certificate is missing code signing extended key usage")
-	}
-
-	hasExpectedIdentity := false
-	for _, uri := range certificate.URIs {
-		if uri != nil && uri.String() == expectedIdentity {
-			hasExpectedIdentity = true
-			break
-		}
-	}
-	if !hasExpectedIdentity {
-		return errors.Errorf("certificate identity does not match expected release identity %s", expectedIdentity)
-	}
-
-	issuerValue, foundIssuer, err := localCertificateExtensionValue(certificate, localLibraryCosignOIDCIssuerExtensionOID)
-	if err != nil {
-		return err
-	}
-	if !foundIssuer {
-		return errors.Errorf("certificate missing OIDC issuer extension %s", localLibraryCosignOIDCIssuerExtensionOID.String())
-	}
-	if issuerValue != expectedOIDCIssuer {
-		return errors.Errorf("certificate OIDC issuer mismatch: expected %s, got %s", expectedOIDCIssuer, issuerValue)
-	}
-	return nil
-}
-
-func localVerifyCosignCertificateChain(certificate *x509.Certificate) error {
-	if certificate == nil {
-		return errors.New("certificate is nil")
-	}
-
-	roots := x509.NewCertPool()
-	if ok := roots.AppendCertsFromPEM([]byte(localLibraryCosignFulcioRootPEM)); !ok {
-		return errors.New("failed to load Fulcio root certificate")
-	}
-	intermediates := x509.NewCertPool()
-	if ok := intermediates.AppendCertsFromPEM([]byte(localLibraryCosignFulcioIntermediatePEM)); !ok {
-		return errors.New("failed to load Fulcio intermediate certificate")
-	}
-
-	// Fulcio leaf certs are short-lived; verify chain validity at issuance time.
-	verifyAt := certificate.NotBefore
-	if certificate.NotAfter.After(certificate.NotBefore) {
-		verifyAt = certificate.NotBefore.Add(certificate.NotAfter.Sub(certificate.NotBefore) / 2)
-	}
-
-	if _, err := certificate.Verify(x509.VerifyOptions{
-		Roots:         roots,
-		Intermediates: intermediates,
-		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-		CurrentTime:   verifyAt,
-	}); err != nil {
-		return errors.Wrap(err, "certificate chain verification failed")
-	}
-	return nil
-}
-
-func localCertificateExtensionValue(certificate *x509.Certificate, oid asn1.ObjectIdentifier) (string, bool, error) {
-	for _, extension := range certificate.Extensions {
-		if !extension.Id.Equal(oid) {
-			continue
-		}
-		var value string
-		var unmarshalErr error
-		if remainder, err := asn1.Unmarshal(extension.Value, &value); err == nil {
-			if len(remainder) == 0 {
-				return value, true, nil
-			}
-			unmarshalErr = errors.Errorf("ASN.1 payload contains %d trailing bytes", len(remainder))
-		} else {
-			unmarshalErr = err
-		}
-		if utf8.Valid(extension.Value) {
-			value = strings.TrimSpace(string(extension.Value))
-			if value != "" {
-				return value, true, nil
-			}
-		}
-		if unmarshalErr != nil {
-			return "", false, errors.Wrapf(unmarshalErr, "failed to decode certificate extension %s", oid.String())
-		}
-		return "", false, errors.Errorf("failed to decode certificate extension %s", oid.String())
-	}
-	return "", false, nil
-}
-
-func localVerifyBlobSignature(certificate *x509.Certificate, payload, signature []byte) error {
-	if certificate == nil {
-		return errors.New("certificate is nil")
-	}
-	if len(signature) == 0 {
-		return errors.New("signature is empty")
-	}
-
-	payloadDigest := sha256.Sum256(payload)
-
-	switch pubKey := certificate.PublicKey.(type) {
-	case *ecdsa.PublicKey:
-		if !ecdsa.VerifyASN1(pubKey, payloadDigest[:], signature) {
-			return errors.New("ECDSA signature verification failed")
-		}
-		return nil
-	case *rsa.PublicKey:
-		if err := rsa.VerifyPKCS1v15(pubKey, crypto.SHA256, payloadDigest[:], signature); err != nil {
-			return errors.Wrap(err, "RSA signature verification failed")
-		}
-		return nil
-	case ed25519.PublicKey:
-		if !ed25519.Verify(pubKey, payload, signature) {
-			return errors.New("Ed25519 signature verification failed")
-		}
-		return nil
-	default:
-		return errors.Errorf("unsupported certificate public key type %T", certificate.PublicKey)
-	}
+	return cosignutil.VerifySignedChecksums(
+		checksumsPath, signaturePath, certificatePath,
+		expectedIdentity, localLibraryCosignOIDCIssuer,
+		localVerifyCosignCertificateChainFunc,
+	)
 }
 
 // localChecksumFromSumsFileAny matches checksum entries in file order.
@@ -878,7 +672,11 @@ func localChecksumFromSumsFileAny(sumsFilePath string, assetNames []string) (str
 			continue
 		}
 		if originalAssetName, ok := candidates[checksumAssetName]; ok {
-			return originalAssetName, strings.ToLower(fields[0]), nil
+			checksum := strings.ToLower(fields[0])
+			if !localLooksLikeSHA256(checksum) {
+				return "", "", errors.Errorf("invalid checksum format for asset %s: %q", originalAssetName, fields[0])
+			}
+			return originalAssetName, checksum, nil
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -921,114 +719,35 @@ func localVerifyFileChecksum(filePath, expectedChecksum string) error {
 	return nil
 }
 
-func localDownloadFileWithRetry(filePath, url string) error {
-	var lastErr error
-	for attempt := 1; attempt <= localLibraryDownloadAttempts; attempt++ {
-		if err := localDownloadFile(filePath, url); err != nil {
-			lastErr = err
-			if attempt < localLibraryDownloadAttempts {
-				time.Sleep(time.Duration(attempt) * time.Second)
-			}
-			continue
+func localLooksLikeSHA256(v string) bool {
+	if len(v) != 64 {
+		return false
+	}
+	for _, r := range v {
+		switch {
+		case r >= '0' && r <= '9':
+		case r >= 'a' && r <= 'f':
+		case r >= 'A' && r <= 'F':
+		default:
+			return false
 		}
-		return nil
 	}
-	return errors.Wrap(lastErr, "download failed after retries")
+	return true
 }
 
-func localDownloadFile(filePath, url string) error {
-	client := &http.Client{
-		Timeout: 10 * time.Minute,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: 30 * time.Second,
-			}).DialContext,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 30 * time.Second,
+func localDownloadFileWithRetry(filePath, url string) error {
+	return errors.WithStack(downloadutil.DownloadFileWithRetry(
+		filePath,
+		url,
+		localLibraryDownloadAttempts,
+		downloadutil.Config{
+			MaxBytes: localLibraryMaxArtifactBytes,
+			DirPerm:  localLibraryCacheDirPerm,
 		},
-		CheckRedirect: localRejectHTTPSDowngradeRedirect,
-	}
-
-	resp, err := client.Get(url)
-	if err != nil {
-		return errors.Wrap(err, "failed to make HTTP request")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return errors.Errorf("unexpected response %s for URL %s", resp.Status, url)
-	}
-	if resp.ContentLength > 0 && resp.ContentLength > localLibraryMaxArtifactBytes {
-		return errors.Errorf(
-			"downloaded artifact is too large: %d bytes exceeds max %d bytes",
-			resp.ContentLength,
-			localLibraryMaxArtifactBytes,
-		)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(filePath), localLibraryCacheDirPerm); err != nil {
-		return errors.Wrap(err, "failed to create destination directory")
-	}
-
-	out, err := os.CreateTemp(filepath.Dir(filePath), filepath.Base(filePath)+".download-*")
-	if err != nil {
-		return errors.Wrap(err, "failed to create temp file")
-	}
-	tempPath := out.Name()
-
-	limitedBody := io.LimitReader(resp.Body, localLibraryMaxArtifactBytes+1)
-	written, copyErr := io.Copy(out, limitedBody)
-	closeErr := out.Close()
-	if copyErr != nil {
-		_ = os.Remove(tempPath)
-		return errors.Wrap(copyErr, "failed to copy HTTP response")
-	}
-	if written > localLibraryMaxArtifactBytes {
-		_ = os.Remove(tempPath)
-		return errors.Errorf(
-			"downloaded artifact exceeds max allowed size: got %d bytes, max %d bytes",
-			written,
-			localLibraryMaxArtifactBytes,
-		)
-	}
-	if closeErr != nil {
-		_ = os.Remove(tempPath)
-		return errors.Wrap(closeErr, "failed to close temp file")
-	}
-	if resp.ContentLength > 0 && written != resp.ContentLength {
-		_ = os.Remove(tempPath)
-		return errors.Errorf("download incomplete: expected %d bytes, got %d bytes", resp.ContentLength, written)
-	}
-
-	_ = os.Remove(filePath)
-	if err := os.Rename(tempPath, filePath); err != nil {
-		_ = os.Remove(tempPath)
-		return errors.Wrap(err, "failed to finalize downloaded file")
-	}
-	return nil
+	))
 }
 
-func localRejectHTTPSDowngradeRedirect(req *http.Request, via []*http.Request) error {
-	if len(via) >= 10 {
-		return errors.New("stopped after 10 redirects")
-	}
-	if len(via) == 0 {
-		return nil
-	}
-	previousReq := via[len(via)-1]
-	if previousReq.URL != nil && req.URL != nil &&
-		strings.EqualFold(previousReq.URL.Scheme, "https") &&
-		strings.EqualFold(req.URL.Scheme, "http") {
-		return errors.Errorf(
-			"redirect from HTTPS to HTTP is not allowed: %s -> %s",
-			previousReq.URL.String(),
-			req.URL.String(),
-		)
-	}
-	return nil
-}
-
-func localVerifyTarGzFile(filePath string) error {
+func localVerifyTarGzContainsLibrary(filePath, libraryFileName string) error {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return errors.Wrap(err, "could not open archive for verification")
@@ -1042,10 +761,34 @@ func localVerifyTarGzFile(filePath string) error {
 	defer gzipReader.Close()
 
 	tarReader := tar.NewReader(gzipReader)
-	if _, err := tarReader.Next(); err != nil {
-		return errors.Wrap(err, "invalid tar archive")
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return errors.Wrap(err, "invalid tar archive")
+		}
+		if header.Typeflag != tar.TypeReg {
+			continue
+		}
+		if filepath.Base(header.Name) != libraryFileName {
+			continue
+		}
+		if header.Size <= 0 {
+			return errors.Errorf("library %s has invalid size %d in archive", libraryFileName, header.Size)
+		}
+		if header.Size > localLibraryMaxArtifactBytes {
+			return errors.Errorf(
+				"library %s exceeds max allowed size: %d bytes > %d bytes",
+				libraryFileName,
+				header.Size,
+				localLibraryMaxArtifactBytes,
+			)
+		}
+		return nil
 	}
-	return nil
+	return errors.Errorf("library %s not found in archive", libraryFileName)
 }
 
 func localExtractLibraryFromTarGz(archivePath, libraryFileName, destinationPath string) error {
