@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -33,13 +34,15 @@ import (
 )
 
 const (
-	defaultLocalLibraryVersion                = "v0.3.1"
+	defaultLocalLibraryVersion                = "v0.4.0"
 	defaultLocalLibraryReleaseBaseURL         = "https://releases.amikos.tech/chroma-go-local"
 	defaultLocalLibraryReleaseFallbackBaseURL = "https://github.com/amikos-tech/chroma-go-local/releases/download"
 	localLibraryModulePath                    = "github.com/amikos-tech/chroma-go-local"
 	localLibraryChecksumsAsset                = "SHA256SUMS"
 	localLibraryChecksumsSignatureAsset       = "SHA256SUMS.sig"
 	localLibraryChecksumsCertificateAsset     = "SHA256SUMS.pem"
+	localLibraryArchivePrefixLegacy           = "chroma-go-local"
+	localLibraryArchivePrefixLocalChroma      = "local-chroma"
 	localLibraryCosignOIDCIssuer              = "https://token.actions.githubusercontent.com"
 	localLibraryCosignIdentityTemplate        = "https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/tags/%s"
 	localLibraryLockFileName                  = ".download.lock"
@@ -212,7 +215,10 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 	if err != nil {
 		return "", err
 	}
-	archiveName := localLibraryArchiveName(version, asset.platform)
+	archiveNames := localLibraryArchiveNames(version, asset.platform)
+	if len(archiveNames) == 0 {
+		return "", errors.New("no local runtime archive names available for selected platform")
+	}
 
 	targetDir := filepath.Join(cacheDir, version, asset.platform)
 	targetLibraryPath := filepath.Join(targetDir, asset.libraryFileName)
@@ -279,29 +285,35 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 	}
 	var expectedChecksum string
 	var selectedReleaseBase string
+	var selectedArchiveName string
 	var checksumsDownloadErrs []error
 	for _, releaseBase := range releaseBases {
-		checksum, prepareErr := localPrepareSignedChecksumsFromBase(releaseBase, version, targetDir, archiveName)
+		archiveName, checksum, prepareErr := localPrepareSignedChecksumsFromBase(releaseBase, version, targetDir, archiveNames)
 		if prepareErr != nil {
 			checksumsDownloadErrs = append(checksumsDownloadErrs, errors.Wrapf(prepareErr, "release mirror %s failed", releaseBase))
 			continue
 		}
+		selectedArchiveName = archiveName
 		expectedChecksum = checksum
 		selectedReleaseBase = releaseBase
 		break
 	}
-	if selectedReleaseBase == "" {
+	if selectedReleaseBase == "" || selectedArchiveName == "" || expectedChecksum == "" {
 		return "", errors.Wrap(stderrors.Join(checksumsDownloadErrs...), "failed to prepare signed local library checksums")
 	}
 
-	archivePath := filepath.Join(targetDir, archiveName)
+	archivePath := filepath.Join(targetDir, selectedArchiveName)
 	exists, err = localFileExistsNonEmpty(archivePath)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to stat local runtime archive at %s", archivePath)
 	}
 	if exists {
 		if err := localVerifyFileChecksum(archivePath, expectedChecksum); err != nil {
-			_ = os.Remove(archivePath)
+			verifyErr := errors.Wrap(err, "existing local runtime archive checksum verification failed")
+			if removeErr := localRemoveCorruptedArchive(archivePath); removeErr != nil {
+				return "", stderrors.Join(verifyErr, removeErr)
+			}
+			// Existing archive was corrupted and successfully removed; continue to re-download.
 		}
 	}
 	exists, err = localFileExistsNonEmpty(archivePath)
@@ -309,18 +321,16 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 		return "", errors.Wrapf(err, "failed to stat local runtime archive at %s", archivePath)
 	}
 	if !exists {
-		if err := localDownloadReleaseAssetFromBase(selectedReleaseBase, version, archiveName, archivePath); err != nil {
+		if err := localDownloadReleaseAssetFromBase(selectedReleaseBase, version, selectedArchiveName, archivePath); err != nil {
 			return "", errors.Wrap(err, "failed to download local library archive")
 		}
 	}
 
 	if err := localVerifyFileChecksum(archivePath, expectedChecksum); err != nil {
-		_ = os.Remove(archivePath)
-		return "", errors.Wrap(err, "local library archive checksum verification failed")
+		return "", localFailWithArchiveCleanup(archivePath, err, "local library archive checksum verification failed")
 	}
 	if err := localVerifyTarGzFile(archivePath); err != nil {
-		_ = os.Remove(archivePath)
-		return "", errors.Wrap(err, "local library archive verification failed")
+		return "", localFailWithArchiveCleanup(archivePath, err, "local library archive verification failed")
 	}
 
 	tempLibraryPath := targetLibraryPath + ".tmp"
@@ -373,8 +383,26 @@ func localLibraryAssetForRuntime(goos, goarch string) (localLibraryAsset, error)
 	}, nil
 }
 
-func localLibraryArchiveName(version, platform string) string {
-	return fmt.Sprintf("chroma-go-local-%s-%s.tar.gz", version, platform)
+func localLibraryArchiveNames(version, platform string) []string {
+	return []string{
+		fmt.Sprintf("%s-%s-%s.tar.gz", localLibraryArchivePrefixLegacy, version, platform),
+		fmt.Sprintf("%s-%s-%s.tar.gz", localLibraryArchivePrefixLocalChroma, version, platform),
+	}
+}
+
+func localRemoveCorruptedArchive(archivePath string) error {
+	if err := os.Remove(archivePath); err != nil && !os.IsNotExist(err) {
+		return errors.Wrapf(err, "failed to remove corrupted local runtime archive %s", archivePath)
+	}
+	return nil
+}
+
+func localFailWithArchiveCleanup(archivePath string, err error, msg string) error {
+	verifyErr := errors.Wrap(err, msg)
+	if removeErr := localRemoveCorruptedArchive(archivePath); removeErr != nil {
+		return stderrors.Join(verifyErr, removeErr)
+	}
+	return verifyErr
 }
 
 func validateLocalLibraryTag(version string) error {
@@ -547,28 +575,28 @@ func localReleaseBaseURLs() []string {
 	return bases
 }
 
-func localPrepareSignedChecksumsFromBase(baseURL, version, targetDir, archiveName string) (string, error) {
+func localPrepareSignedChecksumsFromBase(baseURL, version, targetDir string, archiveNames []string) (string, string, error) {
 	checksumsPath := filepath.Join(targetDir, localLibraryChecksumsAsset)
 	if err := localDownloadReleaseAssetFromBase(baseURL, version, localLibraryChecksumsAsset, checksumsPath); err != nil {
-		return "", errors.Wrap(err, "failed to download local library checksums")
+		return "", "", errors.Wrap(err, "failed to download local library checksums")
 	}
 	checksumsSignaturePath := filepath.Join(targetDir, localLibraryChecksumsSignatureAsset)
 	if err := localDownloadReleaseAssetFromBase(baseURL, version, localLibraryChecksumsSignatureAsset, checksumsSignaturePath); err != nil {
-		return "", errors.Wrap(err, "failed to download local library checksums signature")
+		return "", "", errors.Wrap(err, "failed to download local library checksums signature")
 	}
 	checksumsCertificatePath := filepath.Join(targetDir, localLibraryChecksumsCertificateAsset)
 	if err := localDownloadReleaseAssetFromBase(baseURL, version, localLibraryChecksumsCertificateAsset, checksumsCertificatePath); err != nil {
-		return "", errors.Wrap(err, "failed to download local library checksums certificate")
+		return "", "", errors.Wrap(err, "failed to download local library checksums certificate")
 	}
 	if err := localVerifySignedChecksums(version, checksumsPath, checksumsSignaturePath, checksumsCertificatePath); err != nil {
-		return "", errors.Wrap(err, "failed to verify local library checksums signature")
+		return "", "", errors.Wrap(err, "failed to verify local library checksums signature")
 	}
 
-	expectedChecksum, err := localChecksumFromSumsFile(checksumsPath, archiveName)
+	resolvedArchiveName, expectedChecksum, err := localChecksumFromSumsFileAny(checksumsPath, archiveNames)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to resolve local library checksum")
+		return "", "", errors.Wrap(err, "failed to resolve local library checksum")
 	}
-	return expectedChecksum, nil
+	return resolvedArchiveName, expectedChecksum, nil
 }
 
 func localDownloadReleaseAssetFromBase(baseURL, version, assetName, destinationPath string) error {
@@ -808,10 +836,30 @@ func localVerifyBlobSignature(certificate *x509.Certificate, payload, signature 
 	}
 }
 
-func localChecksumFromSumsFile(sumsFilePath, assetName string) (string, error) {
+// localChecksumFromSumsFileAny matches checksum entries in file order.
+// If multiple candidate asset names are present, the first matching line in the checksums file wins.
+func localChecksumFromSumsFileAny(sumsFilePath string, assetNames []string) (string, string, error) {
+	candidates := make(map[string]string, len(assetNames))
+	candidateList := make([]string, 0, len(assetNames))
+	for _, assetName := range assetNames {
+		original := strings.TrimSpace(assetName)
+		normalized := localNormalizedChecksumAssetName(original)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := candidates[normalized]; ok {
+			continue
+		}
+		candidates[normalized] = original
+		candidateList = append(candidateList, original)
+	}
+	if len(candidates) == 0 {
+		return "", "", errors.New("asset names cannot be empty")
+	}
+
 	f, err := os.Open(sumsFilePath)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to open checksum file")
+		return "", "", errors.Wrap(err, "failed to open checksum file")
 	}
 	defer f.Close()
 
@@ -825,15 +873,29 @@ func localChecksumFromSumsFile(sumsFilePath, assetName string) (string, error) {
 		if len(fields) < 2 {
 			continue
 		}
-		checksumAssetName := strings.TrimPrefix(fields[1], "*")
-		if checksumAssetName == assetName {
-			return strings.ToLower(fields[0]), nil
+		checksumAssetName := localNormalizedChecksumAssetName(fields[1])
+		if checksumAssetName == "" {
+			continue
+		}
+		if originalAssetName, ok := candidates[checksumAssetName]; ok {
+			return originalAssetName, strings.ToLower(fields[0]), nil
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return "", errors.Wrap(err, "failed to read checksum file")
+		return "", "", errors.Wrap(err, "failed to read checksum file")
 	}
-	return "", errors.Errorf("checksum entry not found for asset %s", assetName)
+	return "", "", errors.Errorf("checksum entry not found for assets [%s]", strings.Join(candidateList, ", "))
+}
+
+func localNormalizedChecksumAssetName(assetName string) string {
+	normalized := strings.TrimPrefix(strings.TrimSpace(assetName), "*")
+	normalized = strings.TrimPrefix(normalized, "./")
+	normalized = strings.ReplaceAll(normalized, "\\", "/")
+	normalized = path.Base(normalized)
+	if normalized == "." || normalized == "/" {
+		return ""
+	}
+	return strings.TrimSpace(normalized)
 }
 
 func localVerifyFileChecksum(filePath, expectedChecksum string) error {
