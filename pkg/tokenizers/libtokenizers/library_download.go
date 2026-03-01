@@ -49,7 +49,46 @@ var (
 	tokenizerDownloadFileFunc       = tokenizerDownloadFileWithRetry
 	tokenizerReadBuildInfoFunc      = debug.ReadBuildInfo
 	tokenizerUserHomeDirFunc        = os.UserHomeDir
+
+	tokenizerMetadataClientOnce sync.Once
+	tokenizerMetadataClient     *http.Client
+	tokenizerDownloadClientOnce sync.Once
+	tokenizerDownloadClient     *http.Client
 )
+
+func tokenizerGetMetadataHTTPClient() *http.Client {
+	tokenizerMetadataClientOnce.Do(func() {
+		tokenizerMetadataClient = &http.Client{
+			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: 10 * time.Second,
+				}).DialContext,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ResponseHeaderTimeout: 30 * time.Second,
+			},
+			CheckRedirect: tokenizerRejectHTTPSDowngradeRedirect,
+		}
+	})
+	return tokenizerMetadataClient
+}
+
+func tokenizerGetDownloadHTTPClient() *http.Client {
+	tokenizerDownloadClientOnce.Do(func() {
+		tokenizerDownloadClient = &http.Client{
+			Timeout: 10 * time.Minute,
+			Transport: &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: 30 * time.Second,
+				}).DialContext,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ResponseHeaderTimeout: 30 * time.Second,
+			},
+			CheckRedirect: tokenizerRejectHTTPSDowngradeRedirect,
+		}
+	})
+	return tokenizerDownloadClient
+}
 
 type tokenizerLibraryAsset struct {
 	platform        string
@@ -337,6 +376,9 @@ func tokenizerReleaseBaseURLs() []string {
 		if base == "" {
 			continue
 		}
+		if !strings.HasPrefix(base, "https://") {
+			continue
+		}
 		if _, ok := seen[base]; ok {
 			continue
 		}
@@ -415,17 +457,7 @@ func tokenizerFetchLatestVersionFromBase(baseURL string) (string, error) {
 		return "", errors.New("release base URL cannot be empty")
 	}
 	url := baseURL + "/latest.json"
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: 10 * time.Second,
-			}).DialContext,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 30 * time.Second,
-		},
-		CheckRedirect: tokenizerRejectHTTPSDowngradeRedirect,
-	}
+	client := tokenizerGetMetadataHTTPClient()
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to build latest version request")
@@ -453,17 +485,7 @@ func tokenizerFetchLatestVersionFromBase(baseURL string) (string, error) {
 }
 
 func tokenizerFetchLatestVersionFromGitHub() (string, error) {
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: 10 * time.Second,
-			}).DialContext,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 30 * time.Second,
-		},
-		CheckRedirect: tokenizerRejectHTTPSDowngradeRedirect,
-	}
+	client := tokenizerGetMetadataHTTPClient()
 	req, err := http.NewRequest(http.MethodGet, tokenizerGitHubReleasesAPI, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to build GitHub latest version request")
@@ -540,10 +562,12 @@ func normalizeTokenizerTag(version string) (string, error) {
 	case strings.HasPrefix(version, "rust-"):
 		suffix := strings.TrimPrefix(version, "rust-")
 		if suffix == "" {
-			return tokenizerLatestTag, nil
+			return "", errors.New("tokenizers library version has empty suffix after 'rust-' prefix")
 		}
 		if suffix[0] >= '0' && suffix[0] <= '9' {
 			version = "rust-v" + suffix
+		} else {
+			return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-' prefix: must start with a digit or 'v'", version)
 		}
 	case strings.HasPrefix(version, "v"):
 		version = "rust-" + version
@@ -679,17 +703,7 @@ func tokenizerDownloadFileWithRetry(filePath, url string) error {
 }
 
 func tokenizerDownloadFile(filePath, url string) error {
-	client := &http.Client{
-		Timeout: 10 * time.Minute,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: 30 * time.Second,
-			}).DialContext,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ResponseHeaderTimeout: 30 * time.Second,
-		},
-		CheckRedirect: tokenizerRejectHTTPSDowngradeRedirect,
-	}
+	client := tokenizerGetDownloadHTTPClient()
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

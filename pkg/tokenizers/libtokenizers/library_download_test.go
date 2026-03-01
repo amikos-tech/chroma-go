@@ -32,7 +32,8 @@ func TestNormalizeTokenizerTag(t *testing.T) {
 		{name: "go tag", in: "v0.1.4", expected: "rust-v0.1.4"},
 		{name: "rust prefix", in: "rust-v0.1.4", expected: "rust-v0.1.4"},
 		{name: "bare rust prefix", in: "rust-0.1.4", expected: "rust-v0.1.4"},
-		{name: "empty rust suffix", in: "rust-", expected: "latest"},
+		{name: "empty rust suffix", in: "rust-", expectErr: true},
+		{name: "non-digit rust suffix", in: "rust-abc", expectErr: true},
 		{name: "invalid chars", in: "v0.1.4/../../", expectErr: true},
 		{name: "too long", in: "rust-v" + strings.Repeat("1", tokenizerMaxVersionTagLength), expectErr: true},
 	}
@@ -62,6 +63,21 @@ func TestTokenizerReleaseBaseURLsDeduplicates(t *testing.T) {
 	tokenizerFallbackReleaseBaseURL = "https://releases.amikos.tech/pure-tokenizers"
 
 	require.Equal(t, []string{"https://releases.amikos.tech/pure-tokenizers"}, tokenizerReleaseBaseURLs())
+}
+
+func TestTokenizerReleaseBaseURLsRejectsHTTP(t *testing.T) {
+	originalPrimary := tokenizerReleaseBaseURL
+	originalFallback := tokenizerFallbackReleaseBaseURL
+	t.Cleanup(func() {
+		tokenizerReleaseBaseURL = originalPrimary
+		tokenizerFallbackReleaseBaseURL = originalFallback
+	})
+
+	tokenizerReleaseBaseURL = "http://insecure.example.com/pure-tokenizers"
+	tokenizerFallbackReleaseBaseURL = "https://releases.amikos.tech/pure-tokenizers"
+
+	urls := tokenizerReleaseBaseURLs()
+	require.Equal(t, []string{"https://releases.amikos.tech/pure-tokenizers"}, urls)
 }
 
 func TestTokenizerChecksumFromSumsFile(t *testing.T) {
