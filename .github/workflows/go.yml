@@ -216,6 +216,8 @@ jobs:
             test_path: ./pkg/embeddings/roboflow/...
           - provider: morph
             test_path: ./pkg/embeddings/morph/...
+          - provider: perplexity
+            test_path: ./pkg/embeddings/perplexity/...
           - provider: baseten
             test_path: ./pkg/embeddings/baseten/...
           - provider: bedrock
@@ -271,6 +273,7 @@ jobs:
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           ROBOFLOW_API_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
           MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
           BASETEN_BASE_URL: ${{ secrets.BASETEN_BASE_URL }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

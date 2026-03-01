@@ -22,6 +22,7 @@ Embeddings are vector representations of data that enable similarity search. Chr
 | Gemini | `gemini` | `github.com/amikos-tech/chroma-go/pkg/embeddings/gemini` |
 | Cloudflare | `cloudflare` | `github.com/amikos-tech/chroma-go/pkg/embeddings/cloudflare` |
 | Together AI | `together` | `github.com/amikos-tech/chroma-go/pkg/embeddings/together` |
+| Perplexity | `perplexity` | `github.com/amikos-tech/chroma-go/pkg/embeddings/perplexity` |
 | Chroma Cloud | `chromacloud` | `github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloud` |
 
 ## Default Embedding Function
@@ -431,6 +432,7 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/nomic"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/ollama"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings/perplexity"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/together"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings/voyage"
 )
@@ -503,6 +505,12 @@ func createEmbeddingFunctions() {
 		together.WithModel("togethercomputer/m2-bert-80M-8k-retrieval"),
 	)
 
+	// Perplexity
+	perplexityEF, _ := perplexity.NewPerplexityEmbeddingFunction(
+		perplexity.WithAPIKey(os.Getenv("PERPLEXITY_API_KEY")),
+		perplexity.WithModel("pplx-embed-v1-0.6b"),
+	)
+
 	_ = openaiEF
 	_ = cohereEF
 	_ = ollamaEF
@@ -514,6 +522,7 @@ func createEmbeddingFunctions() {
 	_ = geminiEF
 	_ = cloudflareEF
 	_ = togetherEF
+	_ = perplexityEF
 }
 ```
 {% /codetab %}

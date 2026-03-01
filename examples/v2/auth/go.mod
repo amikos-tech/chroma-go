@@ -6,7 +6,7 @@ require github.com/amikos-tech/chroma-go v0.2.4
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
-	github.com/amikos-tech/pure-tokenizers v0.1.1 // indirect
+	github.com/amikos-tech/pure-tokenizers v0.1.4 // indirect
 	github.com/ebitengine/purego v0.9.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
