@@ -889,7 +889,6 @@ func localChecksumFromSumsFileAny(sumsFilePath string, assetNames []string) (str
 
 func localNormalizedChecksumAssetName(assetName string) string {
 	normalized := strings.TrimPrefix(strings.TrimSpace(assetName), "*")
-	normalized = strings.TrimPrefix(normalized, "./")
 	normalized = strings.ReplaceAll(normalized, "\\", "/")
 	normalized = path.Base(normalized)
 	if normalized == "." || normalized == "/" || normalized == ".." {
