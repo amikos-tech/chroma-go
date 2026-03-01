@@ -27,6 +27,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pkg/errors"
 )
@@ -606,7 +607,7 @@ func localDecodeBase64Bytes(raw []byte) ([]byte, error) {
 func localReadCosignCertificate(filePath string) (*x509.Certificate, error) {
 	raw, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to read certificate file %s", filePath)
 	}
 	certPEM := bytes.TrimSpace(raw)
 	if len(certPEM) == 0 {
@@ -628,7 +629,7 @@ func localReadCosignCertificate(filePath string) (*x509.Certificate, error) {
 	}
 	certificate, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to parse certificate from %s", filePath)
 	}
 	return certificate, nil
 }
@@ -689,10 +690,25 @@ func localCertificateExtensionValue(certificate *x509.Certificate, oid asn1.Obje
 			continue
 		}
 		var value string
-		if _, err := asn1.Unmarshal(extension.Value, &value); err != nil {
-			return "", false, errors.Wrapf(err, "failed to decode certificate extension %s", oid.String())
+		var unmarshalErr error
+		if remainder, err := asn1.Unmarshal(extension.Value, &value); err == nil {
+			if len(remainder) == 0 {
+				return value, true, nil
+			}
+			unmarshalErr = errors.Errorf("ASN.1 payload contains %d trailing bytes", len(remainder))
+		} else {
+			unmarshalErr = err
 		}
-		return value, true, nil
+		if utf8.Valid(extension.Value) {
+			value = strings.TrimSpace(string(extension.Value))
+			if value != "" {
+				return value, true, nil
+			}
+		}
+		if unmarshalErr != nil {
+			return "", false, errors.Wrapf(unmarshalErr, "failed to decode certificate extension %s", oid.String())
+		}
+		return "", false, errors.Errorf("failed to decode certificate extension %s", oid.String())
 	}
 	return "", false, nil
 }

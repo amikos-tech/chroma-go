@@ -552,6 +552,24 @@ func TestLocalValidateCosignCertificate_AllowsExpiredFulcioCertificate(t *testin
 	require.NoError(t, err)
 }
 
+func TestLocalValidateCosignCertificate_AllowsRawOIDCIssuerExtension(t *testing.T) {
+	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
+		identity:           fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		oidcIssuer:         localLibraryCosignOIDCIssuer,
+		oidcIssuerRawValue: true,
+		notBefore:          time.Now().Add(-1 * time.Minute),
+		notAfter:           time.Now().Add(10 * time.Minute),
+		extKeyUsage:        []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	})
+
+	err := localValidateCosignCertificate(
+		certificate,
+		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
+		localLibraryCosignOIDCIssuer,
+	)
+	require.NoError(t, err)
+}
+
 func TestLocalValidateCosignCertificate_RejectsFutureNotBefore(t *testing.T) {
 	certificate := newCosignCertificate(t, localTestCosignCertificateOptions{
 		identity:    fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
@@ -663,6 +681,29 @@ func TestLocalReadCosignCertificate_RejectsInvalidAndTrailingPEM(t *testing.T) {
 	_, err = localReadCosignCertificate(trailingPath)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "trailing data")
+}
+
+func TestLocalReadCosignCertificate_ReadErrorIncludesPath(t *testing.T) {
+	missingPath := filepath.Join(t.TempDir(), "missing.pem")
+	_, err := localReadCosignCertificate(missingPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), missingPath)
+}
+
+func TestLocalCertificateExtensionValue_ReportsASN1DecodeError(t *testing.T) {
+	certificate := &x509.Certificate{
+		Extensions: []pkix.Extension{
+			{
+				Id:    localLibraryCosignOIDCIssuerExtensionOID,
+				Value: []byte{0xff, 0xfe},
+			},
+		},
+	}
+
+	_, _, err := localCertificateExtensionValue(certificate, localLibraryCosignOIDCIssuerExtensionOID)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to decode certificate extension")
+	require.Contains(t, err.Error(), "asn1")
 }
 
 func TestLocalVerifyBlobSignature_SupportsRSAAndEd25519(t *testing.T) {
@@ -778,11 +819,12 @@ func newTarGzWithLibrary(t *testing.T, fileName string, content []byte) []byte {
 }
 
 type localTestCosignCertificateOptions struct {
-	identity    string
-	oidcIssuer  string
-	notBefore   time.Time
-	notAfter    time.Time
-	extKeyUsage []x509.ExtKeyUsage
+	identity           string
+	oidcIssuer         string
+	oidcIssuerRawValue bool
+	notBefore          time.Time
+	notAfter           time.Time
+	extKeyUsage        []x509.ExtKeyUsage
 }
 
 func newCosignCertificatePEM(t *testing.T, opts localTestCosignCertificateOptions) []byte {
@@ -807,8 +849,11 @@ func newCosignCertificateWithKey(t *testing.T, opts localTestCosignCertificateOp
 
 	identityURI, err := url.Parse(opts.identity)
 	require.NoError(t, err)
-	oidcIssuerValue, err := asn1.Marshal(opts.oidcIssuer)
-	require.NoError(t, err)
+	oidcIssuerValue := []byte(opts.oidcIssuer)
+	if !opts.oidcIssuerRawValue {
+		oidcIssuerValue, err = asn1.Marshal(opts.oidcIssuer)
+		require.NoError(t, err)
+	}
 
 	certTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano()),
