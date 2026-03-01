@@ -127,6 +127,26 @@ func TestPerplexityEmbeddingFunction_HTTPErrorResponse(t *testing.T) {
 	require.Contains(t, err.Error(), "429")
 }
 
+func TestPerplexityEmbeddingFunction_HTTPErrorResponse_TruncatedBody(t *testing.T) {
+	longMsg := strings.Repeat("x", maxErrorBodyChars+200)
+	httpClient := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return newResponse(http.StatusBadRequest, `{"error":"`+longMsg+`"}`), nil
+		}),
+	}
+	ef, err := NewPerplexityEmbeddingFunction(
+		WithAPIKey("test-key"),
+		WithHTTPClient(httpClient),
+	)
+	require.NoError(t, err)
+
+	_, err = ef.EmbedQuery(context.Background(), "hello")
+	require.Error(t, err)
+	msg := err.Error()
+	require.Contains(t, msg, "...(truncated)")
+	assert.Less(t, len(msg), len(longMsg)+100)
+}
+
 func TestPerplexityClient_CreateEmbedding_NilInputRejected(t *testing.T) {
 	called := false
 	httpClient := &http.Client{
@@ -148,6 +168,45 @@ func TestPerplexityClient_CreateEmbedding_NilInputRejected(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "input is required")
 	assert.False(t, called, "HTTP request should not be made for invalid input")
+}
+
+func TestPerplexityClient_CreateEmbedding_DimensionsPointerIsolation(t *testing.T) {
+	httpClient := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return newResponse(http.StatusOK, `{
+				"data":[{"index":0,"embedding":"AQ=="}]
+			}`), nil
+		}),
+	}
+	client, err := NewPerplexityClient(
+		WithAPIKey("test-key"),
+		WithHTTPClient(httpClient),
+		WithDimensions(256),
+	)
+	require.NoError(t, err)
+
+	// nil request dimensions should be populated with a copied pointer
+	reqA := &CreateEmbeddingRequest{
+		Input: &EmbeddingInputs{Input: "doc-a"},
+	}
+	_, err = client.CreateEmbedding(context.Background(), reqA)
+	require.NoError(t, err)
+	require.NotNil(t, reqA.Dimensions)
+	*reqA.Dimensions = 1
+	require.NotNil(t, client.dimensions)
+	assert.Equal(t, 256, *client.dimensions)
+
+	// explicit request dimensions should also be copied, not aliased
+	externalDims := 777
+	reqB := &CreateEmbeddingRequest{
+		Input:      &EmbeddingInputs{Input: "doc-b"},
+		Dimensions: &externalDims,
+	}
+	_, err = client.CreateEmbedding(context.Background(), reqB)
+	require.NoError(t, err)
+	require.NotNil(t, reqB.Dimensions)
+	*reqB.Dimensions = 2
+	assert.Equal(t, 777, externalDims)
 }
 
 func TestPerplexityEmbeddingFunction_EmbedDocumentsResponseValidation(t *testing.T) {
@@ -284,6 +343,15 @@ func TestPerplexityEmbeddingFunction_ConfigRoundTrip(t *testing.T) {
 	assert.Equal(t, cfg["dimensions"], rebuiltCfg["dimensions"])
 	assert.Equal(t, cfg["base_url"], rebuiltCfg["base_url"])
 	assert.Equal(t, cfg["insecure"], rebuiltCfg["insecure"])
+}
+
+func TestPerplexityEmbeddingFunction_GetConfig_DefaultBaseURLNotPersisted(t *testing.T) {
+	ef, err := NewPerplexityEmbeddingFunction(WithAPIKey("test-key"))
+	require.NoError(t, err)
+
+	cfg := ef.GetConfig()
+	_, hasBaseURL := cfg["base_url"]
+	assert.False(t, hasBaseURL, "default base_url should not be persisted")
 }
 
 func TestPerplexityEmbeddingFunction_RegisteredWithPerplexityName(t *testing.T) {

@@ -29,16 +29,18 @@ const (
 	APIKeyEnvVar   = "PERPLEXITY_API_KEY"
 
 	EncodingFormatBase64Int8 = "base64_int8"
+	maxErrorBodyChars        = 512
 )
 
 type PerplexityClient struct {
-	baseAPI      string
-	APIKey       embeddings.Secret `json:"-" validate:"required"`
-	apiKeyEnvVar string
-	defaultModel embeddings.EmbeddingModel
-	dimensions   *int
-	client       *http.Client
-	insecure     bool
+	baseAPI       string
+	customBaseURL bool
+	APIKey        embeddings.Secret `json:"-" validate:"required"`
+	apiKeyEnvVar  string
+	defaultModel  embeddings.EmbeddingModel
+	dimensions    *int
+	client        *http.Client
+	insecure      bool
 }
 
 func applyDefaults(c *PerplexityClient) {
@@ -132,6 +134,22 @@ func decodeBase64Int8Embedding(encoded string) ([]float32, error) {
 	return emb, nil
 }
 
+func cloneIntPtr(v *int) *int {
+	if v == nil {
+		return nil
+	}
+	n := *v
+	return &n
+}
+
+func sanitizeErrorBody(body []byte) string {
+	trimmed := strings.TrimSpace(string(body))
+	if len(trimmed) <= maxErrorBodyChars {
+		return trimmed
+	}
+	return trimmed[:maxErrorBodyChars] + "...(truncated)"
+}
+
 func (e *EmbeddingTypeResult) UnmarshalJSON(data []byte) error {
 	var encoded string
 	if err := json.Unmarshal(data, &encoded); err == nil {
@@ -185,7 +203,9 @@ func (c *PerplexityClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 		req.EncodingFormat = EncodingFormatBase64Int8
 	}
 	if req.Dimensions == nil {
-		req.Dimensions = c.dimensions
+		req.Dimensions = cloneIntPtr(c.dimensions)
+	} else {
+		req.Dimensions = cloneIntPtr(req.Dimensions)
 	}
 
 	reqJSON, err := req.JSON()
@@ -212,7 +232,7 @@ func (c *PerplexityClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.baseAPI, string(respData))
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.baseAPI, sanitizeErrorBody(respData))
 	}
 	var embeddingResponse CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddingResponse); err != nil {
@@ -251,7 +271,7 @@ func (e *PerplexityEmbeddingFunction) EmbedDocuments(ctx context.Context, docume
 	req := &CreateEmbeddingRequest{
 		Model:          string(e.getModel(ctx)),
 		Input:          &EmbeddingInputs{Inputs: documents},
-		Dimensions:     e.apiClient.dimensions,
+		Dimensions:     cloneIntPtr(e.apiClient.dimensions),
 		EncodingFormat: EncodingFormatBase64Int8,
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
@@ -287,7 +307,7 @@ func (e *PerplexityEmbeddingFunction) EmbedQuery(ctx context.Context, document s
 	req := &CreateEmbeddingRequest{
 		Model:          string(e.getModel(ctx)),
 		Input:          &EmbeddingInputs{Input: document},
-		Dimensions:     e.apiClient.dimensions,
+		Dimensions:     cloneIntPtr(e.apiClient.dimensions),
 		EncodingFormat: EncodingFormatBase64Int8,
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
@@ -319,7 +339,7 @@ func (e *PerplexityEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionCo
 	if e.apiClient.dimensions != nil {
 		cfg["dimensions"] = *e.apiClient.dimensions
 	}
-	if e.apiClient.baseAPI != "" {
+	if e.apiClient.customBaseURL {
 		cfg["base_url"] = e.apiClient.baseAPI
 	}
 	if e.apiClient.insecure {

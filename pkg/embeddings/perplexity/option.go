@@ -77,6 +77,7 @@ func WithBaseURL(baseURL string) Option {
 			return errors.Wrap(err, "invalid base URL")
 		}
 		p.baseAPI = baseURL
+		p.customBaseURL = true
 		return nil
 	}
 }
