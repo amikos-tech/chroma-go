@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,23 +21,25 @@ const (
 type Config struct {
 	MaxBytes              int64
 	DirPerm               os.FileMode
+	AllowHTTP             bool
 	Timeout               time.Duration
 	DialTimeout           time.Duration
 	TLSHandshakeTimeout   time.Duration
 	ResponseHeaderTimeout time.Duration
+	IdleConnTimeout       time.Duration
 	Accept                string
 	UserAgent             string
 }
 
 // DownloadFileWithRetry downloads a file with linear retry backoff.
-func DownloadFileWithRetry(filePath, url string, attempts int, cfg Config) error {
+func DownloadFileWithRetry(filePath, sourceURL string, attempts int, cfg Config) error {
 	if attempts < 1 {
 		attempts = 1
 	}
 
 	var lastErr error
 	for attempt := 1; attempt <= attempts; attempt++ {
-		if err := DownloadFile(filePath, url, cfg); err != nil {
+		if err := DownloadFile(filePath, sourceURL, cfg); err != nil {
 			lastErr = err
 			if attempt < attempts {
 				time.Sleep(time.Duration(attempt) * time.Second)
@@ -52,10 +55,14 @@ func DownloadFileWithRetry(filePath, url string, attempts int, cfg Config) error
 }
 
 // DownloadFile downloads a file to disk via temp file + rename while enforcing max size.
-func DownloadFile(filePath, url string, cfg Config) error {
+func DownloadFile(filePath, sourceURL string, cfg Config) error {
 	cfg = withDefaults(cfg)
 	if cfg.MaxBytes <= 0 {
 		return errors.New("max download bytes must be greater than zero")
+	}
+	parsedURL, err := validateSourceURL(sourceURL, cfg.AllowHTTP)
+	if err != nil {
+		return err
 	}
 
 	client := &http.Client{
@@ -66,11 +73,13 @@ func DownloadFile(filePath, url string, cfg Config) error {
 			}).DialContext,
 			TLSHandshakeTimeout:   cfg.TLSHandshakeTimeout,
 			ResponseHeaderTimeout: cfg.ResponseHeaderTimeout,
+			IdleConnTimeout:       cfg.IdleConnTimeout,
 		},
 		CheckRedirect: RejectHTTPSDowngradeRedirect,
 	}
+	defer client.CloseIdleConnections()
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequest(http.MethodGet, parsedURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
@@ -88,7 +97,7 @@ func DownloadFile(filePath, url string, cfg Config) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected response %s for URL %s", resp.Status, url)
+		return fmt.Errorf("unexpected response %s for URL %s", resp.Status, parsedURL.String())
 	}
 	if resp.ContentLength > 0 && resp.ContentLength > cfg.MaxBytes {
 		return fmt.Errorf(
@@ -174,8 +183,31 @@ func withDefaults(cfg Config) Config {
 	if cfg.ResponseHeaderTimeout <= 0 {
 		cfg.ResponseHeaderTimeout = 30 * time.Second
 	}
+	if cfg.IdleConnTimeout <= 0 {
+		cfg.IdleConnTimeout = 90 * time.Second
+	}
 	if cfg.DirPerm == 0 {
 		cfg.DirPerm = 0700
 	}
 	return cfg
+}
+
+func validateSourceURL(rawURL string, allowHTTP bool) (*url.URL, error) {
+	parsedURL, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return nil, fmt.Errorf("invalid source URL %q: %w", rawURL, err)
+	}
+	if !parsedURL.IsAbs() {
+		return nil, fmt.Errorf("source URL must be absolute: %q", rawURL)
+	}
+	if strings.TrimSpace(parsedURL.Host) == "" {
+		return nil, fmt.Errorf("source URL host cannot be empty: %q", rawURL)
+	}
+	if strings.EqualFold(parsedURL.Scheme, "https") {
+		return parsedURL, nil
+	}
+	if allowHTTP && strings.EqualFold(parsedURL.Scheme, "http") {
+		return parsedURL, nil
+	}
+	return nil, fmt.Errorf("only HTTPS URLs are supported: %q", rawURL)
 }

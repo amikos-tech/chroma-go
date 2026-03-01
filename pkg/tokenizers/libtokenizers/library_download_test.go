@@ -9,12 +9,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -127,6 +129,15 @@ func TestTokenizerDecodeJSONResponseSizeLimit(t *testing.T) {
 	err := tokenizerDecodeJSONResponse(strings.NewReader(payload), 8, &out)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "metadata response is too large")
+}
+
+func TestTokenizerGetMetadataHTTPClient_TransportHardening(t *testing.T) {
+	client := tokenizerGetMetadataHTTPClient()
+	transport, ok := client.Transport.(*http.Transport)
+	require.True(t, ok, "metadata client transport must be *http.Transport")
+	require.Equal(t, 90*time.Second, transport.IdleConnTimeout)
+	require.Equal(t, 10*time.Second, transport.TLSHandshakeTimeout)
+	require.Equal(t, 30*time.Second, transport.ResponseHeaderTimeout)
 }
 
 func TestEnsureTokenizerLibraryDownloadedRetriesAcrossMirrors(t *testing.T) {

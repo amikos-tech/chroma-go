@@ -68,6 +68,7 @@ func tokenizerGetMetadataHTTPClient() *http.Client {
 				}).DialContext,
 				TLSHandshakeTimeout:   10 * time.Second,
 				ResponseHeaderTimeout: 30 * time.Second,
+				IdleConnTimeout:       90 * time.Second,
 			},
 			CheckRedirect: downloadutil.RejectHTTPSDowngradeRedirect,
 		}

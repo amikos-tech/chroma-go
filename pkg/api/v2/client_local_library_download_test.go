@@ -1124,8 +1124,9 @@ func TestLocalDownloadFile_RejectsOversizedArtifact(t *testing.T) {
 		targetPath,
 		server.URL,
 		downloadutil.Config{
-			MaxBytes: localLibraryMaxArtifactBytes,
-			DirPerm:  localLibraryCacheDirPerm,
+			MaxBytes:  localLibraryMaxArtifactBytes,
+			DirPerm:   localLibraryCacheDirPerm,
+			AllowHTTP: true,
 		},
 	)
 	require.Error(t, err)
