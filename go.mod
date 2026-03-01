@@ -5,7 +5,7 @@ go 1.24.11
 require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/amikos-tech/chroma-go-local v0.3.1
-	github.com/amikos-tech/pure-tokenizers v0.1.1
+	github.com/amikos-tech/pure-tokenizers v0.1.4
 	github.com/aws/aws-sdk-go-v2 v1.41.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.7
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.49.0

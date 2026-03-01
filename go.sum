@@ -69,6 +69,8 @@ github.com/amikos-tech/chroma-go-local v0.3.1 h1:QA6IIMMXc/Bsy0D14XTDz1uYdQCEIaD
 github.com/amikos-tech/chroma-go-local v0.3.1/go.mod h1:U37BtxfJldfcpiya6nelgy+SdMesYOVub9kcnRknTrk=
 github.com/amikos-tech/pure-tokenizers v0.1.1 h1:AOPMW+GLd7/FapGiyBV7CGKj766zd1VDFbv+0wqGOWA=
 github.com/amikos-tech/pure-tokenizers v0.1.1/go.mod h1:o0ICQtz7tM7pukqwfybBk6FvWKFZLyIWs4uFYbH+CG4=
+github.com/amikos-tech/pure-tokenizers v0.1.4 h1:32Xd6kJ699b4LDyQh6HoQP7aFcbzQKILAuNlHPZlsHI=
+github.com/amikos-tech/pure-tokenizers v0.1.4/go.mod h1:o0ICQtz7tM7pukqwfybBk6FvWKFZLyIWs4uFYbH+CG4=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
 github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmVTwzkszR9V5SSuryQ31EELlFMUz1kKyl939pY=
