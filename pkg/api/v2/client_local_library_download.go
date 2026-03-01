@@ -289,6 +289,9 @@ func ensureLocalLibraryDownloaded(version, cacheDir string) (libPath string, ret
 	if err := localVerifyFileChecksum(archivePath, expectedChecksum); err != nil {
 		return "", localFailWithArchiveCleanup(archivePath, err, "local library archive checksum verification failed")
 	}
+	if err := localVerifyTarGzContainsLibrary(archivePath, asset.libraryFileName); err != nil {
+		return "", localFailWithArchiveCleanup(archivePath, err, "local library archive verification failed")
+	}
 	tempLibraryPath := targetLibraryPath + ".tmp"
 	_ = os.Remove(tempLibraryPath)
 	if err := localExtractLibraryFromTarGz(archivePath, asset.libraryFileName, tempLibraryPath); err != nil {
@@ -689,6 +692,50 @@ func localDownloadFileWithRetry(filePath, url string) error {
 			DirPerm:  localLibraryCacheDirPerm,
 		},
 	))
+}
+
+func localVerifyTarGzContainsLibrary(filePath, libraryFileName string) error {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return errors.Wrap(err, "could not open archive for verification")
+	}
+	defer f.Close()
+
+	gzipReader, err := gzip.NewReader(f)
+	if err != nil {
+		return errors.Wrap(err, "invalid gzip archive")
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return errors.Wrap(err, "invalid tar archive")
+		}
+		if header.Typeflag != tar.TypeReg {
+			continue
+		}
+		if filepath.Base(header.Name) != libraryFileName {
+			continue
+		}
+		if header.Size <= 0 {
+			return errors.Errorf("library %s has invalid size %d in archive", libraryFileName, header.Size)
+		}
+		if header.Size > localLibraryMaxArtifactBytes {
+			return errors.Errorf(
+				"library %s exceeds max allowed size: %d bytes > %d bytes",
+				libraryFileName,
+				header.Size,
+				localLibraryMaxArtifactBytes,
+			)
+		}
+		return nil
+	}
+	return errors.Errorf("library %s not found in archive", libraryFileName)
 }
 
 func localExtractLibraryFromTarGz(archivePath, libraryFileName, destinationPath string) error {

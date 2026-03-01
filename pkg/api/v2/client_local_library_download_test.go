@@ -947,13 +947,13 @@ func TestLocalCertificateExtensionValue_ReportsASN1DecodeError(t *testing.T) {
 	certificate := &x509.Certificate{
 		Extensions: []pkix.Extension{
 			{
-				Id:    cosignutil.OIDCIssuerExtensionOID,
+				Id:    cosignutil.OIDCIssuerExtensionOID(),
 				Value: []byte{0xff, 0xfe},
 			},
 		},
 	}
 
-	_, _, err := cosignutil.CertificateExtensionValue(certificate, cosignutil.OIDCIssuerExtensionOID)
+	_, _, err := cosignutil.CertificateExtensionValue(certificate, cosignutil.OIDCIssuerExtensionOID())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to decode certificate extension")
 	require.Contains(t, err.Error(), "asn1")
@@ -1251,7 +1251,7 @@ func newCosignCertificateWithKey(t *testing.T, opts localTestCosignCertificateOp
 		URIs:         []*url.URL{identityURI},
 		ExtraExtensions: []pkix.Extension{
 			{
-				Id:    cosignutil.OIDCIssuerExtensionOID,
+				Id:    cosignutil.OIDCIssuerExtensionOID(),
 				Value: oidcIssuerValue,
 			},
 		},
@@ -1303,7 +1303,7 @@ func newSignedChecksumArtifacts(t *testing.T, version string, checksumBody []byt
 		URIs:         []*url.URL{identityURI},
 		ExtraExtensions: []pkix.Extension{
 			{
-				Id:    cosignutil.OIDCIssuerExtensionOID,
+				Id:    cosignutil.OIDCIssuerExtensionOID(),
 				Value: oidcIssuerValue,
 			},
 		},

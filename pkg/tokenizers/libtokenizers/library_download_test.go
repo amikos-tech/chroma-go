@@ -393,7 +393,7 @@ func newTokenizerSignedChecksumArtifacts(t *testing.T, version string, checksumB
 		URIs:                  []*url.URL{identity},
 		ExtraExtensions: []pkix.Extension{
 			{
-				Id:    cosignutil.OIDCIssuerExtensionOID,
+				Id:    cosignutil.OIDCIssuerExtensionOID(),
 				Value: oidcIssuerValue,
 			},
 		},

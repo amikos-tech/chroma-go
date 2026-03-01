@@ -20,8 +20,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-// OIDCIssuerExtensionOID is the Sigstore Fulcio OIDC issuer certificate extension.
-var OIDCIssuerExtensionOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
+var oidcIssuerExtensionOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}
+
+// OIDCIssuerExtensionOID returns a copy of the Sigstore Fulcio OIDC issuer certificate extension OID.
+func OIDCIssuerExtensionOID() asn1.ObjectIdentifier {
+	return append(asn1.ObjectIdentifier(nil), oidcIssuerExtensionOID...)
+}
 
 const (
 	// FulcioIntermediatePEM is the pinned Sigstore Fulcio intermediate certificate.
@@ -255,12 +259,13 @@ func ValidateCosignCertificate(certificate *x509.Certificate, expectedIdentity, 
 		return errors.Errorf("certificate identity does not match expected release identity %s", expectedIdentity)
 	}
 
-	issuerValue, foundIssuer, err := CertificateExtensionValue(certificate, OIDCIssuerExtensionOID)
+	issuerOID := OIDCIssuerExtensionOID()
+	issuerValue, foundIssuer, err := CertificateExtensionValue(certificate, issuerOID)
 	if err != nil {
 		return err
 	}
 	if !foundIssuer {
-		return errors.Errorf("certificate missing OIDC issuer extension %s", OIDCIssuerExtensionOID.String())
+		return errors.Errorf("certificate missing OIDC issuer extension %s", issuerOID.String())
 	}
 	if issuerValue != expectedOIDCIssuer {
 		return errors.Errorf("certificate OIDC issuer mismatch: expected %s, got %s", expectedOIDCIssuer, issuerValue)
