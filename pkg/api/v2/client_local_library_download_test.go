@@ -34,6 +34,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	downloadutil "github.com/amikos-tech/chroma-go/pkg/internal/downloadutil"
 )
 
 func localLibraryArchiveName(version, platform string) string {
@@ -1118,7 +1120,14 @@ func TestLocalDownloadFile_RejectsOversizedArtifact(t *testing.T) {
 	defer server.Close()
 
 	targetPath := filepath.Join(t.TempDir(), "artifact.bin")
-	err := localDownloadFile(targetPath, server.URL)
+	err := downloadutil.DownloadFile(
+		targetPath,
+		server.URL,
+		downloadutil.Config{
+			MaxBytes: localLibraryMaxArtifactBytes,
+			DirPerm:  localLibraryCacheDirPerm,
+		},
+	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "too large")
 }
@@ -1148,20 +1157,20 @@ func TestLocalRejectHTTPSDowngradeRedirect(t *testing.T) {
 	via, err := http.NewRequest(http.MethodGet, "https://example.com/start", nil)
 	require.NoError(t, err)
 
-	err = localRejectHTTPSDowngradeRedirect(req, []*http.Request{via})
+	err = downloadutil.RejectHTTPSDowngradeRedirect(req, []*http.Request{via})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "redirect from HTTPS to HTTP is not allowed")
 
 	secureReq, err := http.NewRequest(http.MethodGet, "https://example.com/next", nil)
 	require.NoError(t, err)
-	require.NoError(t, localRejectHTTPSDowngradeRedirect(secureReq, []*http.Request{via}))
+	require.NoError(t, downloadutil.RejectHTTPSDowngradeRedirect(secureReq, []*http.Request{via}))
 
 	longRedirectChain := make([]*http.Request, 10)
 	for i := range longRedirectChain {
 		longRedirectChain[i], err = http.NewRequest(http.MethodGet, "https://example.com/redirect", nil)
 		require.NoError(t, err)
 	}
-	err = localRejectHTTPSDowngradeRedirect(secureReq, longRedirectChain)
+	err = downloadutil.RejectHTTPSDowngradeRedirect(secureReq, longRedirectChain)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "stopped after 10 redirects")
 }

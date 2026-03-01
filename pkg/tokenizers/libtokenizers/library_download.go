@@ -22,8 +22,9 @@ import (
 	"sync"
 	"time"
 
-	downloadutil "github.com/amikos-tech/chroma-go/pkg/internal/downloadutil"
 	"github.com/pkg/errors"
+
+	downloadutil "github.com/amikos-tech/chroma-go/pkg/internal/downloadutil"
 )
 
 const (
@@ -591,9 +592,10 @@ func normalizeTokenizerTag(version string) (string, error) {
 		if suffix == "" {
 			return "", errors.New("tokenizers library version has empty suffix after 'rust-' prefix")
 		}
-		if suffix[0] >= '0' && suffix[0] <= '9' {
+		switch {
+		case suffix[0] >= '0' && suffix[0] <= '9':
 			version = "rust-v" + suffix
-		} else if strings.HasPrefix(suffix, "v") {
+		case strings.HasPrefix(suffix, "v"):
 			if len(suffix) == 1 {
 				return "", errors.New("tokenizers library version has empty suffix after 'rust-v' prefix")
 			}
@@ -601,7 +603,7 @@ func normalizeTokenizerTag(version string) (string, error) {
 				return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-v' prefix: must start with a digit", version)
 			}
 			version = "rust-" + suffix
-		} else {
+		default:
 			return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-' prefix: must start with a digit or 'v'", version)
 		}
 	case strings.HasPrefix(version, "v"):

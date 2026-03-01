@@ -18,7 +18,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -29,8 +28,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	downloadutil "github.com/amikos-tech/chroma-go/pkg/internal/downloadutil"
 	"github.com/pkg/errors"
+
+	downloadutil "github.com/amikos-tech/chroma-go/pkg/internal/downloadutil"
 )
 
 const (
@@ -931,21 +931,6 @@ func localDownloadFileWithRetry(filePath, url string) error {
 			DirPerm:  localLibraryCacheDirPerm,
 		},
 	))
-}
-
-func localDownloadFile(filePath, url string) error {
-	return errors.WithStack(downloadutil.DownloadFile(
-		filePath,
-		url,
-		downloadutil.Config{
-			MaxBytes: localLibraryMaxArtifactBytes,
-			DirPerm:  localLibraryCacheDirPerm,
-		},
-	))
-}
-
-func localRejectHTTPSDowngradeRedirect(req *http.Request, via []*http.Request) error {
-	return errors.WithStack(downloadutil.RejectHTTPSDowngradeRedirect(req, via))
 }
 
 func localVerifyTarGzFile(filePath string) error {
