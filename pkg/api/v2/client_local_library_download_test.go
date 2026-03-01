@@ -35,6 +35,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/amikos-tech/chroma-go/pkg/internal/cosignutil"
 	downloadutil "github.com/amikos-tech/chroma-go/pkg/internal/downloadutil"
 )
 
@@ -754,10 +755,11 @@ func TestLocalValidateCosignCertificate_AllowsExpiredFulcioCertificate(t *testin
 		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 	})
 
-	err := localValidateCosignCertificate(
+	err := cosignutil.ValidateCosignCertificate(
 		certificate,
 		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		localLibraryCosignOIDCIssuer,
+		localVerifyCosignCertificateChainFunc,
 	)
 	require.NoError(t, err)
 }
@@ -775,10 +777,11 @@ func TestLocalValidateCosignCertificate_AllowsRawOIDCIssuerExtension(t *testing.
 		extKeyUsage:        []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 	})
 
-	err := localValidateCosignCertificate(
+	err := cosignutil.ValidateCosignCertificate(
 		certificate,
 		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		localLibraryCosignOIDCIssuer,
+		localVerifyCosignCertificateChainFunc,
 	)
 	require.NoError(t, err)
 }
@@ -795,10 +798,11 @@ func TestLocalValidateCosignCertificate_RejectsFutureNotBefore(t *testing.T) {
 		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 	})
 
-	err := localValidateCosignCertificate(
+	err := cosignutil.ValidateCosignCertificate(
 		certificate,
 		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		localLibraryCosignOIDCIssuer,
+		localVerifyCosignCertificateChainFunc,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not yet valid")
@@ -816,10 +820,11 @@ func TestLocalValidateCosignCertificate_RejectsMissingCodeSigningUsage(t *testin
 		extKeyUsage: nil,
 	})
 
-	err := localValidateCosignCertificate(
+	err := cosignutil.ValidateCosignCertificate(
 		certificate,
 		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		localLibraryCosignOIDCIssuer,
+		localVerifyCosignCertificateChainFunc,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "code signing")
@@ -837,10 +842,11 @@ func TestLocalValidateCosignCertificate_RejectsWrongIdentityAndIssuer(t *testing
 		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 	})
 
-	err := localValidateCosignCertificate(
+	err := cosignutil.ValidateCosignCertificate(
 		certificate,
 		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		localLibraryCosignOIDCIssuer,
+		localVerifyCosignCertificateChainFunc,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "identity")
@@ -858,10 +864,11 @@ func TestLocalValidateCosignCertificate_RejectsWrongOIDCIssuer(t *testing.T) {
 		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 	})
 
-	err := localValidateCosignCertificate(
+	err := cosignutil.ValidateCosignCertificate(
 		certificate,
 		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		localLibraryCosignOIDCIssuer,
+		localVerifyCosignCertificateChainFunc,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "OIDC issuer mismatch")
@@ -878,10 +885,11 @@ func TestLocalValidateCosignCertificate_RejectsUntrustedChain(t *testing.T) {
 		extKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 	})
 
-	err := localValidateCosignCertificate(
+	err := cosignutil.ValidateCosignCertificate(
 		certificate,
 		fmt.Sprintf(localLibraryCosignIdentityTemplate, "v9.9.9"),
 		localLibraryCosignOIDCIssuer,
+		localVerifyCosignCertificateChainFunc,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "certificate chain verification failed")
@@ -896,11 +904,11 @@ func TestLocalReadBase64EncodedFile_DecodePaths(t *testing.T) {
 	require.NoError(t, os.WriteFile(rawPath, []byte(base64.RawStdEncoding.EncodeToString(payload)), 0644))
 	require.NoError(t, os.WriteFile(invalidPath, []byte("%%%not-base64%%%"), 0644))
 
-	decoded, err := localReadBase64EncodedFile(rawPath)
+	decoded, err := cosignutil.ReadBase64EncodedFile(rawPath)
 	require.NoError(t, err)
 	require.Equal(t, payload, decoded)
 
-	_, err = localReadBase64EncodedFile(invalidPath)
+	_, err = cosignutil.ReadBase64EncodedFile(invalidPath)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid base64 payload")
 }
@@ -920,17 +928,17 @@ func TestLocalReadCosignCertificate_RejectsInvalidAndTrailingPEM(t *testing.T) {
 	})
 	require.NoError(t, os.WriteFile(trailingPath, append(validPEM, []byte("\nTRAILING")...), 0644))
 
-	_, err := localReadCosignCertificate(invalidPath)
+	_, err := cosignutil.ReadCosignCertificate(invalidPath)
 	require.Error(t, err)
 
-	_, err = localReadCosignCertificate(trailingPath)
+	_, err = cosignutil.ReadCosignCertificate(trailingPath)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "trailing data")
 }
 
 func TestLocalReadCosignCertificate_ReadErrorIncludesPath(t *testing.T) {
 	missingPath := filepath.Join(t.TempDir(), "missing.pem")
-	_, err := localReadCosignCertificate(missingPath)
+	_, err := cosignutil.ReadCosignCertificate(missingPath)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), missingPath)
 }
@@ -939,13 +947,13 @@ func TestLocalCertificateExtensionValue_ReportsASN1DecodeError(t *testing.T) {
 	certificate := &x509.Certificate{
 		Extensions: []pkix.Extension{
 			{
-				Id:    localLibraryCosignOIDCIssuerExtensionOID,
+				Id:    cosignutil.OIDCIssuerExtensionOID,
 				Value: []byte{0xff, 0xfe},
 			},
 		},
 	}
 
-	_, _, err := localCertificateExtensionValue(certificate, localLibraryCosignOIDCIssuerExtensionOID)
+	_, _, err := cosignutil.CertificateExtensionValue(certificate, cosignutil.OIDCIssuerExtensionOID)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to decode certificate extension")
 	require.Contains(t, err.Error(), "asn1")
@@ -960,13 +968,13 @@ func TestLocalVerifyBlobSignature_SupportsRSAAndEd25519(t *testing.T) {
 	rsaCertificate := newSelfSignedCertificate(t, rsaPrivateKey.Public(), rsaPrivateKey)
 	rsaSignature, err := rsa.SignPKCS1v15(rand.Reader, rsaPrivateKey, crypto.SHA256, digest[:])
 	require.NoError(t, err)
-	require.NoError(t, localVerifyBlobSignature(rsaCertificate, payload, rsaSignature))
+	require.NoError(t, cosignutil.VerifyBlobSignature(rsaCertificate, payload, rsaSignature))
 
 	edPublicKey, edPrivateKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	edCertificate := newSelfSignedCertificate(t, edPublicKey, edPrivateKey)
 	edSignature := ed25519.Sign(edPrivateKey, payload)
-	require.NoError(t, localVerifyBlobSignature(edCertificate, payload, edSignature))
+	require.NoError(t, cosignutil.VerifyBlobSignature(edCertificate, payload, edSignature))
 }
 
 func TestLocalChecksumFromSumsFile_SupportsBSDFileMarker(t *testing.T) {
@@ -1243,7 +1251,7 @@ func newCosignCertificateWithKey(t *testing.T, opts localTestCosignCertificateOp
 		URIs:         []*url.URL{identityURI},
 		ExtraExtensions: []pkix.Extension{
 			{
-				Id:    localLibraryCosignOIDCIssuerExtensionOID,
+				Id:    cosignutil.OIDCIssuerExtensionOID,
 				Value: oidcIssuerValue,
 			},
 		},
@@ -1295,7 +1303,7 @@ func newSignedChecksumArtifacts(t *testing.T, version string, checksumBody []byt
 		URIs:         []*url.URL{identityURI},
 		ExtraExtensions: []pkix.Extension{
 			{
-				Id:    localLibraryCosignOIDCIssuerExtensionOID,
+				Id:    cosignutil.OIDCIssuerExtensionOID,
 				Value: oidcIssuerValue,
 			},
 		},

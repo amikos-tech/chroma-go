@@ -4,12 +4,22 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,6 +29,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/amikos-tech/chroma-go/pkg/internal/cosignutil"
 )
 
 func TestNormalizeTokenizerTag(t *testing.T) {
@@ -140,6 +152,79 @@ func TestTokenizerGetMetadataHTTPClient_TransportHardening(t *testing.T) {
 	require.Equal(t, 30*time.Second, transport.ResponseHeaderTimeout)
 }
 
+func TestTokenizerFetchLatestVersionFromBase_UsesInjectableClient(t *testing.T) {
+	originalClientFunc := tokenizerGetMetadataHTTPClientFunc
+	t.Cleanup(func() {
+		tokenizerGetMetadataHTTPClientFunc = originalClientFunc
+	})
+
+	var requestedURL string
+	var requestedAccept string
+	var requestedUserAgent string
+	tokenizerGetMetadataHTTPClientFunc = func() *http.Client {
+		return &http.Client{
+			Transport: tokenizerRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+				requestedURL = req.URL.String()
+				requestedAccept = req.Header.Get("Accept")
+				requestedUserAgent = req.Header.Get("User-Agent")
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Status:     "200 OK",
+					Body:       io.NopCloser(strings.NewReader(`{"version":"rust-v9.9.9"}`)),
+					Header:     make(http.Header),
+					Request:    req,
+				}, nil
+			}),
+		}
+	}
+
+	version, err := tokenizerFetchLatestVersionFromBase("https://releases.amikos.tech/pure-tokenizers")
+	require.NoError(t, err)
+	require.Equal(t, "rust-v9.9.9", version)
+	require.Equal(t, "https://releases.amikos.tech/pure-tokenizers/latest.json", requestedURL)
+	require.Equal(t, "application/json", requestedAccept)
+	require.Equal(t, "chroma-go-tokenizers-downloader", requestedUserAgent)
+}
+
+func TestTokenizerVerifySignedChecksums(t *testing.T) {
+	bypassTokenizerCosignChainVerification(t)
+
+	version := "rust-v0.1.4"
+	checksumBody := []byte("1111111111111111111111111111111111111111111111111111111111111111  artifact.tar.gz\n")
+	signatureBody, certificateBody := newTokenizerSignedChecksumArtifacts(t, version, checksumBody)
+
+	dir := t.TempDir()
+	checksumPath := filepath.Join(dir, tokenizerChecksumsAsset)
+	signaturePath := filepath.Join(dir, tokenizerChecksumsSignatureAsset)
+	certificatePath := filepath.Join(dir, tokenizerChecksumsCertificateAsset)
+	require.NoError(t, os.WriteFile(checksumPath, checksumBody, 0600))
+	require.NoError(t, os.WriteFile(signaturePath, signatureBody, 0600))
+	require.NoError(t, os.WriteFile(certificatePath, certificateBody, 0600))
+
+	require.NoError(t, tokenizerVerifySignedChecksums(version, checksumPath, signaturePath, certificatePath))
+}
+
+func TestTokenizerVerifySignedChecksums_RejectsInvalidSignature(t *testing.T) {
+	bypassTokenizerCosignChainVerification(t)
+
+	version := "rust-v0.1.4"
+	checksumBody := []byte("1111111111111111111111111111111111111111111111111111111111111111  artifact.tar.gz\n")
+	_, certificateBody := newTokenizerSignedChecksumArtifacts(t, version, checksumBody)
+	invalidSignature := []byte(base64.StdEncoding.EncodeToString([]byte("definitely-invalid-signature")))
+
+	dir := t.TempDir()
+	checksumPath := filepath.Join(dir, tokenizerChecksumsAsset)
+	signaturePath := filepath.Join(dir, tokenizerChecksumsSignatureAsset)
+	certificatePath := filepath.Join(dir, tokenizerChecksumsCertificateAsset)
+	require.NoError(t, os.WriteFile(checksumPath, checksumBody, 0600))
+	require.NoError(t, os.WriteFile(signaturePath, invalidSignature, 0600))
+	require.NoError(t, os.WriteFile(certificatePath, certificateBody, 0600))
+
+	err := tokenizerVerifySignedChecksums(version, checksumPath, signaturePath, certificatePath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid checksum signature")
+}
+
 func TestEnsureTokenizerLibraryDownloadedRetriesAcrossMirrors(t *testing.T) {
 	originalPrimary := tokenizerReleaseBaseURL
 	originalFallback := tokenizerFallbackReleaseBaseURL
@@ -147,6 +232,7 @@ func TestEnsureTokenizerLibraryDownloadedRetriesAcrossMirrors(t *testing.T) {
 	originalArtifactDownloadFunc := tokenizerDownloadArtifactFileFunc
 	originalMetadataDownloadFunc := tokenizerDownloadMetadataFileFunc
 	originalBuildInfo := tokenizerReadBuildInfoFunc
+	originalVerifyChainFunc := tokenizerVerifyCosignCertificateChainFunc
 	t.Cleanup(func() {
 		tokenizerReleaseBaseURL = originalPrimary
 		tokenizerFallbackReleaseBaseURL = originalFallback
@@ -154,11 +240,13 @@ func TestEnsureTokenizerLibraryDownloadedRetriesAcrossMirrors(t *testing.T) {
 		tokenizerDownloadArtifactFileFunc = originalArtifactDownloadFunc
 		tokenizerDownloadMetadataFileFunc = originalMetadataDownloadFunc
 		tokenizerReadBuildInfoFunc = originalBuildInfo
+		tokenizerVerifyCosignCertificateChainFunc = originalVerifyChainFunc
 	})
 
 	tempHome := t.TempDir()
 	tokenizerUserHomeDirFunc = func() (string, error) { return tempHome, nil }
 	tokenizerReadBuildInfoFunc = func() (*debug.BuildInfo, bool) { return nil, false }
+	tokenizerVerifyCosignCertificateChainFunc = func(*x509.Certificate) error { return nil }
 	tokenizerReleaseBaseURL = "https://mirror-a.invalid/pure-tokenizers"
 	tokenizerFallbackReleaseBaseURL = "https://mirror-b.invalid/pure-tokenizers"
 	t.Setenv("TOKENIZERS_VERSION", "rust-v0.1.4")
@@ -170,15 +258,24 @@ func TestEnsureTokenizerLibraryDownloadedRetriesAcrossMirrors(t *testing.T) {
 	require.NoError(t, err)
 	archiveChecksum := sha256.Sum256(archiveBytes)
 	sumsContents := fmt.Sprintf("%s  %s\n", hex.EncodeToString(archiveChecksum[:]), asset.archiveFileName)
+	sumsSignatureBody, sumsCertificateBody := newTokenizerSignedChecksumArtifacts(t, "rust-v0.1.4", []byte(sumsContents))
 
 	stubDownload := func(filePath, url string) error {
 		switch {
 		case strings.Contains(url, "mirror-a.invalid") && strings.HasSuffix(url, "/"+tokenizerChecksumsAsset):
 			return os.WriteFile(filePath, []byte(sumsContents), 0600)
+		case strings.Contains(url, "mirror-a.invalid") && strings.HasSuffix(url, "/"+tokenizerChecksumsSignatureAsset):
+			return os.WriteFile(filePath, sumsSignatureBody, 0600)
+		case strings.Contains(url, "mirror-a.invalid") && strings.HasSuffix(url, "/"+tokenizerChecksumsCertificateAsset):
+			return os.WriteFile(filePath, sumsCertificateBody, 0600)
 		case strings.Contains(url, "mirror-a.invalid") && strings.HasSuffix(url, "/"+asset.archiveFileName):
 			return errors.New("simulated archive download failure on primary mirror")
 		case strings.Contains(url, "mirror-b.invalid") && strings.HasSuffix(url, "/"+tokenizerChecksumsAsset):
 			return os.WriteFile(filePath, []byte(sumsContents), 0600)
+		case strings.Contains(url, "mirror-b.invalid") && strings.HasSuffix(url, "/"+tokenizerChecksumsSignatureAsset):
+			return os.WriteFile(filePath, sumsSignatureBody, 0600)
+		case strings.Contains(url, "mirror-b.invalid") && strings.HasSuffix(url, "/"+tokenizerChecksumsCertificateAsset):
+			return os.WriteFile(filePath, sumsCertificateBody, 0600)
 		case strings.Contains(url, "mirror-b.invalid") && strings.HasSuffix(url, "/"+asset.archiveFileName):
 			return os.WriteFile(filePath, archiveBytes, 0600)
 		default:
@@ -255,4 +352,61 @@ func buildTestTokenizerArchive(libraryFileName string, libraryContents []byte) (
 		return nil, err
 	}
 	return buffer.Bytes(), nil
+}
+
+type tokenizerRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f tokenizerRoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func bypassTokenizerCosignChainVerification(t *testing.T) {
+	t.Helper()
+	original := tokenizerVerifyCosignCertificateChainFunc
+	tokenizerVerifyCosignCertificateChainFunc = func(*x509.Certificate) error { return nil }
+	t.Cleanup(func() {
+		tokenizerVerifyCosignCertificateChainFunc = original
+	})
+}
+
+func newTokenizerSignedChecksumArtifacts(t *testing.T, version string, checksumBody []byte) ([]byte, []byte) {
+	t.Helper()
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	identity, err := url.Parse(fmt.Sprintf(tokenizerCosignIdentityTemplate, version))
+	require.NoError(t, err)
+	oidcIssuerValue, err := asn1.Marshal(tokenizerCosignOIDCIssuer)
+	require.NoError(t, err)
+
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "tokenizer-test-signer",
+		},
+		NotBefore:             time.Now().Add(-1 * time.Minute),
+		NotAfter:              time.Now().Add(10 * time.Minute),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		BasicConstraintsValid: true,
+		URIs:                  []*url.URL{identity},
+		ExtraExtensions: []pkix.Extension{
+			{
+				Id:    cosignutil.OIDCIssuerExtensionOID,
+				Value: oidcIssuerValue,
+			},
+		},
+	}
+	certificateDER, err := x509.CreateCertificate(rand.Reader, template, template, &privateKey.PublicKey, privateKey)
+	require.NoError(t, err)
+
+	digest := sha256.Sum256(checksumBody)
+	signature, err := ecdsa.SignASN1(rand.Reader, privateKey, digest[:])
+	require.NoError(t, err)
+
+	signatureBody := []byte(base64.StdEncoding.EncodeToString(signature))
+	certificateBody := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificateDER})
+	require.NotEmpty(t, certificateBody)
+	return signatureBody, certificateBody
 }

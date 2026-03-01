@@ -24,6 +24,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/amikos-tech/chroma-go/pkg/internal/cosignutil"
 	downloadutil "github.com/amikos-tech/chroma-go/pkg/internal/downloadutil"
 )
 
@@ -34,10 +35,15 @@ const (
 	tokenizerModulePath                          = "github.com/amikos-tech/pure-tokenizers"
 	tokenizerLatestTag                           = "latest"
 	tokenizerChecksumsAsset                      = "SHA256SUMS"
+	tokenizerChecksumsSignatureAsset             = "SHA256SUMS.sig"
+	tokenizerChecksumsCertificateAsset           = "SHA256SUMS.pem"
 	tokenizerGitHubReleasesAPI                   = "https://api.github.com/repos/amikos-tech/pure-tokenizers/releases?per_page=100&page=1"
 	tokenizerGitHubAPIVersion                    = "2022-11-28"
 	tokenizerCacheDirPerm                        = os.FileMode(0700)
 	tokenizerArtifactFilePerm                    = os.FileMode(0700)
+	tokenizerCosignOIDCIssuer                    = "https://token.actions.githubusercontent.com"
+	tokenizerCosignIdentityTemplate              = "https://github.com/amikos-tech/pure-tokenizers/.github/workflows/rust-release.yml@refs/tags/%s"
+	tokenizerDownloaderUserAgent                 = "chroma-go-tokenizers-downloader"
 	tokenizerMaxVersionTagLength                 = 128
 	tokenizerMaxLibraryBytes               int64 = 200 * 1024 * 1024
 	tokenizerMaxArtifactBytes              int64 = 500 * 1024 * 1024
@@ -45,14 +51,16 @@ const (
 )
 
 var (
-	tokenizerReleaseBaseURL           = defaultTokenizerReleaseBaseURL
-	tokenizerFallbackReleaseBaseURL   = defaultTokenizerFallbackReleaseBaseURL
-	tokenizerDownloadMu               sync.Mutex
-	tokenizerDownloadAttempts         = 3
-	tokenizerDownloadArtifactFileFunc = tokenizerDownloadArtifactFileWithRetry
-	tokenizerDownloadMetadataFileFunc = tokenizerDownloadMetadataFileWithRetry
-	tokenizerReadBuildInfoFunc        = debug.ReadBuildInfo
-	tokenizerUserHomeDirFunc          = os.UserHomeDir
+	tokenizerReleaseBaseURL                   = defaultTokenizerReleaseBaseURL
+	tokenizerFallbackReleaseBaseURL           = defaultTokenizerFallbackReleaseBaseURL
+	tokenizerDownloadMu                       sync.Mutex
+	tokenizerDownloadAttempts                 = 3
+	tokenizerDownloadArtifactFileFunc         = tokenizerDownloadArtifactFileWithRetry
+	tokenizerDownloadMetadataFileFunc         = tokenizerDownloadMetadataFileWithRetry
+	tokenizerReadBuildInfoFunc                = debug.ReadBuildInfo
+	tokenizerUserHomeDirFunc                  = os.UserHomeDir
+	tokenizerGetMetadataHTTPClientFunc        = tokenizerGetMetadataHTTPClient
+	tokenizerVerifyCosignCertificateChainFunc = cosignutil.VerifyFulcioCertificateChain
 
 	tokenizerMetadataClientOnce sync.Once
 	tokenizerMetadataClient     *http.Client
@@ -182,18 +190,6 @@ func ensureTokenizerLibraryDownloaded() (string, error) {
 			)
 			continue
 		}
-		if err := tokenizerVerifyTarGzContainsLibrary(archivePath, asset.libraryFileName); err != nil {
-			mirrorErrs = append(
-				mirrorErrs,
-				errors.Wrapf(
-					tokenizerFailWithArchiveCleanup(archivePath, err, "tokenizers archive verification failed"),
-					"release mirror %s failed",
-					releaseBase,
-				),
-			)
-			continue
-		}
-
 		tempLibraryPath := targetLibraryPath + ".tmp"
 		_ = os.Remove(tempLibraryPath)
 		if err := tokenizerExtractLibraryFromTarGz(archivePath, asset.libraryFileName, tempLibraryPath); err != nil {
@@ -400,9 +396,39 @@ func tokenizerValidateReleaseBaseURL(baseURL string) (string, error) {
 
 func tokenizerPrepareChecksumFromBase(baseURL, version, archiveName, targetDir string) (string, error) {
 	checksumsPath := filepath.Join(targetDir, tokenizerChecksumsAsset)
-	if err := tokenizerDownloadMetadataAssetFromBase(baseURL, version, tokenizerChecksumsAsset, checksumsPath); err != nil {
-		return "", errors.Wrap(err, "failed to download tokenizers checksums")
+	checksumsSignaturePath := filepath.Join(targetDir, tokenizerChecksumsSignatureAsset)
+	checksumsCertificatePath := filepath.Join(targetDir, tokenizerChecksumsCertificateAsset)
+
+	type metaDownload struct {
+		asset, dest, errMsg string
 	}
+	downloads := []metaDownload{
+		{tokenizerChecksumsAsset, checksumsPath, "failed to download tokenizers checksums"},
+		{tokenizerChecksumsSignatureAsset, checksumsSignaturePath, "failed to download tokenizers checksums signature"},
+		{tokenizerChecksumsCertificateAsset, checksumsCertificatePath, "failed to download tokenizers checksums certificate"},
+	}
+	errs := make([]error, len(downloads))
+	var wg sync.WaitGroup
+	for i, dl := range downloads {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := tokenizerDownloadMetadataAssetFromBase(baseURL, version, dl.asset, dl.dest); err != nil {
+				errs[i] = errors.Wrap(err, dl.errMsg)
+			}
+		}()
+	}
+	wg.Wait()
+	for _, err := range errs {
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if err := tokenizerVerifySignedChecksums(version, checksumsPath, checksumsSignaturePath, checksumsCertificatePath); err != nil {
+		return "", errors.Wrap(err, "failed to verify tokenizers checksums signature")
+	}
+
 	checksum, err := tokenizerChecksumFromSumsFile(checksumsPath, archiveName)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to resolve tokenizers checksum")
@@ -432,6 +458,15 @@ func tokenizerDownloadMetadataAssetFromBase(baseURL, version, assetName, destina
 		return errors.Wrapf(err, "download from %s failed", normalizedBaseURL)
 	}
 	return nil
+}
+
+func tokenizerVerifySignedChecksums(version, checksumsPath, signaturePath, certificatePath string) error {
+	expectedIdentity := fmt.Sprintf(tokenizerCosignIdentityTemplate, version)
+	return cosignutil.VerifySignedChecksums(
+		checksumsPath, signaturePath, certificatePath,
+		expectedIdentity, tokenizerCosignOIDCIssuer,
+		tokenizerVerifyCosignCertificateChainFunc,
+	)
 }
 
 func tokenizerResolveLatestVersion() (string, error) {
@@ -479,13 +514,13 @@ func tokenizerFetchLatestVersionFromBase(baseURL string) (string, error) {
 		return "", err
 	}
 	url := normalizedBaseURL + "/latest.json"
-	client := tokenizerGetMetadataHTTPClient()
+	client := tokenizerGetMetadataHTTPClientFunc()
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to build latest version request")
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "chroma-go-tokenizers-downloader")
+	req.Header.Set("User-Agent", tokenizerDownloaderUserAgent)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to fetch latest version metadata")
@@ -507,13 +542,13 @@ func tokenizerFetchLatestVersionFromBase(baseURL string) (string, error) {
 }
 
 func tokenizerFetchLatestVersionFromGitHub() (string, error) {
-	client := tokenizerGetMetadataHTTPClient()
+	client := tokenizerGetMetadataHTTPClientFunc()
 	req, err := http.NewRequest(http.MethodGet, tokenizerGitHubReleasesAPI, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to build GitHub latest version request")
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "chroma-go-tokenizers-downloader")
+	req.Header.Set("User-Agent", tokenizerDownloaderUserAgent)
 	req.Header.Set("X-GitHub-Api-Version", tokenizerGitHubAPIVersion)
 	if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
@@ -593,20 +628,10 @@ func normalizeTokenizerTag(version string) (string, error) {
 		if suffix == "" {
 			return "", errors.New("tokenizers library version has empty suffix after 'rust-' prefix")
 		}
-		switch {
-		case suffix[0] >= '0' && suffix[0] <= '9':
-			version = "rust-v" + suffix
-		case strings.HasPrefix(suffix, "v"):
-			if len(suffix) == 1 {
-				return "", errors.New("tokenizers library version has empty suffix after 'rust-v' prefix")
-			}
-			if suffix[1] < '0' || suffix[1] > '9' {
-				return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-v' prefix: must start with a digit", version)
-			}
-			version = "rust-" + suffix
-		default:
-			return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-' prefix: must start with a digit or 'v'", version)
+		if suffix[0] < '0' || suffix[0] > '9' {
+			return "", errors.Errorf("tokenizers library version %q has invalid suffix after 'rust-' prefix: must start with a digit", version)
 		}
+		version = "rust-v" + suffix
 	case strings.HasPrefix(version, "v"):
 		if len(version) == 1 {
 			return "", errors.New("tokenizers library version has empty suffix after 'v' prefix")
@@ -743,7 +768,7 @@ func tokenizerDownloadArtifactFileWithRetry(filePath, url string) error {
 			MaxBytes:  tokenizerMaxArtifactBytes,
 			DirPerm:   tokenizerCacheDirPerm,
 			Accept:    "*/*",
-			UserAgent: "chroma-go-tokenizers-downloader",
+			UserAgent: tokenizerDownloaderUserAgent,
 		},
 	))
 }
@@ -757,53 +782,9 @@ func tokenizerDownloadMetadataFileWithRetry(filePath, url string) error {
 			MaxBytes:  tokenizerMaxMetadataBytes,
 			DirPerm:   tokenizerCacheDirPerm,
 			Accept:    "text/plain,application/json;q=0.9,*/*;q=0.8",
-			UserAgent: "chroma-go-tokenizers-downloader",
+			UserAgent: tokenizerDownloaderUserAgent,
 		},
 	))
-}
-
-func tokenizerVerifyTarGzContainsLibrary(filePath, libraryFileName string) error {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return errors.Wrap(err, "could not open archive for verification")
-	}
-	defer f.Close()
-
-	gzipReader, err := gzip.NewReader(f)
-	if err != nil {
-		return errors.Wrap(err, "invalid gzip archive")
-	}
-	defer gzipReader.Close()
-
-	tarReader := tar.NewReader(gzipReader)
-	for {
-		header, err := tarReader.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return errors.Wrap(err, "invalid tar archive")
-		}
-		if header.Typeflag != tar.TypeReg {
-			continue
-		}
-		if filepath.Base(header.Name) != libraryFileName {
-			continue
-		}
-		if header.Size <= 0 {
-			return errors.Errorf("library %s has invalid size %d in archive", libraryFileName, header.Size)
-		}
-		if header.Size > tokenizerMaxLibraryBytes {
-			return errors.Errorf(
-				"library %s exceeds max allowed size: %d bytes > %d bytes",
-				libraryFileName,
-				header.Size,
-				tokenizerMaxLibraryBytes,
-			)
-		}
-		return nil
-	}
-	return errors.Errorf("library %s not found in archive", libraryFileName)
 }
 
 func tokenizerExtractLibraryFromTarGz(archivePath, libraryFileName, destinationPath string) error {

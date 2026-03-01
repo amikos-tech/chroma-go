@@ -31,15 +31,28 @@ type Config struct {
 	UserAgent             string
 }
 
+var newHTTPClientFunc = newHTTPClient
+
 // DownloadFileWithRetry downloads a file with linear retry backoff.
 func DownloadFileWithRetry(filePath, sourceURL string, attempts int, cfg Config) error {
+	cfg = withDefaults(cfg)
+	if cfg.MaxBytes <= 0 {
+		return errors.New("max download bytes must be greater than zero")
+	}
+	parsedURL, err := validateSourceURL(sourceURL, cfg.AllowHTTP)
+	if err != nil {
+		return err
+	}
+
 	if attempts < 1 {
 		attempts = 1
 	}
+	client := newHTTPClientFunc(cfg)
+	defer client.CloseIdleConnections()
 
 	var lastErr error
 	for attempt := 1; attempt <= attempts; attempt++ {
-		if err := DownloadFile(filePath, sourceURL, cfg); err != nil {
+		if err := downloadFileWithClient(filePath, parsedURL, cfg, client); err != nil {
 			lastErr = err
 			if attempt < attempts {
 				time.Sleep(time.Duration(attempt) * time.Second)
@@ -56,29 +69,10 @@ func DownloadFileWithRetry(filePath, sourceURL string, attempts int, cfg Config)
 
 // DownloadFile downloads a file to disk via temp file + rename while enforcing max size.
 func DownloadFile(filePath, sourceURL string, cfg Config) error {
-	cfg = withDefaults(cfg)
-	if cfg.MaxBytes <= 0 {
-		return errors.New("max download bytes must be greater than zero")
-	}
-	parsedURL, err := validateSourceURL(sourceURL, cfg.AllowHTTP)
-	if err != nil {
-		return err
-	}
+	return DownloadFileWithRetry(filePath, sourceURL, 1, cfg)
+}
 
-	client := &http.Client{
-		Timeout: cfg.Timeout,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: cfg.DialTimeout,
-			}).DialContext,
-			TLSHandshakeTimeout:   cfg.TLSHandshakeTimeout,
-			ResponseHeaderTimeout: cfg.ResponseHeaderTimeout,
-			IdleConnTimeout:       cfg.IdleConnTimeout,
-		},
-		CheckRedirect: RejectHTTPSDowngradeRedirect,
-	}
-	defer client.CloseIdleConnections()
-
+func downloadFileWithClient(filePath string, parsedURL *url.URL, cfg Config, client *http.Client) error {
 	req, err := http.NewRequest(http.MethodGet, parsedURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
@@ -97,7 +91,7 @@ func DownloadFile(filePath, sourceURL string, cfg Config) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected response %s for URL %s", resp.Status, parsedURL.String())
+		return fmt.Errorf("unexpected response %s for URL %s", resp.Status, parsedURL.Redacted())
 	}
 	if resp.ContentLength > 0 && resp.ContentLength > cfg.MaxBytes {
 		return fmt.Errorf(
@@ -163,8 +157,8 @@ func RejectHTTPSDowngradeRedirect(req *http.Request, via []*http.Request) error 
 		strings.EqualFold(req.URL.Scheme, "http") {
 		return fmt.Errorf(
 			"redirect from HTTPS to HTTP is not allowed: %s -> %s",
-			previousReq.URL.String(),
-			req.URL.String(),
+			previousReq.URL.Redacted(),
+			req.URL.Redacted(),
 		)
 	}
 	return nil
@@ -197,11 +191,14 @@ func validateSourceURL(rawURL string, allowHTTP bool) (*url.URL, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid source URL %q: %w", rawURL, err)
 	}
+	if parsedURL.User != nil {
+		return nil, fmt.Errorf("source URL must not contain credentials: %q", parsedURL.Redacted())
+	}
 	if !parsedURL.IsAbs() {
-		return nil, fmt.Errorf("source URL must be absolute: %q", rawURL)
+		return nil, fmt.Errorf("source URL must be absolute: %q", parsedURL.Redacted())
 	}
 	if strings.TrimSpace(parsedURL.Host) == "" {
-		return nil, fmt.Errorf("source URL host cannot be empty: %q", rawURL)
+		return nil, fmt.Errorf("source URL host cannot be empty: %q", parsedURL.Redacted())
 	}
 	if strings.EqualFold(parsedURL.Scheme, "https") {
 		return parsedURL, nil
@@ -209,5 +206,20 @@ func validateSourceURL(rawURL string, allowHTTP bool) (*url.URL, error) {
 	if allowHTTP && strings.EqualFold(parsedURL.Scheme, "http") {
 		return parsedURL, nil
 	}
-	return nil, fmt.Errorf("only HTTPS URLs are supported: %q", rawURL)
+	return nil, fmt.Errorf("only HTTPS URLs are supported: %q", parsedURL.Redacted())
+}
+
+func newHTTPClient(cfg Config) *http.Client {
+	return &http.Client{
+		Timeout: cfg.Timeout,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: cfg.DialTimeout,
+			}).DialContext,
+			TLSHandshakeTimeout:   cfg.TLSHandshakeTimeout,
+			ResponseHeaderTimeout: cfg.ResponseHeaderTimeout,
+			IdleConnTimeout:       cfg.IdleConnTimeout,
+		},
+		CheckRedirect: RejectHTTPSDowngradeRedirect,
+	}
 }
