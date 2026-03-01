@@ -144,10 +144,11 @@ func cloneIntPtr(v *int) *int {
 
 func sanitizeErrorBody(body []byte) string {
 	trimmed := strings.TrimSpace(string(body))
-	if len(trimmed) <= maxErrorBodyChars {
+	runes := []rune(trimmed)
+	if len(runes) <= maxErrorBodyChars {
 		return trimmed
 	}
-	return trimmed[:maxErrorBodyChars] + "...(truncated)"
+	return string(runes[:maxErrorBodyChars]) + "...(truncated)"
 }
 
 func (e *EmbeddingTypeResult) UnmarshalJSON(data []byte) error {

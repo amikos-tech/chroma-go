@@ -147,6 +147,24 @@ func TestPerplexityEmbeddingFunction_HTTPErrorResponse_TruncatedBody(t *testing.
 	assert.Less(t, len(msg), len(longMsg)+100)
 }
 
+func TestSanitizeErrorBody_UTF8Safe(t *testing.T) {
+	// Build a body that is exactly maxErrorBodyChars multi-byte runes long + extra.
+	// Each '☺' is 3 bytes, so byte length >> rune count.
+	rune3byte := "☺"
+	body := []byte(strings.Repeat(rune3byte, maxErrorBodyChars+10))
+	result := sanitizeErrorBody(body)
+
+	require.Contains(t, result, "...(truncated)")
+
+	// The truncated prefix must be valid UTF-8 with exactly maxErrorBodyChars runes.
+	prefix := strings.TrimSuffix(result, "...(truncated)")
+	runes := []rune(prefix)
+	assert.Equal(t, maxErrorBodyChars, len(runes))
+	for _, r := range runes {
+		assert.Equal(t, '☺', r, "rune should not be corrupted")
+	}
+}
+
 func TestPerplexityClient_CreateEmbedding_NilInputRejected(t *testing.T) {
 	called := false
 	httpClient := &http.Client{
