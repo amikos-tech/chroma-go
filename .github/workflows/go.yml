@@ -108,7 +108,7 @@ jobs:
   smoke-cross-platform:
     name: Smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -123,6 +123,12 @@ jobs:
         run: go test -run '^$' ./...
       - name: Run basicv2 smoke test
         run: go test -v -tags=basicv2 -run '^TestPageNumber$' ./pkg/api/v2
+      - name: Run default_ef runtime smoke test
+        run: go test -v -count=1 -run '^TestDefaultEF_BootstrapSmoke$' ./pkg/embeddings/default_ef
+        env:
+          RUN_DEFAULT_EF_BOOTSTRAP_SMOKE: "1"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   api:
     name: Test Chroma API
     runs-on: ubuntu-latest
