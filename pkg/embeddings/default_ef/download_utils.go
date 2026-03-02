@@ -56,7 +56,7 @@ func verifyFileChecksum(filepath string, expectedChecksum string) error {
 	return nil
 }
 
-func downloadFile(filepath string, url string) error {
+func downloadFile(destinationPath string, url string) (err error) {
 	client := &http.Client{
 		Timeout: 10 * time.Minute,
 		Transport: &http.Transport{
@@ -80,15 +80,32 @@ func downloadFile(filepath string, url string) error {
 
 	contentLength := resp.ContentLength
 
-	out, err := os.Create(filepath)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create file: %s", filepath)
+	if err := os.MkdirAll(filepath.Dir(destinationPath), 0o755); err != nil {
+		return errors.Wrapf(err, "failed to create parent directory for: %s", destinationPath)
 	}
-	defer out.Close()
+
+	out, err := os.CreateTemp(filepath.Dir(destinationPath), filepath.Base(destinationPath)+".tmp-*")
+	if err != nil {
+		return errors.Wrapf(err, "failed to create temporary file for: %s", destinationPath)
+	}
+	tempPath := out.Name()
+	closed := false
+	committed := false
+	defer func() {
+		if !closed {
+			closeErr := out.Close()
+			if closeErr != nil && err == nil {
+				err = errors.Wrapf(closeErr, "failed to close temporary file: %s", tempPath)
+			}
+		}
+		if !committed {
+			_ = os.Remove(tempPath)
+		}
+	}()
 
 	written, err := io.Copy(out, resp.Body)
 	if err != nil {
-		return errors.Wrapf(err, "failed to copy file contents: %s", filepath)
+		return errors.Wrapf(err, "failed to copy file contents to temporary file: %s", tempPath)
 	}
 
 	if contentLength > 0 && written != contentLength {
@@ -96,17 +113,37 @@ func downloadFile(filepath string, url string) error {
 	}
 
 	if err := out.Sync(); err != nil {
-		return errors.Wrapf(err, "failed to sync file to disk: %s", filepath)
+		return errors.Wrapf(err, "failed to sync temporary file to disk: %s", tempPath)
 	}
 
-	fileInfo, err := os.Stat(filepath)
+	fileInfo, err := os.Stat(tempPath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to stat downloaded file: %s", filepath)
+		return errors.Wrapf(err, "failed to stat temporary downloaded file: %s", tempPath)
 	}
 
 	if fileInfo.Size() != written {
 		return errors.Errorf("file size mismatch after download: expected %d, got %d", written, fileInfo.Size())
 	}
+
+	if err := out.Close(); err != nil {
+		closed = true
+		return errors.Wrapf(err, "failed to close temporary file before rename: %s", tempPath)
+	}
+	closed = true
+
+	if err := os.Rename(tempPath, destinationPath); err != nil {
+		// On Windows os.Rename fails if destination exists; retry after removing it.
+		if removeErr := os.Remove(destinationPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return stderrors.Join(
+				errors.Wrapf(err, "failed to replace destination file: %s", destinationPath),
+				errors.Wrapf(removeErr, "failed to remove existing destination file: %s", destinationPath),
+			)
+		}
+		if err := os.Rename(tempPath, destinationPath); err != nil {
+			return errors.Wrapf(err, "failed to move temporary file %s to %s", tempPath, destinationPath)
+		}
+	}
+	committed = true
 
 	return nil
 }
@@ -153,6 +190,9 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 		}
 
 		if header.Name == targetFile {
+			if !isRegularTarFile(header) {
+				return errors.Errorf("tar entry %q is not a regular file", targetFile)
+			}
 			outPath, err := safePath(destPath, targetFile)
 			if err != nil {
 				return err
@@ -163,6 +203,9 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 			return nil
 		}
 		if targetFile == "" {
+			if !isRegularTarFile(header) {
+				continue
+			}
 			outPath, err := safePath(destPath, header.Name)
 			if err != nil {
 				return err
@@ -180,6 +223,10 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 		}
 	}
 	return nil
+}
+
+func isRegularTarFile(header *tar.Header) bool {
+	return header.Typeflag == tar.TypeReg || header.Typeflag == 0
 }
 
 func writeTarEntryToFile(outPath string, tarReader *tar.Reader) (err error) {
@@ -226,12 +273,9 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 		)
 	}
 
-	resolvedPath, err := ort.EnsureOnnxRuntimeSharedLibrary(bootstrapOpts...)
-	if err != nil {
+	if _, err := ort.EnsureOnnxRuntimeSharedLibrary(bootstrapOpts...); err != nil {
 		return errors.Wrap(err, "failed to resolve onnxruntime shared library via bootstrap")
 	}
-
-	cfg.OnnxLibPath = resolvedPath
 	return nil
 }
 
