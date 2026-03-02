@@ -1,11 +1,11 @@
 # Local Persistent Client Example
 
-This example demonstrates an end-to-end local persistence workflow using `NewPersistentClient`:
+This example is a concise copy/paste starter for `NewPersistentClient`:
 
 - Start a local persistent client with an explicit persistence path.
-- Create/get a collection and upsert sample documents.
-- Close and reopen the client from the same path.
-- Verify persisted data with count checks and semantic query results.
+- Create/get a collection.
+- Upsert sample documents.
+- Run a semantic query.
 
 ## Run
 
@@ -17,17 +17,12 @@ go run .
 ## Expected Output (abridged)
 
 ```text
-=== Phase 1: Write data to local persistent client ===
 Persistence path: ./chroma_data_local_persistent
-Count after write: 3
-Phase 1 top result: id=doc-2, document="Local persistence keeps data between application restarts."
-Phase 1 client closed.
-
-=== Phase 2: Reopen client and verify persistence ===
-Reopening from path: ./chroma_data_local_persistent
-Count after reopen: 3
-Phase 2 top result: id=doc-2, document="Local persistence keeps data between application restarts."
-Persistence verified: collection "persistent_local_demo" retained 3 documents after client restart.
+Collection: persistent_local_demo
+Existing docs before upsert: 3
+Docs after upsert: 3
+Top query result: id=doc-2, document="Local persistence keeps data between application restarts."
+Tip: run `go run .` again. If "Existing docs before upsert" is > 0, local persistence is working.
 ```
 
 ## Troubleshooting

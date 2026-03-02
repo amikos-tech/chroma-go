@@ -147,7 +147,7 @@ func main() {
 }
 ```
 
-> **Complete Example**: See the full local persistence workflow (write, close, reopen, verify) in [`examples/v2/persistent_client`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/persistent_client).
+> **Complete Example**: See a concise local persistent-client starter in [`examples/v2/persistent_client`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/persistent_client).
 
 ### Library Path Resolution
 

@@ -67,9 +67,9 @@ func main() {
 {% /codetab %}
 {% /codetabs %}
 
-## Runnable End-to-End Example
+## Runnable Example
 
-A complete runnable example is available in the repository:
+A concise runnable example is available in the repository:
 
 - [`examples/v2/persistent_client`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/persistent_client)
 
