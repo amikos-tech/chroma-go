@@ -12,6 +12,7 @@ import (
 )
 
 func Test_Default_EF(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	ef, closeEf, err := NewDefaultEmbeddingFunction()
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -31,6 +32,7 @@ func Test_Default_EF(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	ef, closeEf, err := NewDefaultEmbeddingFunction()
 	require.NoError(t, err)
 	require.NotNil(t, ef)
@@ -162,6 +164,7 @@ func TestCustomOnnxRuntimePath(t *testing.T) {
 }
 
 func TestConcurrentInitCloseUse(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	const numGoroutines = 10
 	const numOperations = 5
 
@@ -190,6 +193,7 @@ func TestConcurrentInitCloseUse(t *testing.T) {
 }
 
 func TestConcurrentCloseWhileEmbedding(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	ef1, closeEf1, err := NewDefaultEmbeddingFunction()
 	if err != nil {
 		t.Skipf("Skipping test due to ORT init error: %v", err)
@@ -227,6 +231,7 @@ func TestConcurrentCloseWhileEmbedding(t *testing.T) {
 }
 
 func TestConcurrentEmbeddings(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	ef, closeEf, err := NewDefaultEmbeddingFunction()
 	if err != nil {
 		t.Skipf("Skipping test due to ORT init error: %v", err)
@@ -265,6 +270,7 @@ func TestConcurrentEmbeddings(t *testing.T) {
 }
 
 func TestConcurrentSessionReuse(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	ef, closeEf, err := NewDefaultEmbeddingFunction()
 	if err != nil {
 		t.Skipf("Skipping test due to ORT init error: %v", err)
@@ -319,6 +325,7 @@ func TestConcurrentSessionReuse(t *testing.T) {
 }
 
 func TestMultipleInstancesConcurrent(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	const numInstances = 3
 	efs := make([]*DefaultEmbeddingFunction, numInstances)
 	closers := make([]func() error, numInstances)
