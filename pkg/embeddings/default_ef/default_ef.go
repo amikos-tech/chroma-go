@@ -6,11 +6,11 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/amikos-tech/pure-onnx/embeddings/minilm"
+	ort "github.com/amikos-tech/pure-onnx/ort"
 	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	"github.com/amikos-tech/pure-onnx/embeddings/minilm"
-	ort "github.com/amikos-tech/pure-onnx/ort"
 )
 
 type Option func(p *DefaultEmbeddingFunction) error

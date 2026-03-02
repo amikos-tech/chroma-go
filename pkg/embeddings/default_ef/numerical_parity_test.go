@@ -11,11 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	ort "github.com/amikos-tech/pure-onnx/ort"
+	puretokenizers "github.com/amikos-tech/pure-tokenizers"
 	"github.com/stretchr/testify/require"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	ort "github.com/amikos-tech/pure-onnx/ort"
-	puretokenizers "github.com/amikos-tech/pure-tokenizers"
 )
 
 const (

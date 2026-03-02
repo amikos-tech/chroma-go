@@ -17,9 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	ort "github.com/amikos-tech/pure-onnx/ort"
+	"github.com/pkg/errors"
 )
 
 // Known SHA256 checksum for the ONNX model archive.
@@ -107,28 +106,6 @@ func downloadFile(filepath string, url string) error {
 
 	if fileInfo.Size() != written {
 		return errors.Errorf("file size mismatch after download: expected %d, got %d", written, fileInfo.Size())
-	}
-
-	return nil
-}
-
-func verifyTarGzFile(filepath string) error {
-	file, err := os.Open(filepath)
-	if err != nil {
-		return errors.Wrapf(err, "could not open file for verification: %s", filepath)
-	}
-	defer file.Close()
-
-	gzipReader, err := gzip.NewReader(file)
-	if err != nil {
-		return errors.Wrap(err, "invalid gzip file")
-	}
-	defer gzipReader.Close()
-
-	tarReader := tar.NewReader(gzipReader)
-	_, err = tarReader.Next()
-	if err != nil {
-		return errors.Wrap(err, "invalid tar file or corrupt archive")
 	}
 
 	return nil
