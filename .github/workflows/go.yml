@@ -36,6 +36,7 @@ jobs:
     name: Get changed paths
     runs-on: ubuntu-latest
     outputs:
+      smoke: ${{ steps.changes.outputs.smoke }}
       embeddings: ${{ steps.changes.outputs.embeddings }}
       rerankings: ${{ steps.changes.outputs.rerankings }}
       crosslang: ${{ steps.changes.outputs.crosslang }}
@@ -48,6 +49,14 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
+            smoke:
+              - '**/*.go'
+              - '**/go.mod'
+              - '**/go.sum'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Makefile'
+              - '.github/workflows/go.yml'
             base:
               - 'pkg/api/v2/**'
               - 'pkg/commons/**'
@@ -108,6 +117,8 @@ jobs:
   smoke-cross-platform:
     name: Smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    needs: [lint, paths-filter]
+    if: github.event_name == 'workflow_dispatch' || needs.paths-filter.outputs.smoke == 'true'
     timeout-minutes: 35
     strategy:
       fail-fast: false
