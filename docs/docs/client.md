@@ -147,6 +147,8 @@ func main() {
 }
 ```
 
+> **Complete Example**: See a concise local persistent-client starter in [`examples/v2/persistent_client`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/persistent_client).
+
 ### Library Path Resolution
 
 `NewPersistentClient` resolves the runtime shared library in this order:
