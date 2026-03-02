@@ -119,6 +119,37 @@ func main() {
 {% /codetab %}
 {% /codetabs %}
 
+### Configuring Full-Text Search (FTS)
+
+```go
+schema, err := v2.NewSchema(
+	v2.WithDefaultVectorIndex(v2.NewVectorIndexConfig(
+		v2.WithSpace(v2.SpaceL2),
+	)),
+	v2.WithDefaultFtsIndex(&v2.FtsIndexConfig{}),
+)
+if err != nil {
+	panic(err)
+}
+```
+
+### Configuring SPANN (Chroma Cloud)
+
+```go
+schema, err := v2.NewSchema(
+	v2.WithDefaultVectorIndex(v2.NewVectorIndexConfig(
+		v2.WithSpace(v2.SpaceCosine),
+		v2.WithSpann(v2.NewSpannConfig(
+			v2.WithSpannSearchNprobe(64),
+			v2.WithSpannEfConstruction(200),
+		)),
+	)),
+)
+if err != nil {
+	panic(err)
+}
+```
+
 ### Configuring Sparse Vector Index
 
 {% codetabs group="lang" %}
@@ -218,6 +249,8 @@ func main() {
 		)),
 		// Disable string inverted index globally
 		v2.DisableDefaultStringIndex(),
+		// Or disable a specific field only
+		v2.DisableStringIndex("large_text_field"),
 		// Disable int inverted index for a specific key
 		v2.DisableIntIndex("unimportant_count"),
 		// Enable string index for specific keys
@@ -511,4 +544,3 @@ func main() {
 - SPANN configuration is available via `WithSpann()` for cloud-scale workloads
 - Schema is automatically persisted with the collection
 - Embedding functions are serialized/deserialized automatically when supported
-

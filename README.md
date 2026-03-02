@@ -235,6 +235,65 @@ defer client.Close()
 
 Concise runnable persistent-client starter example: [`examples/v2/persistent_client`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/persistent_client)
 
+### Schema Quickstart (Copy/Paste)
+
+```go
+// NewSchemaWithDefaults (L2 + HNSW defaults)
+schema, err := chroma.NewSchemaWithDefaults()
+if err != nil {
+	panic(err)
+}
+```
+
+```go
+// Custom schema: vector + FTS + metadata indexes
+schema, err := chroma.NewSchema(
+	chroma.WithDefaultVectorIndex(chroma.NewVectorIndexConfig(
+		chroma.WithSpace(chroma.SpaceCosine),
+		chroma.WithHnsw(chroma.NewHnswConfig(
+			chroma.WithEfConstruction(200),
+			chroma.WithMaxNeighbors(32),
+		)),
+	)),
+	chroma.WithDefaultFtsIndex(&chroma.FtsIndexConfig{}),
+	chroma.WithStringIndex("category"),
+	chroma.WithIntIndex("year"),
+	chroma.WithFloatIndex("rating"),
+)
+if err != nil {
+	panic(err)
+}
+```
+
+```go
+// Disable an index for one field
+schema, err := chroma.NewSchema(
+	chroma.WithDefaultVectorIndex(chroma.NewVectorIndexConfig(chroma.WithSpace(chroma.SpaceL2))),
+	chroma.DisableStringIndex("large_text_field"),
+)
+if err != nil {
+	panic(err)
+}
+```
+
+```go
+// SPANN (Chroma Cloud)
+schema, err := chroma.NewSchema(
+	chroma.WithDefaultVectorIndex(chroma.NewVectorIndexConfig(
+		chroma.WithSpace(chroma.SpaceCosine),
+		chroma.WithSpann(chroma.NewSpannConfig(
+			chroma.WithSpannSearchNprobe(64),
+			chroma.WithSpannEfConstruction(200),
+		)),
+	)),
+)
+if err != nil {
+	panic(err)
+}
+```
+
+Runnable schema example: [`examples/v2/schema`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/schema)
+
 ### Strict Metadata Map Validation
 
 When metadata comes from `map[string]interface{}`:
