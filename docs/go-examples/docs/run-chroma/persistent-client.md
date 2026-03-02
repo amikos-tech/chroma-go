@@ -4,13 +4,13 @@
 
 ## Overview
 
-`chroma-go` supports a local persistent client via `v2.NewLocalClient(...)`.
+`chroma-go` supports a persistent client via `v2.NewPersistentClient(...)`.
 It embeds Chroma in your Go process and persists data on disk, similar to Python's `PersistentClient`.
 
 ## Requirements
 
-1. `NewLocalClient` auto-downloads the matching `chroma-go-local` shim library by default.
-2. Optional: set `CHROMA_LIB_PATH` (or pass `WithLocalLibraryPath(...)`) to use a specific local library file instead.
+1. `NewPersistentClient` auto-downloads the matching `chroma-go-local` shim library by default.
+2. Optional: set `CHROMA_LIB_PATH` (or pass `WithPersistentLibraryPath(...)`) to use a specific local library file instead.
 
 Override example:
 
@@ -40,12 +40,12 @@ import (
 )
 
 func main() {
-	client, err := v2.NewLocalClient(
-		v2.WithLocalPersistPath("./chroma_data"),
-		v2.WithLocalAllowReset(true),
+	client, err := v2.NewPersistentClient(
+		v2.WithPersistentPath("./chroma_data"),
+		v2.WithPersistentAllowReset(true),
 	)
 	if err != nil {
-		log.Fatalf("Error creating local client: %v", err)
+		log.Fatalf("Error creating persistent client: %v", err)
 	}
 	defer client.Close()
 
@@ -67,41 +67,41 @@ func main() {
 {% /codetab %}
 {% /codetabs %}
 
-## Local Client Options
+## Persistent Client Options
 
 Runtime options:
 
-- `WithLocalRuntimeMode(v2.LocalRuntimeModeEmbedded)` or `WithLocalRuntimeMode(v2.LocalRuntimeModeServer)` - choose runtime mode (default: embedded).
-- `WithLocalPersistPath(path)` - persistence directory.
-- `WithLocalPort(port)` - server-mode port (default `8000`; use `0` to auto-select an available port).
-- `WithLocalListenAddress(addr)` - server-mode bind address.
-- `WithLocalAllowReset(bool)` - enable `Reset`.
-- `WithLocalConfigPath(path)` - start runtime from YAML file (defaults to server mode).
-- `WithLocalRawYAML(yaml)` - start runtime from inline YAML (defaults to server mode).
-- `WithLocalLibraryPath(path)` - explicit library path (alternative to `CHROMA_LIB_PATH`).
-- `WithLocalLibraryVersion(tag)` - override auto-download release tag (default `v0.2.0`).
-- `WithLocalLibraryCacheDir(path)` - override local shim cache directory.
-- `WithLocalLibraryAutoDownload(false)` - disable auto-download fallback.
+- `WithPersistentRuntimeMode(v2.PersistentRuntimeModeEmbedded)` or `WithPersistentRuntimeMode(v2.PersistentRuntimeModeServer)` - choose runtime mode (default: embedded).
+- `WithPersistentPath(path)` - persistence directory.
+- `WithPersistentPort(port)` - server-mode port (default `8000`; use `0` to auto-select an available port).
+- `WithPersistentListenAddress(addr)` - server-mode bind address.
+- `WithPersistentAllowReset(bool)` - enable `Reset`.
+- `WithPersistentConfigPath(path)` - start runtime from YAML file (defaults to server mode).
+- `WithPersistentRawYAML(yaml)` - start runtime from inline YAML (defaults to server mode).
+- `WithPersistentLibraryPath(path)` - explicit library path (alternative to `CHROMA_LIB_PATH`).
+- `WithPersistentLibraryVersion(tag)` - override auto-download release tag (default `v0.3.1`).
+- `WithPersistentLibraryCacheDir(path)` - override local shim cache directory.
+- `WithPersistentLibraryAutoDownload(false)` - disable auto-download fallback.
 
 Pass regular `ClientOption`s (logger, tenant/database, headers, auth, etc):
 
-- `WithLocalClientOption(v2.WithDatabaseAndTenant("db", "tenant"))`
-- `WithLocalClientOptions(...)`
+- `WithPersistentClientOption(v2.WithDatabaseAndTenant("db", "tenant"))`
+- `WithPersistentClientOptions(...)`
 
 ## Starting Server Mode from YAML Config
 
 ```go
-client, err := v2.NewLocalClient(
-	v2.WithLocalConfigPath("./chroma.yaml"),
-	v2.WithLocalClientOption(v2.WithLogger(myLogger)),
+client, err := v2.NewPersistentClient(
+	v2.WithPersistentConfigPath("./chroma.yaml"),
+	v2.WithPersistentClientOption(v2.WithLogger(myLogger)),
 )
 ```
 
 Or inline:
 
 ```go
-client, err := v2.NewLocalClient(
-	v2.WithLocalRawYAML(`
+client, err := v2.NewPersistentClient(
+	v2.WithPersistentRawYAML(`
 port: 8010
 persist_path: "./chroma_data"
 allow_reset: true
@@ -111,6 +111,6 @@ allow_reset: true
 
 ## Notes
 
-- `NewLocalClient` still uses the same `Client` interface, so collection/query code remains unchanged.
+- `NewPersistentClient` still uses the same `Client` interface, so collection/query code remains unchanged.
 - If you prefer an external server (Docker, CLI, Cloud), continue using `NewHTTPClient` / `NewCloudClient`.
-- `WithLocalConfigPath` and `WithLocalRawYAML` are mutually exclusive.
+- `WithPersistentConfigPath` and `WithPersistentRawYAML` are mutually exclusive.

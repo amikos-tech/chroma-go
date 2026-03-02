@@ -93,27 +93,27 @@ func main() {
 
 ```
 
-## Local Persistent Client (v0.3.6+)
+## Persistent Client (v0.3.6+)
 
-`NewLocalClient` starts and manages a local Chroma runtime (via `chroma-go-local`) and exposes the same `Client` interface.
+`NewPersistentClient` starts and manages a local Chroma runtime (via `chroma-go-local`) and exposes the same `Client` interface.
 By default it uses embedded mode (no HTTP server). You can opt into server mode when needed.
 
 ### Runtime Options
 
 | Options               | Usage                                             | Description                                    |
 |-----------------------|---------------------------------------------------|------------------------------------------------|
-| Local Runtime Mode    | `WithLocalRuntimeMode(chroma.LocalRuntimeModeServer)`    | Select `embedded` (default) or `server`.       |
-| Local Library Path    | `WithLocalLibraryPath("/path/to/lib...")`         | Explicit local runtime library path.           |
-| Local Library Version | `WithLocalLibraryVersion("v0.2.0")`               | Release tag used for auto-download (default `v0.2.0`). |
-| Local Library Cache   | `WithLocalLibraryCacheDir("./.cache/chroma")`     | Cache location for downloaded shim libraries.  |
-| Local Library Download| `WithLocalLibraryAutoDownload(true)`              | Enable/disable auto-download fallback.         |
-| Local Persist Path    | `WithLocalPersistPath("./chroma_data")`           | Persistent storage directory.                  |
-| Local Listen Address  | `WithLocalListenAddress("127.0.0.1")`             | Server-mode bind address.                      |
-| Local Port            | `WithLocalPort(0)`                                | Server-mode port (default `8000`; `0` auto-selects). |
-| Local Allow Reset     | `WithLocalAllowReset(true)`                       | Enable reset endpoint/behavior.                |
-| Local Config Path     | `WithLocalConfigPath("./chroma.yaml")`            | Start runtime from YAML file.                  |
-| Local Raw YAML        | `WithLocalRawYAML("port: 8010\npersist_path:...")` | Start runtime from inline YAML.                |
-| Wrapped Client Option | `WithLocalClientOption(chroma.WithDatabaseAndTenant(...))` | Apply regular `ClientOption` to local client state. |
+| Persistent Runtime Mode    | `WithPersistentRuntimeMode(chroma.PersistentRuntimeModeServer)`    | Select `embedded` (default) or `server`.       |
+| Persistent Library Path    | `WithPersistentLibraryPath("/path/to/lib...")`         | Explicit local runtime library path.           |
+| Persistent Library Version | `WithPersistentLibraryVersion("v0.3.1")`               | Release tag used for auto-download (default `v0.3.1`). |
+| Persistent Library Cache   | `WithPersistentLibraryCacheDir("./.cache/chroma")`     | Cache location for downloaded shim libraries.  |
+| Persistent Library Download| `WithPersistentLibraryAutoDownload(true)`              | Enable/disable auto-download fallback.         |
+| Persistent Path    | `WithPersistentPath("./chroma_data")`           | Persistent storage directory.                  |
+| Persistent Listen Address  | `WithPersistentListenAddress("127.0.0.1")`             | Server-mode bind address.                      |
+| Persistent Port            | `WithPersistentPort(0)`                                | Server-mode port (default `8000`; `0` auto-selects). |
+| Persistent Allow Reset     | `WithPersistentAllowReset(true)`                       | Enable reset endpoint/behavior.                |
+| Persistent Config Path     | `WithPersistentConfigPath("./chroma.yaml")`            | Start runtime from YAML file.                  |
+| Persistent Raw YAML        | `WithPersistentRawYAML("port: 8010\npersist_path:...")` | Start runtime from inline YAML.                |
+| Wrapped Client Option | `WithPersistentClientOption(chroma.WithDatabaseAndTenant(...))` | Apply regular `ClientOption` to local client state. |
 
 ### Example
 
@@ -129,13 +129,13 @@ import (
 )
 
 func main() {
-	client, err := chroma.NewLocalClient(
-		chroma.WithLocalPersistPath("./chroma_data"),
-		chroma.WithLocalAllowReset(true),
-		chroma.WithLocalClientOption(chroma.WithDatabaseAndTenant("default_database", "default_tenant")),
+	client, err := chroma.NewPersistentClient(
+		chroma.WithPersistentPath("./chroma_data"),
+		chroma.WithPersistentAllowReset(true),
+		chroma.WithPersistentClientOption(chroma.WithDatabaseAndTenant("default_database", "default_tenant")),
 	)
 	if err != nil {
-		log.Fatalf("Error creating local client: %v", err)
+		log.Fatalf("Error creating persistent client: %v", err)
 	}
 	defer client.Close()
 
@@ -149,9 +149,9 @@ func main() {
 
 ### Library Path Resolution
 
-`NewLocalClient` resolves the runtime shared library in this order:
+`NewPersistentClient` resolves the runtime shared library in this order:
 
-1. `WithLocalLibraryPath(...)`
+1. `WithPersistentLibraryPath(...)`
 2. `CHROMA_LIB_PATH`
 3. Auto-download from `chroma-go-local` GitHub releases (enabled by default)
 

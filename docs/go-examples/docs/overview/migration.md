@@ -361,8 +361,8 @@ func main() {
 
 ## Notes
 
-- chroma-go supports both external HTTP clients (`NewHTTPClient`) and local embedded runtime (`NewLocalClient`)
-- For Python-style local persistence, use `NewLocalClient` with `WithLocalPersistPath(...)`
+- chroma-go supports both external HTTP clients (`NewHTTPClient`) and in-process embedded runtime (`NewPersistentClient`)
+- For Python-style persistence, use `NewPersistentClient` with `WithPersistentPath(...)`
 - API v2 is recommended for all new projects
 - Always check the [chroma-go releases](https://github.com/amikos-tech/chroma-go/releases) for client-specific changes
 - Server upgrades may require updating your Go client version for full compatibility

@@ -150,7 +150,7 @@ func (s *stubEmbeddedRuntime) Close() error {
 func TestDefaultLocalClientConfig_UsesRequestedDefaults(t *testing.T) {
 	cfg := defaultLocalClientConfig()
 
-	require.Equal(t, LocalRuntimeModeEmbedded, cfg.runtimeMode)
+	require.Equal(t, PersistentRuntimeModeEmbedded, cfg.runtimeMode)
 	require.Equal(t, defaultLocalLibraryVersion, cfg.libraryVersion)
 	require.Equal(t, localchroma.DefaultServerConfig().Port, cfg.port)
 }
@@ -212,16 +212,16 @@ func TestNewLocalClient_DefaultsToEmbeddedRuntime(t *testing.T) {
 		return nil, nil
 	}
 
-	client, err := NewLocalClient(
-		WithLocalLibraryPath("/tmp/chroma-go-shim/libchroma_go_shim.so"),
-		WithLocalPersistPath("/tmp/chroma-embedded"),
-		WithLocalAllowReset(true),
+	client, err := NewPersistentClient(
+		WithPersistentLibraryPath("/tmp/chroma-go-shim/libchroma_go_shim.so"),
+		WithPersistentPath("/tmp/chroma-embedded"),
+		WithPersistentAllowReset(true),
 	)
 	require.NoError(t, err)
 
-	localClient, ok := client.(*LocalClient)
+	localClient, ok := client.(*PersistentClient)
 	require.True(t, ok)
-	require.Equal(t, LocalRuntimeModeEmbedded, localClient.mode)
+	require.Equal(t, PersistentRuntimeModeEmbedded, localClient.mode)
 	require.Equal(t, "", localClient.BaseURL())
 	require.Equal(t, DefaultTenant, localClient.CurrentTenant().Name())
 	require.Equal(t, DefaultDatabase, localClient.CurrentDatabase().Name())
@@ -276,20 +276,20 @@ func TestNewLocalClient_UsesBuilderOptionsAndWrapsHTTPClient(t *testing.T) {
 		return nil, nil
 	}
 
-	client, err := NewLocalClient(
-		WithLocalLibraryPath("/tmp/chroma-go-shim/libchroma_go_shim.so"),
-		WithLocalPersistPath("/tmp/chroma-data"),
-		WithLocalListenAddress("127.0.0.1"),
-		WithLocalPort(8877),
-		WithLocalAllowReset(true),
-		WithLocalClientOptions(
+	client, err := NewPersistentClient(
+		WithPersistentLibraryPath("/tmp/chroma-go-shim/libchroma_go_shim.so"),
+		WithPersistentPath("/tmp/chroma-data"),
+		WithPersistentListenAddress("127.0.0.1"),
+		WithPersistentPort(8877),
+		WithPersistentAllowReset(true),
+		WithPersistentClientOptions(
 			WithDatabaseAndTenant("db_local", "tenant_local"),
 			WithDefaultHeaders(map[string]string{"X-Test": "1"}),
 		),
 	)
 	require.NoError(t, err)
 
-	localClient, ok := client.(*LocalClient)
+	localClient, ok := client.(*PersistentClient)
 	require.True(t, ok)
 	require.Equal(t, "/tmp/chroma-go-shim/libchroma_go_shim.so", gotInitPath)
 	require.NotNil(t, capturedConfig)
@@ -337,14 +337,14 @@ func TestNewLocalClient_ServerModeBaseURLCannotBeOverridden(t *testing.T) {
 		return nil, nil
 	}
 
-	client, err := NewLocalClient(
-		WithLocalRuntimeMode(LocalRuntimeModeServer),
-		WithLocalLibraryPath("/tmp/chroma-go-shim/libchroma_go_shim.so"),
-		WithLocalClientOption(WithBaseURL("https://example.invalid/api/v2")),
+	client, err := NewPersistentClient(
+		WithPersistentRuntimeMode(PersistentRuntimeModeServer),
+		WithPersistentLibraryPath("/tmp/chroma-go-shim/libchroma_go_shim.so"),
+		WithPersistentClientOption(WithBaseURL("https://example.invalid/api/v2")),
 	)
 	require.NoError(t, err)
 
-	localClient, ok := client.(*LocalClient)
+	localClient, ok := client.(*PersistentClient)
 	require.True(t, ok)
 	require.Equal(t, "http://127.0.0.1:8878/api/v2", localClient.BaseURL())
 
@@ -384,13 +384,13 @@ func TestNewLocalClient_ServerModeDefaultsIgnoreEnvironment(t *testing.T) {
 		return nil, nil
 	}
 
-	client, err := NewLocalClient(
-		WithLocalRuntimeMode(LocalRuntimeModeServer),
-		WithLocalLibraryPath("/tmp/chroma-go-shim/libchroma_go_shim.so"),
+	client, err := NewPersistentClient(
+		WithPersistentRuntimeMode(PersistentRuntimeModeServer),
+		WithPersistentLibraryPath("/tmp/chroma-go-shim/libchroma_go_shim.so"),
 	)
 	require.NoError(t, err)
 
-	localClient, ok := client.(*LocalClient)
+	localClient, ok := client.(*PersistentClient)
 	require.True(t, ok)
 	require.Equal(t, DefaultTenant, localClient.CurrentTenant().Name())
 	require.Equal(t, DefaultDatabase, localClient.CurrentDatabase().Name())
@@ -433,8 +433,8 @@ func TestNewLocalClient_UsesRawYAMLStartPath(t *testing.T) {
 		return server, nil
 	}
 
-	client, err := NewLocalClient(
-		WithLocalRawYAML("port: 9900\npersist_path: \"/tmp/chroma\""),
+	client, err := NewPersistentClient(
+		WithPersistentRawYAML("port: 9900\npersist_path: \"/tmp/chroma\""),
 	)
 	require.NoError(t, err)
 	require.Equal(t, "", capturedStartConfig.ConfigPath)
@@ -475,9 +475,9 @@ func TestNewLocalClient_ClosesServerWhenWrappedHTTPClientCreationFails(t *testin
 	}
 
 	// Force wrapped HTTP client creation failure via invalid client option.
-	_, err := NewLocalClient(
-		WithLocalRuntimeMode(LocalRuntimeModeServer),
-		WithLocalClientOption(WithBaseURL("")),
+	_, err := NewPersistentClient(
+		WithPersistentRuntimeMode(PersistentRuntimeModeServer),
+		WithPersistentClientOption(WithBaseURL("")),
 	)
 	require.Error(t, err)
 	require.Equal(t, 1, server.closeCount)
@@ -515,7 +515,7 @@ func TestNewLocalClient_ClosesServerWhenReadinessCheckFails(t *testing.T) {
 		return errors.New("not ready")
 	}
 
-	_, err := NewLocalClient(WithLocalRuntimeMode(LocalRuntimeModeServer))
+	_, err := NewPersistentClient(WithPersistentRuntimeMode(PersistentRuntimeModeServer))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed readiness checks")
 	require.Equal(t, 1, server.closeCount)
@@ -552,7 +552,7 @@ func TestNewLocalClient_PropagatesInitError(t *testing.T) {
 		return nil, nil
 	}
 
-	_, err := NewLocalClient()
+	_, err := NewPersistentClient()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "error initializing local chroma runtime")
 }
@@ -560,9 +560,9 @@ func TestNewLocalClient_PropagatesInitError(t *testing.T) {
 func TestNewLocalClient_RejectsMutuallyExclusiveConfigSources(t *testing.T) {
 	lockLocalTestHooks(t)
 
-	_, err := NewLocalClient(
-		WithLocalConfigPath("/tmp/chroma.yaml"),
-		WithLocalRawYAML("port: 8801"),
+	_, err := NewPersistentClient(
+		WithPersistentConfigPath("/tmp/chroma.yaml"),
+		WithPersistentRawYAML("port: 8801"),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "mutually exclusive")
@@ -580,7 +580,7 @@ func TestNewLocalClient_PropagatesLibraryResolveError(t *testing.T) {
 		return "", errors.New("resolve failed")
 	}
 
-	_, err := NewLocalClient()
+	_, err := NewPersistentClient()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "error resolving local chroma runtime library path")
 }

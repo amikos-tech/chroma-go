@@ -83,7 +83,7 @@ func resolveLocalLibraryPath(cfg *localClientConfig) (string, error) {
 	}
 
 	if !cfg.autoDownloadLibrary {
-		return "", errors.New("local runtime library path is not configured: set WithLocalLibraryPath(...), CHROMA_LIB_PATH, or enable WithLocalLibraryAutoDownload(true)")
+		return "", errors.New("local runtime library path is not configured: set WithPersistentLibraryPath(...), CHROMA_LIB_PATH, or enable WithPersistentLibraryAutoDownload(true)")
 	}
 
 	version, err := normalizeLocalLibraryTag(cfg.libraryVersion)
