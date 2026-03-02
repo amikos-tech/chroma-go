@@ -697,9 +697,22 @@ func TestEnsureLocalLibraryDownloaded_VerifyFailure_JoinsRemoveError(t *testing.
 			localLibraryReleaseBaseURL = server.URL
 			localLibraryReleaseFallbackBaseURL = ""
 			localLibraryDownloadAttempts = 1
+			var metadataDownloadsCompleted int32
 			localDownloadFileFunc = func(filePath, url string) error {
 				if err := origDownloadFile(filePath, url); err != nil {
 					return err
+				}
+				if chmodTrigger == localLibraryChecksumsCertificateAsset {
+					// Checksum metadata is downloaded concurrently; only flip permissions
+					// after all three metadata assets have been written.
+					if strings.HasSuffix(url, "/"+localLibraryChecksumsAsset) ||
+						strings.HasSuffix(url, "/"+localLibraryChecksumsSignatureAsset) ||
+						strings.HasSuffix(url, "/"+localLibraryChecksumsCertificateAsset) {
+						if atomic.AddInt32(&metadataDownloadsCompleted, 1) == 3 {
+							return os.Chmod(targetDir, 0555)
+						}
+					}
+					return nil
 				}
 				if strings.HasSuffix(url, "/"+chmodTrigger) {
 					return os.Chmod(targetDir, 0555)
