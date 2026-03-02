@@ -18,6 +18,7 @@ func TestDefaultEF_BootstrapSmoke(t *testing.T) {
 	t.Setenv("HOME", tempHome)
 	t.Setenv("USERPROFILE", tempHome)
 	resetConfigForTesting()
+	t.Cleanup(resetConfigForTesting)
 
 	ef, closeEF, err := NewDefaultEmbeddingFunction()
 	require.NoError(t, err)
