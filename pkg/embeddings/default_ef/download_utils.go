@@ -28,7 +28,7 @@ import (
 const onnxModelSHA256 = "913d7300ceae3b2dbc2c50d1de4baacab4be7b9380491c27fab7418616a16ec3"
 
 const (
-	defaultEFDownloadLockWaitTimeout       = 45 * time.Second
+	defaultEFDownloadLockWaitTimeout       = 2 * time.Minute
 	defaultEFDownloadLockStaleAfter        = 10 * time.Minute
 	defaultEFDownloadLockHeartbeatInterval = 30 * time.Second
 )
@@ -180,16 +180,8 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 			if err != nil {
 				return err
 			}
-			outFile, err := os.Create(outPath)
-			if err != nil {
-				return errors.Wrapf(err, "could not create output file: %s", outPath)
-			}
-			defer outFile.Close()
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return errors.Wrapf(err, "could not copy file data to output file: %s", outPath)
-			}
-			if err := outFile.Sync(); err != nil {
-				return errors.Wrapf(err, "could not sync output file to disk: %s", outPath)
+			if err := writeTarEntryToFile(outPath, tarReader); err != nil {
+				return err
 			}
 			return nil
 		}
@@ -198,16 +190,8 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 			if err != nil {
 				return err
 			}
-			outFile, err := os.Create(outPath)
-			if err != nil {
-				return errors.Wrapf(err, "could not create output file: %s", outPath)
-			}
-			defer outFile.Close()
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return errors.Wrap(err, "could not copy file data")
-			}
-			if err := outFile.Sync(); err != nil {
-				return errors.Wrapf(err, "could not sync output file to disk: %s", outPath)
+			if err := writeTarEntryToFile(outPath, tarReader); err != nil {
+				return err
 			}
 		}
 	}
@@ -221,6 +205,27 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 	return nil
 }
 
+func writeTarEntryToFile(outPath string, tarReader *tar.Reader) (err error) {
+	outFile, err := os.Create(outPath)
+	if err != nil {
+		return errors.Wrapf(err, "could not create output file: %s", outPath)
+	}
+	defer func() {
+		closeErr := outFile.Close()
+		if closeErr != nil && err == nil {
+			err = errors.Wrapf(closeErr, "could not close output file: %s", outPath)
+		}
+	}()
+
+	if _, err := io.Copy(outFile, tarReader); err != nil {
+		return errors.Wrapf(err, "could not copy file data to output file: %s", outPath)
+	}
+	if err := outFile.Sync(); err != nil {
+		return errors.Wrapf(err, "could not sync output file to disk: %s", outPath)
+	}
+	return nil
+}
+
 var onnxMu sync.Mutex
 
 func EnsureOnnxRuntimeSharedLibrary() error {
@@ -229,29 +234,19 @@ func EnsureOnnxRuntimeSharedLibrary() error {
 	onnxMu.Lock()
 	defer onnxMu.Unlock()
 
-	if err := os.MkdirAll(cfg.OnnxCacheDir, 0755); err != nil {
-		return errors.Wrap(err, "failed to create onnx cache")
-	}
-
-	lockFile, err := defaultEFAcquireDownloadLock(filepath.Join(cfg.OnnxCacheDir, ".download.lock"))
-	if err != nil {
-		return errors.Wrap(err, "failed to acquire lock for onnx bootstrap")
-	}
-	defer func() {
-		_ = defaultEFReleaseDownloadLock(lockFile)
-	}()
-	stopHeartbeat := defaultEFStartDownloadLockHeartbeat(lockFile)
-	defer func() {
-		_ = stopHeartbeat()
-	}()
-
-	bootstrapOpts := []ort.BootstrapOption{
-		ort.WithBootstrapCacheDir(cfg.OnnxCacheDir),
-	}
+	bootstrapOpts := make([]ort.BootstrapOption, 0, 2)
 	if cfg.LibOnnxRuntimeVersion == "custom" {
+		// Custom shared library paths do not need cache directory writes.
 		bootstrapOpts = append(bootstrapOpts, ort.WithBootstrapLibraryPath(cfg.OnnxLibPath))
 	} else {
-		bootstrapOpts = append(bootstrapOpts, ort.WithBootstrapVersion(cfg.LibOnnxRuntimeVersion))
+		if err := os.MkdirAll(cfg.OnnxCacheDir, 0755); err != nil {
+			return errors.Wrap(err, "failed to create onnx cache")
+		}
+		bootstrapOpts = append(
+			bootstrapOpts,
+			ort.WithBootstrapCacheDir(cfg.OnnxCacheDir),
+			ort.WithBootstrapVersion(cfg.LibOnnxRuntimeVersion),
+		)
 	}
 
 	resolvedPath, err := ort.EnsureOnnxRuntimeSharedLibrary(bootstrapOpts...)

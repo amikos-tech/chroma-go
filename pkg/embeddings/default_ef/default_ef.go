@@ -81,6 +81,9 @@ func (e *DefaultEmbeddingFunction) EmbedDocuments(_ context.Context, documents [
 	}
 	initLock.RLock()
 	defer initLock.RUnlock()
+	if atomic.LoadInt32(&e.closed) == 1 {
+		return nil, errors.New("embedding function is closed")
+	}
 
 	if e.embedder == nil {
 		return nil, errors.New("embedding function is not initialized")
@@ -109,6 +112,9 @@ func (e *DefaultEmbeddingFunction) EmbedQuery(_ context.Context, document string
 	}
 	initLock.RLock()
 	defer initLock.RUnlock()
+	if atomic.LoadInt32(&e.closed) == 1 {
+		return nil, errors.New("embedding function is closed")
+	}
 
 	if e.embedder == nil {
 		return nil, errors.New("embedding function is not initialized")
@@ -138,6 +144,8 @@ func (e *DefaultEmbeddingFunction) Close() error {
 
 	var closeErr error
 	e.closeOnce.Do(func() {
+		atomic.StoreInt32(&e.closed, 1)
+
 		var errs []error
 
 		if e.embedder != nil {
@@ -154,7 +162,6 @@ func (e *DefaultEmbeddingFunction) Close() error {
 		if len(errs) > 0 {
 			closeErr = stderrors.Join(errs...)
 		}
-		atomic.StoreInt32(&e.closed, 1)
 	})
 	return closeErr
 }

@@ -120,5 +120,8 @@ func resolveHomeDir() string {
 	if envHome := strings.TrimSpace(os.Getenv("HOME")); envHome != "" {
 		return envHome
 	}
-	return "."
+	if tmpDir := strings.TrimSpace(os.TempDir()); tmpDir != "" {
+		return tmpDir
+	}
+	return string(os.PathSeparator)
 }
