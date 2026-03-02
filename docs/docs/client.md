@@ -104,7 +104,7 @@ By default it uses embedded mode (no HTTP server). You can opt into server mode 
 |-----------------------|---------------------------------------------------|------------------------------------------------|
 | Persistent Runtime Mode    | `WithPersistentRuntimeMode(chroma.PersistentRuntimeModeServer)`    | Select `embedded` (default) or `server`.       |
 | Persistent Library Path    | `WithPersistentLibraryPath("/path/to/lib...")`         | Explicit local runtime library path.           |
-| Persistent Library Version | `WithPersistentLibraryVersion("v0.2.0")`               | Release tag used for auto-download (default `v0.2.0`). |
+| Persistent Library Version | `WithPersistentLibraryVersion("v0.3.1")`               | Release tag used for auto-download (default `v0.3.1`). |
 | Persistent Library Cache   | `WithPersistentLibraryCacheDir("./.cache/chroma")`     | Cache location for downloaded shim libraries.  |
 | Persistent Library Download| `WithPersistentLibraryAutoDownload(true)`              | Enable/disable auto-download fallback.         |
 | Persistent Path    | `WithPersistentPath("./chroma_data")`           | Persistent storage directory.                  |
