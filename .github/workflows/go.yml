@@ -90,6 +90,21 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1
+  windows-compile:
+    name: Windows Compile Guard
+    runs-on: ubuntu-latest
+    needs: [lint, paths-filter]
+    if: inputs.run_ef || needs.paths-filter.outputs.embeddings == 'true' || needs.paths-filter.outputs.base == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Compile API V2 tests for Windows
+        run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go test -c -o /tmp/api-v2.test.exe ./pkg/api/v2
+      - name: Compile default_ef tests for Windows
+        run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go test -c -o /tmp/default-ef.test.exe ./pkg/embeddings/default_ef
   api:
     name: Test Chroma API
     runs-on: ubuntu-latest

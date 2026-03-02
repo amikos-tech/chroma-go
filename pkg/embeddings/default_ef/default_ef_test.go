@@ -1,11 +1,10 @@
-//go:build unix
-
 package defaultef
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -13,6 +12,7 @@ import (
 )
 
 func Test_Default_EF(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	ef, closeEf, err := NewDefaultEmbeddingFunction()
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -32,6 +32,7 @@ func Test_Default_EF(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	ef, closeEf, err := NewDefaultEmbeddingFunction()
 	require.NoError(t, err)
 	require.NotNil(t, ef)
@@ -62,9 +63,7 @@ func TestCustomOnnxRuntimeVersion(t *testing.T) {
 	cfg := getConfig()
 	require.NotNil(t, cfg)
 	require.Equal(t, customVersion, cfg.LibOnnxRuntimeVersion, "Config should use custom ONNX Runtime version from env var")
-
-	// Verify the library path contains the version
-	require.Contains(t, cfg.OnnxLibPath, customVersion, "Library path should contain the custom version")
+	require.Contains(t, cfg.OnnxCacheDir, "onnxruntime", "ONNX cache dir should target runtime cache")
 }
 
 func TestCustomOnnxRuntimePath(t *testing.T) {
@@ -81,6 +80,9 @@ func TestCustomOnnxRuntimePath(t *testing.T) {
 
 	// Get platform info
 	cos, carch := getOSAndArch()
+	if cos == "windows" {
+		t.Skip("slow custom runtime path test currently targets Unix ONNX tarball artifacts")
+	}
 	if carch == "amd64" {
 		carch = "x64"
 	}
@@ -91,7 +93,7 @@ func TestCustomOnnxRuntimePath(t *testing.T) {
 		}
 	}
 
-	// Download ONNX Runtime 1.23.0 (different from default 1.22.0)
+	// Download ONNX Runtime 1.23.0 (different from default 1.23.1)
 	version := "1.23.0"
 	url := "https://github.com/microsoft/onnxruntime/releases/download/v" + version + "/onnxruntime-" + cos + "-" + carch + "-" + version + ".tgz"
 
@@ -126,7 +128,7 @@ func TestCustomOnnxRuntimePath(t *testing.T) {
 	} else {
 		libFilename = "libonnxruntime." + version + "." + getExtensionForOs()
 	}
-	libPath := extractDir + "/" + libFilename
+	libPath := filepath.Join(extractDir, libFilename)
 
 	// Verify the library file exists
 	_, err = os.Stat(libPath)
@@ -162,6 +164,7 @@ func TestCustomOnnxRuntimePath(t *testing.T) {
 }
 
 func TestConcurrentInitCloseUse(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	const numGoroutines = 10
 	const numOperations = 5
 
@@ -190,6 +193,7 @@ func TestConcurrentInitCloseUse(t *testing.T) {
 }
 
 func TestConcurrentCloseWhileEmbedding(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	ef1, closeEf1, err := NewDefaultEmbeddingFunction()
 	if err != nil {
 		t.Skipf("Skipping test due to ORT init error: %v", err)
@@ -227,6 +231,7 @@ func TestConcurrentCloseWhileEmbedding(t *testing.T) {
 }
 
 func TestConcurrentEmbeddings(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	ef, closeEf, err := NewDefaultEmbeddingFunction()
 	if err != nil {
 		t.Skipf("Skipping test due to ORT init error: %v", err)
@@ -265,6 +270,7 @@ func TestConcurrentEmbeddings(t *testing.T) {
 }
 
 func TestConcurrentSessionReuse(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	ef, closeEf, err := NewDefaultEmbeddingFunction()
 	if err != nil {
 		t.Skipf("Skipping test due to ORT init error: %v", err)
@@ -319,6 +325,7 @@ func TestConcurrentSessionReuse(t *testing.T) {
 }
 
 func TestMultipleInstancesConcurrent(t *testing.T) {
+	setOfflineRuntimePathOrSkip(t)
 	const numInstances = 3
 	efs := make([]*DefaultEmbeddingFunction, numInstances)
 	closers := make([]func() error, numInstances)

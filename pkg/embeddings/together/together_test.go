@@ -33,9 +33,12 @@ func requireTogetherSuccessOrSkip(t *testing.T, err error) {
 		return
 	}
 	// The Together CI account can lose access to specific models over time.
-	// Skip these provider-side failures to keep EF checks stable.
+	// Skip these provider-side failures and transient service outages to keep EF checks stable.
 	if strings.Contains(err.Error(), "model_not_available") ||
-		strings.Contains(err.Error(), "Unable to access non-serverless model") {
+		strings.Contains(err.Error(), "Unable to access non-serverless model") ||
+		strings.Contains(err.Error(), "service_unavailable") ||
+		strings.Contains(err.Error(), "Service unavailable") ||
+		strings.Contains(err.Error(), "503 Service Unavailable") {
 		t.Skipf("Skipping test due to Together model availability: %v", err)
 	}
 	require.NoError(t, err)

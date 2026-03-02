@@ -1,9 +1,3 @@
-//go:build unix
-
-// This package currently supports Unix systems only (Linux, macOS).
-// The file locking mechanism uses Unix signals to detect stale locks.
-// Windows support may be added in a future release.
-
 package defaultef
 
 import (
@@ -11,6 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net"
@@ -20,9 +15,9 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
+	ort "github.com/amikos-tech/pure-onnx/ort"
 	"github.com/pkg/errors"
 )
 
@@ -30,6 +25,12 @@ import (
 // This ensures the downloaded model has not been tampered with.
 // To update: download the file and run `shasum -a 256 onnx.tar.gz`
 const onnxModelSHA256 = "913d7300ceae3b2dbc2c50d1de4baacab4be7b9380491c27fab7418616a16ec3"
+
+const (
+	defaultEFDownloadLockWaitTimeout       = 2 * time.Minute
+	defaultEFDownloadLockStaleAfter        = 10 * time.Minute
+	defaultEFDownloadLockHeartbeatInterval = 30 * time.Second
+)
 
 func verifyFileChecksum(filepath string, expectedChecksum string) error {
 	if expectedChecksum == "" {
@@ -55,71 +56,7 @@ func verifyFileChecksum(filepath string, expectedChecksum string) error {
 	return nil
 }
 
-func lockFile(path string) (*os.File, error) {
-	lockPath := filepath.Join(path, ".lock")
-	err := os.MkdirAll(filepath.Dir(lockPath), 0755)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create directory for lock file: %s", filepath.Dir(lockPath))
-	}
-	// Try to create lock file with exclusive access
-	for i := 0; i < 30; i++ { // Wait up to 30 seconds
-
-		lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
-		if err == nil {
-			// Write PID to lock file for debugging
-			fmt.Fprintf(lockFile, "%d", os.Getpid())
-			_ = lockFile.Sync()
-			return lockFile, nil
-		}
-
-		if !os.IsExist(err) {
-			return nil, err
-		}
-
-		// Check if the process holding the lock is still alive
-		if isLockStale(lockPath) {
-			_ = os.Remove(lockPath) // Best-effort removal of stale lock, ignore errors (TOCTOU is acceptable)
-			continue
-		}
-
-		time.Sleep(1 * time.Second)
-	}
-
-	return nil, errors.New("timeout waiting for file lock")
-}
-
-func unlockFile(lockFile *os.File) error {
-	if lockFile == nil {
-		return nil
-	}
-	lockPath := lockFile.Name()
-	lockFile.Close()
-	return os.Remove(lockPath)
-}
-
-func isLockStale(lockPath string) bool {
-	data, err := os.ReadFile(lockPath)
-	if err != nil {
-		return true // If we can't read it, assume stale
-	}
-
-	var pid int
-	if _, err := fmt.Sscanf(string(data), "%d", &pid); err != nil {
-		return true
-	}
-
-	// Check if process exists (Unix-specific)
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return true
-	}
-
-	// Send signal 0 to check if process is alive
-	err = process.Signal(syscall.Signal(0))
-	return err != nil
-}
-
-func downloadFile(filepath string, url string) error {
+func downloadFile(destinationPath string, url string) (err error) {
 	client := &http.Client{
 		Timeout: 10 * time.Minute,
 		Transport: &http.Transport{
@@ -141,70 +78,72 @@ func downloadFile(filepath string, url string) error {
 		return errors.Errorf("unexpected response %s for URL %s", resp.Status, url)
 	}
 
-	// Check Content-Length if available
 	contentLength := resp.ContentLength
-	// if contentLength > 0 {
-	//	fmt.Printf("Expected download size: %d bytes\n", contentLength)
-	//}
 
-	out, err := os.Create(filepath)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create file: %s", filepath)
+	if err := os.MkdirAll(filepath.Dir(destinationPath), 0o755); err != nil {
+		return errors.Wrapf(err, "failed to create parent directory for: %s", destinationPath)
 	}
-	defer out.Close()
 
-	// Copy directly from response body, don't buffer everything in memory
+	out, err := os.CreateTemp(filepath.Dir(destinationPath), filepath.Base(destinationPath)+".tmp-*")
+	if err != nil {
+		return errors.Wrapf(err, "failed to create temporary file for: %s", destinationPath)
+	}
+	tempPath := out.Name()
+	closed := false
+	committed := false
+	defer func() {
+		if !closed {
+			closeErr := out.Close()
+			if closeErr != nil && err == nil {
+				err = errors.Wrapf(closeErr, "failed to close temporary file: %s", tempPath)
+			}
+		}
+		if !committed {
+			_ = os.Remove(tempPath)
+		}
+	}()
+
 	written, err := io.Copy(out, resp.Body)
 	if err != nil {
-		return errors.Wrapf(err, "failed to copy file contents: %s", filepath)
+		return errors.Wrapf(err, "failed to copy file contents to temporary file: %s", tempPath)
 	}
 
-	// fmt.Printf("Downloaded %d bytes\n", written)
-
-	// Verify size if we know the expected size
 	if contentLength > 0 && written != contentLength {
 		return errors.Errorf("download incomplete: expected %d bytes, got %d bytes", contentLength, written)
 	}
 
-	// Explicitly sync to disk
 	if err := out.Sync(); err != nil {
-		return errors.Wrapf(err, "failed to sync file to disk: %s", filepath)
+		return errors.Wrapf(err, "failed to sync temporary file to disk: %s", tempPath)
 	}
 
-	// Verify file exists and has expected size
-	fileInfo, err := os.Stat(filepath)
+	fileInfo, err := os.Stat(tempPath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to stat downloaded file: %s", filepath)
+		return errors.Wrapf(err, "failed to stat temporary downloaded file: %s", tempPath)
 	}
 
 	if fileInfo.Size() != written {
 		return errors.Errorf("file size mismatch after download: expected %d, got %d", written, fileInfo.Size())
 	}
 
-	// fmt.Printf("Download completed and verified: %s (%d bytes)\n", filepath, fileInfo.Size())
-	return nil
-}
-
-func verifyTarGzFile(filepath string) error {
-	file, err := os.Open(filepath)
-	if err != nil {
-		return errors.Wrapf(err, "could not open file for verification: %s", filepath)
+	if err := out.Close(); err != nil {
+		closed = true
+		return errors.Wrapf(err, "failed to close temporary file before rename: %s", tempPath)
 	}
-	defer file.Close()
+	closed = true
 
-	// Try to read the gzip header
-	gzipReader, err := gzip.NewReader(file)
-	if err != nil {
-		return errors.Wrap(err, "invalid gzip file")
+	if err := os.Rename(tempPath, destinationPath); err != nil {
+		// On Windows os.Rename fails if destination exists; retry after removing it.
+		if removeErr := os.Remove(destinationPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return stderrors.Join(
+				errors.Wrapf(err, "failed to replace destination file: %s", destinationPath),
+				errors.Wrapf(removeErr, "failed to remove existing destination file: %s", destinationPath),
+			)
+		}
+		if err := os.Rename(tempPath, destinationPath); err != nil {
+			return errors.Wrapf(err, "failed to move temporary file %s to %s", tempPath, destinationPath)
+		}
 	}
-	defer gzipReader.Close()
-
-	// Try to read the tar header
-	tarReader := tar.NewReader(gzipReader)
-	_, err = tarReader.Next()
-	if err != nil {
-		return errors.Wrap(err, "invalid tar file or corrupt archive")
-	}
+	committed = true
 
 	return nil
 }
@@ -225,69 +164,54 @@ func safePath(destPath, filename string) (string, error) {
 }
 
 func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
-	// Open the .tar.gz file
 	f, err := os.Open(tarGzPath)
 	if err != nil {
 		return errors.Wrapf(err, "could not open tar.gz file: %s", tarGzPath)
 	}
 	defer f.Close()
 
-	// Create a gzip reader
 	gzipReader, err := gzip.NewReader(f)
 	if err != nil {
 		return errors.Wrap(err, "could not create gzip reader")
 	}
 	defer gzipReader.Close()
 
-	// Create a tar reader
 	tarReader := tar.NewReader(gzipReader)
 
-	// Iterate through the files in the tar archive
 	for {
 		header, err := tarReader.Next()
 
 		if err == io.EOF {
-			break // End of archive
+			break
 		}
 
 		if err != nil {
 			return errors.Wrap(err, "could not read tar header")
 		}
 
-		// Check if this is the file we're looking for
 		if header.Name == targetFile {
+			if !isRegularTarFile(header) {
+				return errors.Errorf("tar entry %q is not a regular file", targetFile)
+			}
 			outPath, err := safePath(destPath, targetFile)
 			if err != nil {
 				return err
 			}
-			outFile, err := os.Create(outPath)
-			if err != nil {
-				return errors.Wrapf(err, "could not create output file: %s", outPath)
+			if err := writeTarEntryToFile(outPath, tarReader); err != nil {
+				return err
 			}
-			defer outFile.Close()
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return errors.Wrapf(err, "could not copy file data to output file: %s", outPath)
-			}
-			if err := outFile.Sync(); err != nil {
-				return errors.Wrapf(err, "could not sync output file to disk: %s", outPath)
-			}
-			return nil // Successfully extracted the file
+			return nil
 		}
 		if targetFile == "" {
+			if !isRegularTarFile(header) {
+				continue
+			}
 			outPath, err := safePath(destPath, header.Name)
 			if err != nil {
 				return err
 			}
-			outFile, err := os.Create(outPath)
-			if err != nil {
-				return errors.Wrapf(err, "could not create output file: %s", outPath)
-			}
-			defer outFile.Close()
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return errors.Wrap(err, "could not copy file data")
-			}
-			if err := outFile.Sync(); err != nil {
-				return errors.Wrapf(err, "could not sync output file to disk: %s", outPath)
+			if err := writeTarEntryToFile(outPath, tarReader); err != nil {
+				return err
 			}
 		}
 	}
@@ -301,125 +225,103 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 	return nil
 }
 
-var (
-	onnxInitErr error
-	onnxMu      sync.Mutex
-)
+func isRegularTarFile(header *tar.Header) bool {
+	return header.Typeflag == tar.TypeReg || header.Typeflag == 0
+}
+
+func writeTarEntryToFile(outPath string, tarReader *tar.Reader) (err error) {
+	outFile, err := os.Create(outPath)
+	if err != nil {
+		return errors.Wrapf(err, "could not create output file: %s", outPath)
+	}
+	defer func() {
+		closeErr := outFile.Close()
+		if closeErr != nil && err == nil {
+			err = errors.Wrapf(closeErr, "could not close output file: %s", outPath)
+		}
+	}()
+
+	if _, err := io.Copy(outFile, tarReader); err != nil {
+		return errors.Wrapf(err, "could not copy file data to output file: %s", outPath)
+	}
+	if err := outFile.Sync(); err != nil {
+		return errors.Wrapf(err, "could not sync output file to disk: %s", outPath)
+	}
+	return nil
+}
+
+var onnxMu sync.Mutex
 
 func EnsureOnnxRuntimeSharedLibrary() error {
 	cfg := getConfig()
 
-	// If using custom path, just verify the file exists
-	if cfg.LibOnnxRuntimeVersion == "custom" {
-		if _, err := os.Stat(cfg.OnnxLibPath); err != nil {
-			return errors.Wrapf(err, "custom ONNX Runtime library not found at: %s", cfg.OnnxLibPath)
-		}
-		return nil
-	}
-
 	onnxMu.Lock()
 	defer onnxMu.Unlock()
-	lockFile, err := lockFile(cfg.OnnxCacheDir)
-	if err != nil {
-		return errors.Wrap(err, "failed to acquire lock for onnx download")
-	}
-	defer func() {
-		_ = unlockFile(lockFile)
-	}()
 
-	cos, carch := getOSAndArch()
-	if carch == "amd64" {
-		carch = "x64"
-	}
-	if cos == "darwin" {
-		cos = "osx"
-		if carch == "x64" {
-			carch = "x86_64"
+	bootstrapOpts := make([]ort.BootstrapOption, 0, 2)
+	if cfg.LibOnnxRuntimeVersion == "custom" {
+		// Custom shared library paths do not need cache directory writes.
+		bootstrapOpts = append(bootstrapOpts, ort.WithBootstrapLibraryPath(cfg.OnnxLibPath))
+	} else {
+		if err := os.MkdirAll(cfg.OnnxCacheDir, 0755); err != nil {
+			return errors.Wrap(err, "failed to create onnx cache")
 		}
+		bootstrapOpts = append(
+			bootstrapOpts,
+			ort.WithBootstrapCacheDir(cfg.OnnxCacheDir),
+			ort.WithBootstrapVersion(cfg.LibOnnxRuntimeVersion),
+		)
 	}
 
-	downloadAndExtractNeeded := false
-	if _, onnxInitErr = os.Stat(cfg.OnnxLibPath); os.IsNotExist(onnxInitErr) {
-		downloadAndExtractNeeded = true
-		onnxInitErr = os.MkdirAll(cfg.OnnxCacheDir, 0755)
-		if onnxInitErr != nil {
-			return errors.Wrap(onnxInitErr, "failed to create onnx cache")
-		}
+	if _, err := ort.EnsureOnnxRuntimeSharedLibrary(bootstrapOpts...); err != nil {
+		return errors.Wrap(err, "failed to resolve onnxruntime shared library via bootstrap")
 	}
-	if !downloadAndExtractNeeded {
-		return nil
-	}
-	targetArchive := filepath.Join(cfg.OnnxCacheDir, "onnxruntime-"+cos+"-"+carch+"-"+cfg.LibOnnxRuntimeVersion+".tgz")
-	if _, onnxInitErr = os.Stat(cfg.OnnxLibPath); os.IsNotExist(onnxInitErr) {
-		// Download the library from official Microsoft GitHub releases.
-		// Note: Checksum verification is not practical here because versions are user-configurable
-		// and each version/OS/arch combination has a unique checksum. Integrity is ensured through:
-		// 1. HTTPS transport security 2. Archive format validation 3. File size verification
-		url := "https://github.com/microsoft/onnxruntime/releases/download/v" + cfg.LibOnnxRuntimeVersion + "/onnxruntime-" + cos + "-" + carch + "-" + cfg.LibOnnxRuntimeVersion + ".tgz"
-		if _, onnxInitErr = os.Stat(targetArchive); os.IsNotExist(onnxInitErr) {
-			onnxInitErr = downloadFile(targetArchive, url)
-			if onnxInitErr != nil {
-				return errors.Wrap(onnxInitErr, "failed to download onnxruntime.tgz")
-			}
-			if _, err := os.Stat(targetArchive); err != nil {
-				return errors.Wrap(err, "downloaded archive not found after download")
-			}
-			if err := verifyTarGzFile(targetArchive); err != nil {
-				return errors.Wrap(err, "failed to verify downloaded onnxruntime archive")
-			}
-		}
-	}
-	targetFile := "onnxruntime-" + cos + "-" + carch + "-" + cfg.LibOnnxRuntimeVersion + "/lib/libonnxruntime." + cfg.LibOnnxRuntimeVersion + "." + getExtensionForOs()
-	if cos == "linux" {
-		targetFile = "onnxruntime-" + cos + "-" + carch + "-" + cfg.LibOnnxRuntimeVersion + "/lib/libonnxruntime." + getExtensionForOs() + "." + cfg.LibOnnxRuntimeVersion
-	}
-	onnxInitErr = extractSpecificFile(targetArchive, targetFile, cfg.OnnxCacheDir)
-	if onnxInitErr != nil {
-		return errors.Wrapf(onnxInitErr, "could not extract onnxruntime shared library")
-	}
-
-	if cos == "linux" {
-		onnxInitErr = os.Rename(filepath.Join(cfg.OnnxCacheDir, "libonnxruntime."+getExtensionForOs()+"."+cfg.LibOnnxRuntimeVersion), cfg.OnnxLibPath)
-		if onnxInitErr != nil {
-			return errors.Wrapf(onnxInitErr, "could not rename extracted file to %s", cfg.OnnxLibPath)
-		}
-	}
-
-	if _, err := os.Stat(cfg.OnnxLibPath); err != nil {
-		return errors.Wrapf(err, "extracted file not found at expected location: %s", cfg.OnnxLibPath)
-	}
-
-	onnxInitErr = os.RemoveAll(targetArchive)
-	if onnxInitErr != nil {
-		return errors.Wrapf(onnxInitErr, "could not remove temporary archive: %s", targetArchive)
-	}
-
-	return onnxInitErr
+	return nil
 }
 
 func EnsureDefaultEmbeddingFunctionModel() error {
 	cfg := getConfig()
 
-	lockFile, err := lockFile(cfg.OnnxModelsCachePath)
+	lockFile, err := defaultEFAcquireDownloadLock(filepath.Join(cfg.OnnxModelsCachePath, ".download.lock"))
 	if err != nil {
-		return errors.Wrap(err, "failed to acquire lock for onnx download")
+		return errors.Wrap(err, "failed to acquire lock for onnx model download")
 	}
 	defer func() {
-		_ = unlockFile(lockFile)
+		_ = defaultEFReleaseDownloadLock(lockFile)
+	}()
+	stopHeartbeat := defaultEFStartDownloadLockHeartbeat(lockFile)
+	defer func() {
+		_ = stopHeartbeat()
 	}()
 
-	downloadAndExtractNeeded := false
-	if _, err := os.Stat(cfg.OnnxModelCachePath); os.IsNotExist(err) {
-		downloadAndExtractNeeded = true
-		if err := os.MkdirAll(cfg.OnnxModelCachePath, 0755); err != nil {
-			return errors.Wrap(err, "failed to create onnx model cache")
-		}
+	modelExists, err := defaultEFFileExistsNonEmpty(cfg.OnnxModelPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to check onnx model file")
 	}
-	if !downloadAndExtractNeeded {
+	tokenizerExists, err := defaultEFFileExistsNonEmpty(cfg.OnnxModelTokenizerConfigPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to check tokenizer config file")
+	}
+	if modelExists && tokenizerExists {
 		return nil
 	}
+
+	if err := os.MkdirAll(cfg.OnnxModelCachePath, 0755); err != nil {
+		return errors.Wrap(err, "failed to create onnx model cache")
+	}
+
 	targetArchive := filepath.Join(cfg.OnnxModelsCachePath, "onnx.tar.gz")
-	if _, err := os.Stat(targetArchive); os.IsNotExist(err) {
+	archiveExists, err := defaultEFFileExistsNonEmpty(targetArchive)
+	if err != nil {
+		return errors.Wrap(err, "failed to check onnx model archive")
+	}
+	if archiveExists {
+		if err := verifyFileChecksum(targetArchive, onnxModelSHA256); err != nil {
+			_ = os.Remove(targetArchive)
+			archiveExists = false
+		}
+	}
+	if !archiveExists {
 		if err := downloadFile(targetArchive, onnxModelDownloadEndpoint); err != nil {
 			return errors.Wrap(err, "failed to download onnx model")
 		}
@@ -432,9 +334,155 @@ func EnsureDefaultEmbeddingFunctionModel() error {
 		return errors.Wrapf(err, "could not extract onnx model")
 	}
 
-	// err := os.RemoveAll(targetArchive)
-	// if err != nil {
-	//	return err
-	//}
+	modelExists, err = defaultEFFileExistsNonEmpty(cfg.OnnxModelPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to verify extracted onnx model")
+	}
+	tokenizerExists, err = defaultEFFileExistsNonEmpty(cfg.OnnxModelTokenizerConfigPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to verify extracted tokenizer config")
+	}
+	if !modelExists || !tokenizerExists {
+		return errors.Errorf(
+			"onnx model extraction incomplete: model_exists=%t tokenizer_exists=%t",
+			modelExists,
+			tokenizerExists,
+		)
+	}
+
 	return nil
+}
+
+func defaultEFShouldEvictStaleLock(lockPath string, initialInfo os.FileInfo) (bool, error) {
+	if initialInfo == nil || time.Since(initialInfo.ModTime()) <= defaultEFDownloadLockStaleAfter {
+		return false, nil
+	}
+
+	currentInfo, err := os.Stat(lockPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.Wrapf(err, "failed to stat stale lock file %s", lockPath)
+	}
+
+	if !os.SameFile(initialInfo, currentInfo) {
+		return false, nil
+	}
+	if !currentInfo.ModTime().Equal(initialInfo.ModTime()) || currentInfo.Size() != initialInfo.Size() {
+		return false, nil
+	}
+	if time.Since(currentInfo.ModTime()) <= defaultEFDownloadLockStaleAfter {
+		return false, nil
+	}
+	return true, nil
+}
+
+func defaultEFAcquireDownloadLock(lockPath string) (*os.File, error) {
+	lockDir := filepath.Dir(lockPath)
+	if err := os.MkdirAll(lockDir, 0755); err != nil {
+		return nil, errors.Wrap(err, "failed to create lock directory")
+	}
+
+	deadline := time.Now().Add(defaultEFDownloadLockWaitTimeout)
+	for {
+		lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err == nil {
+			_, _ = fmt.Fprintf(lockFile, "%d", os.Getpid())
+			_ = lockFile.Sync()
+			return lockFile, nil
+		}
+		if !os.IsExist(err) {
+			return nil, errors.Wrap(err, "failed to create lock file")
+		}
+
+		if info, statErr := os.Stat(lockPath); statErr == nil {
+			evictStale, staleErr := defaultEFShouldEvictStaleLock(lockPath, info)
+			if staleErr != nil {
+				return nil, staleErr
+			}
+			if evictStale {
+				if removeErr := os.Remove(lockPath); removeErr != nil && !os.IsNotExist(removeErr) {
+					return nil, errors.Wrapf(removeErr, "failed to remove stale lock file %s", lockPath)
+				}
+				continue
+			}
+		}
+
+		if time.Now().After(deadline) {
+			return nil, errors.Errorf("timeout waiting for lock: %s", lockPath)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func defaultEFReleaseDownloadLock(lockFile *os.File) error {
+	if lockFile == nil {
+		return nil
+	}
+	lockPath := lockFile.Name()
+	var errs []error
+	if closeErr := lockFile.Close(); closeErr != nil {
+		errs = append(errs, errors.Wrap(closeErr, "failed to close download lock file"))
+	}
+	if removeErr := os.Remove(lockPath); removeErr != nil && !os.IsNotExist(removeErr) {
+		errs = append(errs, errors.Wrapf(removeErr, "failed to remove download lock file %s", lockPath))
+	}
+	if len(errs) > 0 {
+		return stderrors.Join(errs...)
+	}
+	return nil
+}
+
+func defaultEFStartDownloadLockHeartbeat(lockFile *os.File) func() error {
+	if lockFile == nil || defaultEFDownloadLockHeartbeatInterval <= 0 {
+		return func() error { return nil }
+	}
+
+	lockPath := lockFile.Name()
+	stopCh := make(chan struct{})
+	doneCh := make(chan error, 1)
+	var stopOnce sync.Once
+	var stopErr error
+	go func() {
+		ticker := time.NewTicker(defaultEFDownloadLockHeartbeatInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				now := time.Now()
+				if err := os.Chtimes(lockPath, now, now); err != nil {
+					if os.IsNotExist(err) {
+						doneCh <- nil
+					} else {
+						doneCh <- errors.Wrapf(err, "failed to refresh download lock file %s", lockPath)
+					}
+					return
+				}
+			case <-stopCh:
+				doneCh <- nil
+				return
+			}
+		}
+	}()
+
+	return func() error {
+		stopOnce.Do(func() {
+			close(stopCh)
+			stopErr = <-doneCh
+		})
+		return stopErr
+	}
+}
+
+func defaultEFFileExistsNonEmpty(filePath string) (bool, error) {
+	info, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return !info.IsDir() && info.Size() > 0, nil
 }

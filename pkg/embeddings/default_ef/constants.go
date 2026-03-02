@@ -1,16 +1,15 @@
-//go:build unix
-
 package defaultef
 
 import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 )
 
 const (
-	defaultLibOnnxRuntimeVersion = "1.22.0"
+	defaultLibOnnxRuntimeVersion = "1.23.1"
 	onnxModelDownloadEndpoint    = "https://chroma-onnx-models.s3.amazonaws.com/all-MiniLM-L6-v2/onnx.tar.gz"
 	ChromaCacheDir               = ".cache/chroma/"
 )
@@ -45,15 +44,17 @@ func getConfig() *Config {
 // initializeConfig creates a new Config by reading environment variables
 // and computing all derived paths
 func initializeConfig() *Config {
+	homeDir := resolveHomeDir()
+	libCacheDir := filepath.Join(homeDir, ChromaCacheDir)
+	onnxModelsCachePath := filepath.Join(libCacheDir, "onnx_models")
+	onnxModelCachePath := filepath.Join(onnxModelsCachePath, "all-MiniLM-L6-v2/onnx")
+	onnxModelPath := filepath.Join(onnxModelCachePath, "model.onnx")
+	onnxModelTokenizerConfigPath := filepath.Join(onnxModelCachePath, "tokenizer.json")
+
 	// Priority 1: Check for explicit path to ONNX Runtime library
-	if customPath := os.Getenv("CHROMAGO_ONNX_RUNTIME_PATH"); customPath != "" {
+	if customPath := strings.TrimSpace(os.Getenv("CHROMAGO_ONNX_RUNTIME_PATH")); customPath != "" {
 		// User provided explicit path to library file
 		// We still need to compute model paths, but use custom lib path
-		libCacheDir := filepath.Join(os.Getenv("HOME"), ChromaCacheDir)
-		onnxModelsCachePath := filepath.Join(libCacheDir, "onnx_models")
-		onnxModelCachePath := filepath.Join(onnxModelsCachePath, "all-MiniLM-L6-v2/onnx")
-		onnxModelPath := filepath.Join(onnxModelCachePath, "model.onnx")
-		onnxModelTokenizerConfigPath := filepath.Join(onnxModelCachePath, "tokenizer.json")
 
 		return &Config{
 			LibOnnxRuntimeVersion:        "custom", // marker for custom path
@@ -77,14 +78,8 @@ func initializeConfig() *Config {
 	}
 
 	// Compute all paths based on the version
-	libCacheDir := filepath.Join(os.Getenv("HOME"), ChromaCacheDir)
 	onnxCacheDir := filepath.Join(libCacheDir, "shared", "onnxruntime")
-	onnxLibPath := filepath.Join(onnxCacheDir, "libonnxruntime."+version+"."+getExtensionForOs())
-
-	onnxModelsCachePath := filepath.Join(libCacheDir, "onnx_models")
-	onnxModelCachePath := filepath.Join(onnxModelsCachePath, "all-MiniLM-L6-v2/onnx")
-	onnxModelPath := filepath.Join(onnxModelCachePath, "model.onnx")
-	onnxModelTokenizerConfigPath := filepath.Join(onnxModelCachePath, "tokenizer.json")
+	onnxLibPath := filepath.Join(onnxCacheDir, "libonnxruntime."+getExtensionForOs())
 
 	return &Config{
 		LibOnnxRuntimeVersion:        version,
@@ -115,4 +110,18 @@ func getExtensionForOs() string {
 func resetConfigForTesting() {
 	config = nil
 	configOnce = sync.Once{}
+}
+
+func resolveHomeDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err == nil && strings.TrimSpace(homeDir) != "" {
+		return homeDir
+	}
+	if envHome := strings.TrimSpace(os.Getenv("HOME")); envHome != "" {
+		return envHome
+	}
+	if tmpDir := strings.TrimSpace(os.TempDir()); tmpDir != "" {
+		return tmpDir
+	}
+	return string(os.PathSeparator)
 }
