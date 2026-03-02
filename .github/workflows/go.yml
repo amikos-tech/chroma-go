@@ -50,9 +50,13 @@ jobs:
         with:
           filters: |
             smoke:
-              - '**/*.go'
-              - '**/go.mod'
-              - '**/go.sum'
+              - 'pkg/api/v2/**'
+              - 'pkg/commons/**'
+              - 'pkg/embeddings/**'
+              - 'pkg/internal/**'
+              - 'pkg/logger/**'
+              - 'pkg/rerankings/**'
+              - 'pkg/tokenizers/**'
               - 'go.mod'
               - 'go.sum'
               - 'Makefile'
