@@ -30,12 +30,18 @@ on:
         required: false
         type: boolean
         default: false
+      run_smoke:
+        description: 'Run cross-platform smoke tests'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   paths-filter:
     name: Get changed paths
     runs-on: ubuntu-latest
     outputs:
+      smoke: ${{ steps.changes.outputs.smoke }}
       embeddings: ${{ steps.changes.outputs.embeddings }}
       rerankings: ${{ steps.changes.outputs.rerankings }}
       crosslang: ${{ steps.changes.outputs.crosslang }}
@@ -48,6 +54,18 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
+            smoke:
+              - 'pkg/api/v2/**'
+              - 'pkg/commons/**'
+              - 'pkg/embeddings/**'
+              - 'pkg/internal/**'
+              - 'pkg/logger/**'
+              - 'pkg/rerankings/**'
+              - 'pkg/tokenizers/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Makefile'
+              - '.github/workflows/go.yml'
             base:
               - 'pkg/api/v2/**'
               - 'pkg/commons/**'
@@ -105,6 +123,32 @@ jobs:
         run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go test -c -o /tmp/api-v2.test.exe ./pkg/api/v2
       - name: Compile default_ef tests for Windows
         run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go test -c -o /tmp/default-ef.test.exe ./pkg/embeddings/default_ef
+  smoke-cross-platform:
+    name: Smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: [lint, paths-filter]
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_smoke) || needs.paths-filter.outputs.smoke == 'true'
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Compile all packages
+        run: go test -run '^$' ./...
+      - name: Run basicv2 smoke test
+        run: go test -v -tags=basicv2 -run '^TestPageNumber$' ./pkg/api/v2
+      - name: Run default_ef runtime smoke test
+        run: go test -v -count=1 -run '^TestDefaultEF_BootstrapSmoke$' ./pkg/embeddings/default_ef
+        env:
+          RUN_DEFAULT_EF_BOOTSTRAP_SMOKE: "1"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   api:
     name: Test Chroma API
     runs-on: ubuntu-latest

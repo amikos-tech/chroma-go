@@ -105,13 +105,6 @@ func getExtensionForOs() string {
 	return "so" // assume Linux default
 }
 
-// resetConfigForTesting resets the configuration singleton for testing purposes
-// This should only be called from test code
-func resetConfigForTesting() {
-	config = nil
-	configOnce = sync.Once{}
-}
-
 func resolveHomeDir() string {
 	homeDir, err := os.UserHomeDir()
 	if err == nil && strings.TrimSpace(homeDir) != "" {
