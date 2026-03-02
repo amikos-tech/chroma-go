@@ -6,7 +6,7 @@
 
 In Python, you can run a Chroma server in-memory with the ephemeral client. This is useful for experimenting and testing without long-lived persistence.
 
-> **Note**: Go does not expose an in-memory-only runtime yet, but `NewLocalClient` gives a close equivalent: run Chroma in-process and use a temporary directory that you delete after the run.
+> **Note**: Go does not expose an in-memory-only runtime yet, but `NewPersistentClient` gives a close equivalent: run Chroma in-process and use a temporary directory that you delete after the run.
 
 ## Go Examples
 
@@ -40,8 +40,8 @@ func main() {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	client, err := v2.NewLocalClient(
-		v2.WithLocalPersistPath(tmpDir),
+	client, err := v2.NewPersistentClient(
+		v2.WithPersistentPath(tmpDir),
 	)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
@@ -190,7 +190,7 @@ func main() {
 
 ## Notes
 
-- `NewLocalClient` provides in-process runtime for local/ephemeral workflows
+- `NewPersistentClient` provides in-process runtime for local/ephemeral workflows
 - Use testcontainers for isolated testing environments
 - Use Docker for local development servers
 - For Cloud development, use `v2.NewCloudClient()`

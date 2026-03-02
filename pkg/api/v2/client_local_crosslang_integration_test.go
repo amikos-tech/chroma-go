@@ -76,16 +76,16 @@ func localLibraryPathIfConfigured(t *testing.T) (string, bool) {
 }
 
 func newLocalClientForRoundTrip(t *testing.T, persistPath string) Client {
-	opts := []LocalClientOption{
-		WithLocalPersistPath(persistPath),
+	opts := []PersistentClientOption{
+		WithPersistentPath(persistPath),
 	}
 	if libPath, ok := localLibraryPathIfConfigured(t); ok {
-		opts = append(opts, WithLocalLibraryPath(libPath))
+		opts = append(opts, WithPersistentLibraryPath(libPath))
 	} else {
 		t.Log("CHROMA_LIB_PATH is not set; using local runtime library auto-download")
 	}
 
-	client, err := NewLocalClient(opts...)
+	client, err := NewPersistentClient(opts...)
 	require.NoError(t, err)
 	return client
 }

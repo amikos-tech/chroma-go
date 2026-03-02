@@ -212,23 +212,23 @@ func main() {
 }
 ```
 
-### Local Persistent Client (Embedded Runtime)
+### Persistent Client (Embedded Runtime)
 
-You can run Chroma locally in-process (no external server process) with `NewLocalClient`.
-The runtime uses `chroma-go-local`. By default, `NewLocalClient` auto-downloads the correct shim library from the matching `chroma-go-local` GitHub release and caches it under `~/.cache/chroma/local_shim`.
-You can still override this with `CHROMA_LIB_PATH` or `WithLocalLibraryPath(...)`.
-`NewLocalClient` defaults to embedded mode; use `WithLocalRuntimeMode(chroma.LocalRuntimeModeServer)` (or `WithLocalPort(...)`) when you want a local HTTP server.
-For persistence, `WithLocalPersistPath(...)` is typically all you need.
+You can run Chroma locally in-process (no external server process) with `NewPersistentClient`.
+The runtime uses `chroma-go-local`. By default, `NewPersistentClient` auto-downloads the correct shim library from the matching `chroma-go-local` GitHub release and caches it under `~/.cache/chroma/local_shim`.
+You can still override this with `CHROMA_LIB_PATH` or `WithPersistentLibraryPath(...)`.
+`NewPersistentClient` defaults to embedded mode; use `WithPersistentRuntimeMode(chroma.PersistentRuntimeModeServer)` (or `WithPersistentPort(...)`) when you want a local HTTP server.
+For persistence, `WithPersistentPath(...)` is typically all you need.
 In server mode, the default port is `8000` unless overridden.
 
 ```go
-client, err := chroma.NewLocalClient(
-	chroma.WithLocalPersistPath("./chroma_data"),
-	chroma.WithLocalAllowReset(true),
-	chroma.WithLocalClientOption(chroma.WithDatabaseAndTenant("default_database", "default_tenant")),
+client, err := chroma.NewPersistentClient(
+	chroma.WithPersistentPath("./chroma_data"),
+	chroma.WithPersistentAllowReset(true),
+	chroma.WithPersistentClientOption(chroma.WithDatabaseAndTenant("default_database", "default_tenant")),
 )
 if err != nil {
-	log.Fatalf("Error creating local client: %s", err)
+	log.Fatalf("Error creating persistent client: %s", err)
 }
 defer client.Close()
 ```

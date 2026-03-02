@@ -11,14 +11,14 @@ import (
 	localchroma "github.com/amikos-tech/chroma-go-local"
 )
 
-// LocalRuntimeMode controls how [NewLocalClient] hosts Chroma locally.
-type LocalRuntimeMode string
+// PersistentRuntimeMode controls how [NewPersistentClient] hosts Chroma locally.
+type PersistentRuntimeMode string
 
 const (
-	// LocalRuntimeModeEmbedded runs Chroma in-process via the embedded Rust shim.
-	LocalRuntimeModeEmbedded LocalRuntimeMode = "embedded"
-	// LocalRuntimeModeServer runs Chroma in-process but serves the HTTP API locally.
-	LocalRuntimeModeServer LocalRuntimeMode = "server"
+	// PersistentRuntimeModeEmbedded runs Chroma in-process via the embedded Rust shim.
+	PersistentRuntimeModeEmbedded PersistentRuntimeMode = "embedded"
+	// PersistentRuntimeModeServer runs Chroma in-process but serves the HTTP API locally.
+	PersistentRuntimeModeServer PersistentRuntimeMode = "server"
 )
 
 type localServer interface {
@@ -81,21 +81,21 @@ var (
 	localResolveLibraryPathFunc = resolveLocalLibraryPath
 )
 
-// LocalClient hosts Chroma in-process using chroma-go-local.
+// PersistentClient hosts Chroma in-process using chroma-go-local.
 //
 // It delegates to either embedded mode (default) or local HTTP server mode,
 // depending on runtime configuration.
-type LocalClient struct {
+type PersistentClient struct {
 	Client
-	mode   LocalRuntimeMode
+	mode   PersistentRuntimeMode
 	server localServer
 }
 
-// LocalClientOption configures a [LocalClient].
-type LocalClientOption func(*localClientConfig) error
+// PersistentClientOption configures a [PersistentClient].
+type PersistentClientOption func(*localClientConfig) error
 
 type localClientConfig struct {
-	runtimeMode LocalRuntimeMode
+	runtimeMode PersistentRuntimeMode
 
 	libraryPath         string
 	libraryVersion      string
@@ -116,7 +116,7 @@ func defaultLocalClientConfig() *localClientConfig {
 	serverDefaults := localchroma.DefaultServerConfig()
 	embeddedDefaults := localchroma.DefaultEmbeddedConfig()
 	return &localClientConfig{
-		runtimeMode:         LocalRuntimeModeEmbedded,
+		runtimeMode:         PersistentRuntimeModeEmbedded,
 		libraryVersion:      defaultLocalLibraryVersion,
 		autoDownloadLibrary: true,
 		persistPath:         embeddedDefaults.PersistPath,
@@ -127,11 +127,11 @@ func defaultLocalClientConfig() *localClientConfig {
 	}
 }
 
-// NewLocalClient creates a Chroma client that starts and manages an in-process local Chroma runtime.
+// NewPersistentClient creates a Chroma client that starts and manages an in-process local Chroma runtime.
 //
-// Embedded mode is used by default. Use [WithLocalRuntimeMode] (or server-specific options such as [WithLocalPort])
+// Embedded mode is used by default. Use [WithPersistentRuntimeMode] (or server-specific options such as [WithPersistentPort])
 // to run a local HTTP server mode instead.
-func NewLocalClient(opts ...LocalClientOption) (Client, error) {
+func NewPersistentClient(opts ...PersistentClientOption) (Client, error) {
 	cfg := defaultLocalClientConfig()
 	for _, opt := range opts {
 		if opt == nil {
@@ -155,7 +155,7 @@ func NewLocalClient(opts ...LocalClientOption) (Client, error) {
 	}
 
 	switch cfg.runtimeMode {
-	case LocalRuntimeModeEmbedded:
+	case PersistentRuntimeModeEmbedded:
 		embedded, err := startLocalEmbedded(cfg)
 		if err != nil {
 			return nil, errors.Wrap(err, "error starting local chroma embedded runtime")
@@ -165,9 +165,9 @@ func NewLocalClient(opts ...LocalClientOption) (Client, error) {
 			_ = embedded.Close()
 			return nil, errors.Wrap(err, "error creating embedded local client")
 		}
-		return &LocalClient{Client: embeddedClient, mode: LocalRuntimeModeEmbedded}, nil
+		return &PersistentClient{Client: embeddedClient, mode: PersistentRuntimeModeEmbedded}, nil
 
-	case LocalRuntimeModeServer:
+	case PersistentRuntimeModeServer:
 		server, err := startLocalServer(cfg)
 		if err != nil {
 			return nil, errors.Wrap(err, "error starting local chroma runtime")
@@ -197,7 +197,7 @@ func NewLocalClient(opts ...LocalClientOption) (Client, error) {
 			return nil, errors.Wrap(err, "local runtime server failed readiness checks")
 		}
 
-		return &LocalClient{Client: apiClient, mode: LocalRuntimeModeServer, server: server}, nil
+		return &PersistentClient{Client: apiClient, mode: PersistentRuntimeModeServer, server: server}, nil
 
 	default:
 		return nil, errors.Errorf("unsupported local runtime mode: %s", cfg.runtimeMode)
@@ -206,7 +206,7 @@ func NewLocalClient(opts ...LocalClientOption) (Client, error) {
 
 // BaseURL returns the local server URL when running in server mode.
 // Embedded mode returns an empty string.
-func (client *LocalClient) BaseURL() string {
+func (client *PersistentClient) BaseURL() string {
 	if client == nil || client.Client == nil {
 		return ""
 	}
@@ -283,7 +283,7 @@ func waitForLocalEmbeddedReady(embedded localEmbeddedRuntime) error {
 
 func validateLocalConfigSource(configPath, rawYAML string) error {
 	if strings.TrimSpace(configPath) != "" && strings.TrimSpace(rawYAML) != "" {
-		return errors.New("WithLocalConfigPath and WithLocalRawYAML are mutually exclusive")
+		return errors.New("WithPersistentConfigPath and WithPersistentRawYAML are mutually exclusive")
 	}
 	return nil
 }
@@ -328,7 +328,7 @@ func startLocalServer(cfg *localClientConfig) (localServer, error) {
 }
 
 // Close shuts down the local runtime and any wrapped client resources.
-func (client *LocalClient) Close() error {
+func (client *PersistentClient) Close() error {
 	if client == nil {
 		return nil
 	}
@@ -351,20 +351,20 @@ func (client *LocalClient) Close() error {
 	return nil
 }
 
-func normalizeLocalRuntimeMode(mode LocalRuntimeMode) (LocalRuntimeMode, error) {
+func normalizeLocalRuntimeMode(mode PersistentRuntimeMode) (PersistentRuntimeMode, error) {
 	value := strings.ToLower(strings.TrimSpace(string(mode)))
 	switch value {
-	case string(LocalRuntimeModeEmbedded):
-		return LocalRuntimeModeEmbedded, nil
-	case string(LocalRuntimeModeServer):
-		return LocalRuntimeModeServer, nil
+	case string(PersistentRuntimeModeEmbedded):
+		return PersistentRuntimeModeEmbedded, nil
+	case string(PersistentRuntimeModeServer):
+		return PersistentRuntimeModeServer, nil
 	default:
 		return "", errors.Errorf("unsupported local runtime mode: %s", mode)
 	}
 }
 
-// WithLocalRuntimeMode selects how [NewLocalClient] runs local Chroma.
-func WithLocalRuntimeMode(mode LocalRuntimeMode) LocalClientOption {
+// WithPersistentRuntimeMode selects how [NewPersistentClient] runs local Chroma.
+func WithPersistentRuntimeMode(mode PersistentRuntimeMode) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		normalizedMode, err := normalizeLocalRuntimeMode(mode)
 		if err != nil {
@@ -375,13 +375,13 @@ func WithLocalRuntimeMode(mode LocalRuntimeMode) LocalClientOption {
 	}
 }
 
-// WithLocalLibraryPath sets the path to the local runtime shared library.
+// WithPersistentLibraryPath sets the path to the local runtime shared library.
 //
-// Resolution order in [NewLocalClient]:
-// 1. [WithLocalLibraryPath]
+// Resolution order in [NewPersistentClient]:
+// 1. [WithPersistentLibraryPath]
 // 2. `CHROMA_LIB_PATH`
 // 3. Auto-download from `chroma-go-local` releases (when enabled)
-func WithLocalLibraryPath(path string) LocalClientOption {
+func WithPersistentLibraryPath(path string) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		if strings.TrimSpace(path) == "" {
 			return errors.New("local library path cannot be empty")
@@ -391,10 +391,10 @@ func WithLocalLibraryPath(path string) LocalClientOption {
 	}
 }
 
-// WithLocalLibraryVersion sets the chroma-go-local release tag used for auto-downloading the runtime library.
+// WithPersistentLibraryVersion sets the chroma-go-local release tag used for auto-downloading the runtime library.
 //
 // Examples: "v0.2.0", "0.2.0"
-func WithLocalLibraryVersion(version string) LocalClientOption {
+func WithPersistentLibraryVersion(version string) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		version = strings.TrimSpace(version)
 		if version == "" {
@@ -408,8 +408,8 @@ func WithLocalLibraryVersion(version string) LocalClientOption {
 	}
 }
 
-// WithLocalLibraryCacheDir sets the cache directory used for downloaded local runtime libraries.
-func WithLocalLibraryCacheDir(path string) LocalClientOption {
+// WithPersistentLibraryCacheDir sets the cache directory used for downloaded local runtime libraries.
+func WithPersistentLibraryCacheDir(path string) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		if strings.TrimSpace(path) == "" {
 			return errors.New("local library cache dir cannot be empty")
@@ -419,51 +419,51 @@ func WithLocalLibraryCacheDir(path string) LocalClientOption {
 	}
 }
 
-// WithLocalLibraryAutoDownload enables/disables automatic library download when no explicit path is provided.
+// WithPersistentLibraryAutoDownload enables/disables automatic library download when no explicit path is provided.
 //
 // Resolution order:
-// 1. WithLocalLibraryPath(...)
+// 1. WithPersistentLibraryPath(...)
 // 2. CHROMA_LIB_PATH
 // 3. auto-download (when enabled)
-func WithLocalLibraryAutoDownload(enabled bool) LocalClientOption {
+func WithPersistentLibraryAutoDownload(enabled bool) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		cfg.autoDownloadLibrary = enabled
 		return nil
 	}
 }
 
-// WithLocalConfigPath starts local runtime from a YAML config file path.
+// WithPersistentConfigPath starts local runtime from a YAML config file path.
 //
-// This option is mutually exclusive with [WithLocalRawYAML].
+// This option is mutually exclusive with [WithPersistentRawYAML].
 // It selects server runtime mode because YAML config startup is server-based.
-func WithLocalConfigPath(path string) LocalClientOption {
+func WithPersistentConfigPath(path string) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		if strings.TrimSpace(path) == "" {
 			return errors.New("local config path cannot be empty")
 		}
 		cfg.configPath = strings.TrimSpace(path)
-		cfg.runtimeMode = LocalRuntimeModeServer
+		cfg.runtimeMode = PersistentRuntimeModeServer
 		return nil
 	}
 }
 
-// WithLocalRawYAML starts local runtime from an inline YAML config string.
+// WithPersistentRawYAML starts local runtime from an inline YAML config string.
 //
-// This option is mutually exclusive with [WithLocalConfigPath].
+// This option is mutually exclusive with [WithPersistentConfigPath].
 // It selects server runtime mode because YAML config startup is server-based.
-func WithLocalRawYAML(yaml string) LocalClientOption {
+func WithPersistentRawYAML(yaml string) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		if strings.TrimSpace(yaml) == "" {
 			return errors.New("local raw YAML cannot be empty")
 		}
 		cfg.rawYAML = yaml
-		cfg.runtimeMode = LocalRuntimeModeServer
+		cfg.runtimeMode = PersistentRuntimeModeServer
 		return nil
 	}
 }
 
-// WithLocalPersistPath sets the local persistence directory.
-func WithLocalPersistPath(path string) LocalClientOption {
+// WithPersistentPath sets the local persistence directory.
+func WithPersistentPath(path string) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		if strings.TrimSpace(path) == "" {
 			return errors.New("local persist path cannot be empty")
@@ -473,46 +473,46 @@ func WithLocalPersistPath(path string) LocalClientOption {
 	}
 }
 
-// WithLocalListenAddress sets the local server listen address.
+// WithPersistentListenAddress sets the local server listen address.
 //
 // This option selects server runtime mode.
-func WithLocalListenAddress(address string) LocalClientOption {
+func WithPersistentListenAddress(address string) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		if strings.TrimSpace(address) == "" {
 			return errors.New("local listen address cannot be empty")
 		}
 		cfg.listenAddress = strings.TrimSpace(address)
-		cfg.runtimeMode = LocalRuntimeModeServer
+		cfg.runtimeMode = PersistentRuntimeModeServer
 		return nil
 	}
 }
 
-// WithLocalPort sets the local server port.
+// WithPersistentPort sets the local server port.
 //
 // Use `0` to auto-select an available port.
 // If unset, server mode defaults to port `8000`.
 // This option selects server runtime mode.
-func WithLocalPort(port int) LocalClientOption {
+func WithPersistentPort(port int) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		if port < 0 || port > 65535 {
 			return errors.New("local port must be between 0 and 65535")
 		}
 		cfg.port = port
-		cfg.runtimeMode = LocalRuntimeModeServer
+		cfg.runtimeMode = PersistentRuntimeModeServer
 		return nil
 	}
 }
 
-// WithLocalAllowReset enables/disables local reset behavior.
-func WithLocalAllowReset(allowReset bool) LocalClientOption {
+// WithPersistentAllowReset enables/disables local reset behavior.
+func WithPersistentAllowReset(allowReset bool) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		cfg.allowReset = allowReset
 		return nil
 	}
 }
 
-// WithLocalClientOption adds one standard [ClientOption] to the wrapped local client state.
-func WithLocalClientOption(option ClientOption) LocalClientOption {
+// WithPersistentClientOption adds one standard [ClientOption] to the wrapped local client state.
+func WithPersistentClientOption(option ClientOption) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		if option == nil {
 			return errors.New("local client option cannot be nil")
@@ -522,8 +522,8 @@ func WithLocalClientOption(option ClientOption) LocalClientOption {
 	}
 }
 
-// WithLocalClientOptions adds multiple standard [ClientOption] values to the wrapped local client state.
-func WithLocalClientOptions(options ...ClientOption) LocalClientOption {
+// WithPersistentClientOptions adds multiple standard [ClientOption] values to the wrapped local client state.
+func WithPersistentClientOptions(options ...ClientOption) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		for i, option := range options {
 			if option == nil {
