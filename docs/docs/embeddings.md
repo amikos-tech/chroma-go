@@ -81,7 +81,8 @@ func main() {
 The ONNX Runtime library can be customized using environment variables:
 
 - `CHROMAGO_ONNX_RUNTIME_PATH` - Absolute path to a custom ONNX Runtime library file (e.g., `/usr/local/lib/libonnxruntime.1.23.2.dylib`). When set, skips auto-download.
-- `CHROMAGO_ONNX_RUNTIME_VERSION` - Version of ONNX Runtime to download (default: `1.22.0`). Only used when `CHROMAGO_ONNX_RUNTIME_PATH` is not set.
+- `CHROMAGO_ONNX_RUNTIME_VERSION` - Version of ONNX Runtime to download (default: `1.23.1`). Only used when `CHROMAGO_ONNX_RUNTIME_PATH` is not set.
+- `GITHUB_TOKEN` / `GH_TOKEN` - Optional GitHub token used by ONNX bootstrap checksum resolution to avoid unauthenticated API rate limits.
 
 Example:
 ```bash

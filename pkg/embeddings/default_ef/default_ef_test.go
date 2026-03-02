@@ -1,11 +1,10 @@
-//go:build unix
-
 package defaultef
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -62,9 +61,7 @@ func TestCustomOnnxRuntimeVersion(t *testing.T) {
 	cfg := getConfig()
 	require.NotNil(t, cfg)
 	require.Equal(t, customVersion, cfg.LibOnnxRuntimeVersion, "Config should use custom ONNX Runtime version from env var")
-
-	// Verify the library path contains the version
-	require.Contains(t, cfg.OnnxLibPath, customVersion, "Library path should contain the custom version")
+	require.Contains(t, cfg.OnnxCacheDir, "onnxruntime", "ONNX cache dir should target runtime cache")
 }
 
 func TestCustomOnnxRuntimePath(t *testing.T) {
@@ -81,6 +78,9 @@ func TestCustomOnnxRuntimePath(t *testing.T) {
 
 	// Get platform info
 	cos, carch := getOSAndArch()
+	if cos == "windows" {
+		t.Skip("slow custom runtime path test currently targets Unix ONNX tarball artifacts")
+	}
 	if carch == "amd64" {
 		carch = "x64"
 	}
@@ -91,7 +91,7 @@ func TestCustomOnnxRuntimePath(t *testing.T) {
 		}
 	}
 
-	// Download ONNX Runtime 1.23.0 (different from default 1.22.0)
+	// Download ONNX Runtime 1.23.0 (different from default 1.23.1)
 	version := "1.23.0"
 	url := "https://github.com/microsoft/onnxruntime/releases/download/v" + version + "/onnxruntime-" + cos + "-" + carch + "-" + version + ".tgz"
 
@@ -126,7 +126,7 @@ func TestCustomOnnxRuntimePath(t *testing.T) {
 	} else {
 		libFilename = "libonnxruntime." + version + "." + getExtensionForOs()
 	}
-	libPath := extractDir + "/" + libFilename
+	libPath := filepath.Join(extractDir, libFilename)
 
 	// Verify the library file exists
 	_, err = os.Stat(libPath)

@@ -34,7 +34,8 @@ The codebase heavily relies on environment variables for configuration:
 - `CHROMA_CLOUD_TENANT` - Cloud tenant ID
 - `CHROMA_CLOUD_DATABASE` - Cloud database ID
 - `CHROMAGO_ONNX_RUNTIME_PATH` - Absolute path to ONNX Runtime library file (overrides auto-download)
-- `CHROMAGO_ONNX_RUNTIME_VERSION` - ONNX Runtime version for auto-download (default: 1.22.0)
+- `CHROMAGO_ONNX_RUNTIME_VERSION` - ONNX Runtime version for auto-download (default: 1.23.1)
+- `GITHUB_TOKEN` / `GH_TOKEN` - Optional token to avoid GitHub API rate limits during ONNX bootstrap checksum resolution
 
 ## Architecture
 
