@@ -16,13 +16,20 @@ const (
 )
 
 func main() {
+	// Keep process exit in main; run() can return errors while still running deferred cleanup.
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	ctx := context.Background()
 
 	client, err := v2.NewPersistentClient(
 		v2.WithPersistentPath(persistPath),
 	)
 	if err != nil {
-		log.Fatalf("Error creating persistent client: %v", err)
+		return fmt.Errorf("error creating persistent client: %w", err)
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
@@ -32,7 +39,7 @@ func main() {
 
 	embeddingFunction, closeEF, err := defaultef.NewDefaultEmbeddingFunction()
 	if err != nil {
-		log.Fatalf("Error creating default embedding function: %v", err)
+		return fmt.Errorf("error creating default embedding function: %w", err)
 	}
 	defer func() {
 		if err := closeEF(); err != nil {
@@ -46,12 +53,12 @@ func main() {
 		v2.WithEmbeddingFunctionCreate(embeddingFunction),
 	)
 	if err != nil {
-		log.Fatalf("Error creating/getting collection: %v", err)
+		return fmt.Errorf("error creating/getting collection: %w", err)
 	}
 
 	countBeforeUpsert, err := collection.Count(ctx)
 	if err != nil {
-		log.Fatalf("Error counting documents before upsert: %v", err)
+		return fmt.Errorf("error counting documents before upsert: %w", err)
 	}
 	fmt.Printf("Persistence path: %s\n", persistPath)
 	fmt.Printf("Collection: %s\n", collectionName)
@@ -67,12 +74,12 @@ func main() {
 		),
 	)
 	if err != nil {
-		log.Fatalf("Error upserting documents: %v", err)
+		return fmt.Errorf("error upserting documents: %w", err)
 	}
 
 	countAfterUpsert, err := collection.Count(ctx)
 	if err != nil {
-		log.Fatalf("Error counting documents after upsert: %v", err)
+		return fmt.Errorf("error counting documents after upsert: %w", err)
 	}
 	fmt.Printf("Docs after upsert: %d\n", countAfterUpsert)
 
@@ -83,13 +90,14 @@ func main() {
 		v2.WithInclude(v2.IncludeDocuments),
 	)
 	if err != nil {
-		log.Fatalf("Error querying collection: %v", err)
+		return fmt.Errorf("error querying collection: %w", err)
 	}
 	printTopResult(queryResult)
 
 	fmt.Printf(
 		"Tip: run `go run .` again. If \"Existing docs before upsert\" is > 0, local persistence is working.\n",
 	)
+	return nil
 }
 
 func printTopResult(qr v2.QueryResult) {
