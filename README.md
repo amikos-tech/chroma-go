@@ -233,6 +233,8 @@ if err != nil {
 defer client.Close()
 ```
 
+Complete runnable workflow (write, close, reopen, verify persistence): [`examples/v2/persistent_client`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/persistent_client)
+
 ### Strict Metadata Map Validation
 
 When metadata comes from `map[string]interface{}`:
