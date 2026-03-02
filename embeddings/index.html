@@ -1563,7 +1563,8 @@ ensure proper resource release.</p>
 <p>The ONNX Runtime library can be customized using environment variables:</p>
 <ul>
 <li><code>CHROMAGO_ONNX_RUNTIME_PATH</code> - Absolute path to a custom ONNX Runtime library file (e.g., <code>/usr/local/lib/libonnxruntime.1.23.2.dylib</code>). When set, skips auto-download.</li>
-<li><code>CHROMAGO_ONNX_RUNTIME_VERSION</code> - Version of ONNX Runtime to download (default: <code>1.22.0</code>). Only used when <code>CHROMAGO_ONNX_RUNTIME_PATH</code> is not set.</li>
+<li><code>CHROMAGO_ONNX_RUNTIME_VERSION</code> - Version of ONNX Runtime to download (default: <code>1.23.1</code>). Only used when <code>CHROMAGO_ONNX_RUNTIME_PATH</code> is not set.</li>
+<li><code>GITHUB_TOKEN</code> / <code>GH_TOKEN</code> - Optional GitHub token used by ONNX bootstrap checksum resolution to avoid unauthenticated API rate limits.</li>
 </ul>
 <p>Example:
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Use a specific version</span>
