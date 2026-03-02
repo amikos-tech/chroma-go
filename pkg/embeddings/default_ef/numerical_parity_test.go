@@ -387,7 +387,10 @@ func summarizePythonError(stderr string) string {
 	if trimmed == "" {
 		return "unknown python error"
 	}
-	for _, line := range strings.Split(trimmed, "\n") {
+
+	lines := strings.Split(trimmed, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
 		candidate := strings.TrimSpace(line)
 		if candidate == "" {
 			continue
