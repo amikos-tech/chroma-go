@@ -753,11 +753,8 @@ func WithDefaultHeaders(headers map[string]string) ClientOption {
 		if headers == nil {
 			return errors.New("headers cannot be nil")
 		}
-		if c.defaultHeaders == nil {
-			c.defaultHeaders = make(map[string]string)
-		}
 		for k, v := range headers {
-			c.defaultHeaders[k] = v
+			c.setDefaultHeader(k, v)
 		}
 		return nil
 	}
@@ -1094,24 +1091,40 @@ func (bc *BaseAPIClient) SetTenantAndDatabase(tenant Tenant, database Database) 
 	bc.database = database
 }
 
+// Deprecated: SetDefaultHeaders mutates shared request header state at runtime.
+// Prefer configuring headers with WithDefaultHeaders during client construction.
+// This method will be removed in v0.4.1.
 func (bc *BaseAPIClient) SetDefaultHeaders(headers map[string]string) {
+	var copied map[string]string
+	if headers != nil {
+		copied = make(map[string]string, len(headers))
+		for k, v := range headers {
+			copied[k] = v
+		}
+	}
 	if bc.scopeMu == nil {
-		bc.defaultHeaders = headers
+		bc.defaultHeaders = copied
 		return
 	}
 	bc.scopeMu.Lock()
 	defer bc.scopeMu.Unlock()
-	bc.defaultHeaders = headers
+	bc.defaultHeaders = copied
 }
 
 // setDefaultHeader sets a single header under the write lock.
 func (bc *BaseAPIClient) setDefaultHeader(key, value string) {
 	if bc.scopeMu == nil {
+		if bc.defaultHeaders == nil {
+			bc.defaultHeaders = make(map[string]string)
+		}
 		bc.defaultHeaders[key] = value
 		return
 	}
 	bc.scopeMu.Lock()
 	defer bc.scopeMu.Unlock()
+	if bc.defaultHeaders == nil {
+		bc.defaultHeaders = make(map[string]string)
+	}
 	bc.defaultHeaders[key] = value
 }
 

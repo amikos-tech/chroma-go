@@ -44,8 +44,7 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 		}
 	}
 
-	tenant := c.Tenant()
-	database := c.Database()
+	tenant, database := c.TenantAndDatabase()
 	if tenant == nil || tenant.Name() == DefaultTenant || database == nil || database.Name() == DefaultDatabase {
 		return nil, errors.New("tenant and database must be set for cloud client. Use WithDatabaseAndTenantFromEnv option or set CHROMA_TENANT and CHROMA_DATABASE environment variables")
 	}
