@@ -28,18 +28,25 @@ type DefaultEmbeddingFunction struct {
 
 var initLock sync.RWMutex
 
+var (
+	ensureOnnxRuntimeSharedLibraryFn     = EnsureOnnxRuntimeSharedLibrary
+	ensureDefaultEmbeddingModelFn        = EnsureDefaultEmbeddingFunctionModel
+	initializeEnvironmentWithBootstrapFn = ort.InitializeEnvironmentWithBootstrap
+	destroyEnvironmentFn                 = ort.DestroyEnvironment
+)
+
 func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
 	cfg := getConfig()
 
-	initLock.Lock()
-	defer initLock.Unlock()
-
-	if err := EnsureOnnxRuntimeSharedLibrary(); err != nil {
+	if err := ensureOnnxRuntimeSharedLibraryFn(); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to ensure onnx runtime shared library")
 	}
-	if err := EnsureDefaultEmbeddingFunctionModel(); err != nil {
+	if err := ensureDefaultEmbeddingModelFn(); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to ensure default embedding function model")
 	}
+
+	initLock.Lock()
+	defer initLock.Unlock()
 
 	bootstrapOpts := []ort.BootstrapOption{
 		ort.WithBootstrapCacheDir(cfg.OnnxCacheDir),
@@ -49,7 +56,7 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 	} else {
 		bootstrapOpts = append(bootstrapOpts, ort.WithBootstrapVersion(cfg.LibOnnxRuntimeVersion))
 	}
-	if err := ort.InitializeEnvironmentWithBootstrap(bootstrapOpts...); err != nil {
+	if err := initializeEnvironmentWithBootstrapFn(bootstrapOpts...); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to initialize onnx runtime environment")
 	}
 
@@ -60,7 +67,7 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 		minilm.WithL2Normalization(),
 	)
 	if err != nil {
-		_ = ort.DestroyEnvironment()
+		_ = destroyEnvironmentFn()
 		return nil, nil, errors.Wrap(err, "failed to create ONNX embedder")
 	}
 
@@ -155,7 +162,7 @@ func (e *DefaultEmbeddingFunction) Close() error {
 			e.embedder = nil
 		}
 
-		if err := ort.DestroyEnvironment(); err != nil {
+		if err := destroyEnvironmentFn(); err != nil {
 			errs = append(errs, errors.Wrap(err, "failed to destroy onnx runtime environment"))
 		}
 

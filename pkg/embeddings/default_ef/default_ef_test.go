@@ -2,14 +2,33 @@ package defaultef
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func resetDefaultEFInitHooksForTesting(t *testing.T) {
+	t.Helper()
+	lockDefaultEFTestHooks(t)
+
+	origEnsureOnnx := ensureOnnxRuntimeSharedLibraryFn
+	origEnsureModel := ensureDefaultEmbeddingModelFn
+	origInitEnv := initializeEnvironmentWithBootstrapFn
+	origDestroyEnv := destroyEnvironmentFn
+
+	t.Cleanup(func() {
+		ensureOnnxRuntimeSharedLibraryFn = origEnsureOnnx
+		ensureDefaultEmbeddingModelFn = origEnsureModel
+		initializeEnvironmentWithBootstrapFn = origInitEnv
+		destroyEnvironmentFn = origDestroyEnv
+	})
+}
 
 func Test_Default_EF(t *testing.T) {
 	setOfflineRuntimePathOrSkip(t)
@@ -161,6 +180,59 @@ func TestCustomOnnxRuntimePath(t *testing.T) {
 	require.Equal(t, 384, embeddings[0].Len(), "Expected 384-dimensional embeddings")
 
 	t.Logf("✓ Successfully used ONNX Runtime %s from custom path", version)
+}
+
+func TestConcurrentInitModelEnsureDoesNotBlockClose(t *testing.T) {
+	resetDefaultEFInitHooksForTesting(t)
+
+	modelEnsureStarted := make(chan struct{})
+	releaseModelEnsure := make(chan struct{})
+	initDone := make(chan error, 1)
+
+	ensureOnnxRuntimeSharedLibraryFn = func() error {
+		return nil
+	}
+	ensureDefaultEmbeddingModelFn = func() error {
+		close(modelEnsureStarted)
+		<-releaseModelEnsure
+		return stderrors.New("simulated model ensure stall")
+	}
+	destroyEnvironmentFn = func() error {
+		return nil
+	}
+
+	go func() {
+		_, _, err := NewDefaultEmbeddingFunction()
+		initDone <- err
+	}()
+
+	select {
+	case <-modelEnsureStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("initializer did not enter model ensure stage")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- (&DefaultEmbeddingFunction{}).Close()
+	}()
+
+	select {
+	case err := <-closeDone:
+		require.NoError(t, err)
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("close blocked while another initializer was waiting on model ensure")
+	}
+
+	close(releaseModelEnsure)
+
+	select {
+	case err := <-initDone:
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to ensure default embedding function model")
+	case <-time.After(2 * time.Second):
+		t.Fatal("initializer did not unblock after model ensure release")
+	}
 }
 
 func TestConcurrentInitCloseUse(t *testing.T) {
