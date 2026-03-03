@@ -121,7 +121,7 @@ func NewBasicAuthCredentialsProvider(username, password string) *BasicAuthCreden
 func (b *BasicAuthCredentialsProvider) Authenticate(client *BaseAPIClient) error {
 	auth := b.Username + ":" + b.Password
 	encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
-	client.defaultHeaders["Authorization"] = "Basic " + encodedAuth
+	client.setDefaultHeader("Authorization", "Basic "+encodedAuth)
 	return nil
 }
 
@@ -151,10 +151,10 @@ func NewTokenAuthCredentialsProvider(token string, header TokenTransportHeader) 
 func (t *TokenAuthCredentialsProvider) Authenticate(client *BaseAPIClient) error {
 	switch t.Header {
 	case AuthorizationTokenHeader:
-		client.defaultHeaders[string(t.Header)] = "Bearer " + t.Token
+		client.setDefaultHeader(string(t.Header), "Bearer "+t.Token)
 		return nil
 	case XChromaTokenHeader:
-		client.defaultHeaders[string(t.Header)] = t.Token
+		client.setDefaultHeader(string(t.Header), t.Token)
 		return nil
 	default:
 		return errors.Errorf("unsupported token header: %v", t.Header)
