@@ -655,8 +655,6 @@ type BaseAPIClient struct {
 	logger            logger.Logger
 }
 
-var baseClientScopeMuInit sync.Mutex
-
 type ClientOption func(client *BaseAPIClient) error
 
 func WithBaseURL(baseURL string) ClientOption {
@@ -704,11 +702,13 @@ func WithDatabaseAndTenant(database string, tenant string) ClientOption {
 
 func WithDefaultDatabaseAndTenant() ClientOption {
 	return func(c *BaseAPIClient) error {
-		if c.Tenant() == nil {
-			c.SetTenant(NewDefaultTenant())
+		c.scopeMu.Lock()
+		defer c.scopeMu.Unlock()
+		if c.tenant == nil {
+			c.tenant = NewDefaultTenant()
 		}
-		if c.Database() == nil {
-			c.SetDatabase(NewDefaultDatabase())
+		if c.database == nil {
+			c.database = NewDefaultDatabase()
 		}
 		return nil
 	}
@@ -717,16 +717,16 @@ func WithDefaultDatabaseAndTenant() ClientOption {
 // WithDatabaseAndTenantFromEnv sets the tenant and database from environment variables CHROMA_TENANT and CHROMA_DATABASE
 func WithDatabaseAndTenantFromEnv() ClientOption {
 	return func(c *BaseAPIClient) error {
+		c.scopeMu.Lock()
+		defer c.scopeMu.Unlock()
 		if envTenant := os.Getenv("CHROMA_TENANT"); envTenant != "" {
-			currentTenant := c.Tenant()
-			if currentTenant == nil || currentTenant.Name() == DefaultTenant {
-				c.SetTenant(NewTenant(envTenant))
+			if c.tenant == nil || c.tenant.Name() == DefaultTenant {
+				c.tenant = NewTenant(envTenant)
 			}
 		}
 		if envDatabase := os.Getenv("CHROMA_DATABASE"); envDatabase != "" {
-			currentDatabase := c.Database()
-			if currentDatabase == nil || currentDatabase.Name() == DefaultDatabase {
-				c.SetDatabase(NewDatabase(envDatabase, c.Tenant()))
+			if c.database == nil || c.database.Name() == DefaultDatabase {
+				c.database = NewDatabase(envDatabase, c.tenant)
 			}
 		}
 		return nil
@@ -1008,26 +1008,15 @@ func (bc *BaseAPIClient) HTTPClient() *http.Client {
 	return bc.httpClient
 }
 
-func (bc *BaseAPIClient) ensureScopeMu() *sync.RWMutex {
-	baseClientScopeMuInit.Lock()
-	defer baseClientScopeMuInit.Unlock()
-	if bc.scopeMu == nil {
-		bc.scopeMu = &sync.RWMutex{}
-	}
-	return bc.scopeMu
-}
-
 func (bc *BaseAPIClient) Tenant() Tenant {
-	scopeMu := bc.ensureScopeMu()
-	scopeMu.RLock()
-	defer scopeMu.RUnlock()
+	bc.scopeMu.RLock()
+	defer bc.scopeMu.RUnlock()
 	return bc.tenant
 }
 
 func (bc *BaseAPIClient) Database() Database {
-	scopeMu := bc.ensureScopeMu()
-	scopeMu.RLock()
-	defer scopeMu.RUnlock()
+	bc.scopeMu.RLock()
+	defer bc.scopeMu.RUnlock()
 	return bc.database
 }
 
@@ -1040,23 +1029,20 @@ func (bc *BaseAPIClient) Timeout() time.Duration {
 }
 
 func (bc *BaseAPIClient) SetTenant(tenant Tenant) {
-	scopeMu := bc.ensureScopeMu()
-	scopeMu.Lock()
-	defer scopeMu.Unlock()
+	bc.scopeMu.Lock()
+	defer bc.scopeMu.Unlock()
 	bc.tenant = tenant
 }
 
 func (bc *BaseAPIClient) SetDatabase(database Database) {
-	scopeMu := bc.ensureScopeMu()
-	scopeMu.Lock()
-	defer scopeMu.Unlock()
+	bc.scopeMu.Lock()
+	defer bc.scopeMu.Unlock()
 	bc.database = database
 }
 
 func (bc *BaseAPIClient) setTenantAndDatabase(tenant Tenant, database Database) {
-	scopeMu := bc.ensureScopeMu()
-	scopeMu.Lock()
-	defer scopeMu.Unlock()
+	bc.scopeMu.Lock()
+	defer bc.scopeMu.Unlock()
 	bc.tenant = tenant
 	bc.database = database
 }

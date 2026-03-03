@@ -890,7 +890,7 @@ func TestGetOrCreateCollectionWithCollectionMetadataMapCreateStrictDeferredError
 }
 
 func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
-	stateClient, err := NewHTTPClient(WithBaseURL("http://localhost:8080"), WithLogger(testLogger()))
+	stateClient, err := NewHTTPClient(WithBaseURL("http://localhost:8080"))
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, stateClient.Close())
@@ -902,15 +902,18 @@ func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
 	const iterations = 1000
 	errCh := make(chan error, 8)
 	var wg sync.WaitGroup
+	start := make(chan struct{})
 
 	writer := func(fn func(i int)) {
 		defer wg.Done()
+		<-start
 		for i := 0; i < iterations; i++ {
 			fn(i)
 		}
 	}
 	reader := func() {
 		defer wg.Done()
+		<-start
 		for i := 0; i < iterations; i++ {
 			tenant := client.CurrentTenant()
 			if tenant == nil {
@@ -950,6 +953,7 @@ func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
 		go reader()
 	}
 
+	close(start)
 	wg.Wait()
 	close(errCh)
 	for err := range errCh {
@@ -960,42 +964,84 @@ func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
 	require.NotNil(t, client.CurrentDatabase())
 }
 
-func TestBaseAPIClientConcurrentScopeMuInitZeroValue(t *testing.T) {
-	var client BaseAPIClient
-	const iterations = 1000
-	var wg sync.WaitGroup
-	start := make(chan struct{})
+func TestAPIClientV2ConcurrentUseTenantUseDatabase(t *testing.T) {
+	tenantPath := regexp.MustCompile(`^/api/v2/tenants/([^/]+)$`)
+	databasePath := regexp.MustCompile(`^/api/v2/tenants/([^/]+)/databases/([^/]+)$`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && tenantPath.MatchString(r.URL.Path):
+			match := tenantPath.FindStringSubmatch(r.URL.Path)
+			if len(match) != 2 {
+				http.Error(w, "invalid tenant path", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"name":"%s"}`, match[1])))
+		case r.Method == http.MethodGet && databasePath.MatchString(r.URL.Path):
+			match := databasePath.FindStringSubmatch(r.URL.Path)
+			if len(match) != 3 {
+				http.Error(w, "invalid database path", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"name":"%s","tenant":"%s"}`, match[2], match[1])))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
 
-	writer := func(fn func(i int)) {
+	stateClient, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, stateClient.Close())
+	}()
+
+	client, ok := stateClient.(*APIClientV2)
+	require.True(t, ok)
+
+	const iterations = 300
+	errCh := make(chan error, 8)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+
+	writer := func(fn func(i int) error) {
 		defer wg.Done()
 		<-start
 		for i := 0; i < iterations; i++ {
-			fn(i)
+			if err := fn(i); err != nil {
+				errCh <- err
+				return
+			}
 		}
 	}
 	reader := func() {
 		defer wg.Done()
 		<-start
 		for i := 0; i < iterations; i++ {
-			_ = client.Tenant()
-			_ = client.Database()
+			tenant := client.CurrentTenant()
+			if tenant == nil {
+				errCh <- fmt.Errorf("tenant is nil at iteration %d", i)
+				return
+			}
+			database := client.CurrentDatabase()
+			if database == nil {
+				errCh <- fmt.Errorf("database is nil at iteration %d", i)
+				return
+			}
+			if database.Tenant() == nil {
+				errCh <- fmt.Errorf("database tenant is nil at iteration %d", i)
+				return
+			}
 		}
 	}
 
 	wg.Add(1)
-	go writer(func(i int) {
-		client.SetTenant(NewTenant(fmt.Sprintf("tenant-%d", i%32)))
+	go writer(func(i int) error {
+		return client.UseTenant(context.Background(), NewTenant(fmt.Sprintf("tenant-%d", i%16)))
 	})
 	wg.Add(1)
-	go writer(func(i int) {
-		tenant := NewTenant(fmt.Sprintf("db-tenant-%d", i%32))
-		client.SetDatabase(NewDatabase(fmt.Sprintf("database-%d", i%32), tenant))
-	})
-	wg.Add(1)
-	go writer(func(i int) {
-		tenant := NewTenant(fmt.Sprintf("pair-tenant-%d", i%32))
-		database := NewDatabase(fmt.Sprintf("pair-db-%d", i%32), tenant)
-		client.setTenantAndDatabase(tenant, database)
+	go writer(func(i int) error {
+		tenant := NewTenant(fmt.Sprintf("tenant-%d", i%16))
+		return client.UseDatabase(context.Background(), NewDatabase(fmt.Sprintf("db-%d", i%16), tenant))
 	})
 	for i := 0; i < 4; i++ {
 		wg.Add(1)
@@ -1004,8 +1050,10 @@ func TestBaseAPIClientConcurrentScopeMuInitZeroValue(t *testing.T) {
 
 	close(start)
 	wg.Wait()
-
-	require.NotNil(t, client.ensureScopeMu())
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
 }
 
 func TestClientSetup(t *testing.T) {
