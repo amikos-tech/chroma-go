@@ -915,12 +915,11 @@ func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
 		defer wg.Done()
 		<-start
 		for i := 0; i < iterations; i++ {
-			tenant := client.CurrentTenant()
+			tenant, database := client.TenantAndDatabase()
 			if tenant == nil {
 				errCh <- fmt.Errorf("tenant is nil at iteration %d", i)
 				return
 			}
-			database := client.CurrentDatabase()
 			if database == nil {
 				errCh <- fmt.Errorf("database is nil at iteration %d", i)
 				return
@@ -929,23 +928,30 @@ func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
 				errCh <- fmt.Errorf("database tenant is nil at iteration %d", i)
 				return
 			}
+			if database.Tenant().Name() != tenant.Name() {
+				errCh <- fmt.Errorf("inconsistent tenant/database pair at iteration %d: tenant=%q db.tenant=%q", i, tenant.Name(), database.Tenant().Name())
+				return
+			}
 		}
 	}
 
 	wg.Add(1)
 	go writer(func(i int) {
-		client.SetTenant(NewTenant(fmt.Sprintf("set-tenant-%d", i%32)))
+		tenant := NewTenant(fmt.Sprintf("pair-a-tenant-%d", i%32))
+		database := NewDatabase(fmt.Sprintf("pair-a-db-%d", i%32), tenant)
+		client.SetTenantAndDatabase(tenant, database)
 	})
 	wg.Add(1)
 	go writer(func(i int) {
-		tenant := NewTenant(fmt.Sprintf("set-db-tenant-%d", i%32))
-		client.SetDatabase(NewDatabase(fmt.Sprintf("set-db-%d", i%32), tenant))
+		tenant := NewTenant(fmt.Sprintf("pair-b-tenant-%d", i%32))
+		database := NewDatabase(fmt.Sprintf("pair-b-db-%d", i%32), tenant)
+		client.SetTenantAndDatabase(tenant, database)
 	})
 	wg.Add(1)
 	go writer(func(i int) {
-		tenant := NewTenant(fmt.Sprintf("pair-tenant-%d", i%32))
-		database := NewDatabase(fmt.Sprintf("pair-db-%d", i%32), tenant)
-		client.setTenantAndDatabase(tenant, database)
+		tenant := NewTenant(fmt.Sprintf("pair-c-tenant-%d", i%32))
+		database := NewDatabase(fmt.Sprintf("pair-c-db-%d", i%32), tenant)
+		client.SetTenantAndDatabase(tenant, database)
 	})
 
 	for i := 0; i < 4; i++ {
@@ -1017,18 +1023,21 @@ func TestAPIClientV2ConcurrentUseTenantUseDatabase(t *testing.T) {
 		defer wg.Done()
 		<-start
 		for i := 0; i < iterations; i++ {
-			tenant := client.CurrentTenant()
+			tenant, database := client.TenantAndDatabase()
 			if tenant == nil {
 				errCh <- fmt.Errorf("tenant is nil at iteration %d", i)
 				return
 			}
-			database := client.CurrentDatabase()
 			if database == nil {
 				errCh <- fmt.Errorf("database is nil at iteration %d", i)
 				return
 			}
 			if database.Tenant() == nil {
 				errCh <- fmt.Errorf("database tenant is nil at iteration %d", i)
+				return
+			}
+			if database.Tenant().Name() != tenant.Name() {
+				errCh <- fmt.Errorf("inconsistent tenant/database pair at iteration %d: tenant=%q db.tenant=%q", i, tenant.Name(), database.Tenant().Name())
 				return
 			}
 		}

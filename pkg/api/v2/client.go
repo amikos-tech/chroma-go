@@ -698,15 +698,13 @@ func WithDatabaseAndTenant(database string, tenant string) ClientOption {
 			return errors.New("tenant cannot be empty")
 		}
 		t := NewTenant(tenant)
-		c.setTenantAndDatabase(t, NewDatabase(database, t))
+		c.SetTenantAndDatabase(t, NewDatabase(database, t))
 		return nil
 	}
 }
 
 func WithDefaultDatabaseAndTenant() ClientOption {
 	return func(c *BaseAPIClient) error {
-		c.scopeMu.Lock()
-		defer c.scopeMu.Unlock()
 		if c.tenant == nil {
 			c.tenant = NewDefaultTenant()
 		}
@@ -720,8 +718,6 @@ func WithDefaultDatabaseAndTenant() ClientOption {
 // WithDatabaseAndTenantFromEnv sets the tenant and database from environment variables CHROMA_TENANT and CHROMA_DATABASE
 func WithDatabaseAndTenantFromEnv() ClientOption {
 	return func(c *BaseAPIClient) error {
-		c.scopeMu.Lock()
-		defer c.scopeMu.Unlock()
 		if envTenant := os.Getenv("CHROMA_TENANT"); envTenant != "" {
 			if c.tenant == nil || c.tenant.Name() == DefaultTenant {
 				c.tenant = NewTenant(envTenant)
@@ -1023,6 +1019,13 @@ func (bc *BaseAPIClient) Database() Database {
 	return bc.database
 }
 
+// TenantAndDatabase returns a lock-consistent snapshot of the current tenant and database.
+func (bc *BaseAPIClient) TenantAndDatabase() (Tenant, Database) {
+	bc.scopeMu.RLock()
+	defer bc.scopeMu.RUnlock()
+	return bc.tenant, bc.database
+}
+
 func (bc *BaseAPIClient) DefaultHeaders() map[string]string {
 	return bc.defaultHeaders
 }
@@ -1031,19 +1034,21 @@ func (bc *BaseAPIClient) Timeout() time.Duration {
 	return bc.timeout
 }
 
+// Deprecated: Use SetTenantAndDatabase to avoid transient tenant/database mismatches.
 func (bc *BaseAPIClient) SetTenant(tenant Tenant) {
 	bc.scopeMu.Lock()
 	defer bc.scopeMu.Unlock()
 	bc.tenant = tenant
 }
 
+// Deprecated: Use SetTenantAndDatabase to avoid transient tenant/database mismatches.
 func (bc *BaseAPIClient) SetDatabase(database Database) {
 	bc.scopeMu.Lock()
 	defer bc.scopeMu.Unlock()
 	bc.database = database
 }
 
-func (bc *BaseAPIClient) setTenantAndDatabase(tenant Tenant, database Database) {
+func (bc *BaseAPIClient) SetTenantAndDatabase(tenant Tenant, database Database) {
 	bc.scopeMu.Lock()
 	defer bc.scopeMu.Unlock()
 	bc.tenant = tenant

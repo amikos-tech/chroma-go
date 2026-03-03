@@ -1752,6 +1752,8 @@ func TestEmbeddedLocalClientDeleteCollection_UsesScopedCollectionStateCleanup(t 
 func TestEmbeddedLocalClientConcurrentTenantDatabaseStateAccess(t *testing.T) {
 	runtime := newScriptedEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
+	stateClient, ok := client.state.(*APIClientV2)
+	require.True(t, ok)
 	ctx := context.Background()
 
 	const iterations = 500
@@ -1773,18 +1775,21 @@ func TestEmbeddedLocalClientConcurrentTenantDatabaseStateAccess(t *testing.T) {
 		defer wg.Done()
 		<-start
 		for i := 0; i < iterations; i++ {
-			tenant := client.CurrentTenant()
+			tenant, database := stateClient.TenantAndDatabase()
 			if tenant == nil {
 				errCh <- fmt.Errorf("tenant is nil at iteration %d", i)
 				return
 			}
-			database := client.CurrentDatabase()
 			if database == nil {
 				errCh <- fmt.Errorf("database is nil at iteration %d", i)
 				return
 			}
 			if database.Tenant() == nil {
 				errCh <- fmt.Errorf("database tenant is nil at iteration %d", i)
+				return
+			}
+			if database.Tenant().Name() != tenant.Name() {
+				errCh <- fmt.Errorf("inconsistent tenant/database pair at iteration %d: tenant=%q db.tenant=%q", i, tenant.Name(), database.Tenant().Name())
 				return
 			}
 		}
