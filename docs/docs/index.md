@@ -28,6 +28,7 @@ Concepts:
 - [Embeddings](embeddings.md) - Available embedding functions
 - [Filtering](filtering.md) - How to filter results
 - [Search API](search.md) - Advanced search with ranking and pagination
+- [Performance Testing](performance-testing.md) - Local persistent soak/load validation, thresholds, and reports
 
 ## Quick Start
 

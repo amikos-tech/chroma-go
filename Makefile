@@ -171,6 +171,31 @@ lint-fix:
 clean-lint-cache:
 	golangci-lint cache clean
 
+CHROMA_PERF_GO_TEST_FLAGS ?= -race
+
+.PHONY: test-local-load-smoke
+test-local-load-smoke:
+	mkdir -p ./artifacts/perf/smoke
+	CHROMA_PERF_PROFILE=smoke CHROMA_PERF_ENFORCE=true CHROMA_PERF_INCLUDE_DEFAULT_EF=false CHROMA_PERF_REPORT_DIR=$(CURDIR)/artifacts/perf/smoke go test \
+		-v \
+		-count=1 \
+		-tags=soak \
+		$(CHROMA_PERF_GO_TEST_FLAGS) \
+		-run '^TestLocalPersistentPerformance$$' \
+		-timeout=10m \
+		./pkg/api/v2
+
+.PHONY: test-local-soak-nightly
+test-local-soak-nightly:
+	mkdir -p ./artifacts/perf/soak
+	CHROMA_PERF_PROFILE=soak CHROMA_PERF_ENFORCE=false CHROMA_PERF_INCLUDE_DEFAULT_EF=true CHROMA_PERF_REPORT_DIR=$(CURDIR)/artifacts/perf/soak go test \
+		-v \
+		-count=1 \
+		-tags=soak \
+		$(CHROMA_PERF_GO_TEST_FLAGS) \
+		-run '^TestLocalPersistentPerformance$$' \
+		-timeout=70m \
+		./pkg/api/v2
 
 .PHONY: server
 server:

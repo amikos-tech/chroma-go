@@ -1,0 +1,125 @@
+name: Local Persistent Performance
+
+on:
+  pull_request:
+    paths:
+      - 'pkg/api/v2/client_local.go'
+      - 'pkg/api/v2/client_local_embedded.go'
+      - 'pkg/api/v2/client_local_perf_test.go'
+      - 'pkg/api/v2/client_local_perf_helpers_test.go'
+      - 'pkg/api/v2/client_local_perf_helpers_context_test.go'
+      - 'pkg/api/v2/client_local_perf_helpers_unit_test.go'
+      - 'pkg/api/v2/client_local_library_download.go'
+      - 'pkg/api/v2/client_local_crosslang_integration_test.go'
+      - 'pkg/embeddings/default_ef/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - '.github/workflows/perf-local.yml'
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - soak
+          - both
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Local Perf Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'smoke' || inputs.mode == 'both'))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Cache local runtime assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/chroma
+          key: perf-local-smoke-${{ runner.os }}-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            perf-local-smoke-${{ runner.os }}-
+
+      - name: Run smoke profile
+        run: make test-local-load-smoke
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-local-smoke
+          path: artifacts/perf/smoke
+
+      - name: Publish smoke summary
+        if: always()
+        run: |
+          if [ -f artifacts/perf/smoke/perf-summary-smoke.md ]; then
+            cat artifacts/perf/smoke/perf-summary-smoke.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No smoke markdown summary produced" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  soak:
+    name: Local Perf Soak
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'soak' || inputs.mode == 'both'))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Cache local runtime assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/chroma
+          key: perf-local-soak-${{ runner.os }}-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            perf-local-soak-${{ runner.os }}-
+
+      - name: Run soak profile (report-only)
+        run: make test-local-soak-nightly
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload soak artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-local-soak
+          path: artifacts/perf/soak
+
+      - name: Publish soak summary
+        if: always()
+        run: |
+          if [ -f artifacts/perf/soak/perf-summary-soak.md ]; then
+            cat artifacts/perf/soak/perf-summary-soak.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No soak markdown summary produced" >> "$GITHUB_STEP_SUMMARY"
+          fi

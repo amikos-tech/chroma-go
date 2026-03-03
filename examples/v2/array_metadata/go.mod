@@ -8,7 +8,7 @@ require github.com/amikos-tech/chroma-go v0.0.0-00010101000000-000000000000
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
-	github.com/amikos-tech/chroma-go-local v0.3.1 // indirect
+	github.com/amikos-tech/chroma-go-local v0.3.3 // indirect
 	github.com/amikos-tech/pure-onnx v0.0.1 // indirect
 	github.com/amikos-tech/pure-tokenizers v0.1.4 // indirect
 	github.com/creasty/defaults v1.8.0 // indirect
