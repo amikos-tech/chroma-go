@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	defaultLocalLibraryVersion                = "v0.3.1"
+	defaultLocalLibraryVersion                = "v0.3.3"
 	defaultLocalLibraryReleaseBaseURL         = "https://releases.amikos.tech/chroma-go-local"
 	defaultLocalLibraryReleaseFallbackBaseURL = "https://github.com/amikos-tech/chroma-go-local/releases/download"
 	localLibraryModulePath                    = "github.com/amikos-tech/chroma-go-local"

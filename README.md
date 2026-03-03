@@ -439,6 +439,33 @@ make build
 make test
 ```
 
+### Performance Validation
+
+Local/persistent runtime soak/load validation is available through a dedicated
+soak-tagged test harness.
+
+Smoke profile (PR gate, hard-fail thresholds, <=10m timeout target):
+
+```bash
+make test-local-load-smoke
+```
+
+Nightly soak profile (report-only thresholds, <=70m timeout target):
+
+```bash
+make test-local-soak-nightly
+```
+
+Useful environment variables:
+
+- `CHROMA_PERF_PROFILE` - `smoke` or `soak`.
+- `CHROMA_PERF_ENFORCE` - `true` to fail on threshold breaches, `false` for report-only.
+- `CHROMA_PERF_INCLUDE_DEFAULT_EF` - include `default_ef` scenarios (default: true for soak, false for smoke).
+- `CHROMA_PERF_REPORT_DIR` - output directory for `perf-summary-*.json` and `perf-summary-*.md`.
+- `CHROMA_PERF_ENABLE_DELETE_REINSERT` - enables delete+reinsert write operations (disabled by default due to current local runtime stability issues under delete-heavy load).
+
+See `docs/docs/performance-testing.md` for profile definitions, thresholds, and report schema.
+
 ### Lint
 
 ```bash
