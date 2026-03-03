@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	ort "github.com/amikos-tech/pure-onnx/ort"
 	"github.com/stretchr/testify/require"
 )
 
@@ -197,6 +198,9 @@ func TestConcurrentInitModelEnsureDoesNotBlockClose(t *testing.T) {
 		<-releaseModelEnsure
 		return stderrors.New("simulated model ensure stall")
 	}
+	initializeEnvironmentWithBootstrapFn = func(...ort.BootstrapOption) error {
+		return stderrors.New("unexpected environment initialization call")
+	}
 	destroyEnvironmentFn = func() error {
 		return nil
 	}
@@ -232,6 +236,73 @@ func TestConcurrentInitModelEnsureDoesNotBlockClose(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to ensure default embedding function model")
 	case <-time.After(2 * time.Second):
 		t.Fatal("initializer did not unblock after model ensure release")
+	}
+}
+
+func TestConcurrentInitOnnxEnsureDoesNotBlockClose(t *testing.T) {
+	resetDefaultEFInitHooksForTesting(t)
+
+	onnxEnsureStarted := make(chan struct{})
+	releaseOnnxEnsure := make(chan struct{})
+	modelEnsureCalled := make(chan struct{}, 1)
+	initDone := make(chan error, 1)
+
+	ensureOnnxRuntimeSharedLibraryFn = func() error {
+		close(onnxEnsureStarted)
+		<-releaseOnnxEnsure
+		return stderrors.New("simulated onnx ensure stall")
+	}
+	ensureDefaultEmbeddingModelFn = func() error {
+		select {
+		case modelEnsureCalled <- struct{}{}:
+		default:
+		}
+		return nil
+	}
+	initializeEnvironmentWithBootstrapFn = func(...ort.BootstrapOption) error {
+		return stderrors.New("unexpected environment initialization call")
+	}
+	destroyEnvironmentFn = func() error {
+		return nil
+	}
+
+	go func() {
+		_, _, err := NewDefaultEmbeddingFunction()
+		initDone <- err
+	}()
+
+	select {
+	case <-onnxEnsureStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("initializer did not enter onnx ensure stage")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() {
+		closeDone <- (&DefaultEmbeddingFunction{}).Close()
+	}()
+
+	select {
+	case err := <-closeDone:
+		require.NoError(t, err)
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("close blocked while another initializer was waiting on onnx ensure")
+	}
+
+	close(releaseOnnxEnsure)
+
+	select {
+	case err := <-initDone:
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to ensure onnx runtime shared library")
+	case <-time.After(2 * time.Second):
+		t.Fatal("initializer did not unblock after onnx ensure release")
+	}
+
+	select {
+	case <-modelEnsureCalled:
+		t.Fatal("model ensure should not run when onnx ensure fails")
+	default:
 	}
 }
 

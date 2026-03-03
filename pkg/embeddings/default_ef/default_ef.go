@@ -29,6 +29,8 @@ type DefaultEmbeddingFunction struct {
 var initLock sync.RWMutex
 
 var (
+	// These function variables are test seams. Tests mutate them only while holding
+	// defaultEFTestHooksMu from test_hooks_test.go to avoid cross-test races.
 	ensureOnnxRuntimeSharedLibraryFn     = EnsureOnnxRuntimeSharedLibrary
 	ensureDefaultEmbeddingModelFn        = EnsureDefaultEmbeddingFunctionModel
 	initializeEnvironmentWithBootstrapFn = ort.InitializeEnvironmentWithBootstrap
@@ -67,15 +69,27 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 		minilm.WithL2Normalization(),
 	)
 	if err != nil {
-		_ = destroyEnvironmentFn()
-		return nil, nil, errors.Wrap(err, "failed to create ONNX embedder")
+		embedderErr := errors.Wrap(err, "failed to create ONNX embedder")
+		if cleanupErr := destroyEnvironmentFn(); cleanupErr != nil {
+			return nil, nil, stderrors.Join(
+				embedderErr,
+				errors.Wrap(cleanupErr, "failed to destroy onnx runtime environment after embedder setup error"),
+			)
+		}
+		return nil, nil, embedderErr
 	}
 
 	ef := &DefaultEmbeddingFunction{embedder: embedder}
 	for _, opt := range opts {
 		if err := opt(ef); err != nil {
-			_ = ef.Close()
-			return nil, nil, errors.Wrap(err, "failed to apply default embedding function option")
+			optionErr := errors.Wrap(err, "failed to apply default embedding function option")
+			if closeErr := ef.Close(); closeErr != nil {
+				return nil, nil, stderrors.Join(
+					optionErr,
+					errors.Wrap(closeErr, "failed to cleanup default embedding function after option error"),
+				)
+			}
+			return nil, nil, optionErr
 		}
 	}
 
