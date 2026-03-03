@@ -1217,7 +1217,7 @@ func perfRunChurnScenario(cfg perfRuntimeConfig, thresholds perfThresholds, scen
 		return perfSummary{}, err
 	}
 
-	samples := []perfSample{perfCollectSample(time.Now().UTC(), persistPath, metrics)}
+	samples := []perfSample{perfCollectSample(startedAt, persistPath, metrics)}
 
 	ctx := context.Background()
 	consecutiveFailures := 0
@@ -1259,7 +1259,7 @@ func perfRunChurnScenario(cfg perfRuntimeConfig, thresholds perfThresholds, scen
 	if err != nil {
 		return perfSummary{}, err
 	}
-	samples = append(samples, perfCollectSample(time.Now().UTC(), persistPath, metrics))
+	samples = append(samples, perfCollectSample(startedAt, persistPath, metrics))
 	capturedSamples := perfFilterCapturedSamples(samples)
 
 	opSummaries := metrics.operationSummaries()
