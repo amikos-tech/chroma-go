@@ -640,6 +640,9 @@ func NewCountCollectionsOp(opts ...CountCollectionsOption) (*CountCollectionsOp,
 	return op, nil
 }
 
+// BaseAPIClient holds shared client transport/configuration state.
+// It must be initialized through newBaseAPIClient (or the public constructors
+// that call it) so internal synchronization primitives are properly set up.
 type BaseAPIClient struct {
 	httpClient        *http.Client
 	baseURL           string

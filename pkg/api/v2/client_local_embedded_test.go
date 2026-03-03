@@ -11,6 +11,7 @@ import (
 	"math"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,10 +37,10 @@ type scriptedEmbeddedRuntime struct {
 	healthCalls         int
 	heartbeatCalls      int
 	createTenantCalls   int
-	getTenantCalls      int
+	getTenantCalls      atomic.Int32
 	createDatabaseCalls int
 	listDatabasesCalls  int
-	getDatabaseCalls    int
+	getDatabaseCalls    atomic.Int32
 	deleteDatabaseCalls int
 }
 
@@ -675,7 +676,7 @@ func (s *scriptedEmbeddedRuntime) CreateTenant(localchroma.EmbeddedCreateTenantR
 }
 
 func (s *scriptedEmbeddedRuntime) GetTenant(request localchroma.EmbeddedGetTenantRequest) (*localchroma.EmbeddedTenant, error) {
-	s.getTenantCalls++
+	s.getTenantCalls.Add(1)
 	if s.getTenantErr != nil {
 		return nil, s.getTenantErr
 	}
@@ -704,7 +705,7 @@ func (s *scriptedEmbeddedRuntime) ListDatabases(request localchroma.EmbeddedList
 }
 
 func (s *scriptedEmbeddedRuntime) GetDatabase(request localchroma.EmbeddedGetDatabaseRequest) (*localchroma.EmbeddedDatabase, error) {
-	s.getDatabaseCalls++
+	s.getDatabaseCalls.Add(1)
 	if s.getDatabaseErr != nil {
 		return nil, s.getDatabaseErr
 	}
@@ -790,7 +791,7 @@ func TestEmbeddedLocalClient_ContextCancellationShortCircuits(t *testing.T) {
 
 	_, err = client.GetTenant(ctx, NewTenant(DefaultTenant))
 	require.ErrorIs(t, err, context.Canceled)
-	require.Equal(t, 0, runtime.getTenantCalls)
+	require.EqualValues(t, 0, runtime.getTenantCalls.Load())
 
 	testDB := NewTenant(DefaultTenant).Database("test_db")
 	_, err = client.CreateDatabase(ctx, testDB)
@@ -803,7 +804,7 @@ func TestEmbeddedLocalClient_ContextCancellationShortCircuits(t *testing.T) {
 
 	_, err = client.GetDatabase(ctx, testDB)
 	require.ErrorIs(t, err, context.Canceled)
-	require.Equal(t, 0, runtime.getDatabaseCalls)
+	require.EqualValues(t, 0, runtime.getDatabaseCalls.Load())
 
 	err = client.DeleteDatabase(ctx, testDB)
 	require.ErrorIs(t, err, context.Canceled)
@@ -1756,9 +1757,11 @@ func TestEmbeddedLocalClientConcurrentTenantDatabaseStateAccess(t *testing.T) {
 	const iterations = 500
 	errCh := make(chan error, 8)
 	var wg sync.WaitGroup
+	start := make(chan struct{})
 
 	writer := func(fn func(i int) error) {
 		defer wg.Done()
+		<-start
 		for i := 0; i < iterations; i++ {
 			if err := fn(i); err != nil {
 				errCh <- err
@@ -1768,6 +1771,7 @@ func TestEmbeddedLocalClientConcurrentTenantDatabaseStateAccess(t *testing.T) {
 	}
 	reader := func() {
 		defer wg.Done()
+		<-start
 		for i := 0; i < iterations; i++ {
 			tenant := client.CurrentTenant()
 			if tenant == nil {
@@ -1801,6 +1805,7 @@ func TestEmbeddedLocalClientConcurrentTenantDatabaseStateAccess(t *testing.T) {
 		go reader()
 	}
 
+	close(start)
 	wg.Wait()
 	close(errCh)
 	for err := range errCh {
