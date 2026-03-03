@@ -1032,6 +1032,11 @@ func perfRunSyntheticScenario(cfg perfRuntimeConfig, thresholds perfThresholds, 
 			}
 		}()
 		rng := rand.New(rand.NewSource(7331))
+		var writeTicker *time.Ticker
+		if scenario.WriteInterval > 0 {
+			writeTicker = time.NewTicker(scenario.WriteInterval)
+			defer writeTicker.Stop()
+		}
 		for {
 			select {
 			case <-runCtx.Done():
@@ -1076,11 +1081,11 @@ func perfRunSyntheticScenario(cfg perfRuntimeConfig, thresholds perfThresholds, 
 				metrics.observe(perfOpUpsert, time.Since(started), err)
 			}
 
-			if scenario.WriteInterval > 0 {
+			if writeTicker != nil {
 				select {
 				case <-runCtx.Done():
 					return
-				case <-time.After(scenario.WriteInterval):
+				case <-writeTicker.C:
 				}
 			}
 		}
@@ -1594,6 +1599,7 @@ func perfWriteScenarioJSON(reportDir string, summary perfSummary) (string, error
 	}
 	fileName := fmt.Sprintf("perf-summary-%s-%s.json", perfSlugify(summary.Profile), perfSlugify(summary.Scenario.Name))
 	path := filepath.Join(reportDir, fileName)
+	summary.ReportJSONPath = path
 	payload, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal scenario summary")

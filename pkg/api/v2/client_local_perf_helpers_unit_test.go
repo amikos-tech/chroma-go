@@ -3,6 +3,9 @@
 package v2
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -438,6 +441,37 @@ func TestPerfSlugify(t *testing.T) {
 				t.Fatalf("perfSlugify(%q)=%q want %q", tc.in, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestPerfWriteScenarioJSONIncludesReportPath(t *testing.T) {
+	t.Parallel()
+
+	reportDir := t.TempDir()
+	summary := perfSummary{
+		Profile:  "smoke",
+		Scenario: perfScenarioConfig{Name: "Embedded Synthetic Smoke"},
+	}
+
+	reportPath, err := perfWriteScenarioJSON(reportDir, summary)
+	if err != nil {
+		t.Fatalf("perfWriteScenarioJSON() error: %v", err)
+	}
+	if filepath.Dir(reportPath) != reportDir {
+		t.Fatalf("report path dir=%q want %q", filepath.Dir(reportPath), reportDir)
+	}
+
+	payload, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatalf("failed to read report json: %v", err)
+	}
+
+	var persisted perfSummary
+	if err := json.Unmarshal(payload, &persisted); err != nil {
+		t.Fatalf("failed to unmarshal report json: %v", err)
+	}
+	if persisted.ReportJSONPath != reportPath {
+		t.Fatalf("report_json_path=%q want %q", persisted.ReportJSONPath, reportPath)
 	}
 }
 
