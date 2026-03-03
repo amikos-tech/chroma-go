@@ -675,7 +675,9 @@ func WithTenant(tenant string) ClientOption {
 		if tenant == "" {
 			return errors.New("tenant cannot be empty")
 		}
-		c.SetTenant(NewTenant(tenant))
+		t := NewTenant(tenant)
+		_, db := c.TenantAndDatabase()
+		c.SetTenantAndDatabase(t, db)
 		return nil
 	}
 }
@@ -705,12 +707,14 @@ func WithDatabaseAndTenant(database string, tenant string) ClientOption {
 
 func WithDefaultDatabaseAndTenant() ClientOption {
 	return func(c *BaseAPIClient) error {
-		if c.tenant == nil {
-			c.tenant = NewDefaultTenant()
+		t, db := c.TenantAndDatabase()
+		if t == nil {
+			t = NewDefaultTenant()
 		}
-		if c.database == nil {
-			c.database = NewDefaultDatabase()
+		if db == nil {
+			db = NewDefaultDatabase()
 		}
+		c.SetTenantAndDatabase(t, db)
 		return nil
 	}
 }
@@ -718,16 +722,18 @@ func WithDefaultDatabaseAndTenant() ClientOption {
 // WithDatabaseAndTenantFromEnv sets the tenant and database from environment variables CHROMA_TENANT and CHROMA_DATABASE
 func WithDatabaseAndTenantFromEnv() ClientOption {
 	return func(c *BaseAPIClient) error {
+		t, db := c.TenantAndDatabase()
 		if envTenant := os.Getenv("CHROMA_TENANT"); envTenant != "" {
-			if c.tenant == nil || c.tenant.Name() == DefaultTenant {
-				c.tenant = NewTenant(envTenant)
+			if t == nil || t.Name() == DefaultTenant {
+				t = NewTenant(envTenant)
 			}
 		}
 		if envDatabase := os.Getenv("CHROMA_DATABASE"); envDatabase != "" {
-			if c.database == nil || c.database.Name() == DefaultDatabase {
-				c.database = NewDatabase(envDatabase, c.tenant)
+			if db == nil || db.Name() == DefaultDatabase {
+				db = NewDatabase(envDatabase, t)
 			}
 		}
+		c.SetTenantAndDatabase(t, db)
 		return nil
 	}
 }
