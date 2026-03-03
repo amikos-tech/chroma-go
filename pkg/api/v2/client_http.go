@@ -522,6 +522,7 @@ func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListColl
 				tenant:            NewTenant(cm.Tenant),
 				database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
 				metadata:          cm.Metadata,
+				schema:            cm.Schema,
 				configuration:     configuration,
 				dimension:         cm.Dimension,
 				client:            client,
