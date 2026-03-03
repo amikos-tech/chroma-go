@@ -284,6 +284,7 @@ schema, err := chroma.NewSchema(
 		chroma.WithSpann(chroma.NewSpannConfig(
 			chroma.WithSpannSearchNprobe(64),
 			chroma.WithSpannEfConstruction(200),
+			chroma.WithSpannQuantize(chroma.SpannQuantizationFourBitRabitQWithUSearch),
 		)),
 	)),
 )
@@ -291,6 +292,11 @@ if err != nil {
 	panic(err)
 }
 ```
+
+Supported SPANN quantization values:
+
+- `chroma.SpannQuantizationNone`
+- `chroma.SpannQuantizationFourBitRabitQWithUSearch`
 
 Runnable schema example: [`examples/v2/schema`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/schema)
 

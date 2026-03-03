@@ -142,6 +142,7 @@ schema, err := v2.NewSchema(
 		v2.WithSpann(v2.NewSpannConfig(
 			v2.WithSpannSearchNprobe(64),
 			v2.WithSpannEfConstruction(200),
+			v2.WithSpannQuantize(v2.SpannQuantizationFourBitRabitQWithUSearch),
 		)),
 	)),
 )
@@ -149,6 +150,11 @@ if err != nil {
 	panic(err)
 }
 ```
+
+Supported SPANN quantization values:
+
+- `v2.SpannQuantizationNone`
+- `v2.SpannQuantizationFourBitRabitQWithUSearch`
 
 ### Configuring Sparse Vector Index
 

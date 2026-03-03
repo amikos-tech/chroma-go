@@ -972,7 +972,7 @@ func TestCloudClientSchema(t *testing.T) {
 		require.NotNil(t, searchResults)
 	})
 
-	t.Run("Create collection with SPANN quantize in user schema should fail", func(t *testing.T) {
+	t.Run("Create collection with SPANN quantize", func(t *testing.T) {
 		ctx := context.Background()
 		collectionName := "test_schema_spann_quantize-" + uuid.New().String()
 
@@ -986,11 +986,20 @@ func TestCloudClientSchema(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		_, err = client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
-		require.Error(t, err)
-		errMsg := strings.ToLower(err.Error())
-		require.True(t, strings.Contains(errMsg, "quantize"),
-			"expected quantize-related error, got: %v", err)
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("cats are fluffy pets", "dogs are loyal companions", "lions are big cats"),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		results, err := collection.Query(ctx, WithQueryTexts("cats"), WithNResults(2))
+		require.NoError(t, err)
+		require.NotEmpty(t, results.GetDocumentsGroups())
 	})
 
 	t.Run("Create collection with WithVectorIndexCreate", func(t *testing.T) {

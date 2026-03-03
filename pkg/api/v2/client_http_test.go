@@ -621,6 +621,63 @@ func TestCreateCollection(t *testing.T) {
 			},
 		},
 		{
+			name: "with SPANN quantization schema",
+			validateRequestWithResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				respBody := chhttp.ReadRespBody(r.Body)
+				reqBody := make(map[string]any)
+				err := json.Unmarshal([]byte(respBody), &reqBody)
+				require.NoError(t, err)
+
+				schemaRaw, ok := reqBody["schema"].(map[string]any)
+				require.True(t, ok)
+				keysRaw, ok := schemaRaw["keys"].(map[string]any)
+				require.True(t, ok)
+				embeddingRaw, ok := keysRaw[EmbeddingKey].(map[string]any)
+				require.True(t, ok)
+				floatListRaw, ok := embeddingRaw["float_list"].(map[string]any)
+				require.True(t, ok)
+				vectorIndexRaw, ok := floatListRaw["vector_index"].(map[string]any)
+				require.True(t, ok)
+				cfgRaw, ok := vectorIndexRaw["config"].(map[string]any)
+				require.True(t, ok)
+				spannRaw, ok := cfgRaw["spann"].(map[string]any)
+				require.True(t, ok)
+				require.Equal(t, string(SpannQuantizationFourBitRabitQWithUSearch), spannRaw["quantize"])
+
+				collectionName, _ := reqBody["name"].(string)
+				cm := CollectionModel{
+					ID:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+					Name:     collectionName,
+					Tenant:   DefaultTenant,
+					Database: DefaultDatabase,
+				}
+				err = json.NewEncoder(w).Encode(&cm)
+				require.NoError(t, err)
+			},
+			sendRequest: func(client Client) {
+				schema, err := NewSchema(
+					WithDefaultVectorIndex(NewVectorIndexConfig(
+						WithSpace(SpaceL2),
+						WithSpann(NewSpannConfig(
+							WithSpannQuantize(SpannQuantizationFourBitRabitQWithUSearch),
+						)),
+					)),
+				)
+				require.NoError(t, err)
+
+				collection, err := client.CreateCollection(
+					context.Background(),
+					"test",
+					WithSchemaCreate(schema),
+				)
+				require.NoError(t, err)
+				require.NotNil(t, collection)
+				require.Equal(t, "8ecf0f7e-e806-47f8-96a1-4732ef42359e", collection.ID())
+				require.Equal(t, "test", collection.Name())
+			},
+		},
+		{
 			name: "with tenant and database",
 			validateRequestWithResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
