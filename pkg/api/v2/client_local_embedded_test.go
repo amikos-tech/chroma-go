@@ -1748,6 +1748,69 @@ func TestEmbeddedLocalClientDeleteCollection_UsesScopedCollectionStateCleanup(t 
 	require.True(t, hasOtherAfter)
 }
 
+func TestEmbeddedLocalClientConcurrentTenantDatabaseStateAccess(t *testing.T) {
+	runtime := newScriptedEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	const iterations = 500
+	errCh := make(chan error, 8)
+	var wg sync.WaitGroup
+
+	writer := func(fn func(i int) error) {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			if err := fn(i); err != nil {
+				errCh <- err
+				return
+			}
+		}
+	}
+	reader := func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			tenant := client.CurrentTenant()
+			if tenant == nil {
+				errCh <- fmt.Errorf("tenant is nil at iteration %d", i)
+				return
+			}
+			database := client.CurrentDatabase()
+			if database == nil {
+				errCh <- fmt.Errorf("database is nil at iteration %d", i)
+				return
+			}
+			if database.Tenant() == nil {
+				errCh <- fmt.Errorf("database tenant is nil at iteration %d", i)
+				return
+			}
+		}
+	}
+
+	wg.Add(1)
+	go writer(func(i int) error {
+		return client.UseTenant(ctx, NewTenant(fmt.Sprintf("tenant-%d", i%32)))
+	})
+	wg.Add(1)
+	go writer(func(i int) error {
+		tenant := NewTenant(fmt.Sprintf("tenant-%d", i%32))
+		database := NewDatabase(fmt.Sprintf("database-%d", i%32), tenant)
+		return client.UseDatabase(ctx, database)
+	})
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go reader()
+	}
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+
+	require.NotNil(t, client.CurrentTenant())
+	require.NotNil(t, client.CurrentDatabase())
+}
+
 func TestAnyToFloat32Slice_TableDriven(t *testing.T) {
 	embedding := embeddingspkg.NewEmbeddingFromFloat32([]float32{1, 2, 3})
 

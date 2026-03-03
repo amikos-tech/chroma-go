@@ -31,6 +31,7 @@ type localClientState interface {
 	CurrentDatabase() Database
 	SetTenant(tenant Tenant)
 	SetDatabase(database Database)
+	setTenantAndDatabase(tenant Tenant, database Database)
 	Satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error
 	localSetPreflightLimit(maxBatchSize int)
 	localCollectionByName(name string) Collection
@@ -167,8 +168,7 @@ func (client *embeddedLocalClient) UseTenant(ctx context.Context, tenant Tenant)
 	if err != nil {
 		return err
 	}
-	client.state.SetTenant(t)
-	client.state.SetDatabase(t.Database(DefaultDatabase))
+	client.state.setTenantAndDatabase(t, t.Database(DefaultDatabase))
 	return nil
 }
 
@@ -183,8 +183,7 @@ func (client *embeddedLocalClient) UseDatabase(ctx context.Context, database Dat
 	if err != nil {
 		return err
 	}
-	client.state.SetDatabase(db)
-	client.state.SetTenant(db.Tenant())
+	client.state.setTenantAndDatabase(db.Tenant(), db)
 	return nil
 }
 

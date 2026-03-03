@@ -539,8 +539,7 @@ func (client *APIClientV2) UseTenant(ctx context.Context, tenant Tenant) error {
 	if err != nil {
 		return err
 	}
-	client.SetTenant(t)
-	client.SetDatabase(t.Database(DefaultDatabase)) // TODO is this optimal?
+	client.setTenantAndDatabase(t, t.Database(DefaultDatabase)) // TODO is this optimal?
 	return nil
 }
 
@@ -553,8 +552,7 @@ func (client *APIClientV2) UseDatabase(ctx context.Context, database Database) e
 	if err != nil {
 		return errors.Wrap(err, "error getting database")
 	}
-	client.SetDatabase(d)
-	client.SetTenant(d.Tenant())
+	client.setTenantAndDatabase(d.Tenant(), d)
 	return nil
 }
 

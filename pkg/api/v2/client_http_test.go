@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -886,6 +887,125 @@ func TestGetOrCreateCollectionWithCollectionMetadataMapCreateStrictDeferredError
 	require.Contains(t, err.Error(), "error preparing collection create request")
 	require.Contains(t, err.Error(), "error converting metadata map")
 	require.Equal(t, int32(0), reqCount.Load())
+}
+
+func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
+	stateClient, err := NewHTTPClient(WithBaseURL("http://localhost:8080"), WithLogger(testLogger()))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, stateClient.Close())
+	}()
+
+	client, ok := stateClient.(*APIClientV2)
+	require.True(t, ok)
+
+	const iterations = 1000
+	errCh := make(chan error, 8)
+	var wg sync.WaitGroup
+
+	writer := func(fn func(i int)) {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			fn(i)
+		}
+	}
+	reader := func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			tenant := client.CurrentTenant()
+			if tenant == nil {
+				errCh <- fmt.Errorf("tenant is nil at iteration %d", i)
+				return
+			}
+			database := client.CurrentDatabase()
+			if database == nil {
+				errCh <- fmt.Errorf("database is nil at iteration %d", i)
+				return
+			}
+			if database.Tenant() == nil {
+				errCh <- fmt.Errorf("database tenant is nil at iteration %d", i)
+				return
+			}
+		}
+	}
+
+	wg.Add(1)
+	go writer(func(i int) {
+		client.SetTenant(NewTenant(fmt.Sprintf("set-tenant-%d", i%32)))
+	})
+	wg.Add(1)
+	go writer(func(i int) {
+		tenant := NewTenant(fmt.Sprintf("set-db-tenant-%d", i%32))
+		client.SetDatabase(NewDatabase(fmt.Sprintf("set-db-%d", i%32), tenant))
+	})
+	wg.Add(1)
+	go writer(func(i int) {
+		tenant := NewTenant(fmt.Sprintf("pair-tenant-%d", i%32))
+		database := NewDatabase(fmt.Sprintf("pair-db-%d", i%32), tenant)
+		client.setTenantAndDatabase(tenant, database)
+	})
+
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go reader()
+	}
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+
+	require.NotNil(t, client.CurrentTenant())
+	require.NotNil(t, client.CurrentDatabase())
+}
+
+func TestBaseAPIClientConcurrentScopeMuInitZeroValue(t *testing.T) {
+	var client BaseAPIClient
+	const iterations = 1000
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+
+	writer := func(fn func(i int)) {
+		defer wg.Done()
+		<-start
+		for i := 0; i < iterations; i++ {
+			fn(i)
+		}
+	}
+	reader := func() {
+		defer wg.Done()
+		<-start
+		for i := 0; i < iterations; i++ {
+			_ = client.Tenant()
+			_ = client.Database()
+		}
+	}
+
+	wg.Add(1)
+	go writer(func(i int) {
+		client.SetTenant(NewTenant(fmt.Sprintf("tenant-%d", i%32)))
+	})
+	wg.Add(1)
+	go writer(func(i int) {
+		tenant := NewTenant(fmt.Sprintf("db-tenant-%d", i%32))
+		client.SetDatabase(NewDatabase(fmt.Sprintf("database-%d", i%32), tenant))
+	})
+	wg.Add(1)
+	go writer(func(i int) {
+		tenant := NewTenant(fmt.Sprintf("pair-tenant-%d", i%32))
+		database := NewDatabase(fmt.Sprintf("pair-db-%d", i%32), tenant)
+		client.setTenantAndDatabase(tenant, database)
+	})
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go reader()
+	}
+
+	close(start)
+	wg.Wait()
+
+	require.NotNil(t, client.ensureScopeMu())
 }
 
 func TestClientSetup(t *testing.T) {

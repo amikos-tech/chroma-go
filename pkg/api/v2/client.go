@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -642,6 +643,7 @@ func NewCountCollectionsOp(opts ...CountCollectionsOption) (*CountCollectionsOp,
 type BaseAPIClient struct {
 	httpClient        *http.Client
 	baseURL           string
+	scopeMu           *sync.RWMutex
 	tenant            Tenant
 	database          Database
 	defaultHeaders    map[string]string
@@ -652,6 +654,8 @@ type BaseAPIClient struct {
 	authProvider      CredentialsProvider
 	logger            logger.Logger
 }
+
+var baseClientScopeMuInit sync.Mutex
 
 type ClientOption func(client *BaseAPIClient) error
 
@@ -670,7 +674,7 @@ func WithTenant(tenant string) ClientOption {
 		if tenant == "" {
 			return errors.New("tenant cannot be empty")
 		}
-		c.tenant = NewTenant(tenant)
+		c.SetTenant(NewTenant(tenant))
 		return nil
 	}
 }
@@ -692,19 +696,19 @@ func WithDatabaseAndTenant(database string, tenant string) ClientOption {
 		if tenant == "" {
 			return errors.New("tenant cannot be empty")
 		}
-		c.tenant = NewTenant(tenant)
-		c.database = NewDatabase(database, NewTenant(tenant))
+		t := NewTenant(tenant)
+		c.setTenantAndDatabase(t, NewDatabase(database, t))
 		return nil
 	}
 }
 
 func WithDefaultDatabaseAndTenant() ClientOption {
 	return func(c *BaseAPIClient) error {
-		if c.tenant == nil {
-			c.tenant = NewDefaultTenant()
+		if c.Tenant() == nil {
+			c.SetTenant(NewDefaultTenant())
 		}
-		if c.database == nil {
-			c.database = NewDefaultDatabase()
+		if c.Database() == nil {
+			c.SetDatabase(NewDefaultDatabase())
 		}
 		return nil
 	}
@@ -713,14 +717,16 @@ func WithDefaultDatabaseAndTenant() ClientOption {
 // WithDatabaseAndTenantFromEnv sets the tenant and database from environment variables CHROMA_TENANT and CHROMA_DATABASE
 func WithDatabaseAndTenantFromEnv() ClientOption {
 	return func(c *BaseAPIClient) error {
-		if os.Getenv("CHROMA_TENANT") != "" {
-			if c.tenant == nil || c.tenant.Name() == DefaultTenant {
-				c.tenant = NewTenant(os.Getenv("CHROMA_TENANT"))
+		if envTenant := os.Getenv("CHROMA_TENANT"); envTenant != "" {
+			currentTenant := c.Tenant()
+			if currentTenant == nil || currentTenant.Name() == DefaultTenant {
+				c.SetTenant(NewTenant(envTenant))
 			}
 		}
-		if os.Getenv("CHROMA_DATABASE") != "" {
-			if c.database == nil || c.database.Name() == DefaultDatabase {
-				c.database = NewDatabase(os.Getenv("CHROMA_DATABASE"), c.tenant)
+		if envDatabase := os.Getenv("CHROMA_DATABASE"); envDatabase != "" {
+			currentDatabase := c.Database()
+			if currentDatabase == nil || currentDatabase.Name() == DefaultDatabase {
+				c.SetDatabase(NewDatabase(envDatabase, c.Tenant()))
 			}
 		}
 		return nil
@@ -859,6 +865,7 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 	client := &BaseAPIClient{
 		baseURL:           "http://localhost:8000/api/v2",
 		httpClient:        http.DefaultClient,
+		scopeMu:           &sync.RWMutex{},
 		httpTransport:     &http.Transport{TLSClientConfig: &tls.Config{}},
 		activeCollections: make([]Collection, 0),
 		defaultHeaders: map[string]string{
@@ -1000,11 +1007,27 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 func (bc *BaseAPIClient) HTTPClient() *http.Client {
 	return bc.httpClient
 }
+
+func (bc *BaseAPIClient) ensureScopeMu() *sync.RWMutex {
+	baseClientScopeMuInit.Lock()
+	defer baseClientScopeMuInit.Unlock()
+	if bc.scopeMu == nil {
+		bc.scopeMu = &sync.RWMutex{}
+	}
+	return bc.scopeMu
+}
+
 func (bc *BaseAPIClient) Tenant() Tenant {
+	scopeMu := bc.ensureScopeMu()
+	scopeMu.RLock()
+	defer scopeMu.RUnlock()
 	return bc.tenant
 }
 
 func (bc *BaseAPIClient) Database() Database {
+	scopeMu := bc.ensureScopeMu()
+	scopeMu.RLock()
+	defer scopeMu.RUnlock()
 	return bc.database
 }
 
@@ -1017,10 +1040,24 @@ func (bc *BaseAPIClient) Timeout() time.Duration {
 }
 
 func (bc *BaseAPIClient) SetTenant(tenant Tenant) {
+	scopeMu := bc.ensureScopeMu()
+	scopeMu.Lock()
+	defer scopeMu.Unlock()
 	bc.tenant = tenant
 }
 
 func (bc *BaseAPIClient) SetDatabase(database Database) {
+	scopeMu := bc.ensureScopeMu()
+	scopeMu.Lock()
+	defer scopeMu.Unlock()
+	bc.database = database
+}
+
+func (bc *BaseAPIClient) setTenantAndDatabase(tenant Tenant, database Database) {
+	scopeMu := bc.ensureScopeMu()
+	scopeMu.Lock()
+	defer scopeMu.Unlock()
+	bc.tenant = tenant
 	bc.database = database
 }
 
