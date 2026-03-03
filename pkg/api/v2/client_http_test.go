@@ -454,6 +454,108 @@ func TestAPIClient(t *testing.T) {
 	})
 }
 
+func TestGetCollection_ParsesSpannQuantizeFromSchemaResponse(t *testing.T) {
+	schema, err := NewSchema(
+		WithDefaultVectorIndex(NewVectorIndexConfig(
+			WithSpace(SpaceL2),
+			WithSpann(NewSpannConfig(
+				WithSpannQuantize(SpannQuantizationFourBitRabitQWithUSearch),
+			)),
+		)),
+	)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v2/tenants/default_tenant/databases/default_database/collections/test" &&
+			r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			cm := CollectionModel{
+				ID:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+				Name:     "test",
+				Tenant:   DefaultTenant,
+				Database: DefaultDatabase,
+				Schema:   schema,
+			}
+			require.NoError(t, json.NewEncoder(w).Encode(&cm))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, client.Close())
+	}()
+
+	collection, err := client.GetCollection(context.Background(), "test")
+	require.NoError(t, err)
+	require.NotNil(t, collection)
+	require.NotNil(t, collection.Schema())
+
+	embeddingVT, ok := collection.Schema().GetKey(EmbeddingKey)
+	require.True(t, ok)
+	require.NotNil(t, embeddingVT.FloatList)
+	require.NotNil(t, embeddingVT.FloatList.VectorIndex)
+	require.NotNil(t, embeddingVT.FloatList.VectorIndex.Config)
+	require.NotNil(t, embeddingVT.FloatList.VectorIndex.Config.Spann)
+	require.Equal(t, SpannQuantizationFourBitRabitQWithUSearch, embeddingVT.FloatList.VectorIndex.Config.Spann.Quantize)
+}
+
+func TestListCollections_ParsesSpannQuantizeFromSchemaResponse(t *testing.T) {
+	schema, err := NewSchema(
+		WithDefaultVectorIndex(NewVectorIndexConfig(
+			WithSpace(SpaceL2),
+			WithSpann(NewSpannConfig(
+				WithSpannQuantize(SpannQuantizationFourBitRabitQWithUSearch),
+			)),
+		)),
+	)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v2/tenants/default_tenant/databases/default_database/collections" &&
+			r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			collections := []CollectionModel{
+				{
+					ID:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+					Name:     "test",
+					Tenant:   DefaultTenant,
+					Database: DefaultDatabase,
+					Schema:   schema,
+				},
+			}
+			require.NoError(t, json.NewEncoder(w).Encode(&collections))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, client.Close())
+	}()
+
+	collections, err := client.ListCollections(context.Background())
+	require.NoError(t, err)
+	require.Len(t, collections, 1)
+	require.NotNil(t, collections[0].Schema())
+
+	embeddingVT, ok := collections[0].Schema().GetKey(EmbeddingKey)
+	require.True(t, ok)
+	require.NotNil(t, embeddingVT.FloatList)
+	require.NotNil(t, embeddingVT.FloatList.VectorIndex)
+	require.NotNil(t, embeddingVT.FloatList.VectorIndex.Config)
+	require.NotNil(t, embeddingVT.FloatList.VectorIndex.Config.Spann)
+	require.Equal(t, SpannQuantizationFourBitRabitQWithUSearch, embeddingVT.FloatList.VectorIndex.Config.Spann.Quantize)
+}
+
 func TestCreateCollection(t *testing.T) {
 	var tests = []struct {
 		name                        string
