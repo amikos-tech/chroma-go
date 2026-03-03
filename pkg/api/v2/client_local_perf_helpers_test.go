@@ -878,6 +878,7 @@ func perfRunSyntheticScenario(cfg perfRuntimeConfig, thresholds perfThresholds, 
 	defer runCancel()
 	const catastrophicOpsFloor = 200
 	const catastrophicErrorRatePercent = 95
+	const catastrophicErrorRateThreshold = float64(catastrophicErrorRatePercent) / 100.0
 	const catastrophicConsecutiveSamples = 2
 	var workerErrMu sync.Mutex
 	workerErrs := make([]error, 0, scenario.ReadWorkers+2)
@@ -924,7 +925,11 @@ func perfRunSyntheticScenario(cfg perfRuntimeConfig, thresholds perfThresholds, 
 			case <-ticker.C:
 				recordSample()
 				_, _, totalOps, totalErrors := metrics.snapshotCounts()
-				if totalOps >= catastrophicOpsFloor && totalErrors*100 >= totalOps*catastrophicErrorRatePercent {
+				isCatastrophicRate := false
+				if totalOps >= catastrophicOpsFloor {
+					isCatastrophicRate = float64(totalErrors)/float64(totalOps) >= catastrophicErrorRateThreshold
+				}
+				if isCatastrophicRate {
 					catastrophicSampleStreak++
 				} else {
 					catastrophicSampleStreak = 0

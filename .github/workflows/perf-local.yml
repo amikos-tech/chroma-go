@@ -7,9 +7,13 @@ on:
       - 'pkg/api/v2/client_local_embedded.go'
       - 'pkg/api/v2/client_local_perf_test.go'
       - 'pkg/api/v2/client_local_perf_helpers_test.go'
+      - 'pkg/api/v2/client_local_perf_helpers_context_test.go'
+      - 'pkg/api/v2/client_local_perf_helpers_unit_test.go'
       - 'pkg/api/v2/client_local_library_download.go'
       - 'pkg/api/v2/client_local_crosslang_integration_test.go'
       - 'pkg/embeddings/default_ef/**'
+      - 'go.mod'
+      - 'go.sum'
       - 'Makefile'
       - '.github/workflows/perf-local.yml'
   schedule:
