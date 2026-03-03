@@ -734,10 +734,14 @@ func perfShouldIgnoreContextError(opErr error, runCtxErr, opCtxErr error) bool {
 	// done, so treating these as shutdown noise is safe.
 	msg := strings.TrimSpace(strings.ToLower(opErr.Error()))
 	switch {
-	case msg == "context canceled", msg == "context deadline exceeded":
-		return true
-	case strings.HasSuffix(msg, ": context canceled"), strings.HasSuffix(msg, ": context deadline exceeded"):
-		return true
+	case msg == "context canceled":
+		return stderrors.Is(opCtxErr, context.Canceled)
+	case msg == "context deadline exceeded":
+		return stderrors.Is(opCtxErr, context.DeadlineExceeded)
+	case strings.HasSuffix(msg, ": context canceled"):
+		return stderrors.Is(opCtxErr, context.Canceled)
+	case strings.HasSuffix(msg, ": context deadline exceeded"):
+		return stderrors.Is(opCtxErr, context.DeadlineExceeded)
 	}
 	return false
 }
