@@ -1305,4 +1305,64 @@ func TestClientSetup(t *testing.T) {
 		require.NotNil(t, database.Tenant())
 		require.Equal(t, DefaultTenant, database.Tenant().Name())
 	})
+
+	t.Run("WithHTTPClient and WithInsecure are mutually exclusive", func(t *testing.T) {
+		httpClient := &http.Client{Transport: &http.Transport{}}
+		_, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithHTTPClient(httpClient),
+			WithInsecure(),
+			WithLogger(testLogger()),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot be combined")
+	})
+
+	t.Run("WithInsecure then WithHTTPClient are mutually exclusive", func(t *testing.T) {
+		httpClient := &http.Client{Transport: &http.Transport{}}
+		_, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithInsecure(),
+			WithHTTPClient(httpClient),
+			WithLogger(testLogger()),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot be combined")
+	})
+
+	t.Run("WithHTTPClient and WithTransport are mutually exclusive", func(t *testing.T) {
+		httpClient := &http.Client{Transport: &http.Transport{}}
+		_, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithHTTPClient(httpClient),
+			WithTransport(&http.Transport{}),
+			WithLogger(testLogger()),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot be combined")
+	})
+
+	t.Run("WithTransport then WithHTTPClient are mutually exclusive", func(t *testing.T) {
+		httpClient := &http.Client{Transport: &http.Transport{}}
+		_, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithTransport(&http.Transport{}),
+			WithHTTPClient(httpClient),
+			WithLogger(testLogger()),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot be combined")
+	})
+
+	t.Run("WithHTTPClient and WithSSLCert are mutually exclusive", func(t *testing.T) {
+		httpClient := &http.Client{Transport: &http.Transport{}}
+		_, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithHTTPClient(httpClient),
+			WithSSLCert("/path/unused-when-conflict-is-detected.pem"),
+			WithLogger(testLogger()),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot be combined")
+	})
 }

@@ -657,6 +657,8 @@ type BaseAPIClient struct {
 	timeout        time.Duration
 	authProvider   CredentialsProvider
 	logger         logger.Logger
+	usesHTTPClient bool
+	usesTransport  bool
 }
 
 type ClientOption func(client *BaseAPIClient) error
@@ -747,7 +749,11 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 		if httpClient == nil {
 			return errors.New("httpClient cannot be nil")
 		}
+		if c.usesTransport {
+			return errors.New("WithHTTPClient cannot be combined with WithTransport, WithSSLCert, or WithInsecure")
+		}
 		c.httpClient = httpClient
+		c.usesHTTPClient = true
 		return nil
 	}
 }
@@ -779,7 +785,11 @@ func WithTransport(transport *http.Transport) ClientOption {
 		if transport == nil {
 			return errors.New("transport cannot be nil")
 		}
+		if c.usesHTTPClient {
+			return errors.New("WithTransport cannot be combined with WithHTTPClient")
+		}
 		c.httpTransport = transport
+		c.usesTransport = true
 		return nil
 	}
 }
@@ -814,9 +824,14 @@ func WithLogger(l logger.Logger) ClientOption {
 	}
 }
 
-// WithSSLCert adds a custom SSL certificate to the client. The certificate must be in PEM format. The Option can be added multiple times to add multiple certificates. The option is mutually exclusive with WithHttpClient.
+// WithSSLCert adds a custom SSL certificate to the client. The certificate must be in PEM format.
+// The option can be added multiple times to add multiple certificates.
+// It is mutually exclusive with WithHTTPClient and this is enforced at construction time.
 func WithSSLCert(certPath string) ClientOption {
 	return func(c *BaseAPIClient) error {
+		if c.usesHTTPClient {
+			return errors.New("WithSSLCert cannot be combined with WithHTTPClient")
+		}
 		if _, err := os.Stat(certPath); certPath == "" || err != nil {
 			return errors.Errorf("invalid cert path %v", err)
 		}
@@ -845,14 +860,19 @@ func WithSSLCert(certPath string) ClientOption {
 			return errors.New("failed to append cert to pool")
 		}
 		c.httpTransport.TLSClientConfig.RootCAs = certPool
+		c.usesTransport = true
 		return nil
 	}
 }
 
-// WithInsecure skips SSL verification. The option is mutually exclusive with WithHttpClient.
+// WithInsecure skips SSL verification.
+// It is mutually exclusive with WithHTTPClient and this is enforced at construction time.
 // DO NOT USE IN PRODUCTION.
 func WithInsecure() ClientOption {
 	return func(c *BaseAPIClient) error {
+		if c.usesHTTPClient {
+			return errors.New("WithInsecure cannot be combined with WithHTTPClient")
+		}
 		if c.httpTransport == nil {
 			c.httpTransport = &http.Transport{}
 		}
@@ -863,6 +883,7 @@ func WithInsecure() ClientOption {
 		} else {
 			c.httpTransport.TLSClientConfig.InsecureSkipVerify = true
 		}
+		c.usesTransport = true
 		return nil
 	}
 }
