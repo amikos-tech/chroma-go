@@ -974,11 +974,10 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 	if err != nil {
 		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
 	}
+	if resp == nil {
+		return nil, errors.New("received nil response from server")
+	}
 	if bc.logger.IsDebugEnabled() {
-		if resp == nil {
-			bc.logger.Debug("HTTP Response is nil")
-			return nil, errors.New("received nil response from server")
-		}
 		dump, dumpErr := httputil.DumpResponse(resp, true)
 		if dumpErr == nil {
 			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))

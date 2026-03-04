@@ -894,7 +894,7 @@ func TestGetOrCreateCollectionWithCollectionMetadataMapCreateStrictDeferredError
 // times; 4 reader goroutines validate that snapshots are always consistent.
 func runConcurrencyTest(t *testing.T, snapshot func() (Tenant, Database), iterations int, writers ...func(i int) error) {
 	t.Helper()
-	errCh := make(chan error, 8)
+	errCh := make(chan error, len(writers)+4)
 	var wg sync.WaitGroup
 	start := make(chan struct{})
 
