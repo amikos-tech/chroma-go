@@ -34,6 +34,7 @@ var (
 	ensureOnnxRuntimeSharedLibraryFn     = EnsureOnnxRuntimeSharedLibrary
 	ensureDefaultEmbeddingModelFn        = EnsureDefaultEmbeddingFunctionModel
 	initializeEnvironmentWithBootstrapFn = ort.InitializeEnvironmentWithBootstrap
+	newEmbedderFn                        = minilm.NewEmbedder
 	destroyEnvironmentFn                 = ort.DestroyEnvironment
 )
 
@@ -62,7 +63,7 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 		return nil, nil, errors.Wrap(err, "failed to initialize onnx runtime environment")
 	}
 
-	embedder, err := minilm.NewEmbedder(
+	embedder, err := newEmbedderFn(
 		cfg.OnnxModelPath,
 		cfg.OnnxModelTokenizerConfigPath,
 		minilm.WithMeanPooling(),
@@ -83,11 +84,18 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 	for _, opt := range opts {
 		if err := opt(ef); err != nil {
 			optionErr := errors.Wrap(err, "failed to apply default embedding function option")
-			if closeErr := ef.Close(); closeErr != nil {
-				return nil, nil, stderrors.Join(
-					optionErr,
-					errors.Wrap(closeErr, "failed to cleanup default embedding function after option error"),
-				)
+			var cleanupErrs []error
+			if ef.embedder != nil {
+				if closeErr := ef.embedder.Close(); closeErr != nil {
+					cleanupErrs = append(cleanupErrs, errors.Wrap(closeErr, "failed to close embedder after option error"))
+				}
+				ef.embedder = nil
+			}
+			if destroyErr := destroyEnvironmentFn(); destroyErr != nil {
+				cleanupErrs = append(cleanupErrs, errors.Wrap(destroyErr, "failed to destroy onnx runtime environment after option error"))
+			}
+			if len(cleanupErrs) > 0 {
+				return nil, nil, stderrors.Join(append([]error{optionErr}, cleanupErrs...)...)
 			}
 			return nil, nil, optionErr
 		}
