@@ -56,8 +56,12 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 	}
 
 	// Bake auth headers — cloud client applies auth after newBaseAPIClient.
-	if err := c.authProvider.Authenticate(&c.BaseAPIClient); err != nil {
+	headers, err := c.authProvider.Authenticate()
+	if err != nil {
 		return nil, errors.Wrap(err, "error applying auth credentials")
+	}
+	for k, v := range headers {
+		c.defaultHeaders[k] = v
 	}
 
 	// Ensure logger is never nil - but don't override if already set by options like WithDebug()

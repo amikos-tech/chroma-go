@@ -534,21 +534,42 @@ func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListColl
 	return apiCollections, nil
 }
 
+// Deprecated: Use UseTenantDatabase to set both tenant and database atomically.
 func (client *APIClientV2) UseTenant(ctx context.Context, tenant Tenant) error {
 	t, err := client.GetTenant(ctx, tenant)
 	if err != nil {
 		return err
 	}
-	client.SetTenantAndDatabase(t, t.Database(DefaultDatabase)) // TODO is this optimal?
+	client.SetTenantAndDatabase(t, t.Database(DefaultDatabase))
 	return nil
 }
 
+// UseDatabase validates and switches the active database. The tenant is derived
+// from the database object itself.
 func (client *APIClientV2) UseDatabase(ctx context.Context, database Database) error {
 	err := database.Validate()
 	if err != nil {
 		return errors.Wrap(err, "error validating database")
 	}
 	d, err := client.GetDatabase(ctx, database)
+	if err != nil {
+		return errors.Wrap(err, "error getting database")
+	}
+	client.SetTenantAndDatabase(d.Tenant(), d)
+	return nil
+}
+
+// UseTenantDatabase validates and switches both the active tenant and database atomically.
+func (client *APIClientV2) UseTenantDatabase(ctx context.Context, tenant Tenant, database Database) error {
+	t, err := client.GetTenant(ctx, tenant)
+	if err != nil {
+		return errors.Wrap(err, "error getting tenant")
+	}
+	db := NewDatabase(database.Name(), t)
+	if err := db.Validate(); err != nil {
+		return errors.Wrap(err, "error validating database")
+	}
+	d, err := client.GetDatabase(ctx, db)
 	if err != nil {
 		return errors.Wrap(err, "error getting database")
 	}

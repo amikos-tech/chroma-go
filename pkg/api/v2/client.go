@@ -890,10 +890,14 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 		client.logger = logger.NewNoopLogger()
 	}
 
-	// Bake auth headers into defaultHeaders once so prepareRequest only needs a read lock.
+	// Bake auth headers into defaultHeaders once so prepareRequest needs no lock.
 	if client.authProvider != nil {
-		if err := client.authProvider.Authenticate(client); err != nil {
+		headers, err := client.authProvider.Authenticate()
+		if err != nil {
 			return nil, errors.Wrap(err, "error applying auth credentials")
+		}
+		for k, v := range headers {
+			client.defaultHeaders[k] = v
 		}
 	}
 
@@ -926,7 +930,11 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
-	} else if resp.StatusCode >= 400 && resp.StatusCode < 599 {
+	}
+	if resp == nil {
+		return nil, errors.New("received nil response from server")
+	}
+	if resp.StatusCode >= 400 && resp.StatusCode < 599 {
 		if bc.logger.IsDebugEnabled() {
 			dump, err := httputil.DumpResponse(resp, true)
 			if err == nil {
@@ -1035,11 +1043,6 @@ func (bc *BaseAPIClient) SetTenantAndDatabase(tenant Tenant, database Database) 
 	defer bc.scopeMu.Unlock()
 	bc.tenant = tenant
 	bc.database = database
-}
-
-// setDefaultHeader sets a single default header. Must only be called during construction.
-func (bc *BaseAPIClient) setDefaultHeader(key, value string) {
-	bc.defaultHeaders[key] = value
 }
 
 func (bc *BaseAPIClient) SetPreFlightConfig(config map[string]interface{}) {
