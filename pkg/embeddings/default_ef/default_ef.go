@@ -13,6 +13,8 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
+// Option mutates the embedding function during construction while initLock is held.
+// Implementations must not call Close(), which would try to reacquire initLock and deadlock.
 type Option func(p *DefaultEmbeddingFunction) error
 
 var (
@@ -79,6 +81,9 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 }
 
 func newDefaultEmbeddingFunctionWithDeps(cfg *Config, deps defaultEFDeps, opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
+	if cfg == nil {
+		return nil, nil, errors.New("invalid default embedding function config: nil")
+	}
 	if err := deps.validate(); err != nil {
 		return nil, nil, errors.Wrap(err, "invalid default embedding function dependencies")
 	}

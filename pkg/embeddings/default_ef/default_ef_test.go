@@ -121,6 +121,12 @@ func TestNewDefaultEmbeddingFunctionWithDepsRejectsMissingDependencies(t *testin
 	require.Contains(t, err.Error(), "ensureOnnxRuntimeSharedLibrary dependency is nil")
 }
 
+func TestNewDefaultEmbeddingFunctionWithDepsRejectsNilConfig(t *testing.T) {
+	_, _, err := newDefaultEmbeddingFunctionWithDeps(nil, testDefaultEFDeps())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid default embedding function config: nil")
+}
+
 func Test_Default_EF(t *testing.T) {
 	setOfflineRuntimePathOrSkip(t)
 	ef, closeEf, err := NewDefaultEmbeddingFunction()
