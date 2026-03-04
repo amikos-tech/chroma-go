@@ -179,7 +179,7 @@ func (e *DefaultEmbeddingFunction) Close() error {
 		var errs []error
 
 		if e.embedder != nil {
-			if err := e.embedder.Close(); err != nil {
+			if err := closeEmbedderFn(e.embedder); err != nil {
 				errs = append(errs, errors.Wrap(err, "failed to close embedder"))
 			}
 			e.embedder = nil

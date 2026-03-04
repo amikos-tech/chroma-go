@@ -477,6 +477,97 @@ func TestEmbedderCreationFailureReturnsOnlyEmbedderErrorWhenDestroySucceeds(t *t
 	require.NotContains(t, err.Error(), "failed to destroy onnx runtime environment after embedder setup error")
 }
 
+func TestCloseUsesCloseEmbedderFn(t *testing.T) {
+	resetDefaultEFInitHooksForTesting(t)
+
+	closeEmbedderFn = func(*minilm.Embedder) error {
+		return stderrors.New("close failed")
+	}
+	destroyEnvironmentFn = func() error {
+		return nil
+	}
+
+	ef := &DefaultEmbeddingFunction{embedder: &minilm.Embedder{}}
+	err := ef.Close()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to close embedder")
+}
+
+func TestOptionFailureCleanupAggregatesCloseAndDestroyErrors(t *testing.T) {
+	resetDefaultEFInitHooksForTesting(t)
+
+	ensureOnnxRuntimeSharedLibraryFn = func() error {
+		return nil
+	}
+	ensureDefaultEmbeddingModelFn = func() error {
+		return nil
+	}
+	initializeEnvironmentWithBootstrapFn = func(...ort.BootstrapOption) error {
+		return nil
+	}
+	newEmbedderFn = func(string, string, ...minilm.Option) (*minilm.Embedder, error) {
+		return &minilm.Embedder{}, nil
+	}
+	closeEmbedderFn = func(*minilm.Embedder) error {
+		return stderrors.New("close failed")
+	}
+	destroyEnvironmentFn = func() error {
+		return stderrors.New("destroy failed")
+	}
+
+	_, _, err := NewDefaultEmbeddingFunction(func(*DefaultEmbeddingFunction) error {
+		return stderrors.New("option failed")
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to apply default embedding function option")
+	require.Contains(t, err.Error(), "failed to close embedder after option error")
+	require.Contains(t, err.Error(), "failed to destroy onnx runtime environment after option error")
+}
+
+func TestOptionFailureSkipsEmbedderCloseWhenOptionNilOutEmbedder(t *testing.T) {
+	resetDefaultEFInitHooksForTesting(t)
+
+	ensureOnnxRuntimeSharedLibraryFn = func() error {
+		return nil
+	}
+	ensureDefaultEmbeddingModelFn = func() error {
+		return nil
+	}
+	initializeEnvironmentWithBootstrapFn = func(...ort.BootstrapOption) error {
+		return nil
+	}
+	newEmbedderFn = func(string, string, ...minilm.Option) (*minilm.Embedder, error) {
+		return &minilm.Embedder{}, nil
+	}
+
+	closeCalled := make(chan struct{}, 1)
+	closeEmbedderFn = func(*minilm.Embedder) error {
+		select {
+		case closeCalled <- struct{}{}:
+		default:
+		}
+		return nil
+	}
+	destroyEnvironmentFn = func() error {
+		return nil
+	}
+
+	_, _, err := NewDefaultEmbeddingFunction(func(ef *DefaultEmbeddingFunction) error {
+		ef.embedder = nil
+		return stderrors.New("option failed")
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to apply default embedding function option")
+	require.NotContains(t, err.Error(), "failed to close embedder after option error")
+	require.NotContains(t, err.Error(), "failed to destroy onnx runtime environment after option error")
+
+	select {
+	case <-closeCalled:
+		t.Fatal("closeEmbedderFn should not be called when option sets embedder to nil")
+	default:
+	}
+}
+
 func TestConcurrentInitCloseUse(t *testing.T) {
 	setOfflineRuntimePathOrSkip(t)
 	const numGoroutines = 10
