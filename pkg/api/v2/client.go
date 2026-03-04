@@ -641,9 +641,8 @@ func NewCountCollectionsOp(opts ...CountCollectionsOption) (*CountCollectionsOp,
 }
 
 // BaseAPIClient holds shared client transport/configuration state.
-// It must be initialized through newBaseAPIClient (or the public constructors
-// that call it) so internal synchronization primitives are properly set up.
 // scopeMu protects tenant, database, and defaultHeaders from concurrent access.
+// It is always initialized by newBaseAPIClient; callers must not construct this struct directly.
 type BaseAPIClient struct {
 	httpClient      *http.Client
 	baseURL         string
@@ -729,6 +728,9 @@ func WithDatabaseAndTenantFromEnv() ClientOption {
 			}
 		}
 		if envDatabase := os.Getenv("CHROMA_DATABASE"); envDatabase != "" {
+			if t == nil {
+				t = NewDefaultTenant()
+			}
 			if db == nil || db.Name() == DefaultDatabase {
 				db = NewDatabase(envDatabase, t)
 			}
@@ -753,9 +755,11 @@ func WithDefaultHeaders(headers map[string]string) ClientOption {
 		if headers == nil {
 			return errors.New("headers cannot be nil")
 		}
+		c.scopeMu.Lock()
 		for k, v := range headers {
-			c.setDefaultHeader(k, v)
+			c.defaultHeaders[k] = v
 		}
+		c.scopeMu.Unlock()
 		return nil
 	}
 }
@@ -894,20 +898,15 @@ func (bc *BaseAPIClient) BaseURL() string {
 	return bc.baseURL
 }
 
-func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, error) {
-	for k, v := range map[string]string{
-		"Accept":       "application/json",
-		"Content-Type": "application/json",
-	} {
-		httpReq.Header.Set(k, v)
-	}
+func (bc *BaseAPIClient) prepareRequest(httpReq *http.Request) error {
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("Content-Type", "application/json")
 	if bc.authProvider != nil {
-		err := bc.authProvider.Authenticate(bc)
-		if err != nil {
-			return nil, errors.Wrap(err, "error getting authorization header")
+		if err := bc.authProvider.Authenticate(bc); err != nil {
+			return errors.Wrap(err, "error getting authorization header")
 		}
 	}
-	for k, v := range bc.defaultHeadersSnapshot() {
+	for k, v := range bc.DefaultHeaders() {
 		httpReq.Header.Set(k, v)
 	}
 	if bc.logger.IsDebugEnabled() {
@@ -915,6 +914,13 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 		if err == nil {
 			bc.logger.Debug("HTTP Request", logger.String("request", _sanitizeRequestDump(string(dump))))
 		}
+	}
+	return nil
+}
+
+func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, error) {
+	if err := bc.prepareRequest(httpReq); err != nil {
+		return nil, err
 	}
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil {
@@ -961,26 +967,8 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 		}
 	}
 
-	for k, v := range map[string]string{
-		"Accept":       "application/json",
-		"Content-Type": "application/json",
-	} {
-		httpReq.Header.Set(k, v)
-	}
-	if bc.authProvider != nil {
-		err := bc.authProvider.Authenticate(bc)
-		if err != nil {
-			return nil, errors.Wrap(err, "error getting authorization header")
-		}
-	}
-	for k, v := range bc.defaultHeadersSnapshot() {
-		httpReq.Header.Set(k, v)
-	}
-	if bc.logger.IsDebugEnabled() {
-		dump, err := httputil.DumpRequestOut(httpReq, true)
-		if err == nil {
-			bc.logger.Debug("HTTP Request", logger.String("request", _sanitizeRequestDump(string(dump))))
-		}
+	if err := bc.prepareRequest(httpReq); err != nil {
+		return nil, err
 	}
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil {
@@ -1010,18 +998,12 @@ func (bc *BaseAPIClient) HTTPClient() *http.Client {
 }
 
 func (bc *BaseAPIClient) Tenant() Tenant {
-	if bc.scopeMu == nil {
-		return bc.tenant
-	}
 	bc.scopeMu.RLock()
 	defer bc.scopeMu.RUnlock()
 	return bc.tenant
 }
 
 func (bc *BaseAPIClient) Database() Database {
-	if bc.scopeMu == nil {
-		return bc.database
-	}
 	bc.scopeMu.RLock()
 	defer bc.scopeMu.RUnlock()
 	return bc.database
@@ -1029,9 +1011,6 @@ func (bc *BaseAPIClient) Database() Database {
 
 // TenantAndDatabase returns a lock-consistent snapshot of the current tenant and database.
 func (bc *BaseAPIClient) TenantAndDatabase() (Tenant, Database) {
-	if bc.scopeMu == nil {
-		return bc.tenant, bc.database
-	}
 	bc.scopeMu.RLock()
 	defer bc.scopeMu.RUnlock()
 	return bc.tenant, bc.database
@@ -1039,9 +1018,6 @@ func (bc *BaseAPIClient) TenantAndDatabase() (Tenant, Database) {
 
 // DefaultHeaders returns a snapshot copy of the current default headers.
 func (bc *BaseAPIClient) DefaultHeaders() map[string]string {
-	if bc.scopeMu == nil {
-		return bc.defaultHeaders
-	}
 	bc.scopeMu.RLock()
 	defer bc.scopeMu.RUnlock()
 	cp := make(map[string]string, len(bc.defaultHeaders))
@@ -1055,91 +1031,18 @@ func (bc *BaseAPIClient) Timeout() time.Duration {
 	return bc.timeout
 }
 
-// Deprecated: Use SetTenantAndDatabase instead. Calling SetTenant and SetDatabase
-// separately is unsafe for concurrent use — readers may observe a mismatched pair.
-func (bc *BaseAPIClient) SetTenant(tenant Tenant) {
-	if bc.scopeMu == nil {
-		bc.tenant = tenant
-		return
-	}
-	bc.scopeMu.Lock()
-	defer bc.scopeMu.Unlock()
-	bc.tenant = tenant
-}
-
-// Deprecated: Use SetTenantAndDatabase instead. Calling SetTenant and SetDatabase
-// separately is unsafe for concurrent use — readers may observe a mismatched pair.
-func (bc *BaseAPIClient) SetDatabase(database Database) {
-	if bc.scopeMu == nil {
-		bc.database = database
-		return
-	}
-	bc.scopeMu.Lock()
-	defer bc.scopeMu.Unlock()
-	bc.database = database
-}
-
 func (bc *BaseAPIClient) SetTenantAndDatabase(tenant Tenant, database Database) {
-	if bc.scopeMu == nil {
-		bc.tenant = tenant
-		bc.database = database
-		return
-	}
 	bc.scopeMu.Lock()
 	defer bc.scopeMu.Unlock()
 	bc.tenant = tenant
 	bc.database = database
-}
-
-// Deprecated: SetDefaultHeaders mutates shared request header state at runtime.
-// Prefer configuring headers with WithDefaultHeaders during client construction.
-// This method will be removed in v0.4.1.
-func (bc *BaseAPIClient) SetDefaultHeaders(headers map[string]string) {
-	var copied map[string]string
-	if headers != nil {
-		copied = make(map[string]string, len(headers))
-		for k, v := range headers {
-			copied[k] = v
-		}
-	}
-	if bc.scopeMu == nil {
-		bc.defaultHeaders = copied
-		return
-	}
-	bc.scopeMu.Lock()
-	defer bc.scopeMu.Unlock()
-	bc.defaultHeaders = copied
 }
 
 // setDefaultHeader sets a single header under the write lock.
 func (bc *BaseAPIClient) setDefaultHeader(key, value string) {
-	if bc.scopeMu == nil {
-		if bc.defaultHeaders == nil {
-			bc.defaultHeaders = make(map[string]string)
-		}
-		bc.defaultHeaders[key] = value
-		return
-	}
 	bc.scopeMu.Lock()
 	defer bc.scopeMu.Unlock()
-	if bc.defaultHeaders == nil {
-		bc.defaultHeaders = make(map[string]string)
-	}
 	bc.defaultHeaders[key] = value
-}
-
-// defaultHeadersSnapshot returns a shallow copy of defaultHeaders for safe iteration.
-func (bc *BaseAPIClient) defaultHeadersSnapshot() map[string]string {
-	if bc.scopeMu == nil {
-		return bc.defaultHeaders
-	}
-	bc.scopeMu.RLock()
-	defer bc.scopeMu.RUnlock()
-	cp := make(map[string]string, len(bc.defaultHeaders))
-	for k, v := range bc.defaultHeaders {
-		cp[k] = v
-	}
-	return cp
 }
 
 func (bc *BaseAPIClient) SetPreFlightConfig(config map[string]interface{}) {

@@ -1752,70 +1752,18 @@ func TestEmbeddedLocalClientDeleteCollection_UsesScopedCollectionStateCleanup(t 
 func TestEmbeddedLocalClientConcurrentTenantDatabaseStateAccess(t *testing.T) {
 	runtime := newScriptedEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
-	stateClient, ok := client.state.(*APIClientV2)
-	require.True(t, ok)
+	stateClient := client.state.(*APIClientV2)
 	ctx := context.Background()
 
-	const iterations = 500
-	errCh := make(chan error, 8)
-	var wg sync.WaitGroup
-	start := make(chan struct{})
-
-	writer := func(fn func(i int) error) {
-		defer wg.Done()
-		<-start
-		for i := 0; i < iterations; i++ {
-			if err := fn(i); err != nil {
-				errCh <- err
-				return
-			}
-		}
-	}
-	reader := func() {
-		defer wg.Done()
-		<-start
-		for i := 0; i < iterations; i++ {
-			tenant, database := stateClient.TenantAndDatabase()
-			if tenant == nil {
-				errCh <- fmt.Errorf("tenant is nil at iteration %d", i)
-				return
-			}
-			if database == nil {
-				errCh <- fmt.Errorf("database is nil at iteration %d", i)
-				return
-			}
-			if database.Tenant() == nil {
-				errCh <- fmt.Errorf("database tenant is nil at iteration %d", i)
-				return
-			}
-			if database.Tenant().Name() != tenant.Name() {
-				errCh <- fmt.Errorf("inconsistent tenant/database pair at iteration %d: tenant=%q db.tenant=%q", i, tenant.Name(), database.Tenant().Name())
-				return
-			}
-		}
-	}
-
-	wg.Add(1)
-	go writer(func(i int) error {
-		return client.UseTenant(ctx, NewTenant(fmt.Sprintf("tenant-%d", i%32)))
-	})
-	wg.Add(1)
-	go writer(func(i int) error {
-		tenant := NewTenant(fmt.Sprintf("tenant-%d", i%32))
-		database := NewDatabase(fmt.Sprintf("database-%d", i%32), tenant)
-		return client.UseDatabase(ctx, database)
-	})
-	for i := 0; i < 4; i++ {
-		wg.Add(1)
-		go reader()
-	}
-
-	close(start)
-	wg.Wait()
-	close(errCh)
-	for err := range errCh {
-		require.NoError(t, err)
-	}
+	runConcurrencyTest(t, stateClient.TenantAndDatabase, 500,
+		func(i int) error {
+			return client.UseTenant(ctx, NewTenant(fmt.Sprintf("tenant-%d", i%32)))
+		},
+		func(i int) error {
+			tenant := NewTenant(fmt.Sprintf("tenant-%d", i%32))
+			return client.UseDatabase(ctx, NewDatabase(fmt.Sprintf("database-%d", i%32), tenant))
+		},
+	)
 
 	require.NotNil(t, client.CurrentTenant())
 	require.NotNil(t, client.CurrentDatabase())

@@ -889,74 +889,46 @@ func TestGetOrCreateCollectionWithCollectionMetadataMapCreateStrictDeferredError
 	require.Equal(t, int32(0), reqCount.Load())
 }
 
-func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
-	stateClient, err := NewHTTPClient(WithBaseURL("http://localhost:8080"))
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, stateClient.Close())
-	}()
-
-	client, ok := stateClient.(*APIClientV2)
-	require.True(t, ok)
-
-	const iterations = 1000
+// runConcurrencyTest spins up concurrent writers and readers that verify
+// TenantAndDatabase consistency. Each writer calls its function `iterations`
+// times; 4 reader goroutines validate that snapshots are always consistent.
+func runConcurrencyTest(t *testing.T, snapshot func() (Tenant, Database), iterations int, writers ...func(i int) error) {
+	t.Helper()
 	errCh := make(chan error, 8)
 	var wg sync.WaitGroup
 	start := make(chan struct{})
 
-	writer := func(fn func(i int)) {
-		defer wg.Done()
-		<-start
-		for i := 0; i < iterations; i++ {
-			fn(i)
-		}
-	}
-	reader := func() {
-		defer wg.Done()
-		<-start
-		for i := 0; i < iterations; i++ {
-			tenant, database := client.TenantAndDatabase()
-			if tenant == nil {
-				errCh <- fmt.Errorf("tenant is nil at iteration %d", i)
-				return
-			}
-			if database == nil {
-				errCh <- fmt.Errorf("database is nil at iteration %d", i)
-				return
-			}
-			if database.Tenant() == nil {
-				errCh <- fmt.Errorf("database tenant is nil at iteration %d", i)
-				return
-			}
-			if database.Tenant().Name() != tenant.Name() {
-				errCh <- fmt.Errorf("inconsistent tenant/database pair at iteration %d: tenant=%q db.tenant=%q", i, tenant.Name(), database.Tenant().Name())
-				return
-			}
-		}
-	}
-
-	wg.Add(1)
-	go writer(func(i int) {
-		tenant := NewTenant(fmt.Sprintf("pair-a-tenant-%d", i%32))
-		database := NewDatabase(fmt.Sprintf("pair-a-db-%d", i%32), tenant)
-		client.SetTenantAndDatabase(tenant, database)
-	})
-	wg.Add(1)
-	go writer(func(i int) {
-		tenant := NewTenant(fmt.Sprintf("pair-b-tenant-%d", i%32))
-		database := NewDatabase(fmt.Sprintf("pair-b-db-%d", i%32), tenant)
-		client.SetTenantAndDatabase(tenant, database)
-	})
-	wg.Add(1)
-	go writer(func(i int) {
-		tenant := NewTenant(fmt.Sprintf("pair-c-tenant-%d", i%32))
-		database := NewDatabase(fmt.Sprintf("pair-c-db-%d", i%32), tenant)
-		client.SetTenantAndDatabase(tenant, database)
-	})
-
-	for i := 0; i < 4; i++ {
+	for _, fn := range writers {
+		fn := fn
 		wg.Add(1)
-		go reader()
+		go func() {
+			defer wg.Done()
+			<-start
+			for i := 0; i < iterations; i++ {
+				if err := fn(i); err != nil {
+					errCh <- err
+					return
+				}
+			}
+		}()
+	}
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for i := 0; i < iterations; i++ {
+				tenant, database := snapshot()
+				if tenant == nil || database == nil || database.Tenant() == nil {
+					errCh <- fmt.Errorf("nil value at iteration %d", i)
+					return
+				}
+				if database.Tenant().Name() != tenant.Name() {
+					errCh <- fmt.Errorf("inconsistent pair at iteration %d: tenant=%q db.tenant=%q", i, tenant.Name(), database.Tenant().Name())
+					return
+				}
+			}
+		}()
 	}
 
 	close(start)
@@ -965,6 +937,23 @@ func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
 	for err := range errCh {
 		require.NoError(t, err)
 	}
+}
+
+func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
+	stateClient, err := NewHTTPClient(WithBaseURL("http://localhost:8080"))
+	require.NoError(t, err)
+	defer func() { require.NoError(t, stateClient.Close()) }()
+	client := stateClient.(*APIClientV2)
+
+	pairWriter := func(prefix string) func(int) error {
+		return func(i int) error {
+			tenant := NewTenant(fmt.Sprintf("%s-tenant-%d", prefix, i%32))
+			client.SetTenantAndDatabase(tenant, NewDatabase(fmt.Sprintf("%s-db-%d", prefix, i%32), tenant))
+			return nil
+		}
+	}
+	runConcurrencyTest(t, client.TenantAndDatabase, 1000,
+		pairWriter("a"), pairWriter("b"), pairWriter("c"))
 
 	require.NotNil(t, client.CurrentTenant())
 	require.NotNil(t, client.CurrentDatabase())
@@ -997,72 +986,18 @@ func TestAPIClientV2ConcurrentUseTenantUseDatabase(t *testing.T) {
 
 	stateClient, err := NewHTTPClient(WithBaseURL(server.URL))
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, stateClient.Close())
-	}()
+	defer func() { require.NoError(t, stateClient.Close()) }()
+	client := stateClient.(*APIClientV2)
 
-	client, ok := stateClient.(*APIClientV2)
-	require.True(t, ok)
-
-	const iterations = 300
-	errCh := make(chan error, 8)
-	start := make(chan struct{})
-	var wg sync.WaitGroup
-
-	writer := func(fn func(i int) error) {
-		defer wg.Done()
-		<-start
-		for i := 0; i < iterations; i++ {
-			if err := fn(i); err != nil {
-				errCh <- err
-				return
-			}
-		}
-	}
-	reader := func() {
-		defer wg.Done()
-		<-start
-		for i := 0; i < iterations; i++ {
-			tenant, database := client.TenantAndDatabase()
-			if tenant == nil {
-				errCh <- fmt.Errorf("tenant is nil at iteration %d", i)
-				return
-			}
-			if database == nil {
-				errCh <- fmt.Errorf("database is nil at iteration %d", i)
-				return
-			}
-			if database.Tenant() == nil {
-				errCh <- fmt.Errorf("database tenant is nil at iteration %d", i)
-				return
-			}
-			if database.Tenant().Name() != tenant.Name() {
-				errCh <- fmt.Errorf("inconsistent tenant/database pair at iteration %d: tenant=%q db.tenant=%q", i, tenant.Name(), database.Tenant().Name())
-				return
-			}
-		}
-	}
-
-	wg.Add(1)
-	go writer(func(i int) error {
-		return client.UseTenant(context.Background(), NewTenant(fmt.Sprintf("tenant-%d", i%16)))
-	})
-	wg.Add(1)
-	go writer(func(i int) error {
-		tenant := NewTenant(fmt.Sprintf("tenant-%d", i%16))
-		return client.UseDatabase(context.Background(), NewDatabase(fmt.Sprintf("db-%d", i%16), tenant))
-	})
-	for i := 0; i < 4; i++ {
-		wg.Add(1)
-		go reader()
-	}
-
-	close(start)
-	wg.Wait()
-	close(errCh)
-	for err := range errCh {
-		require.NoError(t, err)
-	}
+	runConcurrencyTest(t, client.TenantAndDatabase, 300,
+		func(i int) error {
+			return client.UseTenant(context.Background(), NewTenant(fmt.Sprintf("tenant-%d", i%16)))
+		},
+		func(i int) error {
+			tenant := NewTenant(fmt.Sprintf("tenant-%d", i%16))
+			return client.UseDatabase(context.Background(), NewDatabase(fmt.Sprintf("db-%d", i%16), tenant))
+		},
+	)
 }
 
 func TestClientSetup(t *testing.T) {
@@ -1082,5 +1017,23 @@ func TestClientSetup(t *testing.T) {
 		require.NotNil(t, client)
 		require.Equal(t, NewTenant("test_tenant"), client.CurrentTenant())
 		require.Equal(t, NewDatabase("test_db", NewTenant("test_tenant")), client.CurrentDatabase())
+	})
+
+	t.Run("With env database only", func(t *testing.T) {
+		t.Setenv("CHROMA_TENANT", "")
+		t.Setenv("CHROMA_DATABASE", "test_db")
+		client, err := NewHTTPClient(WithBaseURL("http://localhost:8080"), WithLogger(testLogger()))
+		require.NoError(t, err)
+		require.NotNil(t, client)
+
+		tenant := client.CurrentTenant()
+		require.NotNil(t, tenant)
+		require.Equal(t, DefaultTenant, tenant.Name())
+
+		database := client.CurrentDatabase()
+		require.NotNil(t, database)
+		require.Equal(t, "test_db", database.Name())
+		require.NotNil(t, database.Tenant())
+		require.Equal(t, DefaultTenant, database.Tenant().Name())
 	})
 }
