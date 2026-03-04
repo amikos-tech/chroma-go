@@ -42,13 +42,13 @@ func NewHTTPClient(opts ...ClientOption) (Client, error) {
 		return nil, err
 	}
 	if bc.BaseURL() == "" {
-		bc.SetBaseURL("http://localhost:8000/api/v2")
+		bc.setBaseURL("http://localhost:8000/api/v2")
 	} else if !strings.HasSuffix(bc.BaseURL(), "/api/v2") {
 		newBasePath, err := url.JoinPath(bc.BaseURL(), "/api/v2")
 		if err != nil {
 			return nil, err
 		}
-		bc.SetBaseURL(newBasePath)
+		bc.setBaseURL(newBasePath)
 	}
 	c := &APIClientV2{
 		BaseAPIClient:      *bc,

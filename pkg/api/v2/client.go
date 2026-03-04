@@ -1105,15 +1105,11 @@ func (bc *BaseAPIClient) SetTenantAndDatabase(tenant Tenant, database Database) 
 	bc.database = database
 }
 
-// Deprecated: Configure preflight behavior via constructor options.
-// This method will be removed in v0.4.1.
-func (bc *BaseAPIClient) SetPreFlightConfig(config map[string]interface{}) {
+func (bc *BaseAPIClient) setPreFlightConfig(config map[string]interface{}) {
 	bc.preFlightConfig = config
 }
 
-// Deprecated: Configure the base URL with WithBaseURL during client construction.
-// This method will be removed in v0.4.1.
-func (bc *BaseAPIClient) SetBaseURL(baseURL string) {
+func (bc *BaseAPIClient) setBaseURL(baseURL string) {
 	bc.baseURL = baseURL
 }
 
