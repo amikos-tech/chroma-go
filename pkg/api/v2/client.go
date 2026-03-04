@@ -21,8 +21,6 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
-var zeroValueBaseClientScopeMu sync.RWMutex
-
 type Client interface {
 	PreFlight(ctx context.Context) error
 	// Heartbeat checks if the chroma instance is alive.
@@ -645,7 +643,6 @@ func NewCountCollectionsOp(opts ...CountCollectionsOption) (*CountCollectionsOp,
 // BaseAPIClient holds shared client transport/configuration state.
 // scopeMu protects tenant and database from concurrent access and is set by newBaseAPIClient.
 // defaultHeaders must not be mutated after newBaseAPIClient returns; no lock is needed to read it.
-// Zero-value instances fall back to a package-level lock.
 type BaseAPIClient struct {
 	httpClient      *http.Client
 	baseURL         string
@@ -925,7 +922,7 @@ func (bc *BaseAPIClient) BaseURL() string {
 	return bc.baseURL
 }
 
-func (bc *BaseAPIClient) prepareRequest(httpReq *http.Request) error {
+func (bc *BaseAPIClient) prepareRequest(httpReq *http.Request) {
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
 	for k, v := range bc.defaultHeaders {
@@ -939,19 +936,13 @@ func (bc *BaseAPIClient) prepareRequest(httpReq *http.Request) error {
 			bc.logger.Debug("Failed to dump HTTP request", logger.ErrorField("error", err))
 		}
 	}
-	return nil
 }
 
 func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, error) {
-	if err := bc.prepareRequest(httpReq); err != nil {
-		return nil, err
-	}
+	bc.prepareRequest(httpReq)
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
-	}
-	if resp == nil {
-		return nil, errors.New("received nil response from server")
 	}
 	if resp.StatusCode >= 400 && resp.StatusCode < 599 {
 		if bc.logger.IsDebugEnabled() {
@@ -997,15 +988,10 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 		}
 	}
 
-	if err := bc.prepareRequest(httpReq); err != nil {
-		return nil, err
-	}
+	bc.prepareRequest(httpReq)
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
-	}
-	if resp == nil {
-		return nil, errors.New("received nil response from server")
 	}
 	if bc.logger.IsDebugEnabled() {
 		dump, dumpErr := httputil.DumpResponse(resp, true)
@@ -1032,7 +1018,8 @@ func (bc *BaseAPIClient) scopeMutex() *sync.RWMutex {
 	if bc.scopeMu != nil {
 		return bc.scopeMu
 	}
-	return &zeroValueBaseClientScopeMu
+	bc.scopeMu = &sync.RWMutex{}
+	return bc.scopeMu
 }
 
 func normalizeTenantAndDatabase(tenant Tenant, database Database) (Tenant, Database) {
