@@ -647,17 +647,16 @@ func NewCountCollectionsOp(opts ...CountCollectionsOption) (*CountCollectionsOp,
 // defaultHeaders must not be mutated after newBaseAPIClient returns; no lock is needed to read it.
 // Zero-value BaseAPIClient instances share a package-level fallback mutex.
 type BaseAPIClient struct {
-	httpClient      *http.Client
-	baseURL         string
-	scopeMu         *sync.RWMutex
-	tenant          Tenant
-	database        Database
-	defaultHeaders  map[string]string
-	httpTransport   *http.Transport
-	timeout         time.Duration
-	preFlightConfig map[string]interface{}
-	authProvider    CredentialsProvider
-	logger          logger.Logger
+	httpClient     *http.Client
+	baseURL        string
+	scopeMu        *sync.RWMutex
+	tenant         Tenant
+	database       Database
+	defaultHeaders map[string]string
+	httpTransport  *http.Transport
+	timeout        time.Duration
+	authProvider   CredentialsProvider
+	logger         logger.Logger
 }
 
 type ClientOption func(client *BaseAPIClient) error
@@ -1103,10 +1102,6 @@ func (bc *BaseAPIClient) SetTenantAndDatabase(tenant Tenant, database Database) 
 	tenant, database = normalizeTenantAndDatabase(tenant, database)
 	bc.tenant = tenant
 	bc.database = database
-}
-
-func (bc *BaseAPIClient) setPreFlightConfig(config map[string]interface{}) {
-	bc.preFlightConfig = config
 }
 
 func (bc *BaseAPIClient) setBaseURL(baseURL string) {
