@@ -13,6 +13,8 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
+// Option mutates the embedding function during construction while initLock is held.
+// Implementations must not call Close(), which would try to reacquire initLock and deadlock.
 type Option func(p *DefaultEmbeddingFunction) error
 
 var (
@@ -20,26 +22,81 @@ var (
 	_ embeddings.Closeable         = (*DefaultEmbeddingFunction)(nil)
 )
 
+type defaultEFEmbedder interface {
+	EmbedDocuments(documents []string) ([][]float32, error)
+	EmbedQuery(document string) ([]float32, error)
+	Close() error
+}
+
 type DefaultEmbeddingFunction struct {
-	embedder  *minilm.Embedder
-	closed    int32
-	closeOnce sync.Once
+	embedder           defaultEFEmbedder
+	destroyEnvironment func() error
+	closed             int32
+	closeOnce          sync.Once
 }
 
 var initLock sync.RWMutex
 
+type defaultEFDeps struct {
+	ensureOnnxRuntimeSharedLibrary     func() error
+	ensureDefaultEmbeddingModel        func() error
+	initializeEnvironmentWithBootstrap func(...ort.BootstrapOption) error
+	newEmbedder                        func(modelPath, tokenizerPath string, opts ...minilm.Option) (defaultEFEmbedder, error)
+	destroyEnvironment                 func() error
+}
+
+func realDefaultEFDeps() defaultEFDeps {
+	return defaultEFDeps{
+		ensureOnnxRuntimeSharedLibrary:     EnsureOnnxRuntimeSharedLibrary,
+		ensureDefaultEmbeddingModel:        EnsureDefaultEmbeddingFunctionModel,
+		initializeEnvironmentWithBootstrap: ort.InitializeEnvironmentWithBootstrap,
+		newEmbedder: func(modelPath, tokenizerPath string, opts ...minilm.Option) (defaultEFEmbedder, error) {
+			return minilm.NewEmbedder(modelPath, tokenizerPath, opts...)
+		},
+		destroyEnvironment: ort.DestroyEnvironment,
+	}
+}
+
+func (d defaultEFDeps) validate() error {
+	if d.ensureOnnxRuntimeSharedLibrary == nil {
+		return stderrors.New("ensureOnnxRuntimeSharedLibrary dependency is nil")
+	}
+	if d.ensureDefaultEmbeddingModel == nil {
+		return stderrors.New("ensureDefaultEmbeddingModel dependency is nil")
+	}
+	if d.initializeEnvironmentWithBootstrap == nil {
+		return stderrors.New("initializeEnvironmentWithBootstrap dependency is nil")
+	}
+	if d.newEmbedder == nil {
+		return stderrors.New("newEmbedder dependency is nil")
+	}
+	if d.destroyEnvironment == nil {
+		return stderrors.New("destroyEnvironment dependency is nil")
+	}
+	return nil
+}
+
 func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
-	cfg := getConfig()
+	return newDefaultEmbeddingFunctionWithDeps(getConfig(), realDefaultEFDeps(), opts...)
+}
+
+func newDefaultEmbeddingFunctionWithDeps(cfg *Config, deps defaultEFDeps, opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
+	if cfg == nil {
+		return nil, nil, errors.New("invalid default embedding function config: nil")
+	}
+	if err := deps.validate(); err != nil {
+		return nil, nil, errors.Wrap(err, "invalid default embedding function dependencies")
+	}
+
+	if err := deps.ensureOnnxRuntimeSharedLibrary(); err != nil {
+		return nil, nil, errors.Wrap(err, "failed to ensure onnx runtime shared library")
+	}
+	if err := deps.ensureDefaultEmbeddingModel(); err != nil {
+		return nil, nil, errors.Wrap(err, "failed to ensure default embedding function model")
+	}
 
 	initLock.Lock()
 	defer initLock.Unlock()
-
-	if err := EnsureOnnxRuntimeSharedLibrary(); err != nil {
-		return nil, nil, errors.Wrap(err, "failed to ensure onnx runtime shared library")
-	}
-	if err := EnsureDefaultEmbeddingFunctionModel(); err != nil {
-		return nil, nil, errors.Wrap(err, "failed to ensure default embedding function model")
-	}
 
 	bootstrapOpts := []ort.BootstrapOption{
 		ort.WithBootstrapCacheDir(cfg.OnnxCacheDir),
@@ -49,26 +106,51 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 	} else {
 		bootstrapOpts = append(bootstrapOpts, ort.WithBootstrapVersion(cfg.LibOnnxRuntimeVersion))
 	}
-	if err := ort.InitializeEnvironmentWithBootstrap(bootstrapOpts...); err != nil {
+	if err := deps.initializeEnvironmentWithBootstrap(bootstrapOpts...); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to initialize onnx runtime environment")
 	}
 
-	embedder, err := minilm.NewEmbedder(
+	embedder, err := deps.newEmbedder(
 		cfg.OnnxModelPath,
 		cfg.OnnxModelTokenizerConfigPath,
 		minilm.WithMeanPooling(),
 		minilm.WithL2Normalization(),
 	)
 	if err != nil {
-		_ = ort.DestroyEnvironment()
-		return nil, nil, errors.Wrap(err, "failed to create ONNX embedder")
+		embedderErr := errors.Wrap(err, "failed to create ONNX embedder")
+		if cleanupErr := deps.destroyEnvironment(); cleanupErr != nil {
+			return nil, nil, stderrors.Join(
+				embedderErr,
+				errors.Wrap(cleanupErr, "failed to destroy onnx runtime environment after embedder setup error"),
+			)
+		}
+		return nil, nil, embedderErr
 	}
 
-	ef := &DefaultEmbeddingFunction{embedder: embedder}
+	ef := &DefaultEmbeddingFunction{
+		embedder:           embedder,
+		destroyEnvironment: deps.destroyEnvironment,
+	}
 	for _, opt := range opts {
 		if err := opt(ef); err != nil {
-			_ = ef.Close()
-			return nil, nil, errors.Wrap(err, "failed to apply default embedding function option")
+			optionErr := errors.Wrap(err, "failed to apply default embedding function option")
+			atomic.StoreInt32(&ef.closed, 1)
+			// Consume closeOnce so a stale leaked reference cannot run cleanup again.
+			ef.closeOnce.Do(func() {})
+			var cleanupErrs []error
+			if ef.embedder != nil {
+				if closeErr := ef.embedder.Close(); closeErr != nil {
+					cleanupErrs = append(cleanupErrs, errors.Wrap(closeErr, "failed to close embedder after option error"))
+				}
+				ef.embedder = nil
+			}
+			if destroyErr := deps.destroyEnvironment(); destroyErr != nil {
+				cleanupErrs = append(cleanupErrs, errors.Wrap(destroyErr, "failed to destroy onnx runtime environment after option error"))
+			}
+			if len(cleanupErrs) > 0 {
+				return nil, nil, stderrors.Join(append([]error{optionErr}, cleanupErrs...)...)
+			}
+			return nil, nil, optionErr
 		}
 	}
 
@@ -155,8 +237,10 @@ func (e *DefaultEmbeddingFunction) Close() error {
 			e.embedder = nil
 		}
 
-		if err := ort.DestroyEnvironment(); err != nil {
-			errs = append(errs, errors.Wrap(err, "failed to destroy onnx runtime environment"))
+		if e.destroyEnvironment != nil {
+			if err := e.destroyEnvironment(); err != nil {
+				errs = append(errs, errors.Wrap(err, "failed to destroy onnx runtime environment"))
+			}
 		}
 
 		if len(errs) > 0 {
