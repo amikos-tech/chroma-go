@@ -16,19 +16,7 @@ type CloudAPIClient struct {
 }
 
 func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
-	bc, err := newBaseAPIClient()
-	if err != nil {
-		return nil, err
-	}
-	c := &CloudAPIClient{
-		&APIClientV2{
-			BaseAPIClient:      *bc,
-			preflightLimits:    map[string]interface{}{},
-			preflightCompleted: false,
-			collectionCache:    map[string]Collection{},
-		},
-	}
-	updatedOpts := make([]ClientOption, 0)
+	updatedOpts := make([]ClientOption, 0, len(options)+3)
 	updatedOpts = append(updatedOpts, WithDatabaseAndTenantFromEnv())
 	for _, option := range options {
 		if option != nil {
@@ -37,11 +25,20 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 	}
 	// we override the base URL for the cloud client
 	updatedOpts = append(updatedOpts, WithBaseURL(ChromaCloudEndpoint))
+	updatedOpts = append(updatedOpts, withCloudAPIKeyFromEnvIfUnset())
 
-	for _, option := range updatedOpts {
-		if err := option(&c.BaseAPIClient); err != nil {
-			return nil, err
-		}
+	bc, err := newBaseAPIClient(updatedOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &CloudAPIClient{
+		&APIClientV2{
+			BaseAPIClient:      *bc,
+			preflightLimits:    map[string]interface{}{},
+			preflightCompleted: false,
+			collectionCache:    map[string]Collection{},
+		},
 	}
 
 	tenant, database := c.TenantAndDatabase()
@@ -49,19 +46,8 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 		return nil, errors.New("tenant and database must be set for cloud client. Use WithDatabaseAndTenantFromEnv option or set CHROMA_TENANT and CHROMA_DATABASE environment variables")
 	}
 
-	if c.authProvider == nil && os.Getenv("CHROMA_API_KEY") == "" {
+	if c.authProvider == nil {
 		return nil, errors.New("api key not provided. Use WithCloudAPIKey option or set CHROMA_API_KEY environment variable")
-	} else if c.authProvider == nil {
-		c.authProvider = NewTokenAuthCredentialsProvider(os.Getenv("CHROMA_API_KEY"), XChromaTokenHeader)
-	}
-
-	// Bake auth headers — cloud client applies auth after newBaseAPIClient.
-	headers, err := c.authProvider.Authenticate()
-	if err != nil {
-		return nil, errors.Wrap(err, "error applying auth credentials")
-	}
-	for k, v := range headers {
-		c.defaultHeaders[k] = v
 	}
 
 	// Ensure logger is never nil - but don't override if already set by options like WithDebug()
@@ -75,6 +61,20 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 // Deprecated: use NewCloudClient instead
 func NewCloudAPIClient(options ...ClientOption) (*CloudAPIClient, error) {
 	return NewCloudClient(options...)
+}
+
+func withCloudAPIKeyFromEnvIfUnset() ClientOption {
+	return func(c *BaseAPIClient) error {
+		if c.authProvider != nil {
+			return nil
+		}
+		apiKey := os.Getenv("CHROMA_API_KEY")
+		if apiKey == "" {
+			return nil
+		}
+		c.authProvider = NewTokenAuthCredentialsProvider(apiKey, XChromaTokenHeader)
+		return nil
+	}
 }
 
 // WithCloudAPIKey sets the API key for the cloud client. It will automatically set a new TokenAuthCredentialsProvider.

@@ -161,8 +161,13 @@ func (client *embeddedLocalClient) GetTenant(ctx context.Context, tenant Tenant)
 	return NewTenant(t.Name), nil
 }
 
-// Deprecated: Use UseTenantDatabase to set both tenant and database atomically.
+// Deprecated: Use UseTenantDatabase on concrete embedded clients to validate
+// the backing store and atomically update the local tenant/database pair. The
+// generic Client interface does not expose UseTenantDatabase.
 func (client *embeddedLocalClient) UseTenant(ctx context.Context, tenant Tenant) error {
+	if tenant == nil {
+		return errors.New("tenant cannot be nil")
+	}
 	t, err := client.GetTenant(ctx, tenant)
 	if err != nil {
 		return err
@@ -187,11 +192,19 @@ func (client *embeddedLocalClient) UseDatabase(ctx context.Context, database Dat
 }
 
 func (client *embeddedLocalClient) UseTenantDatabase(ctx context.Context, tenant Tenant, database Database) error {
+	if tenant == nil {
+		return errors.New("tenant cannot be nil")
+	}
 	t, err := client.GetTenant(ctx, tenant)
 	if err != nil {
 		return errors.Wrap(err, "error getting tenant")
 	}
-	db := NewDatabase(database.Name(), t)
+	var db Database
+	if database == nil {
+		db = NewDatabase(DefaultDatabase, t)
+	} else {
+		db = NewDatabase(database.Name(), t)
+	}
 	if err := db.Validate(); err != nil {
 		return errors.Wrap(err, "error validating database")
 	}

@@ -81,8 +81,8 @@ func (client *APIClientV2) PreFlight(ctx context.Context) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	var preflightLimits map[string]interface{}
-	if json.NewDecoder(resp.Body).Decode(&preflightLimits) != nil {
-		return errors.New("error decoding preflight response")
+	if err := json.NewDecoder(resp.Body).Decode(&preflightLimits); err != nil {
+		return errors.Wrap(err, "error decoding preflight response")
 	}
 	client.preflightConditionsRaw = preflightLimits
 	if mbs, ok := preflightLimits["max_batch_size"]; ok {
@@ -534,8 +534,13 @@ func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListColl
 	return apiCollections, nil
 }
 
-// Deprecated: Use UseTenantDatabase to set both tenant and database atomically.
+// Deprecated: Use UseTenantDatabase on a concrete client (*APIClientV2) to
+// validate remote state and atomically update the local tenant/database pair.
+// The generic Client interface does not expose UseTenantDatabase.
 func (client *APIClientV2) UseTenant(ctx context.Context, tenant Tenant) error {
+	if tenant == nil {
+		return errors.New("tenant cannot be nil")
+	}
 	t, err := client.GetTenant(ctx, tenant)
 	if err != nil {
 		return err
@@ -547,6 +552,9 @@ func (client *APIClientV2) UseTenant(ctx context.Context, tenant Tenant) error {
 // UseDatabase validates and switches the active database. The tenant is derived
 // from the database object itself.
 func (client *APIClientV2) UseDatabase(ctx context.Context, database Database) error {
+	if database == nil {
+		return errors.New("database cannot be nil")
+	}
 	err := database.Validate()
 	if err != nil {
 		return errors.Wrap(err, "error validating database")
@@ -559,13 +567,22 @@ func (client *APIClientV2) UseDatabase(ctx context.Context, database Database) e
 	return nil
 }
 
-// UseTenantDatabase validates and switches both the active tenant and database atomically.
+// UseTenantDatabase validates tenant/database against the server, then updates
+// the local active tenant/database pair under a single lock acquisition.
 func (client *APIClientV2) UseTenantDatabase(ctx context.Context, tenant Tenant, database Database) error {
+	if tenant == nil {
+		return errors.New("tenant cannot be nil")
+	}
 	t, err := client.GetTenant(ctx, tenant)
 	if err != nil {
 		return errors.Wrap(err, "error getting tenant")
 	}
-	db := NewDatabase(database.Name(), t)
+	var db Database
+	if database == nil {
+		db = NewDatabase(DefaultDatabase, t)
+	} else {
+		db = NewDatabase(database.Name(), t)
+	}
 	if err := db.Validate(); err != nil {
 		return errors.Wrap(err, "error validating database")
 	}

@@ -21,6 +21,8 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
+var zeroValueBaseClientScopeMu sync.RWMutex
+
 type Client interface {
 	PreFlight(ctx context.Context) error
 	// Heartbeat checks if the chroma instance is alive.
@@ -641,9 +643,9 @@ func NewCountCollectionsOp(opts ...CountCollectionsOption) (*CountCollectionsOp,
 }
 
 // BaseAPIClient holds shared client transport/configuration state.
-// scopeMu protects tenant and database from concurrent access.
-// defaultHeaders is immutable after construction; no lock is needed to read it.
-// It is always initialized by newBaseAPIClient; callers must not construct this struct directly.
+// scopeMu protects tenant and database from concurrent access and is set by newBaseAPIClient.
+// defaultHeaders must not be mutated after newBaseAPIClient returns; no lock is needed to read it.
+// Zero-value instances fall back to a package-level lock.
 type BaseAPIClient struct {
 	httpClient      *http.Client
 	baseURL         string
@@ -712,7 +714,7 @@ func WithDefaultDatabaseAndTenant() ClientOption {
 			t = NewDefaultTenant()
 		}
 		if db == nil {
-			db = NewDefaultDatabase()
+			db = NewDatabase(DefaultDatabase, t)
 		}
 		c.SetTenantAndDatabase(t, db)
 		return nil
@@ -867,17 +869,30 @@ func WithInsecure() ClientOption {
 }
 
 func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
+	httpClient := &http.Client{
+		CheckRedirect: http.DefaultClient.CheckRedirect,
+		Jar:           http.DefaultClient.Jar,
+		Timeout:       http.DefaultClient.Timeout,
+	}
+	httpTransport := &http.Transport{TLSClientConfig: &tls.Config{}}
+	if defaultTransport, ok := http.DefaultTransport.(*http.Transport); ok && defaultTransport != nil {
+		httpTransport = defaultTransport.Clone()
+		if httpTransport.TLSClientConfig == nil {
+			httpTransport.TLSClientConfig = &tls.Config{}
+		}
+	}
+	httpClient.Transport = httpTransport
+
 	client := &BaseAPIClient{
 		baseURL:       "http://localhost:8000/api/v2",
-		httpClient:    http.DefaultClient,
+		httpClient:    httpClient,
 		scopeMu:       &sync.RWMutex{},
-		httpTransport: &http.Transport{TLSClientConfig: &tls.Config{}},
+		httpTransport: httpTransport,
 		defaultHeaders: map[string]string{
 			"User-Agent": "chroma-go-client/1.0",
 		},
 		logger: logger.NewNoopLogger(),
 	}
-	client.httpClient.Transport = client.httpTransport
 	for _, opt := range options {
 		err := opt(client)
 		if err != nil {
@@ -901,6 +916,8 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 		}
 	}
 
+	client.tenant, client.database = normalizeTenantAndDatabase(client.tenant, client.database)
+
 	return client, nil
 }
 
@@ -918,6 +935,8 @@ func (bc *BaseAPIClient) prepareRequest(httpReq *http.Request) error {
 		dump, err := httputil.DumpRequestOut(httpReq, true)
 		if err == nil {
 			bc.logger.Debug("HTTP Request", logger.String("request", _sanitizeRequestDump(string(dump))))
+		} else {
+			bc.logger.Debug("Failed to dump HTTP request", logger.ErrorField("error", err))
 		}
 	}
 	return nil
@@ -950,6 +969,8 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 		dump, err := httputil.DumpResponse(resp, true)
 		if err == nil {
 			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))
+		} else {
+			bc.logger.Debug("Failed to dump HTTP response", logger.ErrorField("error", err))
 		}
 	}
 	return resp, nil
@@ -990,6 +1011,8 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 		dump, dumpErr := httputil.DumpResponse(resp, true)
 		if dumpErr == nil {
 			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))
+		} else {
+			bc.logger.Debug("Failed to dump HTTP response", logger.ErrorField("error", dumpErr))
 		}
 	}
 	if resp.StatusCode >= 400 && resp.StatusCode < 599 {
@@ -1005,23 +1028,69 @@ func (bc *BaseAPIClient) HTTPClient() *http.Client {
 	return bc.httpClient
 }
 
+func (bc *BaseAPIClient) scopeMutex() *sync.RWMutex {
+	if bc.scopeMu != nil {
+		return bc.scopeMu
+	}
+	return &zeroValueBaseClientScopeMu
+}
+
+func normalizeTenantAndDatabase(tenant Tenant, database Database) (Tenant, Database) {
+	if tenant == nil {
+		if database != nil && database.Tenant() != nil {
+			tenant = database.Tenant()
+		} else {
+			tenant = NewDefaultTenant()
+		}
+	}
+
+	if database == nil || database.Name() == "" {
+		return tenant, NewDatabase(DefaultDatabase, tenant)
+	}
+
+	dbTenant := database.Tenant()
+	if dbTenant == nil || dbTenant.Name() != tenant.Name() {
+		return tenant, NewDatabase(database.Name(), tenant)
+	}
+
+	return tenant, database
+}
+
+func (bc *BaseAPIClient) tenantAndDatabaseSnapshot() (Tenant, Database) {
+	mu := bc.scopeMutex()
+	mu.RLock()
+	tenant, database := bc.tenant, bc.database
+	pairValid := tenant != nil && database != nil && database.Tenant() != nil && database.Tenant().Name() == tenant.Name()
+	mu.RUnlock()
+	if pairValid {
+		return tenant, database
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	tenant, database = bc.tenant, bc.database
+	pairValid = tenant != nil && database != nil && database.Tenant() != nil && database.Tenant().Name() == tenant.Name()
+	if pairValid {
+		return tenant, database
+	}
+	bc.tenant, bc.database = normalizeTenantAndDatabase(bc.tenant, bc.database)
+	tenant, database = bc.tenant, bc.database
+	return tenant, database
+}
+
 func (bc *BaseAPIClient) Tenant() Tenant {
-	bc.scopeMu.RLock()
-	defer bc.scopeMu.RUnlock()
-	return bc.tenant
+	tenant, _ := bc.tenantAndDatabaseSnapshot()
+	return tenant
 }
 
 func (bc *BaseAPIClient) Database() Database {
-	bc.scopeMu.RLock()
-	defer bc.scopeMu.RUnlock()
-	return bc.database
+	_, database := bc.tenantAndDatabaseSnapshot()
+	return database
 }
 
 // TenantAndDatabase returns a lock-consistent snapshot of the current tenant and database.
 func (bc *BaseAPIClient) TenantAndDatabase() (Tenant, Database) {
-	bc.scopeMu.RLock()
-	defer bc.scopeMu.RUnlock()
-	return bc.tenant, bc.database
+	return bc.tenantAndDatabaseSnapshot()
 }
 
 // DefaultHeaders returns a copy of the default headers.
@@ -1039,16 +1108,22 @@ func (bc *BaseAPIClient) Timeout() time.Duration {
 }
 
 func (bc *BaseAPIClient) SetTenantAndDatabase(tenant Tenant, database Database) {
-	bc.scopeMu.Lock()
-	defer bc.scopeMu.Unlock()
+	mu := bc.scopeMutex()
+	mu.Lock()
+	defer mu.Unlock()
+	tenant, database = normalizeTenantAndDatabase(tenant, database)
 	bc.tenant = tenant
 	bc.database = database
 }
 
+// Deprecated: Configure preflight behavior via constructor options.
+// This method will be removed in v0.4.1.
 func (bc *BaseAPIClient) SetPreFlightConfig(config map[string]interface{}) {
 	bc.preFlightConfig = config
 }
 
+// Deprecated: Configure the base URL with WithBaseURL during client construction.
+// This method will be removed in v0.4.1.
 func (bc *BaseAPIClient) SetBaseURL(baseURL string) {
 	bc.baseURL = baseURL
 }
