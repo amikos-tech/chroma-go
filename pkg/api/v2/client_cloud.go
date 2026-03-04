@@ -55,6 +55,11 @@ func NewCloudClient(options ...ClientOption) (*CloudAPIClient, error) {
 		c.authProvider = NewTokenAuthCredentialsProvider(os.Getenv("CHROMA_API_KEY"), XChromaTokenHeader)
 	}
 
+	// Bake auth headers — cloud client applies auth after newBaseAPIClient.
+	if err := c.authProvider.Authenticate(&c.BaseAPIClient); err != nil {
+		return nil, errors.Wrap(err, "error applying auth credentials")
+	}
+
 	// Ensure logger is never nil - but don't override if already set by options like WithDebug()
 	if c.logger == nil {
 		c.logger = logger.NewNoopLogger()

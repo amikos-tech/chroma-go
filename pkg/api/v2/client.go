@@ -891,6 +891,13 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 		client.logger = logger.NewNoopLogger()
 	}
 
+	// Bake auth headers into defaultHeaders once so prepareRequest only needs a read lock.
+	if client.authProvider != nil {
+		if err := client.authProvider.Authenticate(client); err != nil {
+			return nil, errors.Wrap(err, "error applying auth credentials")
+		}
+	}
+
 	return client, nil
 }
 
@@ -901,11 +908,6 @@ func (bc *BaseAPIClient) BaseURL() string {
 func (bc *BaseAPIClient) prepareRequest(httpReq *http.Request) error {
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
-	if bc.authProvider != nil {
-		if err := bc.authProvider.Authenticate(bc); err != nil {
-			return errors.Wrap(err, "error getting authorization header")
-		}
-	}
 	for k, v := range bc.DefaultHeaders() {
 		httpReq.Header.Set(k, v)
 	}
