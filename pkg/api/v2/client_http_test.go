@@ -5,12 +5,14 @@ package v2
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"regexp"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -23,6 +25,14 @@ import (
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
+
+type failingCredentialsProvider struct {
+	err error
+}
+
+func (f failingCredentialsProvider) Authenticate() (map[string]string, error) {
+	return nil, f.err
+}
 
 func MetadataModel() gopter.Gen {
 	return gen.SliceOf(
@@ -888,6 +898,377 @@ func TestGetOrCreateCollectionWithCollectionMetadataMapCreateStrictDeferredError
 	require.Equal(t, int32(0), reqCount.Load())
 }
 
+// runConcurrencyTest spins up concurrent writers and readers that verify
+// TenantAndDatabase consistency. Each writer calls its function `iterations`
+// times; 4 reader goroutines validate that snapshots are always consistent.
+func runConcurrencyTest(t *testing.T, snapshot func() (Tenant, Database), iterations int, writers ...func(i int) error) {
+	t.Helper()
+	errCh := make(chan error, len(writers)+4)
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+
+	for _, fn := range writers {
+		fn := fn
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for i := 0; i < iterations; i++ {
+				if err := fn(i); err != nil {
+					errCh <- err
+					return
+				}
+			}
+		}()
+	}
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for i := 0; i < iterations; i++ {
+				tenant, database := snapshot()
+				if tenant == nil || database == nil || database.Tenant() == nil {
+					errCh <- fmt.Errorf("nil value at iteration %d", i)
+					return
+				}
+				if database.Tenant().Name() != tenant.Name() {
+					errCh <- fmt.Errorf("inconsistent pair at iteration %d: tenant=%q db.tenant=%q", i, tenant.Name(), database.Tenant().Name())
+					return
+				}
+			}
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+}
+
+func TestBaseAPIClientConcurrentTenantDatabaseAccess(t *testing.T) {
+	stateClient, err := NewHTTPClient(WithBaseURL("http://localhost:8080"))
+	require.NoError(t, err)
+	defer func() { require.NoError(t, stateClient.Close()) }()
+	client := stateClient.(*APIClientV2)
+
+	pairWriter := func(prefix string) func(int) error {
+		return func(i int) error {
+			tenant := NewTenant(fmt.Sprintf("%s-tenant-%d", prefix, i%32))
+			client.SetTenantAndDatabase(tenant, NewDatabase(fmt.Sprintf("%s-db-%d", prefix, i%32), tenant))
+			return nil
+		}
+	}
+	runConcurrencyTest(t, client.TenantAndDatabase, 1000,
+		pairWriter("a"), pairWriter("b"), pairWriter("c"))
+
+	require.NotNil(t, client.CurrentTenant())
+	require.NotNil(t, client.CurrentDatabase())
+}
+
+func TestAPIClientV2ConcurrentUseTenantUseDatabase(t *testing.T) {
+	tenantPath := regexp.MustCompile(`^/api/v2/tenants/([^/]+)$`)
+	databasePath := regexp.MustCompile(`^/api/v2/tenants/([^/]+)/databases/([^/]+)$`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && tenantPath.MatchString(r.URL.Path):
+			match := tenantPath.FindStringSubmatch(r.URL.Path)
+			if len(match) != 2 {
+				http.Error(w, "invalid tenant path", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"name":"%s"}`, match[1])))
+		case r.Method == http.MethodGet && databasePath.MatchString(r.URL.Path):
+			match := databasePath.FindStringSubmatch(r.URL.Path)
+			if len(match) != 3 {
+				http.Error(w, "invalid database path", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"name":"%s","tenant":"%s"}`, match[2], match[1])))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	stateClient, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+	defer func() { require.NoError(t, stateClient.Close()) }()
+	client := stateClient.(*APIClientV2)
+
+	runConcurrencyTest(t, client.TenantAndDatabase, 300,
+		func(i int) error {
+			return client.UseTenant(context.Background(), NewTenant(fmt.Sprintf("tenant-%d", i%16)))
+		},
+		func(i int) error {
+			tenant := NewTenant(fmt.Sprintf("tenant-%d", i%16))
+			return client.UseDatabase(context.Background(), NewDatabase(fmt.Sprintf("db-%d", i%16), tenant))
+		},
+	)
+}
+
+func TestAPIClientV2ConcurrentUseTenantDatabase(t *testing.T) {
+	tenantPath := regexp.MustCompile(`^/api/v2/tenants/([^/]+)$`)
+	databasePath := regexp.MustCompile(`^/api/v2/tenants/([^/]+)/databases/([^/]+)$`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && tenantPath.MatchString(r.URL.Path):
+			match := tenantPath.FindStringSubmatch(r.URL.Path)
+			if len(match) != 2 {
+				http.Error(w, "invalid tenant path", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"name":"%s"}`, match[1])))
+		case r.Method == http.MethodGet && databasePath.MatchString(r.URL.Path):
+			match := databasePath.FindStringSubmatch(r.URL.Path)
+			if len(match) != 3 {
+				http.Error(w, "invalid database path", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"name":"%s","tenant":"%s"}`, match[2], match[1])))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	stateClient, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+	defer func() { require.NoError(t, stateClient.Close()) }()
+	client := stateClient.(*APIClientV2)
+
+	runConcurrencyTest(t, client.TenantAndDatabase, 300,
+		func(i int) error {
+			tenant := NewTenant(fmt.Sprintf("tenant-%d", i%16))
+			database := NewDatabase(fmt.Sprintf("db-%d", i%16), tenant)
+			return client.UseTenantDatabase(context.Background(), tenant, database)
+		},
+		func(i int) error {
+			return client.UseTenantDatabase(context.Background(), NewTenant(fmt.Sprintf("tenant-%d", (i+5)%16)), nil)
+		},
+	)
+}
+
+func TestAPIClientV2UseTenantDatabase_NilDatabaseDefaults(t *testing.T) {
+	tenantPath := regexp.MustCompile(`^/api/v2/tenants/([^/]+)$`)
+	databasePath := regexp.MustCompile(`^/api/v2/tenants/([^/]+)/databases/([^/]+)$`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && tenantPath.MatchString(r.URL.Path):
+			match := tenantPath.FindStringSubmatch(r.URL.Path)
+			if len(match) != 2 {
+				http.Error(w, "invalid tenant path", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"name":"%s"}`, match[1])))
+		case r.Method == http.MethodGet && databasePath.MatchString(r.URL.Path):
+			match := databasePath.FindStringSubmatch(r.URL.Path)
+			if len(match) != 3 {
+				http.Error(w, "invalid database path", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"name":"%s","tenant":"%s"}`, match[2], match[1])))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	clientRaw, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, clientRaw.Close())
+	}()
+
+	client, ok := clientRaw.(*APIClientV2)
+	require.True(t, ok)
+
+	err = client.UseTenantDatabase(context.Background(), NewTenant("tenant-default-db"), nil)
+	require.NoError(t, err)
+
+	tenant, database := client.TenantAndDatabase()
+	require.NotNil(t, tenant)
+	require.Equal(t, "tenant-default-db", tenant.Name())
+	require.NotNil(t, database)
+	require.Equal(t, DefaultDatabase, database.Name())
+	require.NotNil(t, database.Tenant())
+	require.Equal(t, tenant.Name(), database.Tenant().Name())
+}
+
+func TestAPIClientV2UseTenantDatabase_NilTenantReturnsError(t *testing.T) {
+	clientRaw, err := NewHTTPClient(WithBaseURL("http://localhost:8080"))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, clientRaw.Close())
+	}()
+
+	client, ok := clientRaw.(*APIClientV2)
+	require.True(t, ok)
+
+	err = client.UseTenantDatabase(context.Background(), nil, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "tenant cannot be nil")
+}
+
+func TestAPIClientV2UseTenant_NilTenantReturnsError(t *testing.T) {
+	clientRaw, err := NewHTTPClient(WithBaseURL("http://localhost:8080"))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, clientRaw.Close())
+	}()
+
+	client, ok := clientRaw.(*APIClientV2)
+	require.True(t, ok)
+
+	err = client.UseTenant(context.Background(), nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "tenant cannot be nil")
+}
+
+func TestBaseAPIClientZeroValueTenantDatabaseDefaults(t *testing.T) {
+	var client BaseAPIClient
+
+	tenant, database := client.TenantAndDatabase()
+	require.NotNil(t, tenant)
+	require.Equal(t, DefaultTenant, tenant.Name())
+	require.NotNil(t, database)
+	require.Equal(t, DefaultDatabase, database.Name())
+	require.NotNil(t, database.Tenant())
+	require.Equal(t, tenant.Name(), database.Tenant().Name())
+
+	client.SetTenantAndDatabase(nil, nil)
+	tenant, database = client.TenantAndDatabase()
+	require.NotNil(t, tenant)
+	require.Equal(t, DefaultTenant, tenant.Name())
+	require.NotNil(t, database)
+	require.Equal(t, DefaultDatabase, database.Name())
+	require.NotNil(t, database.Tenant())
+	require.Equal(t, tenant.Name(), database.Tenant().Name())
+}
+
+func TestBaseAPIClientNormalizeTenantAndDatabase_FromDatabaseTenant(t *testing.T) {
+	var client BaseAPIClient
+
+	tenantFromDB := NewTenant("tenant-from-db")
+	client.SetTenantAndDatabase(nil, NewDatabase("db-from-db", tenantFromDB))
+
+	tenant, database := client.TenantAndDatabase()
+	require.NotNil(t, tenant)
+	require.Equal(t, "tenant-from-db", tenant.Name())
+	require.NotNil(t, database)
+	require.Equal(t, "db-from-db", database.Name())
+	require.NotNil(t, database.Tenant())
+	require.Equal(t, "tenant-from-db", database.Tenant().Name())
+}
+
+func TestBaseAPIClientNormalizeTenantAndDatabase_RewritesMismatchedDatabaseTenant(t *testing.T) {
+	var client BaseAPIClient
+
+	client.SetTenantAndDatabase(
+		NewTenant("tenant-target"),
+		NewDatabase("db-mismatch", NewTenant("tenant-other")),
+	)
+
+	tenant, database := client.TenantAndDatabase()
+	require.NotNil(t, tenant)
+	require.Equal(t, "tenant-target", tenant.Name())
+	require.NotNil(t, database)
+	require.Equal(t, "db-mismatch", database.Name())
+	require.NotNil(t, database.Tenant())
+	require.Equal(t, "tenant-target", database.Tenant().Name())
+}
+
+func TestBaseAPIClientNormalizeTenantAndDatabase_EmptyDatabaseNameDefaults(t *testing.T) {
+	var client BaseAPIClient
+
+	client.SetTenantAndDatabase(NewTenant("tenant-empty-db"), NewDatabase("", NewTenant("tenant-other")))
+
+	tenant, database := client.TenantAndDatabase()
+	require.NotNil(t, tenant)
+	require.Equal(t, "tenant-empty-db", tenant.Name())
+	require.NotNil(t, database)
+	require.Equal(t, DefaultDatabase, database.Name())
+	require.NotNil(t, database.Tenant())
+	require.Equal(t, "tenant-empty-db", database.Tenant().Name())
+}
+
+func TestNewHTTPClientReturnsErrorWhenAuthProviderFailsDuringConstruction(t *testing.T) {
+	_, err := NewHTTPClient(WithAuth(failingCredentialsProvider{err: stderrors.New("auth setup failed")}))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error applying auth credentials")
+	require.Contains(t, err.Error(), "auth setup failed")
+}
+
+func TestBaseAPIClientDefaultHeadersReturnsDefensiveCopy(t *testing.T) {
+	clientRaw, err := NewHTTPClient(
+		WithBaseURL("http://localhost:8080"),
+		WithDefaultHeaders(map[string]string{"X-Test": "1"}),
+	)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, clientRaw.Close())
+	}()
+
+	client, ok := clientRaw.(*APIClientV2)
+	require.True(t, ok)
+
+	headers := client.DefaultHeaders()
+	headers["X-Test"] = "modified"
+	headers["X-New"] = "2"
+
+	headersAfter := client.DefaultHeaders()
+	require.Equal(t, "1", headersAfter["X-Test"])
+	_, exists := headersAfter["X-New"]
+	require.False(t, exists)
+}
+
+func TestCloudClientDefaultHeadersIncludeAuthFromOptionAndEnv(t *testing.T) {
+	t.Run("from option", func(t *testing.T) {
+		client, err := NewCloudClient(
+			WithDatabaseAndTenant("db-option", "tenant-option"),
+			WithCloudAPIKey("option-token"),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		defer func() {
+			require.NoError(t, client.Close())
+		}()
+
+		headers := client.DefaultHeaders()
+		require.Equal(t, "option-token", headers[string(XChromaTokenHeader)])
+	})
+
+	t.Run("from env fallback", func(t *testing.T) {
+		t.Setenv("CHROMA_API_KEY", "env-token")
+		client, err := NewCloudClient(
+			WithDatabaseAndTenant("db-env", "tenant-env"),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		defer func() {
+			require.NoError(t, client.Close())
+		}()
+
+		headers := client.DefaultHeaders()
+		require.Equal(t, "env-token", headers[string(XChromaTokenHeader)])
+	})
+}
+
+func TestNewHTTPClientUsesDedicatedHTTPClientAndTransport(t *testing.T) {
+	clientRaw, err := NewHTTPClient()
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, clientRaw.Close())
+	}()
+
+	client, ok := clientRaw.(*APIClientV2)
+	require.True(t, ok)
+	require.NotSame(t, http.DefaultClient, client.HTTPClient())
+	require.NotSame(t, http.DefaultTransport, client.HTTPClient().Transport)
+}
+
 func TestClientSetup(t *testing.T) {
 	t.Run("With default tenant and database", func(t *testing.T) {
 		client, err := NewHTTPClient(WithBaseURL("http://localhost:8080"), WithLogger(testLogger()))
@@ -905,5 +1286,98 @@ func TestClientSetup(t *testing.T) {
 		require.NotNil(t, client)
 		require.Equal(t, NewTenant("test_tenant"), client.CurrentTenant())
 		require.Equal(t, NewDatabase("test_db", NewTenant("test_tenant")), client.CurrentDatabase())
+	})
+
+	t.Run("With env database only", func(t *testing.T) {
+		t.Setenv("CHROMA_TENANT", "")
+		t.Setenv("CHROMA_DATABASE", "test_db")
+		client, err := NewHTTPClient(WithBaseURL("http://localhost:8080"), WithLogger(testLogger()))
+		require.NoError(t, err)
+		require.NotNil(t, client)
+
+		tenant := client.CurrentTenant()
+		require.NotNil(t, tenant)
+		require.Equal(t, DefaultTenant, tenant.Name())
+
+		database := client.CurrentDatabase()
+		require.NotNil(t, database)
+		require.Equal(t, "test_db", database.Name())
+		require.NotNil(t, database.Tenant())
+		require.Equal(t, DefaultTenant, database.Tenant().Name())
+	})
+
+	t.Run("WithHTTPClient and WithInsecure are mutually exclusive", func(t *testing.T) {
+		httpClient := &http.Client{Transport: &http.Transport{}}
+		_, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithHTTPClient(httpClient),
+			WithInsecure(),
+			WithLogger(testLogger()),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot be combined")
+	})
+
+	t.Run("WithInsecure then WithHTTPClient are mutually exclusive", func(t *testing.T) {
+		httpClient := &http.Client{Transport: &http.Transport{}}
+		_, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithInsecure(),
+			WithHTTPClient(httpClient),
+			WithLogger(testLogger()),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot be combined")
+	})
+
+	t.Run("WithHTTPClient and WithTransport are mutually exclusive", func(t *testing.T) {
+		httpClient := &http.Client{Transport: &http.Transport{}}
+		_, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithHTTPClient(httpClient),
+			WithTransport(&http.Transport{}),
+			WithLogger(testLogger()),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot be combined")
+	})
+
+	t.Run("WithTransport then WithHTTPClient are mutually exclusive", func(t *testing.T) {
+		httpClient := &http.Client{Transport: &http.Transport{}}
+		_, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithTransport(&http.Transport{}),
+			WithHTTPClient(httpClient),
+			WithLogger(testLogger()),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot be combined")
+	})
+
+	t.Run("WithHTTPClient and WithSSLCert are mutually exclusive", func(t *testing.T) {
+		httpClient := &http.Client{Transport: &http.Transport{}}
+		_, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithHTTPClient(httpClient),
+			WithSSLCert("/path/unused-when-conflict-is-detected.pem"),
+			WithLogger(testLogger()),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot be combined")
+	})
+
+	t.Run("WithHTTPClient synchronizes internal transport reference", func(t *testing.T) {
+		customTransport := &http.Transport{}
+		httpClient := &http.Client{Transport: customTransport}
+		clientRaw, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithHTTPClient(httpClient),
+			WithLogger(testLogger()),
+		)
+		require.NoError(t, err)
+		apiClient, ok := clientRaw.(*APIClientV2)
+		require.True(t, ok)
+		require.Same(t, httpClient, apiClient.httpClient)
+		require.Same(t, customTransport, apiClient.httpTransport)
 	})
 }

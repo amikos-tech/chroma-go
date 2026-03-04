@@ -23,7 +23,7 @@ type APIClientV2 struct {
 	preflightConditionsRaw map[string]interface{}
 	preflightLimits        map[string]interface{}
 	preflightCompleted     bool
-	preflightMu            sync.Mutex
+	preflightMu            sync.RWMutex
 	collectionCache        map[string]Collection
 	collectionMu           sync.RWMutex
 }
@@ -42,13 +42,13 @@ func NewHTTPClient(opts ...ClientOption) (Client, error) {
 		return nil, err
 	}
 	if bc.BaseURL() == "" {
-		bc.SetBaseURL("http://localhost:8000/api/v2")
+		bc.setBaseURL("http://localhost:8000/api/v2")
 	} else if !strings.HasSuffix(bc.BaseURL(), "/api/v2") {
 		newBasePath, err := url.JoinPath(bc.BaseURL(), "/api/v2")
 		if err != nil {
 			return nil, err
 		}
-		bc.SetBaseURL(newBasePath)
+		bc.setBaseURL(newBasePath)
 	}
 	c := &APIClientV2{
 		BaseAPIClient:      *bc,
@@ -81,8 +81,8 @@ func (client *APIClientV2) PreFlight(ctx context.Context) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	var preflightLimits map[string]interface{}
-	if json.NewDecoder(resp.Body).Decode(&preflightLimits) != nil {
-		return errors.New("error decoding preflight response")
+	if err := json.NewDecoder(resp.Body).Decode(&preflightLimits); err != nil {
+		return errors.Wrap(err, "error decoding preflight response")
 	}
 	client.preflightConditionsRaw = preflightLimits
 	if mbs, ok := preflightLimits["max_batch_size"]; ok {
@@ -534,17 +534,27 @@ func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListColl
 	return apiCollections, nil
 }
 
+// Deprecated: Use UseTenantDatabase on a concrete client (*APIClientV2) to
+// validate remote state and atomically update the local tenant/database pair.
+// The generic Client interface does not expose UseTenantDatabase.
 func (client *APIClientV2) UseTenant(ctx context.Context, tenant Tenant) error {
+	if tenant == nil {
+		return errors.New("tenant cannot be nil")
+	}
 	t, err := client.GetTenant(ctx, tenant)
 	if err != nil {
 		return err
 	}
-	client.SetTenant(t)
-	client.SetDatabase(t.Database(DefaultDatabase)) // TODO is this optimal?
+	client.SetTenantAndDatabase(t, t.Database(DefaultDatabase))
 	return nil
 }
 
+// UseDatabase validates and switches the active database. The tenant is derived
+// from the database object itself.
 func (client *APIClientV2) UseDatabase(ctx context.Context, database Database) error {
+	if database == nil {
+		return errors.New("database cannot be nil")
+	}
 	err := database.Validate()
 	if err != nil {
 		return errors.Wrap(err, "error validating database")
@@ -553,8 +563,34 @@ func (client *APIClientV2) UseDatabase(ctx context.Context, database Database) e
 	if err != nil {
 		return errors.Wrap(err, "error getting database")
 	}
-	client.SetDatabase(d)
-	client.SetTenant(d.Tenant())
+	client.SetTenantAndDatabase(d.Tenant(), d)
+	return nil
+}
+
+// UseTenantDatabase validates tenant/database against the server, then updates
+// the local active tenant/database pair under a single lock acquisition.
+func (client *APIClientV2) UseTenantDatabase(ctx context.Context, tenant Tenant, database Database) error {
+	if tenant == nil {
+		return errors.New("tenant cannot be nil")
+	}
+	t, err := client.GetTenant(ctx, tenant)
+	if err != nil {
+		return errors.Wrap(err, "error getting tenant")
+	}
+	var db Database
+	if database == nil {
+		db = NewDatabase(DefaultDatabase, t)
+	} else {
+		db = NewDatabase(database.Name(), t)
+	}
+	if err := db.Validate(); err != nil {
+		return errors.Wrap(err, "error validating database")
+	}
+	d, err := client.GetDatabase(ctx, db)
+	if err != nil {
+		return errors.Wrap(err, "error getting database")
+	}
+	client.SetTenantAndDatabase(d.Tenant(), d)
 	return nil
 }
 
@@ -566,12 +602,21 @@ func (client *APIClientV2) CurrentDatabase() Database {
 	return client.Database()
 }
 
-func (client *APIClientV2) GetPreFlightConditionsRaw() map[string]interface{} {
-	return client.preflightConditionsRaw
+func (client *APIClientV2) getPreFlightConditionsRaw() map[string]interface{} {
+	client.preflightMu.RLock()
+	defer client.preflightMu.RUnlock()
+
+	cp := make(map[string]interface{}, len(client.preflightConditionsRaw))
+	for k, v := range client.preflightConditionsRaw {
+		cp[k] = v
+	}
+	return cp
 }
 
-func (client *APIClientV2) Satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error {
+func (client *APIClientV2) satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error {
+	client.preflightMu.RLock()
 	m, ok := client.preflightLimits[fmt.Sprintf("%s#%s", string(resourceOperation.Resource()), string(resourceOperation.Operation()))]
+	client.preflightMu.RUnlock()
 	if !ok {
 		return nil
 	}

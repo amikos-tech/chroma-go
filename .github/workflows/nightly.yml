@@ -35,6 +35,8 @@ jobs:
       run: make test
       env:
         CHROMA_VERSION: "latest"
+    - name: Race Test (concurrency state)
+      run: make test-race-v2
     - name: Test Cloud
       run: make test-cloud
       env:

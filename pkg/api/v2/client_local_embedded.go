@@ -29,9 +29,8 @@ type localClientState interface {
 	Close() error
 	CurrentTenant() Tenant
 	CurrentDatabase() Database
-	SetTenant(tenant Tenant)
-	SetDatabase(database Database)
-	Satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error
+	SetTenantAndDatabase(tenant Tenant, database Database)
+	satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error
 	localSetPreflightLimit(maxBatchSize int)
 	localCollectionByName(name string) Collection
 	localAddCollectionToCache(collection Collection)
@@ -162,13 +161,18 @@ func (client *embeddedLocalClient) GetTenant(ctx context.Context, tenant Tenant)
 	return NewTenant(t.Name), nil
 }
 
+// Deprecated: Use UseTenantDatabase on concrete embedded clients to validate
+// the backing store and atomically update the local tenant/database pair. The
+// generic Client interface does not expose UseTenantDatabase.
 func (client *embeddedLocalClient) UseTenant(ctx context.Context, tenant Tenant) error {
+	if tenant == nil {
+		return errors.New("tenant cannot be nil")
+	}
 	t, err := client.GetTenant(ctx, tenant)
 	if err != nil {
 		return err
 	}
-	client.state.SetTenant(t)
-	client.state.SetDatabase(t.Database(DefaultDatabase))
+	client.state.SetTenantAndDatabase(t, t.Database(DefaultDatabase))
 	return nil
 }
 
@@ -183,8 +187,32 @@ func (client *embeddedLocalClient) UseDatabase(ctx context.Context, database Dat
 	if err != nil {
 		return err
 	}
-	client.state.SetDatabase(db)
-	client.state.SetTenant(db.Tenant())
+	client.state.SetTenantAndDatabase(db.Tenant(), db)
+	return nil
+}
+
+func (client *embeddedLocalClient) UseTenantDatabase(ctx context.Context, tenant Tenant, database Database) error {
+	if tenant == nil {
+		return errors.New("tenant cannot be nil")
+	}
+	t, err := client.GetTenant(ctx, tenant)
+	if err != nil {
+		return errors.Wrap(err, "error getting tenant")
+	}
+	var db Database
+	if database == nil {
+		db = NewDatabase(DefaultDatabase, t)
+	} else {
+		db = NewDatabase(database.Name(), t)
+	}
+	if err := db.Validate(); err != nil {
+		return errors.Wrap(err, "error validating database")
+	}
+	d, err := client.GetDatabase(ctx, db)
+	if err != nil {
+		return errors.Wrap(err, "error getting database")
+	}
+	client.state.SetTenantAndDatabase(d.Tenant(), d)
 	return nil
 }
 
@@ -854,7 +882,7 @@ func (c *embeddedCollection) executeEmbeddedWrite(
 	if err := c.client.PreFlight(ctx); err != nil {
 		return errors.Wrap(err, "preflight failed")
 	}
-	if err := c.client.state.Satisfies(op, len(ids), "documents"); err != nil {
+	if err := c.client.state.satisfies(op, len(ids), "documents"); err != nil {
 		return errors.Wrap(err, "failed to satisfy operation")
 	}
 	if err := op.EmbedData(ctx, c.embeddingFunctionSnapshot()); err != nil {
@@ -944,7 +972,7 @@ func (c *embeddedCollection) Delete(ctx context.Context, opts ...CollectionDelet
 	if err := deleteObject.PrepareAndValidate(); err != nil {
 		return errors.Wrap(err, "failed to validate delete operation")
 	}
-	if err := c.client.state.Satisfies(deleteObject, len(deleteObject.Ids), "documents"); err != nil {
+	if err := c.client.state.satisfies(deleteObject, len(deleteObject.Ids), "documents"); err != nil {
 		return errors.Wrap(err, "failed to satisfy delete operation")
 	}
 

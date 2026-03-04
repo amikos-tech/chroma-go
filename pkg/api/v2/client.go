@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,6 +20,8 @@ import (
 	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
 	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
+
+var zeroValueBaseClientScopeMu sync.RWMutex
 
 type Client interface {
 	PreFlight(ctx context.Context) error
@@ -639,18 +642,23 @@ func NewCountCollectionsOp(opts ...CountCollectionsOption) (*CountCollectionsOp,
 	return op, nil
 }
 
+// BaseAPIClient holds shared client transport/configuration state.
+// scopeMu protects tenant and database from concurrent access and is set by newBaseAPIClient.
+// defaultHeaders must not be mutated after newBaseAPIClient returns; no lock is needed to read it.
+// Zero-value BaseAPIClient instances share a package-level fallback mutex.
 type BaseAPIClient struct {
-	httpClient        *http.Client
-	baseURL           string
-	tenant            Tenant
-	database          Database
-	defaultHeaders    map[string]string
-	httpTransport     *http.Transport
-	timeout           time.Duration
-	activeCollections []Collection
-	preFlightConfig   map[string]interface{}
-	authProvider      CredentialsProvider
-	logger            logger.Logger
+	httpClient     *http.Client
+	baseURL        string
+	scopeMu        *sync.RWMutex
+	tenant         Tenant
+	database       Database
+	defaultHeaders map[string]string
+	httpTransport  *http.Transport
+	timeout        time.Duration
+	authProvider   CredentialsProvider
+	logger         logger.Logger
+	usesHTTPClient bool
+	usesTransport  bool
 }
 
 type ClientOption func(client *BaseAPIClient) error
@@ -670,7 +678,9 @@ func WithTenant(tenant string) ClientOption {
 		if tenant == "" {
 			return errors.New("tenant cannot be empty")
 		}
-		c.tenant = NewTenant(tenant)
+		t := NewTenant(tenant)
+		_, db := c.TenantAndDatabase()
+		c.SetTenantAndDatabase(t, db)
 		return nil
 	}
 }
@@ -692,20 +702,22 @@ func WithDatabaseAndTenant(database string, tenant string) ClientOption {
 		if tenant == "" {
 			return errors.New("tenant cannot be empty")
 		}
-		c.tenant = NewTenant(tenant)
-		c.database = NewDatabase(database, NewTenant(tenant))
+		t := NewTenant(tenant)
+		c.SetTenantAndDatabase(t, NewDatabase(database, t))
 		return nil
 	}
 }
 
 func WithDefaultDatabaseAndTenant() ClientOption {
 	return func(c *BaseAPIClient) error {
-		if c.tenant == nil {
-			c.tenant = NewDefaultTenant()
+		t, db := c.TenantAndDatabase()
+		if t == nil {
+			t = NewDefaultTenant()
 		}
-		if c.database == nil {
-			c.database = NewDefaultDatabase()
+		if db == nil {
+			db = NewDatabase(DefaultDatabase, t)
 		}
+		c.SetTenantAndDatabase(t, db)
 		return nil
 	}
 }
@@ -713,16 +725,21 @@ func WithDefaultDatabaseAndTenant() ClientOption {
 // WithDatabaseAndTenantFromEnv sets the tenant and database from environment variables CHROMA_TENANT and CHROMA_DATABASE
 func WithDatabaseAndTenantFromEnv() ClientOption {
 	return func(c *BaseAPIClient) error {
-		if os.Getenv("CHROMA_TENANT") != "" {
-			if c.tenant == nil || c.tenant.Name() == DefaultTenant {
-				c.tenant = NewTenant(os.Getenv("CHROMA_TENANT"))
+		t, db := c.TenantAndDatabase()
+		if envTenant := os.Getenv("CHROMA_TENANT"); envTenant != "" {
+			if t == nil || t.Name() == DefaultTenant {
+				t = NewTenant(envTenant)
 			}
 		}
-		if os.Getenv("CHROMA_DATABASE") != "" {
-			if c.database == nil || c.database.Name() == DefaultDatabase {
-				c.database = NewDatabase(os.Getenv("CHROMA_DATABASE"), c.tenant)
+		if envDatabase := os.Getenv("CHROMA_DATABASE"); envDatabase != "" {
+			if t == nil {
+				t = NewDefaultTenant()
+			}
+			if db == nil || db.Name() == DefaultDatabase {
+				db = NewDatabase(envDatabase, t)
 			}
 		}
+		c.SetTenantAndDatabase(t, db)
 		return nil
 	}
 }
@@ -732,7 +749,16 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 		if httpClient == nil {
 			return errors.New("httpClient cannot be nil")
 		}
+		if c.usesTransport {
+			return errors.New("WithHTTPClient cannot be combined with WithTransport, WithSSLCert, or WithInsecure")
+		}
 		c.httpClient = httpClient
+		if transport, ok := httpClient.Transport.(*http.Transport); ok {
+			c.httpTransport = transport
+		} else {
+			c.httpTransport = nil
+		}
+		c.usesHTTPClient = true
 		return nil
 	}
 }
@@ -741,9 +767,6 @@ func WithDefaultHeaders(headers map[string]string) ClientOption {
 	return func(c *BaseAPIClient) error {
 		if headers == nil {
 			return errors.New("headers cannot be nil")
-		}
-		if c.defaultHeaders == nil {
-			c.defaultHeaders = make(map[string]string)
 		}
 		for k, v := range headers {
 			c.defaultHeaders[k] = v
@@ -767,7 +790,11 @@ func WithTransport(transport *http.Transport) ClientOption {
 		if transport == nil {
 			return errors.New("transport cannot be nil")
 		}
+		if c.usesHTTPClient {
+			return errors.New("WithTransport cannot be combined with WithHTTPClient")
+		}
 		c.httpTransport = transport
+		c.usesTransport = true
 		return nil
 	}
 }
@@ -802,9 +829,14 @@ func WithLogger(l logger.Logger) ClientOption {
 	}
 }
 
-// WithSSLCert adds a custom SSL certificate to the client. The certificate must be in PEM format. The Option can be added multiple times to add multiple certificates. The option is mutually exclusive with WithHttpClient.
+// WithSSLCert adds a custom SSL certificate to the client. The certificate must be in PEM format.
+// The option can be added multiple times to add multiple certificates.
+// It is mutually exclusive with WithHTTPClient and this is enforced at construction time.
 func WithSSLCert(certPath string) ClientOption {
 	return func(c *BaseAPIClient) error {
+		if c.usesHTTPClient {
+			return errors.New("WithSSLCert cannot be combined with WithHTTPClient")
+		}
 		if _, err := os.Stat(certPath); certPath == "" || err != nil {
 			return errors.Errorf("invalid cert path %v", err)
 		}
@@ -833,14 +865,19 @@ func WithSSLCert(certPath string) ClientOption {
 			return errors.New("failed to append cert to pool")
 		}
 		c.httpTransport.TLSClientConfig.RootCAs = certPool
+		c.usesTransport = true
 		return nil
 	}
 }
 
-// WithInsecure skips SSL verification. The option is mutually exclusive with WithHttpClient.
+// WithInsecure skips SSL verification.
+// It is mutually exclusive with WithHTTPClient and this is enforced at construction time.
 // DO NOT USE IN PRODUCTION.
 func WithInsecure() ClientOption {
 	return func(c *BaseAPIClient) error {
+		if c.usesHTTPClient {
+			return errors.New("WithInsecure cannot be combined with WithHTTPClient")
+		}
 		if c.httpTransport == nil {
 			c.httpTransport = &http.Transport{}
 		}
@@ -851,22 +888,36 @@ func WithInsecure() ClientOption {
 		} else {
 			c.httpTransport.TLSClientConfig.InsecureSkipVerify = true
 		}
+		c.usesTransport = true
 		return nil
 	}
 }
 
 func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
+	httpClient := &http.Client{
+		CheckRedirect: http.DefaultClient.CheckRedirect,
+		Jar:           http.DefaultClient.Jar,
+		Timeout:       http.DefaultClient.Timeout,
+	}
+	httpTransport := &http.Transport{TLSClientConfig: &tls.Config{}}
+	if defaultTransport, ok := http.DefaultTransport.(*http.Transport); ok && defaultTransport != nil {
+		httpTransport = defaultTransport.Clone()
+		if httpTransport.TLSClientConfig == nil {
+			httpTransport.TLSClientConfig = &tls.Config{}
+		}
+	}
+	httpClient.Transport = httpTransport
+
 	client := &BaseAPIClient{
-		baseURL:           "http://localhost:8000/api/v2",
-		httpClient:        http.DefaultClient,
-		httpTransport:     &http.Transport{TLSClientConfig: &tls.Config{}},
-		activeCollections: make([]Collection, 0),
+		baseURL:       "http://localhost:8000/api/v2",
+		httpClient:    httpClient,
+		scopeMu:       &sync.RWMutex{},
+		httpTransport: httpTransport,
 		defaultHeaders: map[string]string{
 			"User-Agent": "chroma-go-client/1.0",
 		},
-		logger: logger.NewNoopLogger(), // Default to no-op logger
+		logger: logger.NewNoopLogger(),
 	}
-	client.httpClient.Transport = client.httpTransport
 	for _, opt := range options {
 		err := opt(client)
 		if err != nil {
@@ -879,6 +930,19 @@ func newBaseAPIClient(options ...ClientOption) (*BaseAPIClient, error) {
 		client.logger = logger.NewNoopLogger()
 	}
 
+	// Bake auth headers into defaultHeaders once so prepareRequest needs no lock.
+	if client.authProvider != nil {
+		headers, err := client.authProvider.Authenticate()
+		if err != nil {
+			return nil, errors.Wrap(err, "error applying auth credentials")
+		}
+		for k, v := range headers {
+			client.defaultHeaders[k] = v
+		}
+	}
+
+	client.tenant, client.database = normalizeTenantAndDatabase(client.tenant, client.database)
+
 	return client, nil
 }
 
@@ -886,19 +950,9 @@ func (bc *BaseAPIClient) BaseURL() string {
 	return bc.baseURL
 }
 
-func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, error) {
-	for k, v := range map[string]string{
-		"Accept":       "application/json",
-		"Content-Type": "application/json",
-	} {
-		httpReq.Header.Set(k, v)
-	}
-	if bc.authProvider != nil {
-		err := bc.authProvider.Authenticate(bc)
-		if err != nil {
-			return nil, errors.Wrap(err, "error getting authorization header")
-		}
-	}
+func (bc *BaseAPIClient) prepareRequest(httpReq *http.Request) {
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("Content-Type", "application/json")
 	for k, v := range bc.defaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
@@ -906,12 +960,19 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 		dump, err := httputil.DumpRequestOut(httpReq, true)
 		if err == nil {
 			bc.logger.Debug("HTTP Request", logger.String("request", _sanitizeRequestDump(string(dump))))
+		} else {
+			bc.logger.Debug("Failed to dump HTTP request", logger.ErrorField("error", err))
 		}
 	}
+}
+
+func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, error) {
+	bc.prepareRequest(httpReq)
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
-	} else if resp.StatusCode >= 400 && resp.StatusCode < 599 {
+	}
+	if resp.StatusCode >= 400 && resp.StatusCode < 599 {
 		if bc.logger.IsDebugEnabled() {
 			dump, err := httputil.DumpResponse(resp, true)
 			if err == nil {
@@ -927,6 +988,8 @@ func (bc *BaseAPIClient) SendRequest(httpReq *http.Request) (*http.Response, err
 		dump, err := httputil.DumpResponse(resp, true)
 		if err == nil {
 			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))
+		} else {
+			bc.logger.Debug("Failed to dump HTTP response", logger.ErrorField("error", err))
 		}
 	}
 	return resp, nil
@@ -953,39 +1016,17 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 		}
 	}
 
-	for k, v := range map[string]string{
-		"Accept":       "application/json",
-		"Content-Type": "application/json",
-	} {
-		httpReq.Header.Set(k, v)
-	}
-	if bc.authProvider != nil {
-		err := bc.authProvider.Authenticate(bc)
-		if err != nil {
-			return nil, errors.Wrap(err, "error getting authorization header")
-		}
-	}
-	for k, v := range bc.defaultHeaders {
-		httpReq.Header.Set(k, v)
-	}
-	if bc.logger.IsDebugEnabled() {
-		dump, err := httputil.DumpRequestOut(httpReq, true)
-		if err == nil {
-			bc.logger.Debug("HTTP Request", logger.String("request", _sanitizeRequestDump(string(dump))))
-		}
-	}
+	bc.prepareRequest(httpReq)
 	resp, err := bc.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(chhttp.ChromaErrorFromHTTPResponse(nil, err), "error sending request")
 	}
 	if bc.logger.IsDebugEnabled() {
-		if resp == nil {
-			bc.logger.Debug("HTTP Response is nil")
-			return nil, errors.New("received nil response from server")
-		}
 		dump, dumpErr := httputil.DumpResponse(resp, true)
 		if dumpErr == nil {
 			bc.logger.Debug("HTTP Response", logger.String("response", _sanitizeResponseDump(string(dump))))
+		} else {
+			bc.logger.Debug("Failed to dump HTTP response", logger.ErrorField("error", dumpErr))
 		}
 	}
 	if resp.StatusCode >= 400 && resp.StatusCode < 599 {
@@ -1000,39 +1041,96 @@ func (bc *BaseAPIClient) ExecuteRequest(ctx context.Context, method string, path
 func (bc *BaseAPIClient) HTTPClient() *http.Client {
 	return bc.httpClient
 }
+
+func (bc *BaseAPIClient) scopeMutex() *sync.RWMutex {
+	if bc.scopeMu != nil {
+		return bc.scopeMu
+	}
+	return &zeroValueBaseClientScopeMu
+}
+
+func normalizeTenantAndDatabase(tenant Tenant, database Database) (Tenant, Database) {
+	if tenant == nil {
+		if database != nil && database.Tenant() != nil {
+			tenant = database.Tenant()
+		} else {
+			tenant = NewDefaultTenant()
+		}
+	}
+
+	if database == nil || database.Name() == "" {
+		return tenant, NewDatabase(DefaultDatabase, tenant)
+	}
+
+	dbTenant := database.Tenant()
+	if dbTenant == nil || dbTenant.Name() != tenant.Name() {
+		return tenant, NewDatabase(database.Name(), tenant)
+	}
+
+	return tenant, database
+}
+
+func (bc *BaseAPIClient) tenantAndDatabaseSnapshot() (Tenant, Database) {
+	mu := bc.scopeMutex()
+	mu.RLock()
+	tenant, database := bc.tenant, bc.database
+	pairValid := tenant != nil && database != nil && database.Tenant() != nil && database.Tenant().Name() == tenant.Name()
+	mu.RUnlock()
+	if pairValid {
+		return tenant, database
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	tenant, database = bc.tenant, bc.database
+	pairValid = tenant != nil && database != nil && database.Tenant() != nil && database.Tenant().Name() == tenant.Name()
+	if pairValid {
+		return tenant, database
+	}
+	bc.tenant, bc.database = normalizeTenantAndDatabase(bc.tenant, bc.database)
+	tenant, database = bc.tenant, bc.database
+	return tenant, database
+}
+
 func (bc *BaseAPIClient) Tenant() Tenant {
-	return bc.tenant
+	tenant, _ := bc.tenantAndDatabaseSnapshot()
+	return tenant
 }
 
 func (bc *BaseAPIClient) Database() Database {
-	return bc.database
+	_, database := bc.tenantAndDatabaseSnapshot()
+	return database
 }
 
+// TenantAndDatabase returns a lock-consistent snapshot of the current tenant and database.
+func (bc *BaseAPIClient) TenantAndDatabase() (Tenant, Database) {
+	return bc.tenantAndDatabaseSnapshot()
+}
+
+// DefaultHeaders returns a copy of the default headers.
+// Headers are immutable after construction; the copy prevents callers from mutating internal state.
 func (bc *BaseAPIClient) DefaultHeaders() map[string]string {
-	return bc.defaultHeaders
+	cp := make(map[string]string, len(bc.defaultHeaders))
+	for k, v := range bc.defaultHeaders {
+		cp[k] = v
+	}
+	return cp
 }
 
 func (bc *BaseAPIClient) Timeout() time.Duration {
 	return bc.timeout
 }
 
-func (bc *BaseAPIClient) SetTenant(tenant Tenant) {
+func (bc *BaseAPIClient) SetTenantAndDatabase(tenant Tenant, database Database) {
+	mu := bc.scopeMutex()
+	mu.Lock()
+	defer mu.Unlock()
+	tenant, database = normalizeTenantAndDatabase(tenant, database)
 	bc.tenant = tenant
-}
-
-func (bc *BaseAPIClient) SetDatabase(database Database) {
 	bc.database = database
 }
 
-func (bc *BaseAPIClient) SetDefaultHeaders(headers map[string]string) {
-	bc.defaultHeaders = headers
-}
-
-func (bc *BaseAPIClient) SetPreFlightConfig(config map[string]interface{}) {
-	bc.preFlightConfig = config
-}
-
-func (bc *BaseAPIClient) SetBaseURL(baseURL string) {
+func (bc *BaseAPIClient) setBaseURL(baseURL string) {
 	bc.baseURL = baseURL
 }
 
@@ -1054,11 +1152,4 @@ const (
 type ResourceOperation interface {
 	Resource() Resource
 	Operation() OperationType
-}
-
-type PreFlightConditioner interface {
-	// GetPreFlightConditionsRaw returns the raw preflight response.
-	GetPreFlightConditionsRaw() map[string]interface{}
-	// Satisfies evaluates the resource type and a given metric to determine if the preflight condition applies.
-	Satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error
 }

@@ -19,6 +19,10 @@ test: gotestsum-bin
         -coverprofile=coverage.out \
         -timeout=30m
 
+.PHONY: test-race-v2
+test-race-v2:
+	go test -v -race -count=1 -tags=basicv2 -run 'TestBaseAPIClient.*Concurrent|TestEmbeddedLocalClient.*Concurrent|TestAPIClientV2ConcurrentUseTenantUseDatabase' ./pkg/api/v2
+
 .PHONY: test-cloud
 test-cloud: gotestsum-bin
 	gotestsum \

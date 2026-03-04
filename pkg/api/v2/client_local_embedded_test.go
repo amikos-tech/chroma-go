@@ -11,6 +11,7 @@ import (
 	"math"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,10 +37,10 @@ type scriptedEmbeddedRuntime struct {
 	healthCalls         int
 	heartbeatCalls      int
 	createTenantCalls   int
-	getTenantCalls      int
+	getTenantCalls      atomic.Int32
 	createDatabaseCalls int
 	listDatabasesCalls  int
-	getDatabaseCalls    int
+	getDatabaseCalls    atomic.Int32
 	deleteDatabaseCalls int
 }
 
@@ -675,7 +676,7 @@ func (s *scriptedEmbeddedRuntime) CreateTenant(localchroma.EmbeddedCreateTenantR
 }
 
 func (s *scriptedEmbeddedRuntime) GetTenant(request localchroma.EmbeddedGetTenantRequest) (*localchroma.EmbeddedTenant, error) {
-	s.getTenantCalls++
+	s.getTenantCalls.Add(1)
 	if s.getTenantErr != nil {
 		return nil, s.getTenantErr
 	}
@@ -704,7 +705,7 @@ func (s *scriptedEmbeddedRuntime) ListDatabases(request localchroma.EmbeddedList
 }
 
 func (s *scriptedEmbeddedRuntime) GetDatabase(request localchroma.EmbeddedGetDatabaseRequest) (*localchroma.EmbeddedDatabase, error) {
-	s.getDatabaseCalls++
+	s.getDatabaseCalls.Add(1)
 	if s.getDatabaseErr != nil {
 		return nil, s.getDatabaseErr
 	}
@@ -790,7 +791,7 @@ func TestEmbeddedLocalClient_ContextCancellationShortCircuits(t *testing.T) {
 
 	_, err = client.GetTenant(ctx, NewTenant(DefaultTenant))
 	require.ErrorIs(t, err, context.Canceled)
-	require.Equal(t, 0, runtime.getTenantCalls)
+	require.EqualValues(t, 0, runtime.getTenantCalls.Load())
 
 	testDB := NewTenant(DefaultTenant).Database("test_db")
 	_, err = client.CreateDatabase(ctx, testDB)
@@ -803,7 +804,7 @@ func TestEmbeddedLocalClient_ContextCancellationShortCircuits(t *testing.T) {
 
 	_, err = client.GetDatabase(ctx, testDB)
 	require.ErrorIs(t, err, context.Canceled)
-	require.Equal(t, 0, runtime.getDatabaseCalls)
+	require.EqualValues(t, 0, runtime.getDatabaseCalls.Load())
 
 	err = client.DeleteDatabase(ctx, testDB)
 	require.ErrorIs(t, err, context.Canceled)
@@ -1746,6 +1747,82 @@ func TestEmbeddedLocalClientDeleteCollection_UsesScopedCollectionStateCleanup(t 
 	client.collectionStateMu.RUnlock()
 	require.False(t, hasDefaultAfter)
 	require.True(t, hasOtherAfter)
+}
+
+func TestEmbeddedLocalClientConcurrentTenantDatabaseStateAccess(t *testing.T) {
+	runtime := newScriptedEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	stateClient := client.state.(*APIClientV2)
+	ctx := context.Background()
+
+	runConcurrencyTest(t, stateClient.TenantAndDatabase, 500,
+		func(i int) error {
+			return client.UseTenant(ctx, NewTenant(fmt.Sprintf("tenant-%d", i%32)))
+		},
+		func(i int) error {
+			tenant := NewTenant(fmt.Sprintf("tenant-%d", i%32))
+			return client.UseDatabase(ctx, NewDatabase(fmt.Sprintf("database-%d", i%32), tenant))
+		},
+	)
+
+	require.NotNil(t, client.CurrentTenant())
+	require.NotNil(t, client.CurrentDatabase())
+}
+
+func TestEmbeddedLocalClientConcurrentUseTenantDatabase(t *testing.T) {
+	runtime := newScriptedEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	stateClient, ok := client.state.(*APIClientV2)
+	require.True(t, ok)
+	ctx := context.Background()
+
+	runConcurrencyTest(t, stateClient.TenantAndDatabase, 300,
+		func(i int) error {
+			tenant := NewTenant(fmt.Sprintf("tenant-%d", i%16))
+			database := NewDatabase(fmt.Sprintf("database-%d", i%16), tenant)
+			return client.UseTenantDatabase(ctx, tenant, database)
+		},
+		func(i int) error {
+			return client.UseTenantDatabase(ctx, NewTenant(fmt.Sprintf("tenant-%d", (i+7)%16)), nil)
+		},
+	)
+}
+
+func TestEmbeddedLocalClientUseTenantDatabase_NilDatabaseDefaults(t *testing.T) {
+	runtime := newScriptedEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	err := client.UseTenantDatabase(ctx, NewTenant("tenant-default-db"), nil)
+	require.NoError(t, err)
+
+	tenant := client.CurrentTenant()
+	require.NotNil(t, tenant)
+	require.Equal(t, "tenant-default-db", tenant.Name())
+
+	database := client.CurrentDatabase()
+	require.NotNil(t, database)
+	require.Equal(t, DefaultDatabase, database.Name())
+	require.NotNil(t, database.Tenant())
+	require.Equal(t, tenant.Name(), database.Tenant().Name())
+}
+
+func TestEmbeddedLocalClientUseTenantDatabase_NilTenantReturnsError(t *testing.T) {
+	runtime := newScriptedEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	err := client.UseTenantDatabase(context.Background(), nil, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "tenant cannot be nil")
+}
+
+func TestEmbeddedLocalClientUseTenant_NilTenantReturnsError(t *testing.T) {
+	runtime := newScriptedEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	err := client.UseTenant(context.Background(), nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "tenant cannot be nil")
 }
 
 func TestAnyToFloat32Slice_TableDriven(t *testing.T) {

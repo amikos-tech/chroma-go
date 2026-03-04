@@ -103,7 +103,7 @@ func init() {
 }
 
 type CredentialsProvider interface {
-	Authenticate(apiClient *BaseAPIClient) error
+	Authenticate() (map[string]string, error)
 }
 
 type BasicAuthCredentialsProvider struct {
@@ -118,11 +118,10 @@ func NewBasicAuthCredentialsProvider(username, password string) *BasicAuthCreden
 	}
 }
 
-func (b *BasicAuthCredentialsProvider) Authenticate(client *BaseAPIClient) error {
+func (b *BasicAuthCredentialsProvider) Authenticate() (map[string]string, error) {
 	auth := b.Username + ":" + b.Password
 	encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
-	client.defaultHeaders["Authorization"] = "Basic " + encodedAuth
-	return nil
+	return map[string]string{"Authorization": "Basic " + encodedAuth}, nil
 }
 
 func (b *BasicAuthCredentialsProvider) String() string {
@@ -148,16 +147,14 @@ func NewTokenAuthCredentialsProvider(token string, header TokenTransportHeader) 
 	}
 }
 
-func (t *TokenAuthCredentialsProvider) Authenticate(client *BaseAPIClient) error {
+func (t *TokenAuthCredentialsProvider) Authenticate() (map[string]string, error) {
 	switch t.Header {
 	case AuthorizationTokenHeader:
-		client.defaultHeaders[string(t.Header)] = "Bearer " + t.Token
-		return nil
+		return map[string]string{string(t.Header): "Bearer " + t.Token}, nil
 	case XChromaTokenHeader:
-		client.defaultHeaders[string(t.Header)] = t.Token
-		return nil
+		return map[string]string{string(t.Header): t.Token}, nil
 	default:
-		return errors.Errorf("unsupported token header: %v", t.Header)
+		return nil, errors.Errorf("unsupported token header: %v", t.Header)
 	}
 }
 
