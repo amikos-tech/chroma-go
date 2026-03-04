@@ -1365,4 +1365,19 @@ func TestClientSetup(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "cannot be combined")
 	})
+
+	t.Run("WithHTTPClient synchronizes internal transport reference", func(t *testing.T) {
+		customTransport := &http.Transport{}
+		httpClient := &http.Client{Transport: customTransport}
+		clientRaw, err := NewHTTPClient(
+			WithBaseURL("http://localhost:8080"),
+			WithHTTPClient(httpClient),
+			WithLogger(testLogger()),
+		)
+		require.NoError(t, err)
+		apiClient, ok := clientRaw.(*APIClientV2)
+		require.True(t, ok)
+		require.Same(t, httpClient, apiClient.httpClient)
+		require.Same(t, customTransport, apiClient.httpTransport)
+	})
 }

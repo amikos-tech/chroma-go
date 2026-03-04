@@ -101,7 +101,7 @@ func (c *CollectionImpl) Add(ctx context.Context, opts ...CollectionAddOption) e
 	if err != nil {
 		return errors.Wrap(err, "failed to prepare and validate collection update operation")
 	}
-	err = c.client.Satisfies(addObject, len(addObject.Ids), "documents")
+	err = c.client.satisfies(addObject, len(addObject.Ids), "documents")
 	if err != nil {
 		return errors.Wrap(err, "failed to satisfy collection update operation")
 	}
@@ -109,7 +109,7 @@ func (c *CollectionImpl) Add(ctx context.Context, opts ...CollectionAddOption) e
 	if err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
-	if sbe, ok := c.client.GetPreFlightConditionsRaw()["supports_base64_encoding"]; ok {
+	if sbe, ok := c.client.getPreFlightConditionsRaw()["supports_base64_encoding"]; ok {
 		if supportsBase64, ok := sbe.(bool); ok && supportsBase64 {
 			packedEmbeddings := make([]any, 0)
 			for _, e := range addObject.Embeddings {
@@ -152,7 +152,7 @@ func (c *CollectionImpl) Upsert(ctx context.Context, opts ...CollectionAddOption
 	if err != nil {
 		return err
 	}
-	err = c.client.Satisfies(upsertObject, len(upsertObject.Ids), "documents")
+	err = c.client.satisfies(upsertObject, len(upsertObject.Ids), "documents")
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func (c *CollectionImpl) Upsert(ctx context.Context, opts ...CollectionAddOption
 	if err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
-	if sbe, ok := c.client.GetPreFlightConditionsRaw()["supports_base64_encoding"]; ok {
+	if sbe, ok := c.client.getPreFlightConditionsRaw()["supports_base64_encoding"]; ok {
 		if supportsBase64, ok := sbe.(bool); ok && supportsBase64 {
 			packedEmbeddings := make([]any, 0)
 			for _, e := range upsertObject.Embeddings {
@@ -202,7 +202,7 @@ func (c *CollectionImpl) Update(ctx context.Context, opts ...CollectionUpdateOpt
 	if err != nil {
 		return err
 	}
-	err = c.client.Satisfies(updateObject, len(updateObject.Ids), "documents")
+	err = c.client.satisfies(updateObject, len(updateObject.Ids), "documents")
 	if err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func (c *CollectionImpl) Update(ctx context.Context, opts ...CollectionUpdateOpt
 	if err != nil {
 		return errors.Wrap(err, "failed to embed data")
 	}
-	if sbe, ok := c.client.GetPreFlightConditionsRaw()["supports_base64_encoding"]; ok {
+	if sbe, ok := c.client.getPreFlightConditionsRaw()["supports_base64_encoding"]; ok {
 		if supportsBase64, ok := sbe.(bool); ok && supportsBase64 {
 			packedEmbeddings := make([]any, 0)
 			for _, e := range updateObject.Embeddings {
@@ -252,7 +252,7 @@ func (c *CollectionImpl) Delete(ctx context.Context, opts ...CollectionDeleteOpt
 	if err != nil {
 		return err
 	}
-	err = c.client.Satisfies(deleteObject, len(deleteObject.Ids), "documents")
+	err = c.client.satisfies(deleteObject, len(deleteObject.Ids), "documents")
 	if err != nil {
 		return err
 	}

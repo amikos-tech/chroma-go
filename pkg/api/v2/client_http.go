@@ -23,7 +23,7 @@ type APIClientV2 struct {
 	preflightConditionsRaw map[string]interface{}
 	preflightLimits        map[string]interface{}
 	preflightCompleted     bool
-	preflightMu            sync.Mutex
+	preflightMu            sync.RWMutex
 	collectionCache        map[string]Collection
 	collectionMu           sync.RWMutex
 }
@@ -602,12 +602,21 @@ func (client *APIClientV2) CurrentDatabase() Database {
 	return client.Database()
 }
 
-func (client *APIClientV2) GetPreFlightConditionsRaw() map[string]interface{} {
-	return client.preflightConditionsRaw
+func (client *APIClientV2) getPreFlightConditionsRaw() map[string]interface{} {
+	client.preflightMu.RLock()
+	defer client.preflightMu.RUnlock()
+
+	cp := make(map[string]interface{}, len(client.preflightConditionsRaw))
+	for k, v := range client.preflightConditionsRaw {
+		cp[k] = v
+	}
+	return cp
 }
 
-func (client *APIClientV2) Satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error {
+func (client *APIClientV2) satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error {
+	client.preflightMu.RLock()
 	m, ok := client.preflightLimits[fmt.Sprintf("%s#%s", string(resourceOperation.Resource()), string(resourceOperation.Operation()))]
+	client.preflightMu.RUnlock()
 	if !ok {
 		return nil
 	}

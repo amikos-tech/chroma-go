@@ -30,7 +30,7 @@ type localClientState interface {
 	CurrentTenant() Tenant
 	CurrentDatabase() Database
 	SetTenantAndDatabase(tenant Tenant, database Database)
-	Satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error
+	satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error
 	localSetPreflightLimit(maxBatchSize int)
 	localCollectionByName(name string) Collection
 	localAddCollectionToCache(collection Collection)
@@ -882,7 +882,7 @@ func (c *embeddedCollection) executeEmbeddedWrite(
 	if err := c.client.PreFlight(ctx); err != nil {
 		return errors.Wrap(err, "preflight failed")
 	}
-	if err := c.client.state.Satisfies(op, len(ids), "documents"); err != nil {
+	if err := c.client.state.satisfies(op, len(ids), "documents"); err != nil {
 		return errors.Wrap(err, "failed to satisfy operation")
 	}
 	if err := op.EmbedData(ctx, c.embeddingFunctionSnapshot()); err != nil {
@@ -972,7 +972,7 @@ func (c *embeddedCollection) Delete(ctx context.Context, opts ...CollectionDelet
 	if err := deleteObject.PrepareAndValidate(); err != nil {
 		return errors.Wrap(err, "failed to validate delete operation")
 	}
-	if err := c.client.state.Satisfies(deleteObject, len(deleteObject.Ids), "documents"); err != nil {
+	if err := c.client.state.satisfies(deleteObject, len(deleteObject.Ids), "documents"); err != nil {
 		return errors.Wrap(err, "failed to satisfy delete operation")
 	}
 

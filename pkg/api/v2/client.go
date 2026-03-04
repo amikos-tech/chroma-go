@@ -753,6 +753,11 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 			return errors.New("WithHTTPClient cannot be combined with WithTransport, WithSSLCert, or WithInsecure")
 		}
 		c.httpClient = httpClient
+		if transport, ok := httpClient.Transport.(*http.Transport); ok {
+			c.httpTransport = transport
+		} else {
+			c.httpTransport = nil
+		}
 		c.usesHTTPClient = true
 		return nil
 	}
@@ -1147,11 +1152,4 @@ const (
 type ResourceOperation interface {
 	Resource() Resource
 	Operation() OperationType
-}
-
-type PreFlightConditioner interface {
-	// GetPreFlightConditionsRaw returns the raw preflight response.
-	GetPreFlightConditionsRaw() map[string]interface{}
-	// Satisfies evaluates the resource type and a given metric to determine if the preflight condition applies.
-	Satisfies(resourceOperation ResourceOperation, metric interface{}, metricName string) error
 }
