@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -111,6 +112,13 @@ func testDefaultEFDeps() defaultEFDeps {
 			return nil
 		},
 	}
+}
+
+func TestNewDefaultEmbeddingFunctionWithDepsRejectsMissingDependencies(t *testing.T) {
+	_, _, err := newDefaultEmbeddingFunctionWithDeps(testDefaultEFConfig(), defaultEFDeps{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid default embedding function dependencies")
+	require.Contains(t, err.Error(), "ensureOnnxRuntimeSharedLibrary dependency is nil")
 }
 
 func Test_Default_EF(t *testing.T) {
@@ -512,6 +520,28 @@ func TestOptionFailureSkipsEmbedderCloseWhenOptionNilOutEmbedder(t *testing.T) {
 		t.Fatal("embedder close should not be called when option sets embedder to nil")
 	default:
 	}
+}
+
+func TestOptionFailureLeakedReferenceCloseDoesNotDestroyEnvironmentTwice(t *testing.T) {
+	deps := testDefaultEFDeps()
+
+	var destroyCalls int32
+	deps.destroyEnvironment = func() error {
+		atomic.AddInt32(&destroyCalls, 1)
+		return nil
+	}
+
+	leakedEF := (*DefaultEmbeddingFunction)(nil)
+	_, _, err := newDefaultEmbeddingFunctionWithDeps(testDefaultEFConfig(), deps, func(ef *DefaultEmbeddingFunction) error {
+		leakedEF = ef
+		return stderrors.New("option failed")
+	})
+	require.Error(t, err)
+	require.NotNil(t, leakedEF)
+
+	require.NoError(t, leakedEF.Close())
+	require.NoError(t, leakedEF.Close())
+	require.Equal(t, int32(1), atomic.LoadInt32(&destroyCalls))
 }
 
 func TestConcurrentInitCloseUse(t *testing.T) {

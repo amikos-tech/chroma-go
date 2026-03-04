@@ -55,25 +55,23 @@ func realDefaultEFDeps() defaultEFDeps {
 	}
 }
 
-func (d defaultEFDeps) withDefaults() defaultEFDeps {
+func (d defaultEFDeps) validate() error {
 	if d.ensureOnnxRuntimeSharedLibrary == nil {
-		d.ensureOnnxRuntimeSharedLibrary = EnsureOnnxRuntimeSharedLibrary
+		return stderrors.New("ensureOnnxRuntimeSharedLibrary dependency is nil")
 	}
 	if d.ensureDefaultEmbeddingModel == nil {
-		d.ensureDefaultEmbeddingModel = EnsureDefaultEmbeddingFunctionModel
+		return stderrors.New("ensureDefaultEmbeddingModel dependency is nil")
 	}
 	if d.initializeEnvironmentWithBootstrap == nil {
-		d.initializeEnvironmentWithBootstrap = ort.InitializeEnvironmentWithBootstrap
+		return stderrors.New("initializeEnvironmentWithBootstrap dependency is nil")
 	}
 	if d.newEmbedder == nil {
-		d.newEmbedder = func(modelPath, tokenizerPath string, opts ...minilm.Option) (defaultEFEmbedder, error) {
-			return minilm.NewEmbedder(modelPath, tokenizerPath, opts...)
-		}
+		return stderrors.New("newEmbedder dependency is nil")
 	}
 	if d.destroyEnvironment == nil {
-		d.destroyEnvironment = ort.DestroyEnvironment
+		return stderrors.New("destroyEnvironment dependency is nil")
 	}
-	return d
+	return nil
 }
 
 func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
@@ -81,7 +79,9 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 }
 
 func newDefaultEmbeddingFunctionWithDeps(cfg *Config, deps defaultEFDeps, opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
-	deps = deps.withDefaults()
+	if err := deps.validate(); err != nil {
+		return nil, nil, errors.Wrap(err, "invalid default embedding function dependencies")
+	}
 
 	if err := deps.ensureOnnxRuntimeSharedLibrary(); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to ensure onnx runtime shared library")
@@ -129,6 +129,9 @@ func newDefaultEmbeddingFunctionWithDeps(cfg *Config, deps defaultEFDeps, opts .
 	for _, opt := range opts {
 		if err := opt(ef); err != nil {
 			optionErr := errors.Wrap(err, "failed to apply default embedding function option")
+			atomic.StoreInt32(&ef.closed, 1)
+			// Consume closeOnce so a stale leaked reference cannot run cleanup again.
+			ef.closeOnce.Do(func() {})
 			var cleanupErrs []error
 			if ef.embedder != nil {
 				if closeErr := ef.embedder.Close(); closeErr != nil {
