@@ -224,11 +224,6 @@ func (e *DefaultEmbeddingFunction) Close() error {
 	initLock.Lock()
 	defer initLock.Unlock()
 
-	destroyEnvironment := e.destroyEnvironment
-	if destroyEnvironment == nil {
-		destroyEnvironment = ort.DestroyEnvironment
-	}
-
 	var closeErr error
 	e.closeOnce.Do(func() {
 		atomic.StoreInt32(&e.closed, 1)
@@ -242,8 +237,10 @@ func (e *DefaultEmbeddingFunction) Close() error {
 			e.embedder = nil
 		}
 
-		if err := destroyEnvironment(); err != nil {
-			errs = append(errs, errors.Wrap(err, "failed to destroy onnx runtime environment"))
+		if e.destroyEnvironment != nil {
+			if err := e.destroyEnvironment(); err != nil {
+				errs = append(errs, errors.Wrap(err, "failed to destroy onnx runtime environment"))
+			}
 		}
 
 		if len(errs) > 0 {
