@@ -273,7 +273,10 @@ func (e *DefaultEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric
 // NewDefaultEmbeddingFunctionFromConfig creates a default embedding function from a config map.
 // The returned EmbeddingFunction implements Closeable; callers should type-assert
 // and call Close() when done to release ONNX runtime and tokenizer resources.
+<<<<<<< HEAD
 //
+=======
+>>>>>>> 5bd0297 (chore(embeddings): fix lint and test-tag issues for ort alias)
 // Deprecated: Use [github.com/amikos-tech/chroma-go/pkg/embeddings/ort.NewDefaultEmbeddingFunctionFromConfig] instead.
 func NewDefaultEmbeddingFunctionFromConfig(_ embeddings.EmbeddingFunctionConfig) (*DefaultEmbeddingFunction, error) {
 	ef, _, err := NewDefaultEmbeddingFunction()

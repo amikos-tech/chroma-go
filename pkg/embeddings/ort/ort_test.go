@@ -1,12 +1,13 @@
+//go:build ef
+
 package ort
 
 import (
 	"testing"
 
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
 func TestNewOrtEmbeddingFunctionResolves(t *testing.T) {
@@ -14,7 +15,9 @@ func TestNewOrtEmbeddingFunctionResolves(t *testing.T) {
 	if err != nil {
 		t.Skipf("ORT embedding function unavailable in this environment: %v", err)
 	}
-	defer closeEF()
+	defer func() {
+		require.NoError(t, closeEF())
+	}()
 
 	assert.Equal(t, "default", ef.Name())
 }
@@ -34,4 +37,3 @@ func TestBuildDenseAliasesForOrt(t *testing.T) {
 		})
 	}
 }
-

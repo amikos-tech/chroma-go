@@ -76,7 +76,7 @@ func main() {
 }
 ```
 
-The legacy package path `github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef` is still supported for compatibility and remains mapped to the same implementation.
+The legacy package path `github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef` is still supported for compatibility and maps to the same implementation.
 
 ### ONNX Runtime Configuration
 

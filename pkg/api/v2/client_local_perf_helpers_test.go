@@ -838,7 +838,7 @@ func perfRunSyntheticScenario(cfg perfRuntimeConfig, thresholds perfThresholds, 
 
 	createOptions := []CreateCollectionOption{}
 	if scenario.UseDefaultEF {
-			ef, closeFunc, efErr := ort.NewDefaultEmbeddingFunction()
+		ef, closeFunc, efErr := ort.NewDefaultEmbeddingFunction()
 		if efErr != nil {
 			return perfSummary{}, errors.Wrap(efErr, "failed to create default embedding function")
 		}

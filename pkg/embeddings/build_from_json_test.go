@@ -372,6 +372,7 @@ func TestAllRegisteredProvidersHaveFactories(t *testing.T) {
 		"ollama",
 		"cloudflare_workers_ai",
 		"default",            // Primary name (matches Python client)
+		"ort",               // Canonical package-facing alias
 		"onnx_mini_lm_l6_v2", // Alias for backward compatibility
 	}
 

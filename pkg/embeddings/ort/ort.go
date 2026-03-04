@@ -1,8 +1,10 @@
 package ort
 
+// Package ort exposes the canonical ONNX runtime embedding function package path.
+
 import (
+	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef" //nolint:staticcheck
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
 )
 
 // Option configures the ONNX runtime embedding function.
@@ -21,8 +23,7 @@ func NewDefaultEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfi
 	return defaultef.NewDefaultEmbeddingFunctionFromConfig(cfg)
 }
 
-// NewOrtEmbeddingFunction is the canonical constructor in this package.
+// NewOrtEmbeddingFunction is an alias for NewDefaultEmbeddingFunction.
 func NewOrtEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
 	return NewDefaultEmbeddingFunction(opts...)
 }
-
