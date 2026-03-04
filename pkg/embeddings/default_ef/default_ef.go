@@ -35,6 +35,7 @@ var (
 	ensureDefaultEmbeddingModelFn        = EnsureDefaultEmbeddingFunctionModel
 	initializeEnvironmentWithBootstrapFn = ort.InitializeEnvironmentWithBootstrap
 	newEmbedderFn                        = minilm.NewEmbedder
+	closeEmbedderFn                      = func(e *minilm.Embedder) error { return e.Close() }
 	destroyEnvironmentFn                 = ort.DestroyEnvironment
 )
 
@@ -86,7 +87,7 @@ func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, fun
 			optionErr := errors.Wrap(err, "failed to apply default embedding function option")
 			var cleanupErrs []error
 			if ef.embedder != nil {
-				if closeErr := ef.embedder.Close(); closeErr != nil {
+				if closeErr := closeEmbedderFn(ef.embedder); closeErr != nil {
 					cleanupErrs = append(cleanupErrs, errors.Wrap(closeErr, "failed to close embedder after option error"))
 				}
 				ef.embedder = nil

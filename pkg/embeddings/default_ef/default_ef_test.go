@@ -15,6 +15,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testEventuallyTimeout = 2 * time.Second
+	testEventuallyTick    = 10 * time.Millisecond
+)
+
+func requireEventuallySignal(t *testing.T, ch <-chan struct{}, msg string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		select {
+		case <-ch:
+			return true
+		default:
+			return false
+		}
+	}, testEventuallyTimeout, testEventuallyTick, msg)
+}
+
+func requireEventuallyError(t *testing.T, ch <-chan error, msg string) error {
+	t.Helper()
+	var (
+		got bool
+		err error
+	)
+	require.Eventually(t, func() bool {
+		if got {
+			return true
+		}
+		select {
+		case err = <-ch:
+			got = true
+			return true
+		default:
+			return false
+		}
+	}, testEventuallyTimeout, testEventuallyTick, msg)
+	return err
+}
+
 func resetDefaultEFInitHooksForTesting(t *testing.T) {
 	t.Helper()
 	lockDefaultEFTestHooks(t)
@@ -23,6 +61,7 @@ func resetDefaultEFInitHooksForTesting(t *testing.T) {
 	origEnsureModel := ensureDefaultEmbeddingModelFn
 	origInitEnv := initializeEnvironmentWithBootstrapFn
 	origNewEmbedder := newEmbedderFn
+	origCloseEmbedder := closeEmbedderFn
 	origDestroyEnv := destroyEnvironmentFn
 
 	t.Cleanup(func() {
@@ -30,6 +69,7 @@ func resetDefaultEFInitHooksForTesting(t *testing.T) {
 		ensureDefaultEmbeddingModelFn = origEnsureModel
 		initializeEnvironmentWithBootstrapFn = origInitEnv
 		newEmbedderFn = origNewEmbedder
+		closeEmbedderFn = origCloseEmbedder
 		destroyEnvironmentFn = origDestroyEnv
 	})
 }
@@ -213,33 +253,20 @@ func TestConcurrentInitModelEnsureDoesNotBlockClose(t *testing.T) {
 		initDone <- err
 	}()
 
-	select {
-	case <-modelEnsureStarted:
-	case <-time.After(2 * time.Second):
-		t.Fatal("initializer did not enter model ensure stage")
-	}
+	requireEventuallySignal(t, modelEnsureStarted, "initializer did not enter model ensure stage")
 
 	closeDone := make(chan error, 1)
 	go func() {
 		closeDone <- (&DefaultEmbeddingFunction{}).Close()
 	}()
 
-	select {
-	case err := <-closeDone:
-		require.NoError(t, err)
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("close blocked while another initializer was waiting on model ensure")
-	}
+	require.NoError(t, requireEventuallyError(t, closeDone, "close blocked while another initializer was waiting on model ensure"))
 
 	close(releaseModelEnsure)
 
-	select {
-	case err := <-initDone:
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to ensure default embedding function model")
-	case <-time.After(2 * time.Second):
-		t.Fatal("initializer did not unblock after model ensure release")
-	}
+	initErr := requireEventuallyError(t, initDone, "initializer did not unblock after model ensure release")
+	require.Error(t, initErr)
+	require.Contains(t, initErr.Error(), "failed to ensure default embedding function model")
 }
 
 func TestConcurrentInitOnnxEnsureDoesNotBlockClose(t *testing.T) {
@@ -274,33 +301,20 @@ func TestConcurrentInitOnnxEnsureDoesNotBlockClose(t *testing.T) {
 		initDone <- err
 	}()
 
-	select {
-	case <-onnxEnsureStarted:
-	case <-time.After(2 * time.Second):
-		t.Fatal("initializer did not enter onnx ensure stage")
-	}
+	requireEventuallySignal(t, onnxEnsureStarted, "initializer did not enter onnx ensure stage")
 
 	closeDone := make(chan error, 1)
 	go func() {
 		closeDone <- (&DefaultEmbeddingFunction{}).Close()
 	}()
 
-	select {
-	case err := <-closeDone:
-		require.NoError(t, err)
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("close blocked while another initializer was waiting on onnx ensure")
-	}
+	require.NoError(t, requireEventuallyError(t, closeDone, "close blocked while another initializer was waiting on onnx ensure"))
 
 	close(releaseOnnxEnsure)
 
-	select {
-	case err := <-initDone:
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to ensure onnx runtime shared library")
-	case <-time.After(2 * time.Second):
-		t.Fatal("initializer did not unblock after onnx ensure release")
-	}
+	initErr := requireEventuallyError(t, initDone, "initializer did not unblock after onnx ensure release")
+	require.Error(t, initErr)
+	require.Contains(t, initErr.Error(), "failed to ensure onnx runtime shared library")
 
 	select {
 	case <-modelEnsureCalled:
@@ -322,7 +336,10 @@ func TestOptionFailureCleanupAggregatesDestroyError(t *testing.T) {
 		return nil
 	}
 	newEmbedderFn = func(string, string, ...minilm.Option) (*minilm.Embedder, error) {
-		return nil, nil
+		return &minilm.Embedder{}, nil
+	}
+	closeEmbedderFn = func(*minilm.Embedder) error {
+		return nil
 	}
 	destroyEnvironmentFn = func() error {
 		return stderrors.New("destroy failed")
@@ -336,14 +353,10 @@ func TestOptionFailureCleanupAggregatesDestroyError(t *testing.T) {
 		done <- err
 	}()
 
-	select {
-	case err := <-done:
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to apply default embedding function option")
-		require.Contains(t, err.Error(), "failed to destroy onnx runtime environment after option error")
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("option failure path deadlocked")
-	}
+	err := requireEventuallyError(t, done, "option failure path deadlocked")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to apply default embedding function option")
+	require.Contains(t, err.Error(), "failed to destroy onnx runtime environment after option error")
 }
 
 func TestEmbedderCreationFailureAggregatesDestroyError(t *testing.T) {
@@ -369,6 +382,99 @@ func TestEmbedderCreationFailureAggregatesDestroyError(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to create ONNX embedder")
 	require.Contains(t, err.Error(), "failed to destroy onnx runtime environment after embedder setup error")
+}
+
+func TestOptionFailureCleanupAggregatesCloseError(t *testing.T) {
+	resetDefaultEFInitHooksForTesting(t)
+
+	ensureOnnxRuntimeSharedLibraryFn = func() error {
+		return nil
+	}
+	ensureDefaultEmbeddingModelFn = func() error {
+		return nil
+	}
+	initializeEnvironmentWithBootstrapFn = func(...ort.BootstrapOption) error {
+		return nil
+	}
+	newEmbedderFn = func(string, string, ...minilm.Option) (*minilm.Embedder, error) {
+		return &minilm.Embedder{}, nil
+	}
+	closeEmbedderFn = func(*minilm.Embedder) error {
+		return stderrors.New("close failed")
+	}
+	destroyEnvironmentFn = func() error {
+		return nil
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := NewDefaultEmbeddingFunction(func(*DefaultEmbeddingFunction) error {
+			return stderrors.New("option failed")
+		})
+		done <- err
+	}()
+
+	err := requireEventuallyError(t, done, "option failure close-error path deadlocked")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to apply default embedding function option")
+	require.Contains(t, err.Error(), "failed to close embedder after option error")
+	require.NotContains(t, err.Error(), "failed to destroy onnx runtime environment after option error")
+}
+
+func TestOptionFailureReturnsOnlyOptionErrorWhenCleanupSucceeds(t *testing.T) {
+	resetDefaultEFInitHooksForTesting(t)
+
+	ensureOnnxRuntimeSharedLibraryFn = func() error {
+		return nil
+	}
+	ensureDefaultEmbeddingModelFn = func() error {
+		return nil
+	}
+	initializeEnvironmentWithBootstrapFn = func(...ort.BootstrapOption) error {
+		return nil
+	}
+	newEmbedderFn = func(string, string, ...minilm.Option) (*minilm.Embedder, error) {
+		return &minilm.Embedder{}, nil
+	}
+	closeEmbedderFn = func(*minilm.Embedder) error {
+		return nil
+	}
+	destroyEnvironmentFn = func() error {
+		return nil
+	}
+
+	_, _, err := NewDefaultEmbeddingFunction(func(*DefaultEmbeddingFunction) error {
+		return stderrors.New("option failed")
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to apply default embedding function option")
+	require.NotContains(t, err.Error(), "failed to close embedder after option error")
+	require.NotContains(t, err.Error(), "failed to destroy onnx runtime environment after option error")
+}
+
+func TestEmbedderCreationFailureReturnsOnlyEmbedderErrorWhenDestroySucceeds(t *testing.T) {
+	resetDefaultEFInitHooksForTesting(t)
+
+	ensureOnnxRuntimeSharedLibraryFn = func() error {
+		return nil
+	}
+	ensureDefaultEmbeddingModelFn = func() error {
+		return nil
+	}
+	initializeEnvironmentWithBootstrapFn = func(...ort.BootstrapOption) error {
+		return nil
+	}
+	newEmbedderFn = func(string, string, ...minilm.Option) (*minilm.Embedder, error) {
+		return nil, stderrors.New("embedder setup failed")
+	}
+	destroyEnvironmentFn = func() error {
+		return nil
+	}
+
+	_, _, err := NewDefaultEmbeddingFunction()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create ONNX embedder")
+	require.NotContains(t, err.Error(), "failed to destroy onnx runtime environment after embedder setup error")
 }
 
 func TestConcurrentInitCloseUse(t *testing.T) {
