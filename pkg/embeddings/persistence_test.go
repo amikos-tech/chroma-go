@@ -452,6 +452,7 @@ func TestAllRegisteredEFsHaveFactories(t *testing.T) {
 		"chroma_cloud",
 		"amazon_bedrock",
 		"default",            // Primary name (matches Python client)
+		"ort",               // Canonical package-facing alias
 		"onnx_mini_lm_l6_v2", // Alias for backward compatibility
 	}
 

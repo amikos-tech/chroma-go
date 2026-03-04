@@ -49,11 +49,11 @@ import (
 	"context"
 	"fmt"
 
-	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
+	ort "github.com/amikos-tech/chroma-go/pkg/embeddings/ort"
 )
 
 func main() {
-	ef, closeef, efErr := defaultef.NewDefaultEmbeddingFunction()
+	ef, closeef, efErr := ort.NewDefaultEmbeddingFunction()
 
 	// make sure to call this to ensure proper resource release
 	defer func() {
@@ -63,7 +63,7 @@ func main() {
 		}
 	}()
 	if efErr != nil {
-		fmt.Printf("Error creating OpenAI embedding function: %s \n", efErr)
+		fmt.Printf("Error creating default embedding function: %s \n", efErr)
 	}
 	documents := []string{
 		"Document 1 content here",
@@ -75,6 +75,8 @@ func main() {
 	fmt.Printf("Embedding response: %v \n", resp)
 }
 ```
+
+The legacy package path `github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef` is still supported for compatibility and remains mapped to the same implementation.
 
 ### ONNX Runtime Configuration
 

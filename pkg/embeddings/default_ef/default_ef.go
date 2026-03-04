@@ -1,3 +1,6 @@
+// Package defaultef exposes the legacy default ONNX embedding function package path.
+//
+// Deprecated: Use github.com/amikos-tech/chroma-go/pkg/embeddings/ort instead.
 package defaultef
 
 import (
@@ -38,18 +41,18 @@ type DefaultEmbeddingFunction struct {
 var initLock sync.RWMutex
 
 type defaultEFDeps struct {
-	ensureOnnxRuntimeSharedLibrary     func() error
-	ensureDefaultEmbeddingModel        func() error
-	initializeEnvironmentWithBootstrap func(...ort.BootstrapOption) error
-	newEmbedder                        func(modelPath, tokenizerPath string, opts ...minilm.Option) (defaultEFEmbedder, error)
-	destroyEnvironment                 func() error
+	ensureOnnxRuntimeSharedLibrary      func() error
+	ensureDefaultEmbeddingFunctionModel func() error
+	initializeEnvironmentWithBootstrap   func(...ort.BootstrapOption) error
+	newEmbedder                         func(modelPath, tokenizerPath string, opts ...minilm.Option) (defaultEFEmbedder, error)
+	destroyEnvironment                  func() error
 }
 
 func realDefaultEFDeps() defaultEFDeps {
 	return defaultEFDeps{
-		ensureOnnxRuntimeSharedLibrary:     EnsureOnnxRuntimeSharedLibrary,
-		ensureDefaultEmbeddingModel:        EnsureDefaultEmbeddingFunctionModel,
-		initializeEnvironmentWithBootstrap: ort.InitializeEnvironmentWithBootstrap,
+		ensureOnnxRuntimeSharedLibrary:      EnsureOnnxRuntimeSharedLibrary,
+		ensureDefaultEmbeddingFunctionModel: EnsureDefaultEmbeddingFunctionModel,
+		initializeEnvironmentWithBootstrap:  ort.InitializeEnvironmentWithBootstrap,
 		newEmbedder: func(modelPath, tokenizerPath string, opts ...minilm.Option) (defaultEFEmbedder, error) {
 			return minilm.NewEmbedder(modelPath, tokenizerPath, opts...)
 		},
@@ -61,8 +64,8 @@ func (d defaultEFDeps) validate() error {
 	if d.ensureOnnxRuntimeSharedLibrary == nil {
 		return stderrors.New("ensureOnnxRuntimeSharedLibrary dependency is nil")
 	}
-	if d.ensureDefaultEmbeddingModel == nil {
-		return stderrors.New("ensureDefaultEmbeddingModel dependency is nil")
+	if d.ensureDefaultEmbeddingFunctionModel == nil {
+		return stderrors.New("ensureDefaultEmbeddingFunctionModel dependency is nil")
 	}
 	if d.initializeEnvironmentWithBootstrap == nil {
 		return stderrors.New("initializeEnvironmentWithBootstrap dependency is nil")
@@ -76,6 +79,7 @@ func (d defaultEFDeps) validate() error {
 	return nil
 }
 
+// Deprecated: Use [github.com/amikos-tech/chroma-go/pkg/embeddings/ort.NewDefaultEmbeddingFunction] instead.
 func NewDefaultEmbeddingFunction(opts ...Option) (*DefaultEmbeddingFunction, func() error, error) {
 	return newDefaultEmbeddingFunctionWithDeps(getConfig(), realDefaultEFDeps(), opts...)
 }
@@ -91,7 +95,7 @@ func newDefaultEmbeddingFunctionWithDeps(cfg *Config, deps defaultEFDeps, opts .
 	if err := deps.ensureOnnxRuntimeSharedLibrary(); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to ensure onnx runtime shared library")
 	}
-	if err := deps.ensureDefaultEmbeddingModel(); err != nil {
+	if err := deps.ensureDefaultEmbeddingFunctionModel(); err != nil {
 		return nil, nil, errors.Wrap(err, "failed to ensure default embedding function model")
 	}
 
@@ -269,6 +273,8 @@ func (e *DefaultEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric
 // NewDefaultEmbeddingFunctionFromConfig creates a default embedding function from a config map.
 // The returned EmbeddingFunction implements Closeable; callers should type-assert
 // and call Close() when done to release ONNX runtime and tokenizer resources.
+//
+// Deprecated: Use [github.com/amikos-tech/chroma-go/pkg/embeddings/ort.NewDefaultEmbeddingFunctionFromConfig] instead.
 func NewDefaultEmbeddingFunctionFromConfig(_ embeddings.EmbeddingFunctionConfig) (*DefaultEmbeddingFunction, error) {
 	ef, _, err := NewDefaultEmbeddingFunction()
 	return ef, err
@@ -280,6 +286,10 @@ func init() {
 	}
 	// Register as "default" to match Python client naming
 	if err := embeddings.RegisterDense("default", factory); err != nil {
+		panic(err)
+	}
+	// Register alias for the renamed Go package
+	if err := embeddings.RegisterDense("ort", factory); err != nil {
 		panic(err)
 	}
 	// Register alias for backward compatibility with existing Go-created collections

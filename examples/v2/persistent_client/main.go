@@ -7,7 +7,7 @@ import (
 	"log"
 
 	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
-	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
+	ort "github.com/amikos-tech/chroma-go/pkg/embeddings/ort"
 )
 
 const (
@@ -37,7 +37,7 @@ func run() error {
 		}
 	}()
 
-	embeddingFunction, closeEF, err := defaultef.NewDefaultEmbeddingFunction()
+	embeddingFunction, closeEF, err := ort.NewDefaultEmbeddingFunction()
 	if err != nil {
 		return fmt.Errorf("error creating default embedding function: %w", err)
 	}

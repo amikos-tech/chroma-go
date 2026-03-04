@@ -10,7 +10,7 @@ Embeddings are vector representations of data that enable similarity search. Chr
 
 | Provider | Package | Import Path |
 |----------|---------|-------------|
-| Default (ONNX) | `default_ef` | `github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef` |
+| Default (ONNX) | `ort` | `github.com/amikos-tech/chroma-go/pkg/embeddings/ort` |
 | OpenAI | `openai` | `github.com/amikos-tech/chroma-go/pkg/embeddings/openai` |
 | Cohere | `cohere` | `github.com/amikos-tech/chroma-go/pkg/embeddings/cohere` |
 | HuggingFace TEI | `hf` | `github.com/amikos-tech/chroma-go/pkg/embeddings/hf` |
@@ -28,6 +28,8 @@ Embeddings are vector representations of data that enable similarity search. Chr
 ## Default Embedding Function
 
 The default embedding function uses a local ONNX model.
+
+The legacy Go package `github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef` remains for backward compatibility, but new code should use `github.com/amikos-tech/chroma-go/pkg/embeddings/ort`.
 
 {% codetabs group="lang" %}
 {% codetab label="Python" %}

@@ -18,7 +18,7 @@ import (
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloudsplade"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/cloudflare"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/cohere"
-	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
+	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/ort"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/gemini"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/hf"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/jina"

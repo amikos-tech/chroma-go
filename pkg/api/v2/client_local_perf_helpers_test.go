@@ -23,7 +23,7 @@ import (
 	"github.com/pkg/errors"
 
 	embeddingspkg "github.com/amikos-tech/chroma-go/pkg/embeddings"
-	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
+	ort "github.com/amikos-tech/chroma-go/pkg/embeddings/ort"
 )
 
 const (
@@ -838,7 +838,7 @@ func perfRunSyntheticScenario(cfg perfRuntimeConfig, thresholds perfThresholds, 
 
 	createOptions := []CreateCollectionOption{}
 	if scenario.UseDefaultEF {
-		ef, closeFunc, efErr := defaultef.NewDefaultEmbeddingFunction()
+			ef, closeFunc, efErr := ort.NewDefaultEmbeddingFunction()
 		if efErr != nil {
 			return perfSummary{}, errors.Wrap(efErr, "failed to create default embedding function")
 		}
