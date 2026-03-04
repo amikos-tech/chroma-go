@@ -21,6 +21,8 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
+var zeroValueBaseClientScopeMu sync.RWMutex
+
 type Client interface {
 	PreFlight(ctx context.Context) error
 	// Heartbeat checks if the chroma instance is alive.
@@ -643,6 +645,7 @@ func NewCountCollectionsOp(opts ...CountCollectionsOption) (*CountCollectionsOp,
 // BaseAPIClient holds shared client transport/configuration state.
 // scopeMu protects tenant and database from concurrent access and is set by newBaseAPIClient.
 // defaultHeaders must not be mutated after newBaseAPIClient returns; no lock is needed to read it.
+// Zero-value BaseAPIClient instances share a package-level fallback mutex.
 type BaseAPIClient struct {
 	httpClient      *http.Client
 	baseURL         string
@@ -1018,8 +1021,7 @@ func (bc *BaseAPIClient) scopeMutex() *sync.RWMutex {
 	if bc.scopeMu != nil {
 		return bc.scopeMu
 	}
-	bc.scopeMu = &sync.RWMutex{}
-	return bc.scopeMu
+	return &zeroValueBaseClientScopeMu
 }
 
 func normalizeTenantAndDatabase(tenant Tenant, database Database) (Tenant, Database) {
