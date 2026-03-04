@@ -641,7 +641,8 @@ func NewCountCollectionsOp(opts ...CountCollectionsOption) (*CountCollectionsOp,
 }
 
 // BaseAPIClient holds shared client transport/configuration state.
-// scopeMu protects tenant, database, and defaultHeaders from concurrent access.
+// scopeMu protects tenant and database from concurrent access.
+// defaultHeaders is immutable after construction; no lock is needed to read it.
 // It is always initialized by newBaseAPIClient; callers must not construct this struct directly.
 type BaseAPIClient struct {
 	httpClient      *http.Client
@@ -755,11 +756,9 @@ func WithDefaultHeaders(headers map[string]string) ClientOption {
 		if headers == nil {
 			return errors.New("headers cannot be nil")
 		}
-		c.scopeMu.Lock()
 		for k, v := range headers {
 			c.defaultHeaders[k] = v
 		}
-		c.scopeMu.Unlock()
 		return nil
 	}
 }
@@ -908,7 +907,7 @@ func (bc *BaseAPIClient) BaseURL() string {
 func (bc *BaseAPIClient) prepareRequest(httpReq *http.Request) error {
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Content-Type", "application/json")
-	for k, v := range bc.DefaultHeaders() {
+	for k, v := range bc.defaultHeaders {
 		httpReq.Header.Set(k, v)
 	}
 	if bc.logger.IsDebugEnabled() {
@@ -1017,10 +1016,9 @@ func (bc *BaseAPIClient) TenantAndDatabase() (Tenant, Database) {
 	return bc.tenant, bc.database
 }
 
-// DefaultHeaders returns a snapshot copy of the current default headers.
+// DefaultHeaders returns a copy of the default headers.
+// Headers are immutable after construction; the copy prevents callers from mutating internal state.
 func (bc *BaseAPIClient) DefaultHeaders() map[string]string {
-	bc.scopeMu.RLock()
-	defer bc.scopeMu.RUnlock()
 	cp := make(map[string]string, len(bc.defaultHeaders))
 	for k, v := range bc.defaultHeaders {
 		cp[k] = v
@@ -1039,10 +1037,8 @@ func (bc *BaseAPIClient) SetTenantAndDatabase(tenant Tenant, database Database) 
 	bc.database = database
 }
 
-// setDefaultHeader sets a single header under the write lock.
+// setDefaultHeader sets a single default header. Must only be called during construction.
 func (bc *BaseAPIClient) setDefaultHeader(key, value string) {
-	bc.scopeMu.Lock()
-	defer bc.scopeMu.Unlock()
 	bc.defaultHeaders[key] = value
 }
 
