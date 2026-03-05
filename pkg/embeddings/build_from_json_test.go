@@ -18,7 +18,7 @@ import (
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloudsplade"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/cloudflare"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/cohere"
-	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
+	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/ort"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/gemini"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/hf"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/jina"
@@ -372,6 +372,7 @@ func TestAllRegisteredProvidersHaveFactories(t *testing.T) {
 		"ollama",
 		"cloudflare_workers_ai",
 		"default",            // Primary name (matches Python client)
+		"ort",               // Canonical package-facing alias
 		"onnx_mini_lm_l6_v2", // Alias for backward compatibility
 	}
 

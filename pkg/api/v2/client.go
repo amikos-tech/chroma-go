@@ -17,7 +17,7 @@ import (
 
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	defaultef "github.com/amikos-tech/chroma-go/pkg/embeddings/default_ef"
+	ort "github.com/amikos-tech/chroma-go/pkg/embeddings/ort"
 	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
@@ -259,7 +259,11 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 		return errors.New("collection name cannot be empty")
 	}
 	if op.embeddingFunction == nil {
-		ef, _, err := defaultef.NewDefaultEmbeddingFunction()
+		// Keep the returned close function out of here: collection constructors own the
+		// embedding function lifecycle and will close it via collection.Close().
+		// The EF object is retained in op.embeddingFunction, so its Close() method
+		// remains reachable without storing the separate closer return value.
+		ef, _, err := ort.NewDefaultEmbeddingFunction()
 		if err != nil {
 			return errors.Wrap(err, "error creating default embedding function")
 		}
