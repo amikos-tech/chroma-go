@@ -386,6 +386,9 @@ func normalizeTag(raw string) (string, error) {
 	if !strings.HasPrefix(raw, "v") {
 		raw = "v" + raw
 	}
+	if raw == "v" {
+		return "", errors.New("version cannot be bare 'v'")
+	}
 	for _, r := range raw {
 		switch {
 		case r >= 'a' && r <= 'z':
@@ -476,7 +479,7 @@ func resolveLatestTokenizersVersion() (string, error) {
 	}
 	for _, item := range releases {
 		tag := strings.TrimSpace(item.TagName)
-		if strings.HasPrefix(strings.ToLower(tag), "rust-v") {
+		if strings.HasPrefix(tag, "rust-v") {
 			if _, err := semver.StrictNewVersion(strings.TrimPrefix(tag, "rust-v")); err != nil {
 				continue
 			}
@@ -963,6 +966,9 @@ func extractTarMember(archivePath, memberName, outPath string) error {
 		}
 		if filepath.Base(hdr.Name) != memberName {
 			continue
+		}
+		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != 0 {
+			return fmt.Errorf("tar member %q is not a regular file", memberName)
 		}
 		if hdr.Size < 0 || hdr.Size > maxArtifactBytes {
 			return fmt.Errorf("tar member %q has invalid size %d", memberName, hdr.Size)

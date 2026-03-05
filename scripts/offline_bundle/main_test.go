@@ -22,6 +22,7 @@ func TestNormalizeTag(t *testing.T) {
 	}{
 		{name: "adds-v-prefix", input: "1.2.3", want: "v1.2.3"},
 		{name: "keeps-v-prefix", input: "v1.2.3", want: "v1.2.3"},
+		{name: "rejects-bare-v", input: "v", wantErr: true},
 		{name: "rejects-devel", input: "(devel)", wantErr: true},
 		{name: "rejects-invalid-char", input: "v1.2.3/abc", wantErr: true},
 		{name: "rejects-empty", input: "", wantErr: true},
@@ -406,6 +407,19 @@ func TestExtractTarMemberMissing(t *testing.T) {
 	}
 }
 
+func TestExtractTarMemberRejectsSymlink(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	archivePath := filepath.Join(dir, "artifact.tar.gz")
+	createTarGzWithSymlink(t, archivePath, "nested/libtokenizers.so", "/tmp/target")
+
+	outPath := filepath.Join(dir, "out", "libtokenizers.so")
+	if err := extractTarMember(archivePath, "libtokenizers.so", outPath); err == nil {
+		t.Fatal("expected error for symlink member, got nil")
+	}
+}
+
 func createTarGz(t *testing.T, archivePath string, files map[string][]byte) {
 	t.Helper()
 
@@ -439,5 +453,30 @@ func createTarGz(t *testing.T, archivePath string, files map[string][]byte) {
 		if _, err := tw.Write(content); err != nil {
 			t.Fatalf("write content %s: %v", name, err)
 		}
+	}
+}
+
+func createTarGzWithSymlink(t *testing.T, archivePath, name, target string) {
+	t.Helper()
+
+	f, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatalf("create archive: %v", err)
+	}
+	defer f.Close()
+
+	gz := gzip.NewWriter(f)
+	defer gz.Close()
+	tw := tar.NewWriter(gz)
+	defer tw.Close()
+
+	header := &tar.Header{
+		Name:     name,
+		Mode:     0o777,
+		Typeflag: tar.TypeSymlink,
+		Linkname: target,
+	}
+	if err := tw.WriteHeader(header); err != nil {
+		t.Fatalf("write symlink header: %v", err)
 	}
 }
