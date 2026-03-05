@@ -261,8 +261,8 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 	if op.embeddingFunction == nil {
 		// Keep the returned close function out of here: collection constructors own the
 		// embedding function lifecycle and will close it via collection.Close().
-		// ONNX runtime and model resources use shared ref-counted handles, so this
-		// temporary constructor path does not leak by itself.
+		// The EF object is retained in op.embeddingFunction, so its Close() method
+		// remains reachable without storing the separate closer return value.
 		ef, _, err := ort.NewDefaultEmbeddingFunction()
 		if err != nil {
 			return errors.Wrap(err, "error creating default embedding function")
