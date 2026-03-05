@@ -99,7 +99,7 @@ func testDefaultEFDeps() defaultEFDeps {
 		ensureOnnxRuntimeSharedLibrary: func() error {
 			return nil
 		},
-		ensureDefaultEmbeddingModel: func() error {
+		ensureDefaultEmbeddingFunctionModel: func() error {
 			return nil
 		},
 		initializeEnvironmentWithBootstrap: func(...ort.BootstrapOption) error {
@@ -285,7 +285,7 @@ func TestConcurrentInitModelEnsureDoesNotBlockClose(t *testing.T) {
 	initDone := make(chan error, 1)
 
 	deps := testDefaultEFDeps()
-	deps.ensureDefaultEmbeddingModel = func() error {
+	deps.ensureDefaultEmbeddingFunctionModel = func() error {
 		close(modelEnsureStarted)
 		<-releaseModelEnsure
 		return stderrors.New("simulated model ensure stall")
@@ -329,7 +329,7 @@ func TestConcurrentInitOnnxEnsureDoesNotBlockClose(t *testing.T) {
 		<-releaseOnnxEnsure
 		return stderrors.New("simulated onnx ensure stall")
 	}
-	deps.ensureDefaultEmbeddingModel = func() error {
+	deps.ensureDefaultEmbeddingFunctionModel = func() error {
 		select {
 		case modelEnsureCalled <- struct{}{}:
 		default:
