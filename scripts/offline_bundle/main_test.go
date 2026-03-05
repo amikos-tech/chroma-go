@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -417,6 +418,28 @@ func TestExtractTarMemberRejectsSymlink(t *testing.T) {
 	outPath := filepath.Join(dir, "out", "libtokenizers.so")
 	if err := extractTarMember(archivePath, "libtokenizers.so", outPath); err == nil {
 		t.Fatal("expected error for symlink member, got nil")
+	}
+}
+
+func TestCopyDirRejectsSymlink(t *testing.T) {
+	t.Parallel()
+
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(src, "real.txt"), []byte("ok"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/etc/passwd", filepath.Join(src, "link.txt")); err != nil {
+		t.Fatal(err)
+	}
+
+	err := copyDir(src, filepath.Join(dst, "out"))
+	if err == nil {
+		t.Fatal("expected error for symlink in source directory, got nil")
+	}
+	if !strings.Contains(err.Error(), "symlink") {
+		t.Fatalf("expected symlink error, got: %v", err)
 	}
 }
 

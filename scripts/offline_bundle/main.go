@@ -1116,6 +1116,9 @@ func copyDir(src, dst string) error {
 		return err
 	}
 	for _, entry := range entries {
+		if entry.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("copyDir: refusing to follow symlink %q", filepath.Join(src, entry.Name()))
+		}
 		srcPath := filepath.Join(src, entry.Name())
 		dstPath := filepath.Join(dst, entry.Name())
 		if entry.IsDir() {
