@@ -157,6 +157,10 @@ func main() {
 2. `CHROMA_LIB_PATH`
 3. Auto-download from `chroma-go-local` GitHub releases (enabled by default)
 
+For offline or reproducible runs, use the [local runtime dependency setup docs](./offline-runtime-bundle.md) to provide `CHROMA_LIB_PATH`,
+`TOKENIZERS_LIB_PATH`, and `CHROMAGO_ONNX_RUNTIME_PATH` from local artifacts.
+For local preflight setup, run [`scripts/fetch_runtime_deps.sh`](../../scripts/fetch_runtime_deps.sh) and source the generated `runtime-env.sh`.
+
 ## Client version v0.1.4 or lower
 
 !!! warning "V1 API Deprecation Notice"

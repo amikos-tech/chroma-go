@@ -18,6 +18,11 @@ Override example:
 export CHROMA_LIB_PATH=/absolute/path/to/libchroma_go_shim.dylib
 ```
 
+## Offline Runtime Bundle
+
+For offline or air-gapped environments, use the runtime dependency bootstrap flow in [runtime setup docs](../../../../docs/docs/offline-runtime-bundle.md) and
+`./scripts/fetch_runtime_deps.sh` to fetch and cache required native artifacts before first run.
+
 ## Python vs Go Client
 
 {% codetabs group="lang" %}
