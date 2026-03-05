@@ -276,6 +276,8 @@ func (e *DefaultEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric
 //
 // Deprecated: Use [github.com/amikos-tech/chroma-go/pkg/embeddings/ort.NewDefaultEmbeddingFunctionFromConfig] instead.
 func NewDefaultEmbeddingFunctionFromConfig(_ embeddings.EmbeddingFunctionConfig) (*DefaultEmbeddingFunction, error) {
+	// Keep behavior aligned with NewDefaultEmbeddingFunction:
+	// the caller owns cleanup via ef.Close().
 	ef, _, err := NewDefaultEmbeddingFunction()
 	return ef, err
 }
