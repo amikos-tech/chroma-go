@@ -70,6 +70,15 @@ while (( "$#" > 0 )); do
 	esac
 done
 
+_fetch_ok=0
+cleanup_on_failure() {
+	if [ "${_fetch_ok}" -eq 0 ] && [ -d "${OUTPUT_DIR}" ]; then
+		echo "Cleaning up partial artifacts in ${OUTPUT_DIR}..." >&2
+		rm -rf "${OUTPUT_DIR}"
+	fi
+}
+trap cleanup_on_failure EXIT
+
 mkdir -p "${OUTPUT_DIR}"
 echo "Downloading runtime dependencies into ${OUTPUT_DIR}..."
 
@@ -83,12 +92,12 @@ go run "${SCRIPT_DIR}/offline_bundle" \
 	--tokenizers-version "${TOKENIZERS_VERSION}" \
 	--onnx-runtime-version "${ONNX_RUNTIME_VERSION}"
 
-if [ ! -f "${OUTPUT_DIR}/offline.env" ]; then
-	echo "expected ${OUTPUT_DIR}/offline.env after dependency generation" >&2
+if [ ! -f "${OUTPUT_DIR}/offline-env.sh" ]; then
+	echo "expected ${OUTPUT_DIR}/offline-env.sh after dependency generation" >&2
 	exit 1
 fi
 
-. "${OUTPUT_DIR}/offline.env"
+. "${OUTPUT_DIR}/offline-env.sh"
 echo "Step 2/3: Exporting runtime environment from generated offline env..."
 
 MODEL_SOURCE="${OUTPUT_DIR}/onnx-models/all-MiniLM-L6-v2/onnx"
@@ -96,11 +105,11 @@ RUNTIME_HOME="${CHROMA_OFFLINE_BUNDLE_HOME:-${OUTPUT_DIR}}"
 HOME_DIR="${HOME:-${USERPROFILE:-/tmp}}"
 MODEL_TARGET="${HOME_DIR}/.cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx"
 
-: "${CHROMA_LIB_PATH:?missing CHROMA_LIB_PATH in ${OUTPUT_DIR}/offline.env}"
-: "${TOKENIZERS_LIB_PATH:?missing TOKENIZERS_LIB_PATH in ${OUTPUT_DIR}/offline.env}"
-: "${CHROMAGO_ONNX_RUNTIME_PATH:?missing CHROMAGO_ONNX_RUNTIME_PATH in ${OUTPUT_DIR}/offline.env}"
-: "${TOKENIZERS_VERSION:?missing TOKENIZERS_VERSION in ${OUTPUT_DIR}/offline.env}"
-: "${CHROMAGO_ONNX_RUNTIME_VERSION:?missing CHROMAGO_ONNX_RUNTIME_VERSION in ${OUTPUT_DIR}/offline.env}"
+: "${CHROMA_LIB_PATH:?missing CHROMA_LIB_PATH in ${OUTPUT_DIR}/offline-env.sh}"
+: "${TOKENIZERS_LIB_PATH:?missing TOKENIZERS_LIB_PATH in ${OUTPUT_DIR}/offline-env.sh}"
+: "${CHROMAGO_ONNX_RUNTIME_PATH:?missing CHROMAGO_ONNX_RUNTIME_PATH in ${OUTPUT_DIR}/offline-env.sh}"
+: "${TOKENIZERS_VERSION:?missing TOKENIZERS_VERSION in ${OUTPUT_DIR}/offline-env.sh}"
+: "${CHROMAGO_ONNX_RUNTIME_VERSION:?missing CHROMAGO_ONNX_RUNTIME_VERSION in ${OUTPUT_DIR}/offline-env.sh}"
 
 mkdir -p "${MODEL_TARGET}"
 if [ -d "${MODEL_SOURCE}" ]; then
@@ -112,7 +121,9 @@ else
 fi
 
 quote_for_shell() {
-	printf "%q" "$1"
+	printf "'"
+	printf '%s' "$1" | sed "s/'/'\"\\'\"'/g"
+	printf "'"
 }
 
 {
@@ -125,6 +136,7 @@ quote_for_shell() {
 	printf "export CHROMAGO_ONNX_RUNTIME_VERSION=%s\n" "$(quote_for_shell "${CHROMAGO_ONNX_RUNTIME_VERSION}")"
 } > "${OUTPUT_DIR}/runtime-env.sh"
 
+_fetch_ok=1
 echo "Runtime deps ready."
 echo "To use them in your shell, run:"
 echo "  . ${OUTPUT_DIR}/runtime-env.sh"

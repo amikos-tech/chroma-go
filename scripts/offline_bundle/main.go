@@ -50,7 +50,7 @@ const (
 	onnxModelSubdir  = "onnx-models"
 	tokenizersSubdir = "tokenizers"
 	localShimSubdir  = "local-shim"
-	offlineEnvFile   = "offline.env"
+	offlineEnvFile   = "offline-env.sh"
 	offlineSetupSh   = "offline-setup.sh"
 	offlineSetupPs1  = "offline-setup.ps1"
 	manifestFile     = "manifest.json"
