@@ -7,7 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/amikos-tech/chroma-go-local v0.3.3
 	github.com/amikos-tech/pure-onnx v0.0.1
-	github.com/amikos-tech/pure-tokenizers v0.1.4
+	github.com/amikos-tech/pure-tokenizers v0.1.5
 	github.com/aws/aws-sdk-go-v2 v1.41.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.7
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.49.0
