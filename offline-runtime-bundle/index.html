@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://go-client.chromadb.dev/performance-testing/">
+        <link rel="canonical" href="https://go-client.chromadb.dev/offline-runtime-bundle/">
       
       
-        <link rel="prev" href="../offline-runtime-bundle/">
+        <link rel="prev" href="../logging/">
       
       
-        <link rel="next" href="../records/">
+        <link rel="next" href="../performance-testing/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Performance Testing - ChromaDB Go Client</title>
+        <title>Offline Runtime Dependencies - ChromaDB Go Client</title>
       
     
     
@@ -89,7 +89,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#performance-testing" class="md-skip">
+        <a href="#offline-runtime-dependencies" class="md-skip">
           Skip to content
         </a>
       
@@ -124,7 +124,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Performance Testing
+              Offline Runtime Dependencies
             
           </span>
         </div>
@@ -441,33 +441,6 @@
       
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../offline-runtime-bundle/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Offline Runtime Dependencies
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
     
   
   
@@ -487,7 +460,7 @@
   <span class="md-ellipsis">
     
   
-    Performance Testing
+    Offline Runtime Dependencies
   
 
     
@@ -505,7 +478,7 @@
   <span class="md-ellipsis">
     
   
-    Performance Testing
+    Offline Runtime Dependencies
   
 
     
@@ -533,10 +506,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#goals" class="md-nav__link">
+  <a href="#prepare-dependencies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Goals
+        Prepare dependencies
       
     </span>
   </a>
@@ -544,44 +517,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#harness-location" class="md-nav__link">
+  <a href="#use" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Harness Location
+        Use
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#profiles" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Profiles
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Profiles">
+    <nav class="md-nav" aria-label="Use">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#smoke-profile" class="md-nav__link">
+  <a href="#custom-output-directory" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Smoke profile
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#soak-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Soak profile
+        Custom output directory
       
     </span>
   </a>
@@ -594,82 +545,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#workload-shape" class="md-nav__link">
+  <a href="#make-targets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Workload Shape
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#thresholds" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Thresholds
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Thresholds">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#hard-fail-thresholds-smoke-when-chroma_perf_enforcetrue" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Hard-fail thresholds (smoke when CHROMA_PERF_ENFORCE=true)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#report-only-alerts-soak-by-default" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Report-only alerts (soak by default)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reports
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Environment Variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#current-runtime-caveat" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Current Runtime Caveat
+        Make targets
       
     </span>
   </a>
@@ -680,6 +559,33 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -794,10 +700,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#goals" class="md-nav__link">
+  <a href="#prepare-dependencies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Goals
+        Prepare dependencies
       
     </span>
   </a>
@@ -805,44 +711,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#harness-location" class="md-nav__link">
+  <a href="#use" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Harness Location
+        Use
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#profiles" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Profiles
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Profiles">
+    <nav class="md-nav" aria-label="Use">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#smoke-profile" class="md-nav__link">
+  <a href="#custom-output-directory" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Smoke profile
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#soak-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Soak profile
+        Custom output directory
       
     </span>
   </a>
@@ -855,82 +739,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#workload-shape" class="md-nav__link">
+  <a href="#make-targets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Workload Shape
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#thresholds" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Thresholds
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Thresholds">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#hard-fail-thresholds-smoke-when-chroma_perf_enforcetrue" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Hard-fail thresholds (smoke when CHROMA_PERF_ENFORCE=true)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#report-only-alerts-soak-by-default" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Report-only alerts (soak by default)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reports
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Environment Variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#current-runtime-caveat" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Current Runtime Caveat
+        Make targets
       
     </span>
   </a>
@@ -957,104 +769,47 @@
   
 
 
-<h1 id="performance-testing">Performance Testing<a class="headerlink" href="#performance-testing" title="Permanent link">&para;</a></h1>
-<p>This page documents the local/persistent Chroma soak/load validation harness.</p>
-<h2 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h2>
+<h1 id="offline-runtime-dependencies">Offline Runtime Dependencies<a class="headerlink" href="#offline-runtime-dependencies" title="Permanent link">&para;</a></h1>
+<p>Use this flow to pre-download and cache all native assets needed for Chroma’s default embedding/runtime path,
+so smoke tests can run without network downloads.</p>
+<p>It prepares:</p>
 <ul>
-<li>Detect memory/goroutine/file-descriptor leaks in local runtime usage.</li>
-<li>Detect major query/write latency regressions.</li>
-<li>Verify persistence durability across local runtime restarts.</li>
-<li>Track persistence-store behavior over time (directory size + WAL growth).</li>
+<li><code>local-shim</code> (<code>chroma-go-local</code> shared library)</li>
+<li><code>onnx-runtime</code> (ONNX Runtime shared library)</li>
+<li><code>tokenizers</code> (pure-tokenizers shared library)</li>
+<li><code>onnx-models/all-MiniLM-L6-v2/onnx</code> (cached model and tokenizer)</li>
 </ul>
-<h2 id="harness-location">Harness Location<a class="headerlink" href="#harness-location" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>pkg/api/v2/client_local_perf_test.go</code></li>
-<li><code>pkg/api/v2/client_local_perf_helpers_test.go</code></li>
-</ul>
-<p>Build tags:</p>
-<ul>
-<li><code>//go:build soak &amp;&amp; !cloud</code></li>
-</ul>
-<h2 id="profiles">Profiles<a class="headerlink" href="#profiles" title="Permanent link">&para;</a></h2>
-<h3 id="smoke-profile">Smoke profile<a class="headerlink" href="#smoke-profile" title="Permanent link">&para;</a></h3>
-<p>Smoke is used for PR gating with strict threshold enforcement.
-In CI, this workflow is triggered only on relevant local-runtime/perf path changes.</p>
-<p>Default scenarios:</p>
-<ol>
-<li><code>embedded_synthetic_smoke</code> (90s)</li>
-<li><code>server_synthetic_smoke</code> (90s)</li>
-<li><code>embedded_churn_smoke</code> (35 create/close cycles)</li>
-<li><code>server_churn_smoke</code> (35 create/close cycles)</li>
-</ol>
-<p>Run:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>make<span class="w"> </span>test-local-load-smoke
+<h2 id="prepare-dependencies">Prepare dependencies<a class="headerlink" href="#prepare-dependencies" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./scripts/fetch_runtime_deps.sh
 </span></code></pre></div>
-<h3 id="soak-profile">Soak profile<a class="headerlink" href="#soak-profile" title="Permanent link">&para;</a></h3>
-<p>Soak is intended for nightly endurance runs in report-only mode.</p>
-<p>Default scenarios:</p>
-<ol>
-<li><code>embedded_synthetic_soak</code> (20m)</li>
-<li><code>server_synthetic_soak</code> (20m)</li>
-<li><code>embedded_default_ef_soak</code> (10m, enabled by default in soak)</li>
-<li><code>server_default_ef_soak</code> (10m, enabled by default in soak)</li>
-</ol>
-<p>Run:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>test-local-soak-nightly
+<p>Optional overrides:</p>
+<ul>
+<li><code>--output-dir</code></li>
+<li><code>--goos</code> (must match the host platform for now)</li>
+<li><code>--goarch</code> (must match the host platform for now)</li>
+<li><code>--local-shim-version</code></li>
+<li><code>--tokenizers-version</code></li>
+<li><code>--onnx-runtime-version</code></li>
+<li><code>--help</code></li>
+</ul>
+<h2 id="use">Use<a class="headerlink" href="#use" title="Permanent link">&para;</a></h2>
+<p>The script writes an env helper file at <code>artifacts/runtime-deps/runtime-env.sh</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>.<span class="w"> </span>artifacts/runtime-deps/runtime-env.sh
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">RUN_DEFAULT_EF_BOOTSTRAP_SMOKE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-v<span class="w"> </span>-count<span class="o">=</span><span class="m">1</span><span class="w"> </span>-run<span class="w"> </span><span class="s1">&#39;^TestDefaultEF_BootstrapSmoke$&#39;</span><span class="w"> </span>./pkg/embeddings/default_ef
 </span></code></pre></div>
-<h2 id="workload-shape">Workload Shape<a class="headerlink" href="#workload-shape" title="Permanent link">&para;</a></h2>
-<p>The synthetic workload uses a single write lane plus read workers.</p>
+<p>It can also be executed via Make:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>make<span class="w"> </span>offline-smoke
+</span></code></pre></div>
+<h3 id="custom-output-directory">Custom output directory<a class="headerlink" href="#custom-output-directory" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">OFFLINE_RUNTIME_DEPS_DIR</span><span class="o">=</span>/path/to/deps<span class="w"> </span>./scripts/fetch_runtime_deps.sh
+</span></code></pre></div>
+<h2 id="make-targets">Make targets<a class="headerlink" href="#make-targets" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Read operations: <code>Query</code> + <code>Get</code> (<code>~70% Query</code>, <code>~30% Get</code> across the read lane)</li>
-<li>Write operations: <code>Upsert</code> (and optional <code>Delete+reinsert</code>)</li>
-<li>Seed phase: batched <code>Add</code></li>
-<li>Churn workload: repeated <code>NewPersistentClient</code>/<code>Close</code> lifecycle cycles with heartbeat checks</li>
-<li>Sampling period: 5s by default (configurable per scenario)</li>
+<li><code>make offline-runtime-deps</code>: run <code>./scripts/fetch_runtime_deps.sh</code> into <code>$(OFFLINE_RUNTIME_DEPS_DIR)</code> (defaults to
+  <code>./artifacts/runtime-deps</code>).</li>
+<li><code>make offline-smoke</code>: prepare deps and run <code>TestDefaultEF_BootstrapSmoke</code> using the generated env.</li>
 </ul>
-<h2 id="thresholds">Thresholds<a class="headerlink" href="#thresholds" title="Permanent link">&para;</a></h2>
-<h3 id="hard-fail-thresholds-smoke-when-chroma_perf_enforcetrue">Hard-fail thresholds (smoke when <code>CHROMA_PERF_ENFORCE=true</code>)<a class="headerlink" href="#hard-fail-thresholds-smoke-when-chroma_perf_enforcetrue" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Error rate must be 0</li>
-<li><code>Query</code> p95 &lt;= 750ms</li>
-<li><code>Get</code> p95 &lt;= 750ms</li>
-<li>write p95 &lt;= 1500ms</li>
-<li>post-GC heap growth &lt;= <code>max(30% of baseline heap, 64MiB)</code></li>
-<li>goroutine growth &lt;= +8</li>
-<li>FD growth &lt;= +16 (when measurable)</li>
-<li>durability check must pass for scenarios that require restart verification</li>
-</ol>
-<h3 id="report-only-alerts-soak-by-default">Report-only alerts (soak by default)<a class="headerlink" href="#report-only-alerts-soak-by-default" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Heap slope alert:</li>
-<li>synthetic: &gt;3 MiB/min</li>
-<li><code>default_ef</code>: &gt;8 MiB/min</li>
-<li>Goroutine slope alert: &gt;0.2/min</li>
-<li>WAL anomaly: &gt;=90% non-decreasing WAL samples and final WAL &gt;4x median without record-count growth</li>
-<li>Throughput drift: last quartile throughput &gt;20% lower than first quartile</li>
-</ol>
-<h2 id="reports">Reports<a class="headerlink" href="#reports" title="Permanent link">&para;</a></h2>
-<p>Each scenario writes a JSON summary:</p>
-<ul>
-<li><code>perf-summary-&lt;profile&gt;-&lt;scenario&gt;.json</code></li>
-</ul>
-<p>A profile-level Markdown summary is also generated:</p>
-<ul>
-<li><code>perf-summary-&lt;profile&gt;.md</code></li>
-</ul>
-<p>The CI workflow publishes these artifacts and appends the Markdown summary to job output.</p>
-<h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>CHROMA_PERF_PROFILE</code> - <code>smoke</code> or <code>soak</code> (default: <code>smoke</code>)</li>
-<li><code>CHROMA_PERF_ENFORCE</code> - <code>true</code>/<code>false</code> (default: <code>true</code> for smoke, <code>false</code> for soak)</li>
-<li><code>CHROMA_PERF_INCLUDE_DEFAULT_EF</code> - include <code>default_ef</code> scenarios (default: <code>false</code> for smoke, <code>true</code> for soak)</li>
-<li><code>CHROMA_PERF_REPORT_DIR</code> - directory for JSON/Markdown reports</li>
-<li><code>CHROMA_PERF_ENABLE_DELETE_REINSERT</code> - enable delete+reinsert writes (default: <code>false</code>)</li>
-</ul>
-<h2 id="current-runtime-caveat">Current Runtime Caveat<a class="headerlink" href="#current-runtime-caveat" title="Permanent link">&para;</a></h2>
-<p><code>Delete+reinsert</code> operations are disabled by default in this harness.</p>
-<p>Reason: current local runtime builds can assert/abort under delete-heavy vector
-index mutation (<code>hnswalg.h</code> integrity assertion). The harness keeps this path
-behind <code>CHROMA_PERF_ENABLE_DELETE_REINSERT=true</code> so teams can opt in for
-focused investigation without destabilizing baseline smoke/soak gates.</p>
 
 
 

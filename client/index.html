@@ -576,6 +576,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../offline-runtime-bundle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline Runtime Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../performance-testing/" class="md-nav__link">
         
   
@@ -1144,6 +1171,9 @@ By default it uses embedded mode (no HTTP server). You can opt into server mode 
 <li><code>CHROMA_LIB_PATH</code></li>
 <li>Auto-download from <code>chroma-go-local</code> GitHub releases (enabled by default)</li>
 </ol>
+<p>For offline or reproducible runs, use the <a href="../offline-runtime-bundle/">local runtime dependency setup docs</a> to provide <code>CHROMA_LIB_PATH</code>,
+<code>TOKENIZERS_LIB_PATH</code>, and <code>CHROMAGO_ONNX_RUNTIME_PATH</code> from local artifacts.
+For local preflight setup, run <a href="../../scripts/fetch_runtime_deps.sh"><code>scripts/fetch_runtime_deps.sh</code></a> and source the generated <code>runtime-env.sh</code>.</p>
 <h2 id="client-version-v014-or-lower">Client version v0.1.4 or lower<a class="headerlink" href="#client-version-v014-or-lower" title="Permanent link">&para;</a></h2>
 <div class="admonition warning">
 <p class="admonition-title">V1 API Deprecation Notice</p>
