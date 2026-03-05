@@ -1,18 +1,227 @@
 # Chroma Go
 
+A simple Chroma Vector Database client written in Go.
+Current `chroma-go` release lines (`v0.3.x` and `v0.4.x`) are compatible with Chroma `v1.x`.
+For older Chroma versions, use older `chroma-go` releases (for example `v0.2.x`). See [compatibility](#compatibility).
+
 > [!WARNING]
-> **V1 API Removed**: The V1 API has been removed in v0.3.0.
-> If you require V1 API compatibility, please use versions prior to v0.3.0.
+> **V1 API Removed**: The V1 API is removed in `v0.3.x` and later releases.
+> If you require V1 API compatibility, please use versions prior to `v0.3.0` (for example `v0.2.x`).
 > ```bash
 > go get github.com/amikos-tech/chroma-go@v0.2.4
 > ```
 
-A simple Chroma Vector Database client written in Go
-
-Works with Chroma Version: v0.6.3 - v1.5.2
-
 We invite users to visit the docs site for the library for more in-depth
 information: [Chroma Go Docs](https://go-client.chromadb.dev/)
+
+## Compatibility
+
+- `chroma-go` `v0.3.x` and `v0.4.x` are compatible with Chroma `v1.x`.
+- For older Chroma versions, use older `chroma-go` release lines (for example `v0.2.x`).
+- Older client versions: [GitHub Releases](https://github.com/amikos-tech/chroma-go/releases)
+
+## Installation
+
+```bash
+go get github.com/amikos-tech/chroma-go
+```
+
+Import:
+
+```go
+import (
+	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+```
+
+## Quick Start
+
+### Persistent Client
+
+Run Chroma locally in-process (no external server) with `NewPersistentClient`.
+The runtime auto-downloads the correct shim library on first use and caches it under `~/.cache/chroma/local_shim`.
+Override with `CHROMA_LIB_PATH` or `WithPersistentLibraryPath(...)`.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+	client, err := chroma.NewPersistentClient(
+		chroma.WithPersistentPath("./chroma_data"),
+	)
+	if err != nil {
+		log.Fatalf("Error creating client: %s", err)
+	}
+	defer client.Close()
+
+	col, err := client.GetOrCreateCollection(context.Background(), "my_collection")
+	if err != nil {
+		log.Fatalf("Error creating collection: %s", err)
+	}
+
+	err = col.Add(context.Background(),
+		chroma.WithIDs("1", "2"),
+		chroma.WithTexts("hello world", "goodbye world"),
+	)
+	if err != nil {
+		log.Fatalf("Error adding documents: %s", err)
+	}
+
+	qr, err := col.Query(context.Background(),
+		chroma.WithQueryTexts("say hello"),
+		chroma.WithNResults(1),
+		chroma.WithInclude(chroma.IncludeDocuments),
+	)
+	if err != nil {
+		log.Fatalf("Error querying: %s", err)
+	}
+	fmt.Printf("Result: %v\n", qr.GetDocumentsGroups()[0][0])
+}
+```
+
+Full runnable example: [`examples/v2/persistent_client`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/persistent_client)
+
+### Self-Hosted (HTTP)
+
+Connect to a Chroma server running on `http://localhost:8000`:
+
+```bash
+docker run -d --name chroma -p 8000:8000 -e ALLOW_RESET=TRUE chromadb/chroma:latest
+```
+
+Then create the client (default Chroma URL: `http://localhost:8000`):
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+	client, err := chroma.NewHTTPClient(
+		chroma.WithBaseURL("http://localhost:8000"),
+	)
+	if err != nil {
+		log.Fatalf("Error creating client: %s", err)
+	}
+	defer client.Close()
+
+	col, err := client.GetOrCreateCollection(context.Background(), "my_collection")
+	if err != nil {
+		log.Fatalf("Error creating collection: %s", err)
+	}
+
+	err = col.Add(context.Background(),
+		chroma.WithIDs("1", "2"),
+		chroma.WithTexts("hello world", "goodbye world"),
+	)
+	if err != nil {
+		log.Fatalf("Error adding documents: %s", err)
+	}
+
+	qr, err := col.Query(context.Background(),
+		chroma.WithQueryTexts("say hello"),
+		chroma.WithNResults(1),
+		chroma.WithInclude(chroma.IncludeDocuments),
+	)
+	if err != nil {
+		log.Fatalf("Error querying: %s", err)
+	}
+	fmt.Printf("Result: %v\n", qr.GetDocumentsGroups()[0][0])
+}
+```
+
+Stop the local container when done: `docker stop chroma && docker rm chroma`.
+Alternative local startup helper: `make server` (requires Docker).
+See the [official documentation](https://docs.trychroma.com/guides#running-chroma-in-client/server-mode) for other deployment options.
+
+### Chroma Cloud
+
+Connect to [Chroma Cloud](https://www.trychroma.com/) using your API key:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+
+	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+	client, err := chroma.NewCloudClient(
+		chroma.WithCloudAPIKey(os.Getenv("CHROMA_API_KEY")),
+		chroma.WithDatabaseAndTenant(
+			os.Getenv("CHROMA_DATABASE"),
+			os.Getenv("CHROMA_TENANT"),
+		),
+	)
+	if err != nil {
+		log.Fatalf("Error creating client: %s", err)
+	}
+	defer client.Close()
+
+	col, err := client.GetOrCreateCollection(context.Background(), "my_collection")
+	if err != nil {
+		log.Fatalf("Error creating collection: %s", err)
+	}
+
+	fmt.Printf("Collection: %s\n", col.Name())
+}
+```
+
+Full auth example: [`examples/v2/auth`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/auth)
+
+## Examples
+
+| Example | Path | Entry | Focus |
+|---------|------|-------|-------|
+| Basic usage | [`examples/v2/basic`](./examples/v2/basic) | `main.go` | CRUD flow with `NewHTTPClient` |
+| Persistent client | [`examples/v2/persistent_client`](./examples/v2/persistent_client) | `main.go` | Local embedded runtime with `NewPersistentClient` |
+| Authentication | [`examples/v2/auth`](./examples/v2/auth) | `main.go` | Basic/token/cloud auth patterns |
+| Tenant and database | [`examples/v2/tenant_and_db`](./examples/v2/tenant_and_db) | `main.go` | Multi-tenant and database scoping |
+| Metadata filters | [`examples/v2/metadata_filters`](./examples/v2/metadata_filters) | `main.go` | `where` filters and query conditions |
+| Array metadata | [`examples/v2/array_metadata`](./examples/v2/array_metadata) | `main.go` | Array metadata and contains operators |
+| Schema | [`examples/v2/schema`](./examples/v2/schema) | `main.go` | Schema/index configuration |
+| Search API | [`examples/v2/search`](./examples/v2/search) | `main.go` | Ranking/filtering/pagination search flow |
+| Embedding functions | [`examples/v2/embedding_function_basic`](./examples/v2/embedding_function_basic) | `main.go` | Built-in embedding function setup |
+| Custom embedding function | [`examples/v2/custom_embedding_function`](./examples/v2/custom_embedding_function) | `README.md` | Custom embedder integration guide |
+| Reranking functions | [`examples/v2/reranking_function_basic`](./examples/v2/reranking_function_basic) | `README.md` | Reranker usage patterns |
+| Logging (Zap) | [`examples/v2/logging`](./examples/v2/logging) | `main.go` | Structured logging with Zap |
+| Logging (slog) | [`examples/v2/logging_slog`](./examples/v2/logging_slog) | `main.go` | Structured logging with `log/slog` |
+
+## Offline / Air-Gapped Environments
+
+The default embedding function and persistent client runtime require native libraries that are normally downloaded on first use.
+For offline or air-gapped environments, pre-download all runtime dependencies:
+
+```bash
+./scripts/fetch_runtime_deps.sh
+```
+
+Then run the offline smoke test to verify:
+
+```bash
+make offline-smoke
+```
+
+See [Offline Runtime Bundle](./docs/docs/offline-runtime-bundle.md) for full details and available flags.
 
 ## Feature Parity with ChromaDB API
 
@@ -94,149 +303,7 @@ The Chroma Go client supports Reranking functions:
 - ✅ [HuggingFace Embedding Inference Server Reranker](https://go-client.chromadb.dev/rerankers/#hfei-Reranker)
 - ✅ [Together AI](https://go-client.chromadb.dev/rerankers/#together-ai-reranker)
 
-## Installation
-
-```bash
-go get github.com/amikos-tech/chroma-go
-```
-
-Import:
-
-```go
-import (
-	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
-)
-```
-
-## Usage
-
-Ensure you have a running instance of Chroma running. We recommend one of the two following options:
-
-- [Official documentation](https://docs.trychroma.com/guides#running-chroma-in-client/server-mode)
-- If you are a fan of Kubernetes, you can use the [Helm chart](https://github.com/amikos-tech/chromadb-chart) (Note: You
-  will need `Docker`, `minikube` and `kubectl` installed)
-
-**The Setup (Cloud-native):**
-
-```bash
-minikube start --profile chromago
-minikube profile chromago
-helm repo add chroma https://amikos-tech.github.io/chromadb-chart/
-helm repo update
-helm install chroma chroma/chromadb --set chromadb.allowReset=true
-```
-
-> [!NOTE]
-> To delete the minikube cluster: `minikube delete --profile chromago`
-
-### Getting Started
-
-- We create a new collection
-- Add documents using the default embedding function
-- Query the collection using the same embedding function
-- Delete documents from the collection
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"log"
-
-	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
-)
-
-func main() {
-	// Create a new Chroma client
-	client, err := chroma.NewHTTPClient()
-	if err != nil {
-		log.Fatalf("Error creating client: %s \n", err)
-		return
-	}
-	// Close the client to release any resources such as local embedding functions
-	defer func() {
-		err = client.Close()
-		if err != nil {
-			log.Fatalf("Error closing client: %s \n", err)
-		}
-	}()
-
-	// Create a new collection with options. We don't provide an embedding function here, so the default embedding function will be used
-	col, err := client.GetOrCreateCollection(context.Background(), "col1",
-		chroma.WithCollectionMetadataCreate(
-			chroma.NewMetadata(
-				chroma.NewStringAttribute("str", "hello"),
-				chroma.NewIntAttribute("int", 1),
-				chroma.NewFloatAttribute("float", 1.1),
-			),
-		),
-	)
-	if err != nil {
-		log.Fatalf("Error creating collection: %s \n", err)
-		return
-	}
-
-	err = col.Add(context.Background(),
-		chroma.WithIDs("1", "2"),
-		chroma.WithTexts("hello world", "goodbye world"),
-		chroma.WithMetadatas(
-			chroma.NewDocumentMetadata(chroma.NewIntAttribute("int", 1)),
-			chroma.NewDocumentMetadata(chroma.NewStringAttribute("str", "hello")),
-		))
-	if err != nil {
-		log.Fatalf("Error adding collection: %s \n", err)
-	}
-
-	count, err := col.Count(context.Background())
-	if err != nil {
-		log.Fatalf("Error counting collection: %s \n", err)
-		return
-	}
-	fmt.Printf("Count collection: %d\n", count)
-
-	qr, err := col.Query(context.Background(),
-		chroma.WithQueryTexts("say hello"),
-		chroma.WithInclude(chroma.IncludeDocuments),
-	)
-	if err != nil {
-		log.Fatalf("Error querying collection: %s \n", err)
-		return
-	}
-	fmt.Printf("Query result: %v\n", qr.GetDocumentsGroups()[0][0])
-
-	err = col.Delete(context.Background(), chroma.WithIDs("1", "2"))
-	if err != nil {
-		log.Fatalf("Error deleting collection: %s \n", err)
-		return
-	}
-}
-```
-
-### Persistent Client (Embedded Runtime)
-
-You can run Chroma locally in-process (no external server process) with `NewPersistentClient`.
-The runtime uses `chroma-go-local`. By default, `NewPersistentClient` auto-downloads the correct shim library from the matching `chroma-go-local` GitHub release and caches it under `~/.cache/chroma/local_shim`.
-You can still override this with `CHROMA_LIB_PATH` or `WithPersistentLibraryPath(...)`.
-`NewPersistentClient` defaults to embedded mode; use `WithPersistentRuntimeMode(chroma.PersistentRuntimeModeServer)` (or `WithPersistentPort(...)`) when you want a local HTTP server.
-For persistence, `WithPersistentPath(...)` is typically all you need.
-In server mode, the default port is `8000` unless overridden.
-
-```go
-client, err := chroma.NewPersistentClient(
-	chroma.WithPersistentPath("./chroma_data"),
-	chroma.WithPersistentAllowReset(true),
-	chroma.WithPersistentClientOption(chroma.WithDatabaseAndTenant("default_database", "default_tenant")),
-)
-if err != nil {
-	log.Fatalf("Error creating persistent client: %s", err)
-}
-defer client.Close()
-```
-
-Concise runnable persistent-client starter example: [`examples/v2/persistent_client`](https://github.com/amikos-tech/chroma-go/tree/main/examples/v2/persistent_client)
-
-### Schema Quickstart (Copy/Paste)
+## Schema Quickstart
 
 ```go
 // NewSchemaWithDefaults (L2 + HNSW defaults)
