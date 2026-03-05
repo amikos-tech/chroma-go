@@ -43,7 +43,7 @@ var initLock sync.RWMutex
 type defaultEFDeps struct {
 	ensureOnnxRuntimeSharedLibrary      func() error
 	ensureDefaultEmbeddingFunctionModel func() error
-	initializeEnvironmentWithBootstrap   func(...ort.BootstrapOption) error
+	initializeEnvironmentWithBootstrap  func(...ort.BootstrapOption) error
 	newEmbedder                         func(modelPath, tokenizerPath string, opts ...minilm.Option) (defaultEFEmbedder, error)
 	destroyEnvironment                  func() error
 }
