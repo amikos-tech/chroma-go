@@ -39,3 +39,7 @@ examples/v2/persistent_client/chroma_data_local_persistent/
 
 # Local perf harness reports
 artifacts/
+
+# Local runtime dependency fetch scratch dirs
+.tmp-runtime-deps/
+.tmp-runtime-deps-progress/

@@ -59,6 +59,7 @@ Additional support features:
 
 - ✅ [Default Embedding](https://go-client.chromadb.dev/embeddings/#default-embeddings) Support - the default
   `all-MiniLM-L6-v2` model running on Onnx Runtime (ORT).
+- ✅ [Offline Runtime Setup Script](./docs/docs/offline-runtime-bundle.md) - download and cache default embedding runtime files locally before running smoke/offline workflows.
 - ✅ [OpenAI Embedding](https://go-client.chromadb.dev/embeddings/#openai) Support
 - ✅ [Cohere](https://go-client.chromadb.dev/embeddings/#cohere) (including Multi-language support)
 - ✅ [Sentence Transformers](https://go-client.chromadb.dev/embeddings/#huggingface-inference-api) (HuggingFace Inference

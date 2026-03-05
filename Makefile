@@ -2,6 +2,19 @@
 build:
 	go build -v ./...
 
+OFFLINE_RUNTIME_DEPS_DIR ?= ./artifacts/runtime-deps
+
+.PHONY: offline-runtime-deps
+offline-runtime-deps:
+	OFFLINE_RUNTIME_DEPS_DIR=$(OFFLINE_RUNTIME_DEPS_DIR) bash scripts/fetch_runtime_deps.sh
+
+.PHONY: offline-bundle
+offline-bundle: offline-runtime-deps
+
+.PHONY: offline-smoke
+offline-smoke: offline-runtime-deps
+	. $(OFFLINE_RUNTIME_DEPS_DIR)/runtime-env.sh && RUN_DEFAULT_EF_BOOTSTRAP_SMOKE=1 go test -v -count=1 -run '^TestDefaultEF_BootstrapSmoke$' ./pkg/embeddings/default_ef
+
 .PHONY: gotestsum-bin
 gotestsum-bin:
 	go install gotest.tools/gotestsum@latest

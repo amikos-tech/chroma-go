@@ -95,6 +95,30 @@ export CHROMAGO_ONNX_RUNTIME_VERSION=1.23.0
 export CHROMAGO_ONNX_RUNTIME_PATH=/usr/local/lib/libonnxruntime.1.23.2.dylib
 ```
 
+### Offline Runtime Setup
+
+If you need deterministic or no-network startup, use the offline runtime setup script:
+
+- `scripts/fetch_runtime_deps.sh` downloads required native artifacts into a local cache, including:
+  - Local shim runtime (`local-shim`)
+  - ONNX Runtime shared library (`onnx-runtime`)
+  - Tokenizers library (`tokenizers`)
+  - Default model cache (`onnx-models/all-MiniLM-L6-v2/onnx`)
+
+Run:
+
+```bash
+./scripts/fetch_runtime_deps.sh
+```
+
+Then load env vars for the session:
+
+```bash
+. artifacts/runtime-deps/runtime-env.sh
+```
+
+For full details, see [`offline-runtime-bundle.md`](./offline-runtime-bundle.md).
+
 ## OpenAI
 
 Supported Embedding Function Options:
