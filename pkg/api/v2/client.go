@@ -259,6 +259,8 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 		return errors.New("collection name cannot be empty")
 	}
 	if op.embeddingFunction == nil {
+		// Keep the returned close function out of here: collection constructors own the
+		// embedding function lifecycle and will close it via collection.Close().
 		ef, _, err := ort.NewDefaultEmbeddingFunction()
 		if err != nil {
 			return errors.Wrap(err, "error creating default embedding function")
