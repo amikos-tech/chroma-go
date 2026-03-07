@@ -18,10 +18,14 @@ var (
 	dimensionContextKey = contextKey{"dimension"}
 )
 
+// ContextWithModel sets a model override in context.
+// Validation happens when the request is built in CreateEmbedding.
 func ContextWithModel(ctx context.Context, model string) context.Context {
 	return context.WithValue(ctx, modelContextKey, model)
 }
 
+// ContextWithTaskType sets a task type override in context.
+// Validation happens when the request is built in CreateEmbedding.
 func ContextWithTaskType(ctx context.Context, taskType TaskType) context.Context {
 	return context.WithValue(ctx, taskTypeContextKey, taskType)
 }
