@@ -51,12 +51,7 @@ func Test_gemini_client(t *testing.T) {
 	_ = requireGeminiAPIKey(t)
 	client, err := NewGeminiClient(WithEnvAPIKey())
 	require.NoError(t, err)
-	defer func(client *Client) {
-		err := client.Close()
-		if err != nil {
-
-		}
-	}(client)
+	defer func() { _ = client.Close() }()
 
 	t.Run("Test CreateEmbedding", func(t *testing.T) {
 		resp, rerr := client.CreateEmbedding(context.Background(), []string{"Test document"})
@@ -71,13 +66,8 @@ func Test_gemini_embedding_function(t *testing.T) {
 
 	t.Run("Test EmbedDocuments with env-based api key", func(t *testing.T) {
 		embeddingFunction, err := NewGeminiEmbeddingFunction(WithEnvAPIKey())
-		defer func(embeddingFunction *GeminiEmbeddingFunction) {
-			err := embeddingFunction.Close()
-			if err != nil {
-
-			}
-		}(embeddingFunction)
 		require.NoError(t, err)
+		defer func() { _ = embeddingFunction.Close() }()
 		resp, rerr := embeddingFunction.EmbedDocuments(context.Background(), []string{"Test document", "Another test document"})
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
@@ -88,13 +78,8 @@ func Test_gemini_embedding_function(t *testing.T) {
 
 	t.Run("Test EmbedDocuments with provided API key", func(t *testing.T) {
 		embeddingFunction, err := NewGeminiEmbeddingFunction(WithAPIKey(apiKey))
-		defer func(embeddingFunction *GeminiEmbeddingFunction) {
-			err := embeddingFunction.Close()
-			if err != nil {
-
-			}
-		}(embeddingFunction)
 		require.NoError(t, err)
+		defer func() { _ = embeddingFunction.Close() }()
 		resp, rerr := embeddingFunction.EmbedDocuments(context.Background(), []string{"Test document", "Another test document"})
 
 		require.Nil(t, rerr)
@@ -106,13 +91,8 @@ func Test_gemini_embedding_function(t *testing.T) {
 
 	t.Run("Test EmbedDocuments with provided model", func(t *testing.T) {
 		embeddingFunction, err := NewGeminiEmbeddingFunction(WithEnvAPIKey(), WithDefaultModel(DefaultEmbeddingModel))
-		defer func(embeddingFunction *GeminiEmbeddingFunction) {
-			err := embeddingFunction.Close()
-			if err != nil {
-
-			}
-		}(embeddingFunction)
 		require.NoError(t, err)
+		defer func() { _ = embeddingFunction.Close() }()
 		resp, rerr := embeddingFunction.EmbedDocuments(context.Background(), []string{"Test document", "Another test document"})
 
 		require.Nil(t, rerr)
@@ -124,13 +104,8 @@ func Test_gemini_embedding_function(t *testing.T) {
 
 	t.Run("Test EmbedQuery", func(t *testing.T) {
 		embeddingFunction, err := NewGeminiEmbeddingFunction(WithEnvAPIKey(), WithDefaultModel(DefaultEmbeddingModel))
-		defer func(embeddingFunction *GeminiEmbeddingFunction) {
-			err := embeddingFunction.Close()
-			if err != nil {
-
-			}
-		}(embeddingFunction)
 		require.NoError(t, err)
+		defer func() { _ = embeddingFunction.Close() }()
 		resp, rerr := embeddingFunction.EmbedQuery(context.Background(), "this is my query")
 		require.Nil(t, rerr)
 		require.NotNil(t, resp)
@@ -139,13 +114,8 @@ func Test_gemini_embedding_function(t *testing.T) {
 
 	t.Run("Test wrong model", func(t *testing.T) {
 		embeddingFunction, err := NewGeminiEmbeddingFunction(WithEnvAPIKey(), WithDefaultModel("model-does-not-exist"))
-		defer func(embeddingFunction *GeminiEmbeddingFunction) {
-			err := embeddingFunction.Close()
-			if err != nil {
-
-			}
-		}(embeddingFunction)
 		require.NoError(t, err)
+		defer func() { _ = embeddingFunction.Close() }()
 		_, rerr := embeddingFunction.EmbedQuery(context.Background(), "this is my query")
 		require.Contains(t, rerr.Error(), "404")
 		require.Error(t, rerr)
@@ -153,13 +123,8 @@ func Test_gemini_embedding_function(t *testing.T) {
 
 	t.Run("Test wrong API key", func(t *testing.T) {
 		embeddingFunction, err := NewGeminiEmbeddingFunction(WithAPIKey("wrong-api-key"))
-		defer func(embeddingFunction *GeminiEmbeddingFunction) {
-			err := embeddingFunction.Close()
-			if err != nil {
-
-			}
-		}(embeddingFunction)
 		require.NoError(t, err)
+		defer func() { _ = embeddingFunction.Close() }()
 		_, rerr := embeddingFunction.EmbedQuery(context.Background(), "this is my query")
 		require.Contains(t, rerr.Error(), "API key not valid")
 		require.Error(t, rerr)

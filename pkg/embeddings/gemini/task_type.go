@@ -13,3 +13,20 @@ const (
 	TaskTypeQuestionAnswering  TaskType = "QUESTION_ANSWERING"
 	TaskTypeFactVerification   TaskType = "FACT_VERIFICATION"
 )
+
+// IsValid returns true when the task type is one of the documented Gemini embedding task types.
+func (t TaskType) IsValid() bool {
+	switch t {
+	case TaskTypeSemanticSimilarity,
+		TaskTypeClassification,
+		TaskTypeClustering,
+		TaskTypeRetrievalDocument,
+		TaskTypeRetrievalQuery,
+		TaskTypeCodeRetrievalQuery,
+		TaskTypeQuestionAnswering,
+		TaskTypeFactVerification:
+		return true
+	default:
+		return false
+	}
+}

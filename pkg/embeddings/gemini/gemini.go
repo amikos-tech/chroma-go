@@ -26,6 +26,8 @@ func ContextWithTaskType(ctx context.Context, taskType TaskType) context.Context
 	return context.WithValue(ctx, taskTypeContextKey, taskType)
 }
 
+// ContextWithDimension sets an output dimensionality override in context.
+// Validation happens when the request is built in CreateEmbedding.
 func ContextWithDimension(ctx context.Context, dimension int) context.Context {
 	return context.WithValue(ctx, dimensionContextKey, dimension)
 }
@@ -92,16 +94,13 @@ func NewGeminiClient(opts ...Option) (*Client, error) {
 }
 
 func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]embeddings.Embedding, error) {
-	model := string(c.DefaultModel)
-	if m, ok := ctx.Value(modelContextKey).(string); ok {
-		model = m
+	model, err := modelFromContext(ctx, string(c.DefaultModel))
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid model override")
 	}
-	taskType := c.DefaultTaskType
-	if t, ok := ctx.Value(taskTypeContextKey).(TaskType); ok {
-		taskType = t
-	} else if t, ok := ctx.Value(taskTypeContextKey).(string); ok {
-		// Backward compatibility for callers that previously stored plain string manually.
-		taskType = TaskType(t)
+	taskType, err := taskTypeFromContext(ctx, c.DefaultTaskType)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid task_type override")
 	}
 	outputDimensionality, err := outputDimensionalityFromContext(ctx, c.DefaultDimension)
 	if err != nil {
@@ -172,6 +171,54 @@ func outputDimensionalityFromContext(ctx context.Context, fallback *int32) (*int
 	default:
 		return nil, errors.Errorf("dimension context value must be int, got %T", val)
 	}
+}
+
+func taskTypeFromContext(ctx context.Context, fallback TaskType) (TaskType, error) {
+	val := ctx.Value(taskTypeContextKey)
+	if val == nil {
+		if fallback == "" {
+			return "", nil
+		}
+		if !fallback.IsValid() {
+			return "", errors.Errorf("invalid task type: %q", fallback)
+		}
+		return fallback, nil
+	}
+	var taskType TaskType
+	switch t := val.(type) {
+	case TaskType:
+		taskType = t
+	case string:
+		// Backward compatibility for callers that previously stored plain string manually.
+		taskType = TaskType(t)
+	default:
+		return "", errors.Errorf("task_type context value must be TaskType or string, got %T", val)
+	}
+	if taskType == "" {
+		return "", errors.New("task type cannot be empty")
+	}
+	if !taskType.IsValid() {
+		return "", errors.Errorf("invalid task type: %q", taskType)
+	}
+	return taskType, nil
+}
+
+func modelFromContext(ctx context.Context, fallback string) (string, error) {
+	val := ctx.Value(modelContextKey)
+	if val == nil {
+		if fallback == "" {
+			return "", errors.New("model cannot be empty")
+		}
+		return fallback, nil
+	}
+	model, ok := val.(string)
+	if !ok {
+		return "", errors.Errorf("model context value must be string, got %T", val)
+	}
+	if model == "" {
+		return "", errors.New("model cannot be empty")
+	}
+	return model, nil
 }
 
 // Close is a no-op for the genai SDK client, which doesn't require cleanup.

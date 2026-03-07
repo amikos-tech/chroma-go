@@ -29,6 +29,9 @@ func WithTaskType(taskType TaskType) Option {
 		if taskType == "" {
 			return errors.New("task type cannot be empty")
 		}
+		if !taskType.IsValid() {
+			return errors.Errorf("invalid task type: %q", taskType)
+		}
 		p.DefaultTaskType = taskType
 		return nil
 	}

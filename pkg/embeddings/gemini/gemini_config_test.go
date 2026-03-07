@@ -18,6 +18,13 @@ func TestWithTaskType(t *testing.T) {
 	assert.Equal(t, TaskTypeRetrievalDocument, client.DefaultTaskType)
 
 	require.Error(t, WithTaskType("")(client))
+	require.Error(t, WithTaskType(TaskType("NOT_A_REAL_TASK_TYPE"))(client))
+}
+
+func TestTaskTypeIsValid(t *testing.T) {
+	assert.True(t, TaskTypeRetrievalDocument.IsValid())
+	assert.True(t, TaskTypeSemanticSimilarity.IsValid())
+	assert.False(t, TaskType("NOT_A_REAL_TASK_TYPE").IsValid())
 }
 
 func TestWithDimension(t *testing.T) {
@@ -120,8 +127,63 @@ func TestOutputDimensionalityFromContextValidation(t *testing.T) {
 	_, err = outputDimensionalityFromContext(ctx, nil)
 	require.Error(t, err)
 
+	legacy := 512
+	legacyCtx := context.WithValue(context.Background(), dimensionContextKey, &legacy)
+	v, err = outputDimensionalityFromContext(legacyCtx, nil)
+	require.NoError(t, err)
+	require.NotNil(t, v)
+	assert.Equal(t, int32(512), *v)
+
+	legacyNilCtx := context.WithValue(context.Background(), dimensionContextKey, (*int)(nil))
+	v, err = outputDimensionalityFromContext(legacyNilCtx, nil)
+	require.NoError(t, err)
+	assert.Nil(t, v)
+
 	badCtx := context.WithValue(context.Background(), dimensionContextKey, "256")
 	_, err = outputDimensionalityFromContext(badCtx, nil)
+	require.Error(t, err)
+}
+
+func TestTaskTypeFromContextValidation(t *testing.T) {
+	tt, err := taskTypeFromContext(context.Background(), TaskTypeRetrievalDocument)
+	require.NoError(t, err)
+	assert.Equal(t, TaskTypeRetrievalDocument, tt)
+
+	ctx := ContextWithTaskType(context.Background(), TaskTypeRetrievalQuery)
+	tt, err = taskTypeFromContext(ctx, TaskTypeRetrievalDocument)
+	require.NoError(t, err)
+	assert.Equal(t, TaskTypeRetrievalQuery, tt)
+
+	backCompatCtx := context.WithValue(context.Background(), taskTypeContextKey, "RETRIEVAL_DOCUMENT")
+	tt, err = taskTypeFromContext(backCompatCtx, "")
+	require.NoError(t, err)
+	assert.Equal(t, TaskTypeRetrievalDocument, tt)
+
+	invalidValueCtx := context.WithValue(context.Background(), taskTypeContextKey, "INVALID_TASK_TYPE")
+	_, err = taskTypeFromContext(invalidValueCtx, "")
+	require.Error(t, err)
+
+	invalidTypeCtx := context.WithValue(context.Background(), taskTypeContextKey, 42)
+	_, err = taskTypeFromContext(invalidTypeCtx, "")
+	require.Error(t, err)
+}
+
+func TestModelFromContextValidation(t *testing.T) {
+	model, err := modelFromContext(context.Background(), DefaultEmbeddingModel)
+	require.NoError(t, err)
+	assert.Equal(t, DefaultEmbeddingModel, model)
+
+	ctx := ContextWithModel(context.Background(), "gemini-embedding-001")
+	model, err = modelFromContext(ctx, DefaultEmbeddingModel)
+	require.NoError(t, err)
+	assert.Equal(t, "gemini-embedding-001", model)
+
+	emptyModelCtx := ContextWithModel(context.Background(), "")
+	_, err = modelFromContext(emptyModelCtx, DefaultEmbeddingModel)
+	require.Error(t, err)
+
+	badTypeCtx := context.WithValue(context.Background(), modelContextKey, 123)
+	_, err = modelFromContext(badTypeCtx, DefaultEmbeddingModel)
 	require.Error(t, err)
 }
 
@@ -143,4 +205,12 @@ func TestNewGeminiEmbeddingFunctionFromConfig_InvalidTypes(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dimension must be an integer")
+
+	_, err = NewGeminiEmbeddingFunctionFromConfig(embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": "GEMINI_API_KEY",
+		"model_name":      "gemini-embedding-001",
+		"task_type":       "INVALID_TASK_TYPE",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid task type")
 }
