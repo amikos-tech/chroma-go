@@ -401,9 +401,14 @@ default model.
 
 Supported Embedding Function Options:
 
+- `WithAPIKey` - Provide Gemini API key directly.
+- `WithEnvAPIKey` - Load API key from `GEMINI_API_KEY`.
+- `WithAPIKeyFromEnvVar` - Load API key from a custom environment variable.
 - `WithDefaultModel` - Set the Gemini model to use. Default is `gemini-embedding-001`.
 - `WithTaskType` - Set the embedding task type (for example `RETRIEVAL_DOCUMENT`, `RETRIEVAL_QUERY`).
 - `WithDimension` - Set reduced output dimensionality.
+- `WithMaxBatchSize` - Set an upper bound on documents per embedding call.
+- `WithClient` - Provide a preconfigured `google.golang.org/genai` client.
 
 ```go
 package main
