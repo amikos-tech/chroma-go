@@ -405,7 +405,7 @@ Supported Embedding Function Options:
 - `WithEnvAPIKey` - Load API key from `GEMINI_API_KEY`.
 - `WithAPIKeyFromEnvVar` - Load API key from a custom environment variable.
 - `WithDefaultModel` - Set the Gemini model to use. Default is `gemini-embedding-001`.
-- `WithTaskType` - Set the embedding task type (for example `RETRIEVAL_DOCUMENT`, `RETRIEVAL_QUERY`).
+- `WithTaskType` - Set the embedding task type using constants (for example `TaskTypeRetrievalDocument`, `TaskTypeRetrievalQuery`).
 - `WithDimension` - Set reduced output dimensionality.
 - `WithMaxBatchSize` - Set an upper bound on documents per embedding call.
 - `WithClient` - Provide a preconfigured `google.golang.org/genai` client.
@@ -428,7 +428,7 @@ func main() {
 	ef, err := g.NewGeminiEmbeddingFunction(
 		g.WithEnvAPIKey(),
 		g.WithDefaultModel("gemini-embedding-001"),
-		g.WithTaskType("RETRIEVAL_DOCUMENT"),
+		g.WithTaskType(g.TaskTypeRetrievalDocument),
 		g.WithDimension(768),
 	)
 	if err != nil {

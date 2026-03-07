@@ -22,7 +22,7 @@ func ContextWithModel(ctx context.Context, model string) context.Context {
 	return context.WithValue(ctx, modelContextKey, model)
 }
 
-func ContextWithTaskType(ctx context.Context, taskType string) context.Context {
+func ContextWithTaskType(ctx context.Context, taskType TaskType) context.Context {
 	return context.WithValue(ctx, taskTypeContextKey, taskType)
 }
 
@@ -39,7 +39,7 @@ type Client struct {
 	APIKey           embeddings.Secret `json:"-" validate:"required"`
 	APIKeyEnvVar     string
 	DefaultModel     embeddings.EmbeddingModel
-	DefaultTaskType  string
+	DefaultTaskType  TaskType
 	DefaultDimension *int32
 	Client           *genai.Client
 	DefaultContext   *context.Context
@@ -97,8 +97,11 @@ func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]embedding
 		model = m
 	}
 	taskType := c.DefaultTaskType
-	if t, ok := ctx.Value(taskTypeContextKey).(string); ok {
+	if t, ok := ctx.Value(taskTypeContextKey).(TaskType); ok {
 		taskType = t
+	} else if t, ok := ctx.Value(taskTypeContextKey).(string); ok {
+		// Backward compatibility for callers that previously stored plain string manually.
+		taskType = TaskType(t)
 	}
 	outputDimensionality, err := outputDimensionalityFromContext(ctx, c.DefaultDimension)
 	if err != nil {
@@ -123,12 +126,12 @@ func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]embedding
 	return embeddings.NewEmbeddingsFromFloat32(embs)
 }
 
-func buildEmbedContentConfig(taskType string, outputDimensionality *int32) *genai.EmbedContentConfig {
+func buildEmbedContentConfig(taskType TaskType, outputDimensionality *int32) *genai.EmbedContentConfig {
 	if taskType == "" && outputDimensionality == nil {
 		return nil
 	}
 	return &genai.EmbedContentConfig{
-		TaskType:             taskType,
+		TaskType:             string(taskType),
 		OutputDimensionality: outputDimensionality,
 	}
 }
@@ -237,7 +240,7 @@ func (e *GeminiEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionConfig
 		"api_key_env_var": envVar,
 	}
 	if e.apiClient.DefaultTaskType != "" {
-		cfg["task_type"] = e.apiClient.DefaultTaskType
+		cfg["task_type"] = string(e.apiClient.DefaultTaskType)
 	}
 	if e.apiClient.DefaultDimension != nil {
 		cfg["dimension"] = int(*e.apiClient.DefaultDimension)
@@ -269,7 +272,7 @@ func NewGeminiEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig
 		if !ok {
 			return nil, errors.New("task_type must be a string")
 		}
-		opts = append(opts, WithTaskType(taskType))
+		opts = append(opts, WithTaskType(TaskType(taskType)))
 	}
 	if _, exists := cfg["dimension"]; exists {
 		dim, ok := embeddings.ConfigInt(cfg, "dimension")

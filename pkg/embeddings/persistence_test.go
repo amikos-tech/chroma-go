@@ -196,7 +196,7 @@ func TestEmbeddingFunctionPersistence_Gemini(t *testing.T) {
 
 	ef, err := gemini.NewGeminiEmbeddingFunction(
 		gemini.WithEnvAPIKey(),
-		gemini.WithTaskType("RETRIEVAL_DOCUMENT"),
+		gemini.WithTaskType(gemini.TaskTypeRetrievalDocument),
 		gemini.WithDimension(768),
 	)
 	require.NoError(t, err)

@@ -14,8 +14,8 @@ import (
 func TestWithTaskType(t *testing.T) {
 	client := &Client{}
 
-	require.NoError(t, WithTaskType("RETRIEVAL_DOCUMENT")(client))
-	assert.Equal(t, "RETRIEVAL_DOCUMENT", client.DefaultTaskType)
+	require.NoError(t, WithTaskType(TaskTypeRetrievalDocument)(client))
+	assert.Equal(t, TaskTypeRetrievalDocument, client.DefaultTaskType)
 
 	require.Error(t, WithTaskType("")(client))
 }
@@ -37,18 +37,18 @@ func TestBuildEmbedContentConfig(t *testing.T) {
 	assert.Nil(t, cfg)
 
 	dim := int32(512)
-	cfg = buildEmbedContentConfig("RETRIEVAL_DOCUMENT", nil)
+	cfg = buildEmbedContentConfig(TaskTypeRetrievalDocument, nil)
 	require.NotNil(t, cfg)
 	assert.Equal(t, "RETRIEVAL_DOCUMENT", cfg.TaskType)
 	assert.Nil(t, cfg.OutputDimensionality)
 
-	cfg = buildEmbedContentConfig("", &dim)
+	cfg = buildEmbedContentConfig(TaskType(""), &dim)
 	require.NotNil(t, cfg)
 	assert.Equal(t, "", cfg.TaskType)
 	require.NotNil(t, cfg.OutputDimensionality)
 	assert.Equal(t, int32(512), *cfg.OutputDimensionality)
 
-	cfg = buildEmbedContentConfig("RETRIEVAL_QUERY", &dim)
+	cfg = buildEmbedContentConfig(TaskTypeRetrievalQuery, &dim)
 	require.NotNil(t, cfg)
 	assert.Equal(t, "RETRIEVAL_QUERY", cfg.TaskType)
 	require.NotNil(t, cfg.OutputDimensionality)
@@ -61,7 +61,7 @@ func TestGeminiGetConfigIncludesTaskTypeAndDimension(t *testing.T) {
 		apiClient: &Client{
 			APIKeyEnvVar:     APIKeyEnvVar,
 			DefaultModel:     DefaultEmbeddingModel,
-			DefaultTaskType:  "RETRIEVAL_DOCUMENT",
+			DefaultTaskType:  TaskTypeRetrievalDocument,
 			DefaultDimension: &dim,
 		},
 	}

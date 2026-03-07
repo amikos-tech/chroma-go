@@ -23,8 +23,8 @@ func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 	}
 }
 
-// WithTaskType sets the task type for embeddings (for example RETRIEVAL_DOCUMENT, RETRIEVAL_QUERY).
-func WithTaskType(taskType string) Option {
+// WithTaskType sets the task type for embeddings (for example TaskTypeRetrievalDocument, TaskTypeRetrievalQuery).
+func WithTaskType(taskType TaskType) Option {
 	return func(p *Client) error {
 		if taskType == "" {
 			return errors.New("task type cannot be empty")
