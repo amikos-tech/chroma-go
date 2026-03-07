@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"math"
 	"os"
 
 	"github.com/pkg/errors"
@@ -18,6 +19,32 @@ func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 			return errors.New("model cannot be empty")
 		}
 		p.DefaultModel = model
+		return nil
+	}
+}
+
+// WithTaskType sets the task type for embeddings (for example RETRIEVAL_DOCUMENT, RETRIEVAL_QUERY).
+func WithTaskType(taskType string) Option {
+	return func(p *Client) error {
+		if taskType == "" {
+			return errors.New("task type cannot be empty")
+		}
+		p.DefaultTaskType = taskType
+		return nil
+	}
+}
+
+// WithDimension sets the output dimensionality for embeddings.
+func WithDimension(dimension int) Option {
+	return func(p *Client) error {
+		if dimension <= 0 {
+			return errors.New("dimension must be greater than 0")
+		}
+		if dimension > math.MaxInt32 {
+			return errors.Errorf("dimension must be <= %d", math.MaxInt32)
+		}
+		dim32 := int32(dimension)
+		p.DefaultDimension = &dim32
 		return nil
 	}
 }

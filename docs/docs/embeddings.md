@@ -396,8 +396,14 @@ func main() {
 To use Google Gemini AI embeddings, you will need to create an [API Key](https://aistudio.google.com/app/apikey).
 
 Available models can be
-in [Gemini Models](https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding). `text-embedding-004` is the
+in [Gemini Models](https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding). `gemini-embedding-001` is the
 default model.
+
+Supported Embedding Function Options:
+
+- `WithDefaultModel` - Set the Gemini model to use. Default is `gemini-embedding-001`.
+- `WithTaskType` - Set the embedding task type (for example `RETRIEVAL_DOCUMENT`, `RETRIEVAL_QUERY`).
+- `WithDimension` - Set reduced output dimensionality.
 
 ```go
 package main
@@ -414,7 +420,12 @@ func main() {
 		"Document 2 content here",
 	}
 	// Make sure that you have the `GEMINI_API_KEY` set in your environment
-	ef, err := g.NewGeminiEmbeddingFunction(g.WithEnvAPIKey(), g.WithDefaultModel("text-embedding-004"))
+	ef, err := g.NewGeminiEmbeddingFunction(
+		g.WithEnvAPIKey(),
+		g.WithDefaultModel("gemini-embedding-001"),
+		g.WithTaskType("RETRIEVAL_DOCUMENT"),
+		g.WithDimension(768),
+	)
 	if err != nil {
 		fmt.Printf("Error creating Gemini embedding function: %s \n", err)
 	}

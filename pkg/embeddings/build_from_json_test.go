@@ -18,7 +18,6 @@ import (
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloudsplade"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/cloudflare"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/cohere"
-	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/ort"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/gemini"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/hf"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/jina"
@@ -27,6 +26,7 @@ import (
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/nomic"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/ollama"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/openai"
+	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/ort"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/perplexity"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/together"
 	_ "github.com/amikos-tech/chroma-go/pkg/embeddings/voyage"
@@ -150,7 +150,9 @@ func TestBuildDenseFromJSON(t *testing.T) {
 			efName: "google_genai",
 			jsonConfig: `{
 				"api_key_env_var": "GEMINI_API_KEY",
-				"model_name": "text-embedding-004"
+				"model_name": "gemini-embedding-001",
+				"task_type": "RETRIEVAL_DOCUMENT",
+				"dimension": 768
 			}`,
 			requiresAPIKey: true,
 			envVar:         "GEMINI_API_KEY",
@@ -204,6 +206,11 @@ func TestBuildDenseFromJSON(t *testing.T) {
 				require.NoError(t, err, "Should succeed with API key set")
 				require.NotNil(t, ef)
 				assert.Equal(t, tc.efName, ef.Name())
+				if tc.efName == "google_genai" {
+					efCfg := ef.GetConfig()
+					assert.Equal(t, "RETRIEVAL_DOCUMENT", efCfg["task_type"])
+					assert.Equal(t, 768, efCfg["dimension"])
+				}
 
 				// Restore original env var value
 				if originalValue != "" {
@@ -217,6 +224,11 @@ func TestBuildDenseFromJSON(t *testing.T) {
 				require.NoError(t, err, "Should succeed without API key")
 				require.NotNil(t, ef)
 				assert.Equal(t, tc.efName, ef.Name())
+				if tc.efName == "google_genai" {
+					efCfg := ef.GetConfig()
+					assert.Equal(t, "RETRIEVAL_DOCUMENT", efCfg["task_type"])
+					assert.Equal(t, 768, efCfg["dimension"])
+				}
 			}
 		})
 	}
@@ -372,7 +384,7 @@ func TestAllRegisteredProvidersHaveFactories(t *testing.T) {
 		"ollama",
 		"cloudflare_workers_ai",
 		"default",            // Primary name (matches Python client)
-		"ort",               // Canonical package-facing alias
+		"ort",                // Canonical package-facing alias
 		"onnx_mini_lm_l6_v2", // Alias for backward compatibility
 	}
 
