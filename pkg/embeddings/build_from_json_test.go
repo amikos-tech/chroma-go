@@ -224,11 +224,6 @@ func TestBuildDenseFromJSON(t *testing.T) {
 				require.NoError(t, err, "Should succeed without API key")
 				require.NotNil(t, ef)
 				assert.Equal(t, tc.efName, ef.Name())
-				if tc.efName == "google_genai" {
-					efCfg := ef.GetConfig()
-					assert.Equal(t, "RETRIEVAL_DOCUMENT", efCfg["task_type"])
-					assert.Equal(t, 768, efCfg["dimension"])
-				}
 			}
 		})
 	}

@@ -1,7 +1,6 @@
 package gemini
 
 import (
-	"math"
 	"os"
 
 	"github.com/pkg/errors"
@@ -40,14 +39,11 @@ func WithTaskType(taskType TaskType) Option {
 // WithDimension sets the output dimensionality for embeddings.
 func WithDimension(dimension int) Option {
 	return func(p *Client) error {
-		if dimension <= 0 {
-			return errors.New("dimension must be greater than 0")
+		dim32, err := intToInt32Ptr(dimension)
+		if err != nil {
+			return err
 		}
-		if dimension > math.MaxInt32 {
-			return errors.Errorf("dimension must be <= %d", math.MaxInt32)
-		}
-		dim32 := int32(dimension)
-		p.DefaultDimension = &dim32
+		p.DefaultDimension = dim32
 		return nil
 	}
 }
