@@ -396,8 +396,19 @@ func main() {
 To use Google Gemini AI embeddings, you will need to create an [API Key](https://aistudio.google.com/app/apikey).
 
 Available models can be
-in [Gemini Models](https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding). `text-embedding-004` is the
+in [Gemini Models](https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding). `gemini-embedding-001` is the
 default model.
+
+Supported Embedding Function Options:
+
+- `WithAPIKey` - Provide Gemini API key directly.
+- `WithEnvAPIKey` - Load API key from `GEMINI_API_KEY`.
+- `WithAPIKeyFromEnvVar` - Load API key from a custom environment variable.
+- `WithDefaultModel` - Set the Gemini model to use. Default is `gemini-embedding-001`.
+- `WithTaskType` - Set the embedding task type using constants (for example `TaskTypeRetrievalDocument`, `TaskTypeRetrievalQuery`).
+- `WithDimension` - Set reduced output dimensionality.
+- `WithMaxBatchSize` - Set an upper bound on documents per embedding call.
+- `WithClient` - Provide a preconfigured `google.golang.org/genai` client.
 
 ```go
 package main
@@ -414,7 +425,12 @@ func main() {
 		"Document 2 content here",
 	}
 	// Make sure that you have the `GEMINI_API_KEY` set in your environment
-	ef, err := g.NewGeminiEmbeddingFunction(g.WithEnvAPIKey(), g.WithDefaultModel("text-embedding-004"))
+	ef, err := g.NewGeminiEmbeddingFunction(
+		g.WithEnvAPIKey(),
+		g.WithDefaultModel("gemini-embedding-001"),
+		g.WithTaskType(g.TaskTypeRetrievalDocument),
+		g.WithDimension(768),
+	)
 	if err != nil {
 		fmt.Printf("Error creating Gemini embedding function: %s \n", err)
 	}
