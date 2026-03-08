@@ -127,18 +127,6 @@ func TestOutputDimensionalityFromContextValidation(t *testing.T) {
 	_, err = outputDimensionalityFromContext(ctx, nil)
 	require.Error(t, err)
 
-	legacy := 512
-	legacyCtx := context.WithValue(context.Background(), dimensionContextKey, &legacy)
-	v, err = outputDimensionalityFromContext(legacyCtx, nil)
-	require.NoError(t, err)
-	require.NotNil(t, v)
-	assert.Equal(t, int32(512), *v)
-
-	legacyNilCtx := context.WithValue(context.Background(), dimensionContextKey, (*int)(nil))
-	v, err = outputDimensionalityFromContext(legacyNilCtx, nil)
-	require.NoError(t, err)
-	assert.Nil(t, v)
-
 	badCtx := context.WithValue(context.Background(), dimensionContextKey, "256")
 	_, err = outputDimensionalityFromContext(badCtx, nil)
 	require.Error(t, err)
@@ -153,11 +141,6 @@ func TestTaskTypeFromContextValidation(t *testing.T) {
 	tt, err = taskTypeFromContext(ctx, TaskTypeRetrievalDocument)
 	require.NoError(t, err)
 	assert.Equal(t, TaskTypeRetrievalQuery, tt)
-
-	backCompatCtx := context.WithValue(context.Background(), taskTypeContextKey, "RETRIEVAL_DOCUMENT")
-	tt, err = taskTypeFromContext(backCompatCtx, "")
-	require.NoError(t, err)
-	assert.Equal(t, TaskTypeRetrievalDocument, tt)
 
 	invalidValueCtx := context.WithValue(context.Background(), taskTypeContextKey, "INVALID_TASK_TYPE")
 	_, err = taskTypeFromContext(invalidValueCtx, "")

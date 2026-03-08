@@ -163,18 +163,11 @@ func outputDimensionalityFromContext(ctx context.Context, fallback *int32) (*int
 	if val == nil {
 		return cloneInt32Ptr(fallback), nil
 	}
-	switch d := val.(type) {
-	case int:
-		return intToInt32Ptr(d)
-	case *int:
-		// Backward compatibility for callers that previously stored *int manually.
-		if d == nil {
-			return nil, nil
-		}
-		return intToInt32Ptr(*d)
-	default:
+	d, ok := val.(int)
+	if !ok {
 		return nil, errors.Errorf("dimension context value must be int, got %T", val)
 	}
+	return intToInt32Ptr(d)
 }
 
 func taskTypeFromContext(ctx context.Context, fallback TaskType) (TaskType, error) {
@@ -188,15 +181,9 @@ func taskTypeFromContext(ctx context.Context, fallback TaskType) (TaskType, erro
 		}
 		return fallback, nil
 	}
-	var taskType TaskType
-	switch t := val.(type) {
-	case TaskType:
-		taskType = t
-	case string:
-		// Backward compatibility for callers that previously stored plain string manually.
-		taskType = TaskType(t)
-	default:
-		return "", errors.Errorf("task_type context value must be TaskType or string, got %T", val)
+	taskType, ok := val.(TaskType)
+	if !ok {
+		return "", errors.Errorf("task_type context value must be TaskType, got %T", val)
 	}
 	if taskType == "" {
 		return "", errors.New("task type cannot be empty")
