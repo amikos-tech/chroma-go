@@ -305,14 +305,14 @@ func NewGeminiEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
 		opts = append(opts, WithDefaultModel(embeddings.EmbeddingModel(model)))
 	}
-	if taskTypeRaw, exists := cfg["task_type"]; exists {
+	if taskTypeRaw, exists := cfg["task_type"]; exists && taskTypeRaw != nil {
 		taskType, ok := taskTypeRaw.(string)
 		if !ok {
 			return nil, errors.New("task_type must be a string")
 		}
 		opts = append(opts, WithTaskType(TaskType(taskType)))
 	}
-	if _, exists := cfg["dimension"]; exists {
+	if dimRaw, exists := cfg["dimension"]; exists && dimRaw != nil {
 		dim, ok := embeddings.ConfigInt(cfg, "dimension")
 		if !ok {
 			return nil, errors.New("dimension must be an integer")

@@ -197,3 +197,16 @@ func TestNewGeminiEmbeddingFunctionFromConfig_InvalidTypes(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid task type")
 }
+
+func TestNewGeminiEmbeddingFunctionFromConfig_NilOptionalFields(t *testing.T) {
+	t.Setenv("GEMINI_API_KEY", "test-key")
+
+	ef, err := NewGeminiEmbeddingFunctionFromConfig(embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": "GEMINI_API_KEY",
+		"model_name":      "gemini-embedding-001",
+		"task_type":       nil,
+		"dimension":       nil,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+}
