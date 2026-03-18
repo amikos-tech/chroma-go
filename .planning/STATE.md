@@ -4,17 +4,17 @@ milestone: v0.5
 milestone_name: Provider-Neutral Multimodal Foundations
 current_phase: 1
 current_phase_name: Shared Multimodal Contract
-current_plan: 1
+current_plan: 2
 status: executing
-stopped_at: Completed 01-00-PLAN.md
-last_updated: "2026-03-18T19:33:27.357Z"
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-03-18T19:40:03.727Z"
 last_activity: 2026-03-18
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
-  percent: 25
+  completed_plans: 2
+  percent: 50
 ---
 
 # Project State
@@ -31,30 +31,30 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 **Current Phase:** 1
 **Current Phase Name:** Shared Multimodal Contract
 **Total Phases:** 5
-**Current Plan:** 1
+**Current Plan:** 2
 **Total Plans in Phase:** 4
 **Status:** Ready to execute
 **Last Activity:** 2026-03-18
-**Last Activity Description:** Completed 01-00 Wave 0 multimodal test scaffolding
-**Progress:** [███░░░░░░░] 25%
+**Last Activity Description:** Completed 01-01 additive multimodal contract types
+**Progress:** [█████░░░░░] 50%
 
 Phase: 1 of 5 (Shared Multimodal Contract)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: Ready to execute
-Progress: [███░░░░░░░] 25%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0.0 hours
+- Total plans completed: 2
+- Average duration: 4 min
+- Total execution time: 8 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| Phase 01 | 1 | 4 min | 4 min |
+| Phase 01 | 2 | 8 min | 4 min |
 
 **Recent Trend:**
 - Last 5 plans: -
@@ -70,6 +70,8 @@ Recent decisions affecting current work:
 - [Init]: Use issue #442 as the first planned milestone for GSD tracking.
 - [Init]: Reuse the existing codebase map instead of re-running brownfield mapping.
 - [Init]: Treat `v0.5` as a roadmap placeholder until release naming is finalized.
+- [Phase 01-shared-multimodal-contract]: Keep the shared multimodal request model in a dedicated file so later validation and compatibility work can layer on without disturbing legacy APIs.
+- [Phase 01-shared-multimodal-contract]: Add ContentEmbeddingFunction beside MultimodalEmbeddingFunction instead of widening the legacy image-only interface in place.
 
 ### Roadmap Evolution
 
@@ -99,6 +101,6 @@ None yet.
 
 ## Session
 
-**Last Date:** 2026-03-18T19:33:27.357Z
-**Stopped At:** Completed 01-00-PLAN.md
-**Resume File:** .planning/phases/01-shared-multimodal-contract/01-01-PLAN.md
+**Last Date:** 2026-03-18T19:40:03.721Z
+**Stopped At:** Completed 01-01-PLAN.md
+**Resume File:** .planning/phases/01-shared-multimodal-contract/01-02-PLAN.md
