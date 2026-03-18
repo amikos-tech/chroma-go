@@ -14,7 +14,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 
 ## Phases
 
-- [ ] **Phase 1: Shared Multimodal Contract** - Add additive request and part types, neutral intents, per-request options, and validation primitives.
+- [x] **Phase 1: Shared Multimodal Contract** - Add additive request and part types, neutral intents, per-request options, and validation primitives. (completed 2026-03-18)
 - [ ] **Phase 2: Capability Metadata and Compatibility** - Expose provider capabilities and keep legacy callers working unchanged.
 - [ ] **Phase 3: Registry and Config Integration** - Extend registry/build-from-config and collection auto-wiring for richer multimodal interfaces.
 - [ ] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly.
@@ -31,13 +31,13 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
   2. Mixed-part request ordering is preserved in the shared API surface.
   3. Per-request intent, dimensionality, and provider-hint fields are represented without mutating provider-wide config.
   4. Invalid request shapes fail before provider I/O with clear errors.
-**Plans**: 3/4 plans executed
+**Plans**: 4/4 plans executed
 
 Plans:
 - [x] 01-00: Add Wave 0 multimodal test scaffolding and Nyquist verification targets
 - [x] 01-01: Define additive multimodal request, part, intent, and option types in `pkg/embeddings`
 - [x] 01-02: Implement validation helpers and compatibility-safe constructors
-- [ ] 01-03: Add unit tests for request construction, ordering, and validation
+- [x] 01-03: Add unit tests for request construction, ordering, and validation
 
 ### Phase 2: Capability Metadata and Compatibility
 **Goal:** Add capability introspection and compatibility adapters so existing text-only and image-only callers continue to work while new multimodal APIs become available.
@@ -102,7 +102,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shared Multimodal Contract | 3/4 | In Progress |   |
+| 1. Shared Multimodal Contract | 4/4 | Complete | 2026-03-18 |
 | 2. Capability Metadata and Compatibility | 0/3 | Not started | - |
 | 3. Registry and Config Integration | 0/3 | Not started | - |
 | 4. Provider Mapping and Explicit Failures | 0/2 | Not started | - |
