@@ -11,7 +11,7 @@
 - [x] **MMOD-02**: Caller can submit mixed-part multimodal requests without losing the original part ordering
 - [x] **MMOD-03**: Caller can set a provider-neutral intent for a multimodal request using shared semantics such as retrieval query, retrieval document, classification, clustering, or semantic similarity
 - [x] **MMOD-04**: Caller can set per-request options such as target output dimensionality and provider-specific hints without mutating provider-wide configuration
-- [ ] **MMOD-05**: Invalid request shapes are rejected before provider I/O with explicit validation errors
+- [x] **MMOD-05**: Invalid request shapes are rejected before provider I/O with explicit validation errors
 
 ### Capabilities and Compatibility
 
@@ -61,7 +61,7 @@
 | MMOD-02 | Phase 1 | Complete |
 | MMOD-03 | Phase 1 | Complete |
 | MMOD-04 | Phase 1 | Complete |
-| MMOD-05 | Phase 1 | Pending |
+| MMOD-05 | Phase 1 | Complete |
 | CAPS-01 | Phase 2 | Pending |
 | CAPS-02 | Phase 2 | Pending |
 | COMP-01 | Phase 2 | Pending |
@@ -80,4 +80,4 @@
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after initial definition*
+*Last updated: 2026-03-18 after Phase 1 Plan 02 validation and compatibility work*
