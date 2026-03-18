@@ -31,10 +31,10 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
   2. Mixed-part request ordering is preserved in the shared API surface.
   3. Per-request intent, dimensionality, and provider-hint fields are represented without mutating provider-wide config.
   4. Invalid request shapes fail before provider I/O with clear errors.
-**Plans**: 4 plans
+**Plans**: 1/4 plans executed
 
 Plans:
-- [ ] 01-00: Add Wave 0 multimodal test scaffolding and Nyquist verification targets
+- [x] 01-00: Add Wave 0 multimodal test scaffolding and Nyquist verification targets
 - [ ] 01-01: Define additive multimodal request, part, intent, and option types in `pkg/embeddings`
 - [ ] 01-02: Implement validation helpers and compatibility-safe constructors
 - [ ] 01-03: Add unit tests for request construction, ordering, and validation
@@ -102,7 +102,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shared Multimodal Contract | 0/3 | Not started | - |
+| 1. Shared Multimodal Contract | 1/4 | In Progress |   |
 | 2. Capability Metadata and Compatibility | 0/3 | Not started | - |
 | 3. Registry and Config Integration | 0/3 | Not started | - |
 | 4. Provider Mapping and Explicit Failures | 0/2 | Not started | - |
