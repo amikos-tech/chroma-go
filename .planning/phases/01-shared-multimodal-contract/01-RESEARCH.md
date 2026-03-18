@@ -381,7 +381,7 @@ content := NewContent(parts...)
 |----------|-------|
 | Framework | Go `testing` + `github.com/stretchr/testify` v1.11.1 |
 | Config file | none |
-| Quick run command | `go test ./pkg/embeddings ./pkg/api/v2` |
+| Quick run command | `go test ./pkg/embeddings -run 'TestMultimodalContentSupportsAllModalities|TestMultimodalContentPreservesOrder|TestMultimodalRequestOptions|TestMultimodalIntentValidation|TestMultimodalValidationErrors|TestNewImagePartFromImageInput' && go test -tags=basicv2 ./pkg/api/v2 -run '^TestBuildEmbeddingFunctionFromConfig$'` |
 | Full suite command | `make test` |
 
 ### Phase Requirements → Test Map
@@ -394,8 +394,8 @@ content := NewContent(parts...)
 | MMOD-05 | Reject empty content, empty parts, invalid source combinations, and conflicting shapes before I/O | unit | `go test ./pkg/embeddings -run '^TestMultimodalValidationErrors$'` | ❌ Wave 0 |
 
 ### Sampling Rate
-- **Per task commit:** `go test ./pkg/embeddings ./pkg/api/v2`
-- **Per wave merge:** `go test ./pkg/embeddings ./pkg/api/v2 && make test`
+- **Per task commit:** `go test ./pkg/embeddings -run 'TestMultimodalContentSupportsAllModalities|TestMultimodalContentPreservesOrder|TestMultimodalRequestOptions|TestMultimodalIntentValidation|TestMultimodalValidationErrors|TestNewImagePartFromImageInput' && go test -tags=basicv2 ./pkg/api/v2 -run '^TestBuildEmbeddingFunctionFromConfig$'`
+- **Per wave merge:** `go test ./pkg/embeddings -run 'TestMultimodalContentSupportsAllModalities|TestMultimodalContentPreservesOrder|TestMultimodalRequestOptions|TestMultimodalIntentValidation|TestMultimodalValidationErrors|TestNewImagePartFromImageInput' && go test -tags=basicv2 ./pkg/api/v2 -run '^TestBuildEmbeddingFunctionFromConfig$' && make test`
 - **Phase gate:** `make test`
 
 ### Wave 0 Gaps
