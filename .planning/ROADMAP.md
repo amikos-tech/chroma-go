@@ -15,7 +15,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 ## Phases
 
 - [x] **Phase 1: Shared Multimodal Contract** - Add additive request and part types, neutral intents, per-request options, and validation primitives. (completed 2026-03-18)
-- [ ] **Phase 2: Capability Metadata and Compatibility** - Expose provider capabilities and keep legacy callers working unchanged.
+- [x] **Phase 2: Capability Metadata and Compatibility** - Expose provider capabilities and keep legacy callers working unchanged. (completed 2026-03-19)
 - [ ] **Phase 3: Registry and Config Integration** - Extend registry/build-from-config and collection auto-wiring for richer multimodal interfaces.
 - [ ] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly.
 - [ ] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility.
@@ -47,12 +47,12 @@ Plans:
   1. Providers can expose supported modalities, intents, and option support through shared capability metadata.
   2. Callers can inspect capability metadata without type-asserting provider implementations.
   3. Existing `EmbeddingFunction` and image-only `MultimodalEmbeddingFunction` callers continue to compile and pass compatibility tests.
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 
 Plans:
 - [x] 02-01: Add shared capability metadata types and interfaces
 - [x] 02-02: Introduce compatibility adapters or delegation paths between legacy and richer multimodal contracts
-- [ ] 02-03: Add regression tests for text-only and image-only callers
+- [x] 02-03: Add regression tests for text-only and image-only callers
 
 ### Phase 3: Registry and Config Integration
 **Goal:** Extend registry and config-persistence flows so richer multimodal functions can be rebuilt from stored configuration without regressing existing auto-wiring.
@@ -103,7 +103,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Shared Multimodal Contract | 4/4 | Complete | 2026-03-18 |
-| 2. Capability Metadata and Compatibility | 2/3 | In Progress | - |
+| 2. Capability Metadata and Compatibility | 3/3 | Complete | 2026-03-19 |
 | 3. Registry and Config Integration | 0/3 | Not started | - |
 | 4. Provider Mapping and Explicit Failures | 0/2 | Not started | - |
 | 5. Documentation and Verification | 0/3 | Not started | - |
