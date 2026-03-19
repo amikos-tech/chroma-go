@@ -179,7 +179,7 @@ func ValidateContents(contents []Content) error {
 
 	if len(contents) == 0 {
 		validationErr.addIssue("contents", validationCodeRequired, "at least one content item is required")
-		return validationErr
+		return validationErr.orNil()
 	}
 
 	for i, content := range contents {
