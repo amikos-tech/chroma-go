@@ -426,6 +426,12 @@ type ContentEmbeddingFunction interface {
 	EmbedContent(ctx context.Context, content Content) (Embedding, error)
 }
 
+// CapabilityAware exposes shared provider capability metadata without requiring callers
+// to type-assert provider-specific concrete implementations.
+type CapabilityAware interface {
+	Capabilities() CapabilityMetadata
+}
+
 // Closeable is an optional interface for embedding functions that hold resources.
 // Callers should check if an embedding function implements this interface and call
 // Close() when done to release resources (e.g., ONNX runtime, native libraries).
