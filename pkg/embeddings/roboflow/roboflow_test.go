@@ -1,16 +1,17 @@
-//go:build ef
-
 package roboflow
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
@@ -33,15 +34,18 @@ func skipIfImageURLUnavailable(t *testing.T) {
 	}
 }
 
-func TestRoboflowEmbeddingFunction(t *testing.T) {
+func lookupRoboflowAPIKey() string {
 	apiKey := os.Getenv("ROBOFLOW_API_KEY")
-	if apiKey == "" {
-		err := godotenv.Load("../../../.env")
-		if err != nil {
-			assert.Failf(t, "Error loading .env file", "%s", err)
-		}
-		apiKey = os.Getenv("ROBOFLOW_API_KEY")
+	if apiKey != "" {
+		return apiKey
 	}
+
+	_ = godotenv.Load("../../../.env")
+	return os.Getenv("ROBOFLOW_API_KEY")
+}
+
+func TestRoboflowEmbeddingFunction(t *testing.T) {
+	apiKey := lookupRoboflowAPIKey()
 
 	t.Run("Test text embedding with defaults", func(t *testing.T) {
 		if apiKey == "" {
@@ -382,5 +386,139 @@ func TestMultimodalInterface(t *testing.T) {
 
 		var _ embeddings.MultimodalEmbeddingFunction = ef
 		var _ embeddings.EmbeddingFunction = ef
+	})
+}
+
+type recordingTransport struct {
+	calls []transportCall
+}
+
+type transportCall struct {
+	Path string
+	Body []byte
+}
+
+func (t *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	t.calls = append(t.calls, transportCall{
+		Path: req.URL.Path,
+		Body: append([]byte(nil), body...),
+	})
+
+	responseBody := embeddingResponse{Embeddings: [][]float32{{1, 2, 3}}}
+	if strings.Contains(req.URL.Path, "embed_image") {
+		responseBody = embeddingResponse{Embeddings: [][]float32{{4, 5, 6}}}
+	}
+
+	payload, err := json.Marshal(responseBody)
+	if err != nil {
+		return nil, err
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Status:     "200 OK",
+		Header:     make(http.Header),
+		Body:       io.NopCloser(bytes.NewReader(payload)),
+	}, nil
+}
+
+func newTestRoboflowEmbeddingFunction(t *testing.T, transport http.RoundTripper) *RoboflowEmbeddingFunction {
+	t.Helper()
+
+	ef, err := NewRoboflowEmbeddingFunction(
+		WithAPIKey("test-key"),
+		WithBaseURL("https://example.com"),
+	)
+	require.NoError(t, err)
+
+	ef.httpClient = &http.Client{
+		Timeout:   DefaultHTTPTimeout,
+		Transport: transport,
+	}
+	return ef
+}
+
+func TestRoboflowCapabilities(t *testing.T) {
+	ef := newTestRoboflowEmbeddingFunction(t, &recordingTransport{})
+
+	var aware embeddings.CapabilityAware = ef
+	caps := aware.Capabilities()
+
+	require.True(t, caps.SupportsModality(embeddings.ModalityText))
+	require.True(t, caps.SupportsModality(embeddings.ModalityImage))
+	require.False(t, caps.SupportsModality(embeddings.ModalityAudio))
+	require.True(t, caps.SupportsBatch)
+	require.False(t, caps.SupportsMixedPart)
+	require.Empty(t, caps.Intents)
+	require.Empty(t, caps.RequestOptions)
+}
+
+func TestRoboflowContentCompatibility(t *testing.T) {
+	t.Run("shared content delegates text and image requests", func(t *testing.T) {
+		transport := &recordingTransport{}
+		ef := newTestRoboflowEmbeddingFunction(t, transport)
+
+		textEmbedding, err := ef.EmbedContent(context.Background(), embeddings.Content{
+			Parts: []embeddings.Part{embeddings.NewTextPart("hello")},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, textEmbedding)
+
+		imageURL := "https://example.com/image.png"
+		imageEmbedding, err := ef.EmbedContent(context.Background(), embeddings.Content{
+			Parts: []embeddings.Part{
+				embeddings.NewPartFromSource(embeddings.ModalityImage, embeddings.NewBinarySourceFromURL(imageURL)),
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, imageEmbedding)
+
+		embeddingsBatch, err := ef.EmbedContents(context.Background(), []embeddings.Content{
+			{Parts: []embeddings.Part{embeddings.NewTextPart("first")}},
+			{Parts: []embeddings.Part{
+				embeddings.NewPartFromSource(embeddings.ModalityImage, embeddings.NewBinarySourceFromBase64("aW1hZ2U=")),
+			}},
+		})
+		require.NoError(t, err)
+		require.Len(t, embeddingsBatch, 2)
+		require.Len(t, transport.calls, 4)
+
+		require.Equal(t, "/clip/embed_text", transport.calls[0].Path)
+		require.Equal(t, "/clip/embed_image", transport.calls[1].Path)
+		require.Equal(t, "/clip/embed_text", transport.calls[2].Path)
+		require.Equal(t, "/clip/embed_image", transport.calls[3].Path)
+
+		var textPayload textEmbeddingRequest
+		require.NoError(t, json.Unmarshal(transport.calls[0].Body, &textPayload))
+		require.Equal(t, "hello", textPayload.Text)
+
+		var imagePayload imageEmbeddingRequest
+		require.NoError(t, json.Unmarshal(transport.calls[1].Body, &imagePayload))
+		require.Equal(t, "url", imagePayload.Image.Type)
+		require.Equal(t, imageURL, imagePayload.Image.Value)
+
+		require.NoError(t, json.Unmarshal(transport.calls[3].Body, &imagePayload))
+		require.Equal(t, "base64", imagePayload.Image.Type)
+		require.Equal(t, "aW1hZ2U=", imagePayload.Image.Value)
+	})
+
+	t.Run("mixed-part shared content is rejected explicitly", func(t *testing.T) {
+		transport := &recordingTransport{}
+		ef := newTestRoboflowEmbeddingFunction(t, transport)
+
+		_, err := ef.EmbedContent(context.Background(), embeddings.Content{
+			Parts: []embeddings.Part{
+				embeddings.NewTextPart("first"),
+				embeddings.NewTextPart("second"),
+			},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "exactly one Part")
+		require.Empty(t, transport.calls)
 	})
 }
