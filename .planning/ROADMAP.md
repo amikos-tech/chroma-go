@@ -47,7 +47,7 @@ Plans:
   1. Providers can expose supported modalities, intents, and option support through shared capability metadata.
   2. Callers can inspect capability metadata without type-asserting provider implementations.
   3. Existing `EmbeddingFunction` and image-only `MultimodalEmbeddingFunction` callers continue to compile and pass compatibility tests.
-**Plans**: 3 plans
+**Plans**: 1/3 plans executed
 
 Plans:
 - [ ] 02-01: Add shared capability metadata types and interfaces
@@ -103,7 +103,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Shared Multimodal Contract | 4/4 | Complete | 2026-03-18 |
-| 2. Capability Metadata and Compatibility | 0/3 | Not started | - |
+| 2. Capability Metadata and Compatibility | 1/3 | In Progress | - |
 | 3. Registry and Config Integration | 0/3 | Not started | - |
 | 4. Provider Mapping and Explicit Failures | 0/2 | Not started | - |
 | 5. Documentation and Verification | 0/3 | Not started | - |

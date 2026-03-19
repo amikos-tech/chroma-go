@@ -15,8 +15,8 @@
 
 ### Capabilities and Compatibility
 
-- [ ] **CAPS-01**: A provider can declare which modalities, intents, and request options it supports through shared capability metadata
-- [ ] **CAPS-02**: Caller can inspect shared capability metadata without depending on provider-specific concrete types
+- [x] **CAPS-01**: A provider can declare which modalities, intents, and request options it supports through shared capability metadata
+- [x] **CAPS-02**: Caller can inspect shared capability metadata without depending on provider-specific concrete types
 - [ ] **COMP-01**: Existing `EmbeddingFunction` text-only callers continue to compile and behave the same without adopting the new multimodal request API
 - [ ] **COMP-02**: Existing image-only multimodal callers continue to compile and interoperate with the new shared multimodal foundations
 
@@ -62,8 +62,8 @@
 | MMOD-03 | Phase 1 | Complete |
 | MMOD-04 | Phase 1 | Complete |
 | MMOD-05 | Phase 1 | Complete |
-| CAPS-01 | Phase 2 | Pending |
-| CAPS-02 | Phase 2 | Pending |
+| CAPS-01 | Phase 2 | Complete |
+| CAPS-02 | Phase 2 | Complete |
 | COMP-01 | Phase 2 | Pending |
 | COMP-02 | Phase 2 | Pending |
 | REG-01 | Phase 3 | Pending |
