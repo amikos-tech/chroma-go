@@ -206,7 +206,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chroma-version: ["0.6.3","1.1.0","1.5.2"]
+        chroma-version: ["0.6.3","1.1.0","1.5.5"]
     environment: Test
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

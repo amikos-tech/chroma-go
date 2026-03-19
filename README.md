@@ -1,7 +1,7 @@
 # Chroma Go
 
 A simple Chroma Vector Database client written in Go.
-Current `chroma-go` release lines (`v0.3.x` and `v0.4.x`) are compatible with Chroma `v1.x`.
+Current `chroma-go` release lines (`v0.3.x` and `v0.4.x`) are compatible with Chroma `v1.x` and are tested in CI through Chroma `1.5.5`.
 For older Chroma versions, use older `chroma-go` releases (for example `v0.2.x`). See [compatibility](#compatibility).
 
 > [!WARNING]
@@ -16,7 +16,7 @@ information: [Chroma Go Docs](https://go-client.chromadb.dev/)
 
 ## Compatibility
 
-- `chroma-go` `v0.3.x` and `v0.4.x` are compatible with Chroma `v1.x`.
+- `chroma-go` `v0.3.x` and `v0.4.x` are compatible with Chroma `v1.x` and tested through Chroma `1.5.5`.
 - For older Chroma versions, use older `chroma-go` release lines (for example `v0.2.x`).
 - Older client versions: [GitHub Releases](https://github.com/amikos-tech/chroma-go/releases)
 

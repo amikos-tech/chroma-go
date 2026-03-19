@@ -38,7 +38,7 @@ import (
 func setupChromaContainer(t *testing.T) (string, func()) {
 	ctx := context.Background()
 
-	chromaImage := "ghcr.io/chroma-core/chroma:1.5.2"
+	chromaImage := "ghcr.io/chroma-core/chroma:1.5.5"
 	if img := os.Getenv("CHROMA_IMAGE"); img != "" {
 		chromaImage = img
 	}
