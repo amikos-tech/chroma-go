@@ -44,6 +44,23 @@ func lookupRoboflowAPIKey() string {
 	return os.Getenv("ROBOFLOW_API_KEY")
 }
 
+func skipIfRoboflowServiceUnavailable(t *testing.T, err error) {
+	t.Helper()
+
+	if err == nil {
+		return
+	}
+
+	message := err.Error()
+	if strings.Contains(message, "429 Too Many Requests") ||
+		strings.Contains(message, "500 Internal Server Error") ||
+		strings.Contains(message, "502 Bad Gateway") ||
+		strings.Contains(message, "503 Service Unavailable") ||
+		strings.Contains(message, "504 Gateway Timeout") {
+		t.Skipf("Skipping: Roboflow service unavailable: %v", err)
+	}
+}
+
 func TestRoboflowEmbeddingFunction(t *testing.T) {
 	apiKey := lookupRoboflowAPIKey()
 
@@ -58,6 +75,7 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 			"Document 2 content here",
 		}
 		resp, err := ef.EmbedDocuments(context.Background(), documents)
+		skipIfRoboflowServiceUnavailable(t, err)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
@@ -74,6 +92,7 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 			"Document 1 content here",
 		}
 		resp, err := ef.EmbedDocuments(context.Background(), documents)
+		skipIfRoboflowServiceUnavailable(t, err)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 1)
@@ -87,6 +106,7 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 		ef, err := NewRoboflowEmbeddingFunction(WithAPIKey(apiKey))
 		require.NoError(t, err)
 		resp, err := ef.EmbedQuery(context.Background(), "What is the meaning of life?")
+		skipIfRoboflowServiceUnavailable(t, err)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Greater(t, resp.Len(), 0)
@@ -102,6 +122,7 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 
 		image := embeddings.NewImageInputFromURL(testImageURL)
 		resp, err := ef.EmbedImage(context.Background(), image)
+		skipIfRoboflowServiceUnavailable(t, err)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Greater(t, resp.Len(), 0)
@@ -118,6 +139,7 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 		// Use the test image file in the same directory
 		image := embeddings.NewImageInputFromFile("img.png")
 		resp, err := ef.EmbedImage(context.Background(), image)
+		skipIfRoboflowServiceUnavailable(t, err)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Greater(t, resp.Len(), 0)
@@ -137,6 +159,7 @@ func TestRoboflowEmbeddingFunction(t *testing.T) {
 			embeddings.NewImageInputFromURL(testImageURL),
 		}
 		resp, err := ef.EmbedImages(context.Background(), images)
+		skipIfRoboflowServiceUnavailable(t, err)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Len(t, resp, 2)
