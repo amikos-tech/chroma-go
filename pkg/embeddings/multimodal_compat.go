@@ -8,6 +8,8 @@ import (
 var (
 	_ ContentEmbeddingFunction = (*embeddingFunctionContentAdapter)(nil)
 	_ ContentEmbeddingFunction = (*multimodalEmbeddingFunctionContentAdapter)(nil)
+	_ CapabilityAware          = (*embeddingFunctionContentAdapter)(nil)
+	_ CapabilityAware          = (*multimodalEmbeddingFunctionContentAdapter)(nil)
 )
 
 type embeddingFunctionContentAdapter struct {
@@ -42,12 +44,27 @@ func AdaptMultimodalEmbeddingFunctionToContent(ef MultimodalEmbeddingFunction, c
 	return &multimodalEmbeddingFunctionContentAdapter{ef: ef, caps: caps}
 }
 
+func (a *embeddingFunctionContentAdapter) Capabilities() CapabilityMetadata {
+	return a.caps
+}
+
+func (a *embeddingFunctionContentAdapter) Close() error {
+	if c, ok := a.ef.(Closeable); ok {
+		return c.Close()
+	}
+	return nil
+}
+
 func (a *embeddingFunctionContentAdapter) EmbedContent(ctx context.Context, content Content) (Embedding, error) {
 	compatible, err := textContentFromSharedContent(content, a.caps)
 	if err != nil {
 		return nil, err
 	}
-	return a.ef.EmbedQuery(ctx, compatible.text)
+	embeddings, err := a.ef.EmbedDocuments(ctx, []string{compatible.text})
+	if err != nil {
+		return nil, err
+	}
+	return embeddings[0], nil
 }
 
 func (a *embeddingFunctionContentAdapter) EmbedContents(ctx context.Context, contents []Content) ([]Embedding, error) {
@@ -67,6 +84,17 @@ func (a *embeddingFunctionContentAdapter) EmbedContents(ctx context.Context, con
 	return a.ef.EmbedDocuments(ctx, texts)
 }
 
+func (a *multimodalEmbeddingFunctionContentAdapter) Capabilities() CapabilityMetadata {
+	return a.caps
+}
+
+func (a *multimodalEmbeddingFunctionContentAdapter) Close() error {
+	if c, ok := a.ef.(Closeable); ok {
+		return c.Close()
+	}
+	return nil
+}
+
 func (a *multimodalEmbeddingFunctionContentAdapter) EmbedContent(ctx context.Context, content Content) (Embedding, error) {
 	compatible, err := multimodalContentFromSharedContent(content, a.caps)
 	if err != nil {
@@ -75,7 +103,11 @@ func (a *multimodalEmbeddingFunctionContentAdapter) EmbedContent(ctx context.Con
 
 	switch compatible.modality {
 	case ModalityText:
-		return a.ef.EmbedQuery(ctx, compatible.text)
+		embeddings, qErr := a.ef.EmbedDocuments(ctx, []string{compatible.text})
+		if qErr != nil {
+			return nil, qErr
+		}
+		return embeddings[0], nil
 	case ModalityImage:
 		return a.ef.EmbedImage(ctx, compatible.image)
 	default:
@@ -121,15 +153,15 @@ func (a *multimodalEmbeddingFunctionContentAdapter) EmbedContents(ctx context.Co
 	for i, item := range compatible {
 		switch item.modality {
 		case ModalityText:
-			embedding, err := a.ef.EmbedQuery(ctx, item.text)
-			if err != nil {
-				return nil, err
+			embeddings, qErr := a.ef.EmbedDocuments(ctx, []string{item.text})
+			if qErr != nil {
+				return nil, prefixBatchCompatibilityError(i, qErr)
 			}
-			result[i] = embedding
+			result[i] = embeddings[0]
 		case ModalityImage:
-			embedding, err := a.ef.EmbedImage(ctx, item.image)
-			if err != nil {
-				return nil, err
+			embedding, qErr := a.ef.EmbedImage(ctx, item.image)
+			if qErr != nil {
+				return nil, prefixBatchCompatibilityError(i, qErr)
 			}
 			result[i] = embedding
 		default:

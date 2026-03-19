@@ -144,8 +144,9 @@ func TestLegacyTextCompatibility(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, embedding)
-	require.Equal(t, []string{"query text"}, legacy.queries)
-	require.Empty(t, legacy.documentBatch)
+	require.Empty(t, legacy.queries)
+	require.Len(t, legacy.documentBatch, 1)
+	require.Equal(t, []string{"query text"}, legacy.documentBatch[0])
 
 	embeddings, err := adapter.EmbedContents(context.Background(), []Content{
 		{Parts: []Part{NewTextPart("first document")}},
@@ -153,8 +154,8 @@ func TestLegacyTextCompatibility(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, embeddings, 2)
-	require.Len(t, legacy.documentBatch, 1)
-	require.Equal(t, []string{"first document", "second document"}, legacy.documentBatch[0])
+	require.Len(t, legacy.documentBatch, 2)
+	require.Equal(t, []string{"first document", "second document"}, legacy.documentBatch[1])
 }
 
 func TestLegacyImageCompatibility(t *testing.T) {
@@ -169,7 +170,9 @@ func TestLegacyImageCompatibility(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, textEmbedding)
-	require.Equal(t, []string{"query"}, legacy.queries)
+	require.Empty(t, legacy.queries)
+	require.Len(t, legacy.documentBatch, 1)
+	require.Equal(t, []string{"query"}, legacy.documentBatch[0])
 
 	imageURL := "https://example.com/image.png"
 	imageEmbedding, err := adapter.EmbedContent(context.Background(), Content{
@@ -186,8 +189,8 @@ func TestLegacyImageCompatibility(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, textBatch, 2)
-	require.Len(t, legacy.documentBatch, 1)
-	require.Equal(t, []string{"first", "second"}, legacy.documentBatch[0])
+	require.Len(t, legacy.documentBatch, 2)
+	require.Equal(t, []string{"first", "second"}, legacy.documentBatch[1])
 
 	imageBatch, err := adapter.EmbedContents(context.Background(), []Content{
 		{Parts: []Part{NewPartFromSource(ModalityImage, NewBinarySourceFromBase64("aW1hZ2Ux"))}},
