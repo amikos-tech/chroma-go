@@ -68,6 +68,8 @@ type embeddingResponse struct {
 var (
 	_ embeddings.EmbeddingFunction           = (*RoboflowEmbeddingFunction)(nil)
 	_ embeddings.MultimodalEmbeddingFunction = (*RoboflowEmbeddingFunction)(nil)
+	_ embeddings.ContentEmbeddingFunction    = (*RoboflowEmbeddingFunction)(nil)
+	_ embeddings.CapabilityAware             = (*RoboflowEmbeddingFunction)(nil)
 )
 
 func getDefaults() *RoboflowEmbeddingFunction {
@@ -267,6 +269,27 @@ func (e *RoboflowEmbeddingFunction) EmbedImage(ctx context.Context, image embedd
 		return nil, errors.New("empty embedding response from Roboflow API")
 	}
 	return embeddings.NewEmbeddingFromFloat32(response.Embeddings[0]), nil
+}
+
+func (e *RoboflowEmbeddingFunction) Capabilities() embeddings.CapabilityMetadata {
+	return embeddings.CapabilityMetadata{
+		Modalities: []embeddings.Modality{
+			embeddings.ModalityText,
+			embeddings.ModalityImage,
+		},
+		SupportsBatch:     true,
+		SupportsMixedPart: false,
+	}
+}
+
+func (e *RoboflowEmbeddingFunction) EmbedContent(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
+	adapter := embeddings.AdaptMultimodalEmbeddingFunctionToContent(e, e.Capabilities())
+	return adapter.EmbedContent(ctx, content)
+}
+
+func (e *RoboflowEmbeddingFunction) EmbedContents(ctx context.Context, contents []embeddings.Content) ([]embeddings.Embedding, error) {
+	adapter := embeddings.AdaptMultimodalEmbeddingFunctionToContent(e, e.Capabilities())
+	return adapter.EmbedContents(ctx, contents)
 }
 
 func (e *RoboflowEmbeddingFunction) Name() string {
