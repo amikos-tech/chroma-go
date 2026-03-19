@@ -417,6 +417,15 @@ type MultimodalEmbeddingFunction interface {
 	EmbedImage(ctx context.Context, image ImageInput) (Embedding, error)
 }
 
+// ContentEmbeddingFunction is the shared multimodal foundation for ordered mixed-part content.
+// It is additive in this phase and does not replace the legacy image-only MultimodalEmbeddingFunction.
+type ContentEmbeddingFunction interface {
+	// EmbedContents returns a vector for each multimodal content item.
+	EmbedContents(ctx context.Context, contents []Content) ([]Embedding, error)
+	// EmbedContent embeds a single multimodal content item.
+	EmbedContent(ctx context.Context, content Content) (Embedding, error)
+}
+
 // Closeable is an optional interface for embedding functions that hold resources.
 // Callers should check if an embedding function implements this interface and call
 // Close() when done to release resources (e.g., ONNX runtime, native libraries).
