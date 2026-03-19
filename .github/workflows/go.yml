@@ -99,6 +99,34 @@ jobs:
               - 'go.sum'
             docs:
               - 'docs/**'
+  cloud-context:
+    name: Determine Cloud Secret Context
+    runs-on: ubuntu-latest
+    outputs:
+      can_run_secret_cloud_jobs: ${{ steps.gate.outputs.can_run_secret_cloud_jobs }}
+    steps:
+      - name: Detect secret-capable context
+        id: gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || '' }}
+          REPOSITORY: ${{ github.repository }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login || '' }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          # External/fork PRs and Dependabot PRs do not receive repo secrets by design.
+          can_run_secret_cloud_jobs=false
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            can_run_secret_cloud_jobs=true
+          elif [ "$EVENT_NAME" = "pull_request" ] \
+            && [ "$PR_HEAD_REPO" = "$REPOSITORY" ] \
+            && [ "$PR_AUTHOR" != "dependabot[bot]" ] \
+            && [ "$PR_AUTHOR" != "app/dependabot" ] \
+            && [ "$ACTOR" != "dependabot[bot]" ] \
+            && [ "$ACTOR" != "app/dependabot" ]; then
+            can_run_secret_cloud_jobs=true
+          fi
+          echo "can_run_secret_cloud_jobs=$can_run_secret_cloud_jobs" >> "$GITHUB_OUTPUT"
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -212,8 +240,8 @@ jobs:
   cloud:
     name: Test Chroma Cloud (${{ matrix.test }})
     runs-on: ubuntu-22.04
-    needs: [ lint,paths-filter ]
-    if: inputs.run_cloud || needs.paths-filter.outputs.base == 'true'
+    needs: [ lint,paths-filter,cloud-context ]
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_cloud) || (needs.paths-filter.outputs.base == 'true' && needs.cloud-context.outputs.can_run_secret_cloud_jobs == 'true')
     environment: Test
     timeout-minutes: 15
     strategy:
@@ -247,8 +275,8 @@ jobs:
   cloud-cleanup:
     name: Cleanup Cloud Collections
     runs-on: ubuntu-22.04
-    needs: [cloud, paths-filter]
-    if: always() && (inputs.run_cloud || needs.paths-filter.outputs.base == 'true')
+    needs: [cloud, paths-filter, cloud-context]
+    if: always() && needs.cloud-context.outputs.can_run_secret_cloud_jobs == 'true' && ((github.event_name == 'workflow_dispatch' && inputs.run_cloud) || needs.paths-filter.outputs.base == 'true')
     environment: Test
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
