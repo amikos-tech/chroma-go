@@ -39,6 +39,7 @@ const (
 	localLibraryCosignOIDCIssuer              = "https://token.actions.githubusercontent.com"
 	localLibraryCosignIdentityTemplate        = "https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/tags/%s"
 	localLibraryCosignMainIdentity            = "https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/heads/main"
+	localLibraryCosignMainIdentityVersion     = "v0.3.4"
 	localLibraryLockFileName                  = ".download.lock"
 	localLibraryCacheDirPerm                  = os.FileMode(0700)
 	localLibraryLockFilePerm                  = os.FileMode(0600)
@@ -669,10 +670,7 @@ func localPrepareSigstoreBundleChecksumsFromBase(baseURL, version, checksumsPath
 }
 
 func localVerifyChecksumsWithAnyIdentity(version string, verify func(expectedIdentity string) error) error {
-	identities := []string{
-		fmt.Sprintf(localLibraryCosignIdentityTemplate, version),
-		localLibraryCosignMainIdentity,
-	}
+	identities := localAllowedChecksumSignerIdentities(version)
 	var errs []error
 	for _, identity := range identities {
 		if err := verify(identity); err == nil {
@@ -682,6 +680,14 @@ func localVerifyChecksumsWithAnyIdentity(version string, verify func(expectedIde
 		}
 	}
 	return stderrors.Join(errs...)
+}
+
+func localAllowedChecksumSignerIdentities(version string) []string {
+	identities := []string{fmt.Sprintf(localLibraryCosignIdentityTemplate, version)}
+	if strings.TrimSpace(version) == localLibraryCosignMainIdentityVersion {
+		identities = append(identities, localLibraryCosignMainIdentity)
+	}
+	return identities
 }
 
 // localChecksumFromSumsFileAny matches checksum entries in file order.

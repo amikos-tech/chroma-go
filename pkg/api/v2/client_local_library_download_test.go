@@ -655,7 +655,8 @@ func TestEnsureLocalLibraryDownloaded_FailsOnSignedChecksumsVerification(t *test
 	cacheDir := t.TempDir()
 	_, err = ensureLocalLibraryDownloaded("v9.9.9", cacheDir)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "checksums signature")
+	require.Contains(t, err.Error(), "failed to verify local library checksum metadata")
+	require.Contains(t, err.Error(), "invalid checksum signature")
 }
 
 func TestEnsureLocalLibraryDownloaded_VerifyFailure_JoinsRemoveError(t *testing.T) {
@@ -1470,6 +1471,23 @@ func newSignedChecksumArtifacts(t *testing.T, version string, checksumBody []byt
 	require.NoError(t, err)
 
 	return []byte(base64.StdEncoding.EncodeToString(signature)), certificatePEM
+}
+
+func TestLocalAllowedChecksumSignerIdentities(t *testing.T) {
+	require.Equal(t,
+		[]string{
+			"https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/tags/v0.3.4",
+			"https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/heads/main",
+		},
+		localAllowedChecksumSignerIdentities("v0.3.4"),
+	)
+
+	require.Equal(t,
+		[]string{
+			"https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/tags/v9.9.9",
+		},
+		localAllowedChecksumSignerIdentities("v9.9.9"),
+	)
 }
 
 func newSignedChecksumBundleArtifact(t *testing.T, version string, checksumBody []byte) []byte {
