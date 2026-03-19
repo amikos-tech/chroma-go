@@ -64,6 +64,9 @@ func (a *embeddingFunctionContentAdapter) EmbedContent(ctx context.Context, cont
 	if err != nil {
 		return nil, err
 	}
+	if len(embeddings) == 0 {
+		return nil, fmt.Errorf("EmbedDocuments returned empty result for single text input")
+	}
 	return embeddings[0], nil
 }
 
@@ -106,6 +109,9 @@ func (a *multimodalEmbeddingFunctionContentAdapter) EmbedContent(ctx context.Con
 		embeddings, qErr := a.ef.EmbedDocuments(ctx, []string{compatible.text})
 		if qErr != nil {
 			return nil, qErr
+		}
+		if len(embeddings) == 0 {
+			return nil, fmt.Errorf("EmbedDocuments returned empty result for single text input")
 		}
 		return embeddings[0], nil
 	case ModalityImage:
@@ -156,6 +162,9 @@ func (a *multimodalEmbeddingFunctionContentAdapter) EmbedContents(ctx context.Co
 			embeddings, qErr := a.ef.EmbedDocuments(ctx, []string{item.text})
 			if qErr != nil {
 				return nil, prefixBatchCompatibilityError(i, qErr)
+			}
+			if len(embeddings) == 0 {
+				return nil, prefixBatchCompatibilityError(i, fmt.Errorf("EmbedDocuments returned empty result for single text input"))
 			}
 			result[i] = embeddings[0]
 		case ModalityImage:
