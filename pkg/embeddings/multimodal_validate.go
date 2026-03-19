@@ -92,6 +92,11 @@ func (c Content) Validate() error {
 func (p Part) Validate() error {
 	validationErr := &ValidationError{}
 
+	if p.Modality == "" {
+		validationErr.addIssue("modality", validationCodeRequired, "modality is required")
+		return validationErr.orNil()
+	}
+
 	switch p.Modality {
 	case ModalityText:
 		if p.Text == "" {

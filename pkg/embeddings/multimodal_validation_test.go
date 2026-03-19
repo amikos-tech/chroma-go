@@ -1,6 +1,7 @@
 package embeddings
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,6 +29,16 @@ func TestMultimodalIntentValidation(t *testing.T) {
 	require.Error(t, err)
 
 	var validationErr *ValidationError
+	require.ErrorAs(t, err, &validationErr)
+	require.NotEmpty(t, validationErr.Issues)
+	require.Equal(t, "intent", validationErr.Issues[0].Path)
+	require.Equal(t, validationCodeInvalidValue, validationErr.Issues[0].Code)
+
+	err = Content{
+		Parts:  []Part{NewTextPart("ok")},
+		Intent: Intent(" retrieval_query "),
+	}.Validate()
+	require.Error(t, err)
 	require.ErrorAs(t, err, &validationErr)
 	require.NotEmpty(t, validationErr.Issues)
 	require.Equal(t, "intent", validationErr.Issues[0].Path)
@@ -91,6 +102,65 @@ func TestMultimodalValidationErrors(t *testing.T) {
 			}.Validate(),
 			wantPath:      "dimension",
 			wantCode:      validationCodeOutOfRange,
+			issueCountMin: 1,
+		},
+		{
+			name: "dimension exceeds MaxInt32",
+			err: Content{
+				Parts:     []Part{NewTextPart("ok")},
+				Dimension: func() *int { v := math.MaxInt32 + 1; return &v }(),
+			}.Validate(),
+			wantPath:      "dimension",
+			wantCode:      validationCodeOutOfRange,
+			issueCountMin: 1,
+		},
+		{
+			name:          "missing modality",
+			err:           Part{}.Validate(),
+			wantPath:      "modality",
+			wantCode:      validationCodeRequired,
+			issueCountMin: 1,
+		},
+		{
+			name: "unknown modality",
+			err: Part{
+				Modality: Modality("hologram"),
+				Source:   &BinarySource{Kind: SourceKindURL, URL: "https://example.com/holo"},
+			}.Validate(),
+			wantPath:      "modality",
+			wantCode:      validationCodeInvalidValue,
+			issueCountMin: 1,
+		},
+		{
+			name:          "empty text part",
+			err:           Part{Modality: ModalityText, Text: ""}.Validate(),
+			wantPath:      "text",
+			wantCode:      validationCodeRequired,
+			issueCountMin: 1,
+		},
+		{
+			name: "text field on non-text part",
+			err: Part{
+				Modality: ModalityImage,
+				Text:     "should not be here",
+				Source:   &BinarySource{Kind: SourceKindURL, URL: "https://example.com/image.png"},
+			}.Validate(),
+			wantPath:      "text",
+			wantCode:      validationCodeForbidden,
+			issueCountMin: 1,
+		},
+		{
+			name:          "ValidateContents with nil input",
+			err:           ValidateContents(nil),
+			wantPath:      "contents",
+			wantCode:      validationCodeRequired,
+			issueCountMin: 1,
+		},
+		{
+			name:          "ValidateContents with empty slice",
+			err:           ValidateContents([]Content{}),
+			wantPath:      "contents",
+			wantCode:      validationCodeRequired,
 			issueCountMin: 1,
 		},
 	}

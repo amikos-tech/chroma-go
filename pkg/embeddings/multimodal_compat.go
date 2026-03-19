@@ -11,6 +11,9 @@ func NewTextPart(text string) Part {
 // NewPartFromSource creates a non-text multimodal part from a binary source.
 func NewPartFromSource(modality Modality, source BinarySource) Part {
 	sourceCopy := source
+	if len(source.Bytes) > 0 {
+		sourceCopy.Bytes = append([]byte(nil), source.Bytes...)
+	}
 	return Part{
 		Modality: modality,
 		Source:   &sourceCopy,

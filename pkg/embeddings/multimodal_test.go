@@ -70,6 +70,15 @@ func TestMultimodalContentSupportsAllModalities(t *testing.T) {
 	require.Equal(t, []byte{0x25, 0x50, 0x44, 0x46}, cases[4].content.Parts[0].Source.Bytes)
 }
 
+func TestNewPartFromSourceIsolatesBytes(t *testing.T) {
+	original := []byte{0x01, 0x02, 0x03}
+	source := NewBinarySourceFromBytes(original)
+	part := NewPartFromSource(ModalityPDF, source)
+
+	source.Bytes[0] = 0xFF
+	require.Equal(t, byte(0x01), part.Source.Bytes[0], "part bytes must be isolated from source mutation")
+}
+
 func TestMultimodalContentPreservesOrder(t *testing.T) {
 	parts := []Part{
 		NewTextPart("first"),
@@ -103,7 +112,7 @@ func TestMultimodalContentPreservesOrder(t *testing.T) {
 	require.Equal(t, "second", batch[1].Parts[0].Text)
 }
 
-func TestMultimodalRequestOptions(t *testing.T) {
+func TestMultimodalContentPreservesOptionalFields(t *testing.T) {
 	dimension := 384
 	hints := map[string]any{
 		"provider":     "gemini",
