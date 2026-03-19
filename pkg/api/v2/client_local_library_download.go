@@ -26,17 +26,20 @@ import (
 )
 
 const (
-	defaultLocalLibraryVersion                = "v0.3.3"
+	defaultLocalLibraryVersion                = "v0.3.4"
 	defaultLocalLibraryReleaseBaseURL         = "https://releases.amikos.tech/chroma-go-local"
 	defaultLocalLibraryReleaseFallbackBaseURL = "https://github.com/amikos-tech/chroma-go-local/releases/download"
 	localLibraryModulePath                    = "github.com/amikos-tech/chroma-go-local"
 	localLibraryChecksumsAsset                = "SHA256SUMS"
 	localLibraryChecksumsSignatureAsset       = "SHA256SUMS.sig"
 	localLibraryChecksumsCertificateAsset     = "SHA256SUMS.pem"
+	localLibraryChecksumsBundleAsset          = "SHA256SUMS.sigstore.json"
 	localLibraryArchivePrefixLegacy           = "chroma-go-local"
 	localLibraryArchivePrefixLocalChroma      = "local-chroma"
 	localLibraryCosignOIDCIssuer              = "https://token.actions.githubusercontent.com"
 	localLibraryCosignIdentityTemplate        = "https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/tags/%s"
+	localLibraryCosignMainIdentity            = "https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/heads/main"
+	localLibraryCosignMainIdentityVersion     = "v0.3.4"
 	localLibraryLockFileName                  = ".download.lock"
 	localLibraryCacheDirPerm                  = os.FileMode(0700)
 	localLibraryLockFilePerm                  = os.FileMode(0600)
@@ -565,41 +568,20 @@ func localValidateReleaseBaseURL(baseURL string) (string, error) {
 
 func localPrepareSignedChecksumsFromBase(baseURL, version, targetDir string, archiveNames []string) (string, string, error) {
 	checksumsPath := filepath.Join(targetDir, localLibraryChecksumsAsset)
-	checksumsSignaturePath := filepath.Join(targetDir, localLibraryChecksumsSignatureAsset)
-	checksumsCertificatePath := filepath.Join(targetDir, localLibraryChecksumsCertificateAsset)
 
-	type metaDownload struct {
-		asset, dest, errMsg string
+	if err := localDownloadReleaseAssetFromBase(baseURL, version, localLibraryChecksumsAsset, checksumsPath); err != nil {
+		return "", "", errors.Wrap(err, "failed to download local library checksums")
 	}
-	downloads := []metaDownload{
-		{localLibraryChecksumsAsset, checksumsPath, "failed to download local library checksums"},
-		{localLibraryChecksumsSignatureAsset, checksumsSignaturePath, "failed to download local library checksums signature"},
-		{localLibraryChecksumsCertificateAsset, checksumsCertificatePath, "failed to download local library checksums certificate"},
-	}
-	errs := make([]error, len(downloads))
-	var wg sync.WaitGroup
-	for i, dl := range downloads {
-		wg.Add(1)
-		go func(index int, download metaDownload) {
-			defer wg.Done()
-			if err := localDownloadReleaseAssetFromBase(baseURL, version, download.asset, download.dest); err != nil {
-				errs[index] = errors.Wrap(err, download.errMsg)
-			}
-		}(i, dl)
-	}
-	wg.Wait()
-	downloadErrs := make([]error, 0, len(errs))
-	for _, err := range errs {
-		if err != nil {
-			downloadErrs = append(downloadErrs, err)
+
+	legacyErr := localPrepareLegacySignedChecksumsFromBase(baseURL, version, checksumsPath, targetDir)
+	if legacyErr != nil {
+		bundleErr := localPrepareSigstoreBundleChecksumsFromBase(baseURL, version, checksumsPath, targetDir)
+		if bundleErr != nil {
+			return "", "", errors.Wrap(stderrors.Join(
+				errors.Wrap(legacyErr, "legacy checksum signature metadata failed"),
+				errors.Wrap(bundleErr, "sigstore bundle metadata failed"),
+			), "failed to verify local library checksum metadata")
 		}
-	}
-	if len(downloadErrs) > 0 {
-		return "", "", errors.Wrap(stderrors.Join(downloadErrs...), "failed to download local library checksum metadata")
-	}
-
-	if err := localVerifySignedChecksums(version, checksumsPath, checksumsSignaturePath, checksumsCertificatePath); err != nil {
-		return "", "", errors.Wrap(err, "failed to verify local library checksums signature")
 	}
 
 	resolvedArchiveName, expectedChecksum, err := localChecksumFromSumsFileAny(checksumsPath, archiveNames)
@@ -622,12 +604,90 @@ func localDownloadReleaseAssetFromBase(baseURL, version, assetName, destinationP
 }
 
 func localVerifySignedChecksums(version, checksumsPath, signaturePath, certificatePath string) error {
-	expectedIdentity := fmt.Sprintf(localLibraryCosignIdentityTemplate, version)
-	return cosignutil.VerifySignedChecksums(
-		checksumsPath, signaturePath, certificatePath,
-		expectedIdentity, localLibraryCosignOIDCIssuer,
-		localVerifyCosignCertificateChainFunc,
-	)
+	return localVerifyChecksumsWithAnyIdentity(version, func(expectedIdentity string) error {
+		return cosignutil.VerifySignedChecksums(
+			checksumsPath, signaturePath, certificatePath,
+			expectedIdentity, localLibraryCosignOIDCIssuer,
+			localVerifyCosignCertificateChainFunc,
+		)
+	})
+}
+
+func localPrepareLegacySignedChecksumsFromBase(baseURL, version, checksumsPath, targetDir string) error {
+	checksumsSignaturePath := filepath.Join(targetDir, localLibraryChecksumsSignatureAsset)
+	checksumsCertificatePath := filepath.Join(targetDir, localLibraryChecksumsCertificateAsset)
+
+	type metaDownload struct {
+		asset, dest, errMsg string
+	}
+	downloads := []metaDownload{
+		{localLibraryChecksumsSignatureAsset, checksumsSignaturePath, "failed to download local library checksums signature"},
+		{localLibraryChecksumsCertificateAsset, checksumsCertificatePath, "failed to download local library checksums certificate"},
+	}
+	errs := make([]error, len(downloads))
+	var wg sync.WaitGroup
+	for i, dl := range downloads {
+		wg.Add(1)
+		go func(index int, download metaDownload) {
+			defer wg.Done()
+			if err := localDownloadReleaseAssetFromBase(baseURL, version, download.asset, download.dest); err != nil {
+				errs[index] = errors.Wrap(err, download.errMsg)
+			}
+		}(i, dl)
+	}
+	wg.Wait()
+
+	downloadErrs := make([]error, 0, len(errs))
+	for _, err := range errs {
+		if err != nil {
+			downloadErrs = append(downloadErrs, err)
+		}
+	}
+	if len(downloadErrs) > 0 {
+		return errors.Wrap(stderrors.Join(downloadErrs...), "failed to download legacy checksum metadata")
+	}
+	if err := localVerifySignedChecksums(version, checksumsPath, checksumsSignaturePath, checksumsCertificatePath); err != nil {
+		return errors.Wrap(err, "failed to verify legacy checksum signature")
+	}
+	return nil
+}
+
+func localPrepareSigstoreBundleChecksumsFromBase(baseURL, version, checksumsPath, targetDir string) error {
+	checksumsBundlePath := filepath.Join(targetDir, localLibraryChecksumsBundleAsset)
+	if err := localDownloadReleaseAssetFromBase(baseURL, version, localLibraryChecksumsBundleAsset, checksumsBundlePath); err != nil {
+		return errors.Wrap(err, "failed to download sigstore bundle")
+	}
+	if err := localVerifyChecksumsWithAnyIdentity(version, func(expectedIdentity string) error {
+		return cosignutil.VerifySignedChecksumsBundle(
+			checksumsPath, checksumsBundlePath,
+			expectedIdentity, localLibraryCosignOIDCIssuer,
+			localVerifyCosignCertificateChainFunc,
+		)
+	}); err != nil {
+		return errors.Wrap(err, "failed to verify sigstore bundle")
+	}
+	return nil
+}
+
+func localVerifyChecksumsWithAnyIdentity(version string, verify func(expectedIdentity string) error) error {
+	identities := localAllowedChecksumSignerIdentities(version)
+	var errs []error
+	for _, identity := range identities {
+		if err := verify(identity); err == nil {
+			return nil
+		} else {
+			errs = append(errs, errors.Wrapf(err, "certificate identity %s", identity))
+		}
+	}
+	return stderrors.Join(errs...)
+}
+
+func localAllowedChecksumSignerIdentities(version string) []string {
+	identities := []string{fmt.Sprintf(localLibraryCosignIdentityTemplate, version)}
+	if strings.TrimSpace(version) == localLibraryCosignMainIdentityVersion {
+		identities = append(identities, localLibraryCosignMainIdentity)
+	}
+	return identities
 }
 
 // localChecksumFromSumsFileAny matches checksum entries in file order.

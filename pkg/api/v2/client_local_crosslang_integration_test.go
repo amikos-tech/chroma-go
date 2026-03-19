@@ -143,8 +143,8 @@ func runMountedDockerChroma(t *testing.T, persistPath string) (string, func()) {
 
 	chromaImage := os.Getenv("CHROMA_IMAGE")
 	if chromaImage == "" {
-		// chroma-go-local v0.2.0 uses Chroma 1.5.x internally.
-		chromaImage = "ghcr.io/chroma-core/chroma:1.5.2"
+		// chroma-go-local v0.3.4 supports Chroma 1.5.5.
+		chromaImage = "ghcr.io/chroma-core/chroma:1.5.5"
 	}
 
 	req := testcontainers.ContainerRequest{
