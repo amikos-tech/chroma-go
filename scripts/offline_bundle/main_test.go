@@ -336,7 +336,7 @@ func TestApplyGitHubAuthHeader(t *testing.T) {
 
 	t.Run("non-github-host-no-auth-header", func(t *testing.T) {
 		t.Setenv("GITHUB_TOKEN", "token-a")
-		req, err := http.NewRequest(http.MethodGet, "https://releases.amikos.tech/chroma-go-local/v0.3.3/SHA256SUMS", nil)
+		req, err := http.NewRequest(http.MethodGet, "https://releases.amikos.tech/chroma-go-local/v0.3.4/SHA256SUMS", nil)
 		if err != nil {
 			t.Fatalf("new request: %v", err)
 		}

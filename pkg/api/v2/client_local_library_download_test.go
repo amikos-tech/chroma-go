@@ -19,6 +19,7 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -440,6 +441,58 @@ func TestEnsureLocalLibraryDownloaded_DownloadsAndExtracts(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, localLibraryCacheDirPerm, dirInfo.Mode().Perm())
 	}
+}
+
+func TestEnsureLocalLibraryDownloaded_DownloadsAndExtractsWithSigstoreBundle(t *testing.T) {
+	lockLocalTestHooks(t)
+	bypassLocalCosignChainVerification(t)
+
+	asset, err := localLibraryAssetForRuntime(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skipf("runtime not supported for local runtime artifacts: %v", err)
+	}
+
+	archiveBytes := newTarGzWithLibrary(t, asset.libraryFileName, []byte("local-shim-bundle-bytes"))
+	archiveName := localLibraryArchiveName("v9.9.9", asset.platform)
+	checksum := sha256.Sum256(archiveBytes)
+	checksumHex := hex.EncodeToString(checksum[:])
+	sumsBody := []byte(checksumHex + "  " + archiveName + "\n")
+	sumsBundleBody := newSignedChecksumBundleArtifact(t, "v9.9.9", sumsBody)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v9.9.9/" + localLibraryChecksumsAsset:
+			_, _ = w.Write(sumsBody)
+		case "/v9.9.9/" + localLibraryChecksumsBundleAsset:
+			_, _ = w.Write(sumsBundleBody)
+		case "/v9.9.9/" + archiveName:
+			_, _ = w.Write(archiveBytes)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	origBaseURL := localLibraryReleaseBaseURL
+	origFallbackURL := localLibraryReleaseFallbackBaseURL
+	origAttempts := localLibraryDownloadAttempts
+	t.Cleanup(func() {
+		localLibraryReleaseBaseURL = origBaseURL
+		localLibraryReleaseFallbackBaseURL = origFallbackURL
+		localLibraryDownloadAttempts = origAttempts
+	})
+	localLibraryReleaseBaseURL = server.URL
+	localLibraryReleaseFallbackBaseURL = ""
+	localLibraryDownloadAttempts = 1
+
+	cacheDir := t.TempDir()
+	libPath, err := ensureLocalLibraryDownloaded("v9.9.9", cacheDir)
+	require.NoError(t, err)
+	require.FileExists(t, libPath)
+
+	content, err := os.ReadFile(libPath)
+	require.NoError(t, err)
+	require.Equal(t, "local-shim-bundle-bytes", string(content))
 }
 
 func TestEnsureLocalLibraryDownloaded_DownloadsAndExtractsLocalChromaArchive(t *testing.T) {
@@ -1417,4 +1470,32 @@ func newSignedChecksumArtifacts(t *testing.T, version string, checksumBody []byt
 	require.NoError(t, err)
 
 	return []byte(base64.StdEncoding.EncodeToString(signature)), certificatePEM
+}
+
+func newSignedChecksumBundleArtifact(t *testing.T, version string, checksumBody []byte) []byte {
+	t.Helper()
+
+	signatureBody, certificatePEM := newSignedChecksumArtifacts(t, version, checksumBody)
+	block, _ := pem.Decode(certificatePEM)
+	require.NotNil(t, block)
+
+	digest := sha256.Sum256(checksumBody)
+	bundle := map[string]any{
+		"verificationMaterial": map[string]any{
+			"certificate": map[string]any{
+				"rawBytes": base64.StdEncoding.EncodeToString(block.Bytes),
+			},
+		},
+		"messageSignature": map[string]any{
+			"messageDigest": map[string]any{
+				"algorithm": "SHA2_256",
+				"digest":    base64.StdEncoding.EncodeToString(digest[:]),
+			},
+			"signature": string(signatureBody),
+		},
+	}
+
+	bundleBytes, err := json.Marshal(bundle)
+	require.NoError(t, err)
+	return bundleBytes
 }

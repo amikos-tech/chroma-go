@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	defaultLocalShimVersion   = "v0.3.3"
+	defaultLocalShimVersion   = "v0.3.4"
 	defaultTokenizersVersion  = "v0.1.5"
 	defaultOnnxRuntimeVersion = "1.23.1"
 	maxMetadataBytes          = 5 * 1024 * 1024

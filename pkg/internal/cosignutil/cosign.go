@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	stderrors "errors"
 	"os"
@@ -312,6 +313,83 @@ func VerifySignedChecksums(checksumsPath, signaturePath, certificatePath, expect
 
 	if err := ValidateCosignCertificate(certificate, expectedIdentity, expectedOIDCIssuer, chainVerifier); err != nil {
 		return errors.Wrap(err, "certificate validation failed")
+	}
+
+	if err := VerifyBlobSignature(certificate, checksumsBytes, signature); err != nil {
+		return errors.Wrap(err, "invalid checksum signature")
+	}
+	return nil
+}
+
+type sigstoreBundle struct {
+	VerificationMaterial struct {
+		Certificate struct {
+			RawBytes string `json:"rawBytes"`
+		} `json:"certificate"`
+	} `json:"verificationMaterial"`
+	MessageSignature struct {
+		MessageDigest struct {
+			Algorithm string `json:"algorithm"`
+			Digest    string `json:"digest"`
+		} `json:"messageDigest"`
+		Signature string `json:"signature"`
+	} `json:"messageSignature"`
+}
+
+// VerifySignedChecksumsBundle verifies a sigstore bundle JSON for a checksums file.
+func VerifySignedChecksumsBundle(checksumsPath, bundlePath, expectedIdentity, expectedOIDCIssuer string, chainVerifier func(*x509.Certificate) error) error {
+	if strings.TrimSpace(expectedIdentity) == "" || strings.TrimSpace(expectedOIDCIssuer) == "" {
+		return errors.New("expectedIdentity and expectedOIDCIssuer must be non-empty")
+	}
+
+	checksumsBytes, err := os.ReadFile(checksumsPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to read checksum file")
+	}
+
+	bundleBytes, err := os.ReadFile(bundlePath)
+	if err != nil {
+		return errors.Wrap(err, "failed to read sigstore bundle")
+	}
+
+	var bundle sigstoreBundle
+	if err := json.Unmarshal(bundleBytes, &bundle); err != nil {
+		return errors.Wrap(err, "failed to parse sigstore bundle")
+	}
+
+	rawCertificate := strings.TrimSpace(bundle.VerificationMaterial.Certificate.RawBytes)
+	if rawCertificate == "" {
+		return errors.New("sigstore bundle certificate is empty")
+	}
+	certificateDER, err := DecodeBase64Bytes([]byte(rawCertificate))
+	if err != nil {
+		return errors.Wrap(err, "failed to decode sigstore bundle certificate")
+	}
+	certificate, err := x509.ParseCertificate(certificateDER)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse sigstore bundle certificate")
+	}
+
+	if err := ValidateCosignCertificate(certificate, expectedIdentity, expectedOIDCIssuer, chainVerifier); err != nil {
+		return errors.Wrap(err, "certificate validation failed")
+	}
+
+	algorithm := strings.TrimSpace(bundle.MessageSignature.MessageDigest.Algorithm)
+	if algorithm != "SHA2_256" {
+		return errors.Errorf("unsupported sigstore bundle digest algorithm %q", algorithm)
+	}
+	expectedDigest := sha256.Sum256(checksumsBytes)
+	actualDigest, err := DecodeBase64Bytes([]byte(strings.TrimSpace(bundle.MessageSignature.MessageDigest.Digest)))
+	if err != nil {
+		return errors.Wrap(err, "failed to decode sigstore bundle digest")
+	}
+	if !bytes.Equal(actualDigest, expectedDigest[:]) {
+		return errors.New("sigstore bundle digest does not match checksum file")
+	}
+
+	signature, err := DecodeBase64Bytes([]byte(strings.TrimSpace(bundle.MessageSignature.Signature)))
+	if err != nil {
+		return errors.Wrap(err, "failed to decode sigstore bundle signature")
 	}
 
 	if err := VerifyBlobSignature(certificate, checksumsBytes, signature); err != nil {
