@@ -2,19 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: milestone
-current_phase: 2
-current_phase_name: Capability Metadata and Compatibility
-current_plan: 3
-status: verifying
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-20T08:44:13.537Z"
-last_activity: 2026-03-19
+status: unknown
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-20T09:41:34.284Z"
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
-  percent: 29
+  total_plans: 10
+  completed_plans: 8
 ---
 
 # Project State
@@ -24,24 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 2: Capability Metadata and Compatibility
+**Current focus:** Phase 03 — registry-and-config-integration
 
 ## Current Position
 
-**Current Phase:** 2
-**Current Phase Name:** Capability Metadata and Compatibility
-**Total Phases:** 7
-**Current Plan:** 3
-**Total Plans in Phase:** 3
-**Status:** Phase complete — ready for verification
-**Last Activity:** 2026-03-19
-**Last Activity Description:** Completed 02-03 regression coverage plan
-**Progress:** [███-------] 29%
-
-Phase: 2 of 7 (Capability Metadata and Compatibility)
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Progress: [███-------] 29%
+Phase: 03 (registry-and-config-integration) — EXECUTING
+Plan: 1 of 3
 
 ## Performance Metrics
 
@@ -68,6 +51,7 @@ Progress: [███-------] 29%
 | Phase 02 P01 | 4min | 2 tasks | 2 files |
 | Phase 02 P02 | 6min | 2 tasks | 2 files |
 | Phase 02 P03 | 7min | 2 tasks | 3 files |
+| Phase 03 P01 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -87,6 +71,8 @@ Recent decisions affecting current work:
 - [Phase 02]: Delegate Roboflow shared-content support through the compatibility adapter — Using the additive adapter keeps shared-content behavior aligned with existing text and image methods and avoids duplicating provider request logic.
 - [Phase 02]: Test capability discovery through shared interfaces and adapter stubs — Phase 2 should prove the additive shared surface itself, not provider-specific concrete type assertions, so regressions are caught at the contract boundary.
 - [Phase 02]: Skip transient Roboflow live failures in the default suite — Upstream 429/5xx availability noise should not make the default regression suite flaky once provider-specific live tests are runnable by default.
+- [Phase 03-01]: BuildContent fallback chain releases mu.RLock before each factory call to avoid recursive lock deadlock
+- [Phase 03-01]: inferCaps uses CapabilityAware metadata when available and falls back to interface-typed defaults for multimodal and dense EFs
 
 ### Roadmap Evolution
 
@@ -119,6 +105,6 @@ None yet.
 
 ## Session
 
-**Last Date:** 2026-03-20T08:44:13.534Z
-**Stopped At:** Phase 3 context gathered
-**Resume File:** .planning/phases/03-registry-and-config-integration/03-CONTEXT.md
+**Last Date:** 2026-03-20T09:41:34.282Z
+**Stopped At:** Completed 03-01-PLAN.md
+**Resume File:** None
