@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
@@ -427,17 +428,33 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		}
 		ef = autoWiredEF
 	}
+	// Auto-wire content EF: explicit option takes priority, otherwise build from server config
+	contentEF := req.contentEmbeddingFunction
+	if contentEF == nil {
+		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
+		if buildErr != nil {
+			client.logger.Warn("failed to auto-wire content embedding function", logger.ErrorField("error", buildErr))
+		}
+		contentEF = autoWiredContentEF
+	}
+	// If content EF is set and also implements EmbeddingFunction, derive dense EF from it
+	if contentEF != nil && ef == nil {
+		if denseFromContent, ok := contentEF.(embeddings.EmbeddingFunction); ok {
+			ef = denseFromContent
+		}
+	}
 	c := &CollectionImpl{
-		name:              cm.Name,
-		id:                cm.ID,
-		tenant:            NewTenant(cm.Tenant),
-		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
-		metadata:          cm.Metadata,
-		schema:            cm.Schema,
-		configuration:     configuration,
-		client:            client,
-		dimension:         cm.Dimension,
-		embeddingFunction: ef,
+		name:                     cm.Name,
+		id:                       cm.ID,
+		tenant:                   NewTenant(cm.Tenant),
+		database:                 NewDatabase(cm.Database, NewTenant(cm.Tenant)),
+		metadata:                 cm.Metadata,
+		schema:                   cm.Schema,
+		configuration:            configuration,
+		client:                   client,
+		dimension:                cm.Dimension,
+		embeddingFunction:        ef,
+		contentEmbeddingFunction: contentEF,
 	}
 	client.addCollectionToCache(c)
 	return c, nil

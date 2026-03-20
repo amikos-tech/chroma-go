@@ -46,16 +46,17 @@ func (op *CollectionModel) UnmarshalJSON(b []byte) error {
 }
 
 type CollectionImpl struct {
-	name              string
-	id                string
-	tenant            Tenant
-	database          Database
-	metadata          CollectionMetadata
-	schema            *Schema
-	dimension         int
-	configuration     CollectionConfiguration
-	client            *APIClientV2
-	embeddingFunction embeddings.EmbeddingFunction
+	name                     string
+	id                       string
+	tenant                   Tenant
+	database                 Database
+	metadata                 CollectionMetadata
+	schema                   *Schema
+	dimension                int
+	configuration            CollectionConfiguration
+	client                   *APIClientV2
+	embeddingFunction        embeddings.EmbeddingFunction
+	contentEmbeddingFunction embeddings.ContentEmbeddingFunction
 }
 
 type Option func(*CollectionImpl) error
@@ -403,15 +404,16 @@ func (c *CollectionImpl) Fork(ctx context.Context, newName string) (Collection, 
 		return nil, errors.Wrap(err, "error decoding response")
 	}
 	forkedCollection := &CollectionImpl{
-		name:              cm.Name,
-		id:                cm.ID,
-		tenant:            NewTenant(cm.Tenant),
-		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
-		metadata:          cm.Metadata,
-		schema:            cm.Schema,
-		client:            c.client,
-		dimension:         cm.Dimension,
-		embeddingFunction: c.embeddingFunction,
+		name:                     cm.Name,
+		id:                       cm.ID,
+		tenant:                   NewTenant(cm.Tenant),
+		database:                 NewDatabase(cm.Database, NewTenant(cm.Tenant)),
+		metadata:                 cm.Metadata,
+		schema:                   cm.Schema,
+		client:                   c.client,
+		dimension:                cm.Dimension,
+		embeddingFunction:        c.embeddingFunction,
+		contentEmbeddingFunction: c.contentEmbeddingFunction,
 	}
 	c.client.addCollectionToCache(forkedCollection)
 	return forkedCollection, nil
@@ -680,6 +682,11 @@ func (c *CollectionImpl) IndexingStatus(ctx context.Context) (*IndexingStatus, e
 }
 
 func (c *CollectionImpl) Close() error {
+	if c.contentEmbeddingFunction != nil {
+		if closer, ok := c.contentEmbeddingFunction.(io.Closer); ok {
+			return closer.Close()
+		}
+	}
 	if c.embeddingFunction != nil {
 		if closer, ok := c.embeddingFunction.(io.Closer); ok {
 			return closer.Close()
