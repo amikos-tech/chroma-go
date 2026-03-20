@@ -16,7 +16,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 
 - [x] **Phase 1: Shared Multimodal Contract** - Add additive request and part types, neutral intents, per-request options, and validation primitives. (completed 2026-03-18)
 - [x] **Phase 2: Capability Metadata and Compatibility** - Expose provider capabilities and keep legacy callers working unchanged. (completed 2026-03-19)
-- [ ] **Phase 3: Registry and Config Integration** - Extend registry/build-from-config and collection auto-wiring for richer multimodal interfaces.
+- [x] **Phase 3: Registry and Config Integration** - Extend registry/build-from-config and collection auto-wiring for richer multimodal interfaces. (completed 2026-03-20)
 - [ ] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly.
 - [ ] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility.
 - [ ] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443)
@@ -132,7 +132,7 @@ Plans: TBD during planning
 |-------|----------------|--------|-----------|
 | 1. Shared Multimodal Contract | 4/4 | Complete | 2026-03-18 |
 | 2. Capability Metadata and Compatibility | 3/3 | Complete | 2026-03-19 |
-| 3. Registry and Config Integration | 2/3 | In Progress|  |
+| 3. Registry and Config Integration | 3/3 | Complete   | 2026-03-20 |
 | 4. Provider Mapping and Explicit Failures | 0/2 | Not started | - |
 | 5. Documentation and Verification | 0/3 | Not started | - |
 | 6. Gemini Multimodal Adoption | - | Not started | - |
