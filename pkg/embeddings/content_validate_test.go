@@ -1,7 +1,6 @@
 package embeddings
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -68,7 +67,7 @@ func TestValidateContentSupportDimensionPassThrough(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestValidateContentSupportMultipleIssues(t *testing.T) {
+func TestValidateContentSupportFailOnFirst(t *testing.T) {
 	caps := CapabilityMetadata{
 		Modalities: []Modality{ModalityText},
 		Intents:    []Intent{IntentRetrievalQuery},
@@ -78,13 +77,7 @@ func TestValidateContentSupportMultipleIssues(t *testing.T) {
 		Intent: IntentClassification,
 	}
 	err := ValidateContentSupport(content, caps)
-	require.Error(t, err)
-
-	var validationErr *ValidationError
-	require.True(t, errors.As(err, &validationErr))
-	require.Len(t, validationErr.Issues, 2)
-	require.Equal(t, validationCodeUnsupportedModality, validationErr.Issues[0].Code)
-	require.Equal(t, validationCodeUnsupportedIntent, validationErr.Issues[1].Code)
+	requireValidationIssue(t, err, "parts[0].modality", validationCodeUnsupportedModality, "audio")
 }
 
 func TestValidateContentsSupportBatch(t *testing.T) {
