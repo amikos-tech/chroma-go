@@ -48,4 +48,8 @@
          <loc>https://go-client.chromadb.dev/search/</loc>
          <lastmod>2026-03-20</lastmod>
     </url>
+    <url>
+         <loc>https://go-client.chromadb.dev/embeddings/multimodal/</loc>
+         <lastmod>2026-03-20</lastmod>
+    </url>
 </urlset>

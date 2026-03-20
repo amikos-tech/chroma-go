@@ -8,31 +8,29 @@
       
       
       
-        <link rel="canonical" href="https://go-client.chromadb.dev/performance-testing/">
+        <link rel="canonical" href="https://go-client.chromadb.dev/embeddings/multimodal/">
       
       
-        <link rel="prev" href="../offline-runtime-bundle/">
+        <link rel="prev" href="../../search/">
       
-      
-        <link rel="next" href="../records/">
       
       
         
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Performance Testing - ChromaDB Go Client</title>
+        <title>Multimodal Embeddings - Content API - ChromaDB Go Client</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,9 +49,9 @@
       
     
     
-      <link rel="stylesheet" href="../stylesheets/ethicalads.css">
+      <link rel="stylesheet" href="../../stylesheets/ethicalads.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
   
@@ -89,7 +87,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#performance-testing" class="md-skip">
+        <a href="#multimodal-embeddings-content-api" class="md-skip">
           Skip to content
         </a>
       
@@ -107,7 +105,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="https://www.trychroma.com" title="ChromaDB Go Client" class="md-header__button md-logo" aria-label="ChromaDB Go Client" data-md-component="logo">
       
-  <img src="../assets/images/logo.png" alt="logo">
+  <img src="../../assets/images/logo.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -124,7 +122,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Performance Testing
+              Multimodal Embeddings - Content API
             
           </span>
         </div>
@@ -228,7 +226,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="https://www.trychroma.com" title="ChromaDB Go Client" class="md-nav__button md-logo" aria-label="ChromaDB Go Client" data-md-component="logo">
       
-  <img src="../assets/images/logo.png" alt="logo">
+  <img src="../../assets/images/logo.png" alt="logo">
 
     </a>
     ChromaDB Go Client
@@ -255,7 +253,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -282,7 +280,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../auth/" class="md-nav__link">
+      <a href="../../auth/" class="md-nav__link">
         
   
   
@@ -309,7 +307,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../client/" class="md-nav__link">
+      <a href="../../client/" class="md-nav__link">
         
   
   
@@ -336,7 +334,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../cloud-features/" class="md-nav__link">
+      <a href="../../cloud-features/" class="md-nav__link">
         
   
   
@@ -363,7 +361,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../embeddings/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -390,7 +388,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../filtering/" class="md-nav__link">
+      <a href="../../filtering/" class="md-nav__link">
         
   
   
@@ -417,7 +415,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../logging/" class="md-nav__link">
+      <a href="../../logging/" class="md-nav__link">
         
   
   
@@ -444,7 +442,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../offline-runtime-bundle/" class="md-nav__link">
+      <a href="../../offline-runtime-bundle/" class="md-nav__link">
         
   
   
@@ -468,6 +466,167 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../../performance-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../records/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Records
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rerankers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reranking Functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Embeddings
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Embeddings
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
     
   
   
@@ -487,7 +646,7 @@
   <span class="md-ellipsis">
     
   
-    Performance Testing
+    Multimodal Embeddings - Content API
   
 
     
@@ -505,7 +664,7 @@
   <span class="md-ellipsis">
     
   
-    Performance Testing
+    Multimodal Embeddings - Content API
   
 
     
@@ -533,10 +692,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#goals" class="md-nav__link">
+  <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Goals
+        Quick Start
       
     </span>
   </a>
@@ -544,10 +703,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#harness-location" class="md-nav__link">
+  <a href="#mixed-part-requests" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Harness Location
+        Mixed-Part Requests
       
     </span>
   </a>
@@ -555,49 +714,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#profiles" class="md-nav__link">
+  <a href="#portable-intents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Profiles
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Profiles">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#smoke-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Smoke profile
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#soak-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Soak profile
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#workload-shape" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Workload Shape
+        Portable Intents
       
     </span>
   </a>
@@ -605,49 +725,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#thresholds" class="md-nav__link">
+  <a href="#request-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Thresholds
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Thresholds">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#hard-fail-thresholds-smoke-when-chroma_perf_enforcetrue" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Hard-fail thresholds (smoke when CHROMA_PERF_ENFORCE=true)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#report-only-alerts-soak-by-default" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Report-only alerts (soak by default)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reports
+        Request Options
       
     </span>
   </a>
@@ -655,21 +736,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
+  <a href="#compatibility-with-legacy-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Environment Variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#current-runtime-caveat" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Current Runtime Caveat
+        Compatibility with Legacy API
       
     </span>
   </a>
@@ -680,165 +750,6 @@
   
 </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../records/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Records
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../rerankers/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Reranking Functions
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Search API
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-      
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
-        
-          
-          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Embeddings
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_13">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Embeddings
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../embeddings/multimodal/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Multimodal Embeddings - Content API
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -880,10 +791,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#goals" class="md-nav__link">
+  <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Goals
+        Quick Start
       
     </span>
   </a>
@@ -891,10 +802,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#harness-location" class="md-nav__link">
+  <a href="#mixed-part-requests" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Harness Location
+        Mixed-Part Requests
       
     </span>
   </a>
@@ -902,49 +813,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#profiles" class="md-nav__link">
+  <a href="#portable-intents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Profiles
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Profiles">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#smoke-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Smoke profile
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#soak-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Soak profile
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#workload-shape" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Workload Shape
+        Portable Intents
       
     </span>
   </a>
@@ -952,49 +824,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#thresholds" class="md-nav__link">
+  <a href="#request-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Thresholds
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Thresholds">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#hard-fail-thresholds-smoke-when-chroma_perf_enforcetrue" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Hard-fail thresholds (smoke when CHROMA_PERF_ENFORCE=true)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#report-only-alerts-soak-by-default" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Report-only alerts (soak by default)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reports" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reports
+        Request Options
       
     </span>
   </a>
@@ -1002,21 +835,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
+  <a href="#compatibility-with-legacy-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Environment Variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#current-runtime-caveat" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Current Runtime Caveat
+        Compatibility with Legacy API
       
     </span>
   </a>
@@ -1043,104 +865,146 @@
   
 
 
-<h1 id="performance-testing">Performance Testing<a class="headerlink" href="#performance-testing" title="Permanent link">&para;</a></h1>
-<p>This page documents the local/persistent Chroma soak/load validation harness.</p>
-<h2 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Detect memory/goroutine/file-descriptor leaks in local runtime usage.</li>
-<li>Detect major query/write latency regressions.</li>
-<li>Verify persistence durability across local runtime restarts.</li>
-<li>Track persistence-store behavior over time (directory size + WAL growth).</li>
-</ul>
-<h2 id="harness-location">Harness Location<a class="headerlink" href="#harness-location" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>pkg/api/v2/client_local_perf_test.go</code></li>
-<li><code>pkg/api/v2/client_local_perf_helpers_test.go</code></li>
-</ul>
-<p>Build tags:</p>
-<ul>
-<li><code>//go:build soak &amp;&amp; !cloud</code></li>
-</ul>
-<h2 id="profiles">Profiles<a class="headerlink" href="#profiles" title="Permanent link">&para;</a></h2>
-<h3 id="smoke-profile">Smoke profile<a class="headerlink" href="#smoke-profile" title="Permanent link">&para;</a></h3>
-<p>Smoke is used for PR gating with strict threshold enforcement.
-In CI, this workflow is triggered only on relevant local-runtime/perf path changes.</p>
-<p>Default scenarios:</p>
-<ol>
-<li><code>embedded_synthetic_smoke</code> (90s)</li>
-<li><code>server_synthetic_smoke</code> (90s)</li>
-<li><code>embedded_churn_smoke</code> (35 create/close cycles)</li>
-<li><code>server_churn_smoke</code> (35 create/close cycles)</li>
-</ol>
-<p>Run:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>make<span class="w"> </span>test-local-load-smoke
+<h1 id="multimodal-embeddings-content-api">Multimodal Embeddings - Content API<a class="headerlink" href="#multimodal-embeddings-content-api" title="Permanent link">&para;</a></h1>
+<p>The Content API provides a unified interface for embedding text, images, and other modalities. It introduces <code>Content</code> and <code>Part</code> as the canonical request types alongside portable <code>Intent</code> constants and per-request options like <code>Dimension</code>.</p>
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<p>Embed a single piece of text using <code>EmbedContent</code>:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings&quot;</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;What is Chroma?&quot;</span><span class="p">),</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">}</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nx">embedding</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContent</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="nx">content</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="soak-profile">Soak profile<a class="headerlink" href="#soak-profile" title="Permanent link">&para;</a></h3>
-<p>Soak is intended for nightly endurance runs in report-only mode.</p>
-<p>Default scenarios:</p>
-<ol>
-<li><code>embedded_synthetic_soak</code> (20m)</li>
-<li><code>server_synthetic_soak</code> (20m)</li>
-<li><code>embedded_default_ef_soak</code> (10m, enabled by default in soak)</li>
-<li><code>server_default_ef_soak</code> (10m, enabled by default in soak)</li>
-</ol>
-<p>Run:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>test-local-soak-nightly
+{% /codetab %}</p>
+<p>The <code>ef</code> variable is any <code>embeddings.ContentEmbeddingFunction</code> — for example, a Roboflow embedding function (see the mixed-part section below for construction).</p>
+<h2 id="mixed-part-requests">Mixed-Part Requests<a class="headerlink" href="#mixed-part-requests" title="Permanent link">&para;</a></h2>
+<p>Use <code>EmbedContents</code> to embed a batch of content items with different modalities. Because Roboflow processes one item per request, pass text and image as separate <code>Content</code> items:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings&quot;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings/roboflow&quot;</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">roboflow</span><span class="p">.</span><span class="nx">NewRoboflowEmbeddingFunction</span><span class="p">(</span><span class="nx">roboflow</span><span class="p">.</span><span class="nx">WithEnvAPIKey</span><span class="p">())</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nx">contents</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="p">{</span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;A dog running on a beach&quot;</span><span class="p">)}},</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="p">{</span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewPartFromSource</span><span class="p">(</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">ModalityImage</span><span class="p">,</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromURL</span><span class="p">(</span><span class="s">&quot;https://example.com/dog.jpg&quot;</span><span class="p">),</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">        </span><span class="p">),</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="p">}},</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="p">}</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="nx">results</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContents</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="nx">contents</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="workload-shape">Workload Shape<a class="headerlink" href="#workload-shape" title="Permanent link">&para;</a></h2>
-<p>The synthetic workload uses a single write lane plus read workers.</p>
+{% /codetab %}</p>
+<p>Other binary source constructors are available for different input types:</p>
 <ul>
-<li>Read operations: <code>Query</code> + <code>Get</code> (<code>~70% Query</code>, <code>~30% Get</code> across the read lane)</li>
-<li>Write operations: <code>Upsert</code> (and optional <code>Delete+reinsert</code>)</li>
-<li>Seed phase: batched <code>Add</code></li>
-<li>Churn workload: repeated <code>NewPersistentClient</code>/<code>Close</code> lifecycle cycles with heartbeat checks</li>
-<li>Sampling period: 5s by default (configurable per scenario)</li>
+<li><code>embeddings.NewBinarySourceFromFile("/path/to/image.png")</code></li>
+<li><code>embeddings.NewBinarySourceFromBase64("base64data==")</code></li>
+<li><code>embeddings.NewBinarySourceFromBytes(rawBytes)</code></li>
 </ul>
-<h2 id="thresholds">Thresholds<a class="headerlink" href="#thresholds" title="Permanent link">&para;</a></h2>
-<h3 id="hard-fail-thresholds-smoke-when-chroma_perf_enforcetrue">Hard-fail thresholds (smoke when <code>CHROMA_PERF_ENFORCE=true</code>)<a class="headerlink" href="#hard-fail-thresholds-smoke-when-chroma_perf_enforcetrue" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Error rate must be 0</li>
-<li><code>Query</code> p95 &lt;= 750ms</li>
-<li><code>Get</code> p95 &lt;= 750ms</li>
-<li>write p95 &lt;= 1500ms</li>
-<li>post-GC heap growth &lt;= <code>max(30% of baseline heap, 64MiB)</code></li>
-<li>goroutine growth &lt;= +8</li>
-<li>FD growth &lt;= +16 (when measurable)</li>
-<li>durability check must pass for scenarios that require restart verification</li>
-</ol>
-<h3 id="report-only-alerts-soak-by-default">Report-only alerts (soak by default)<a class="headerlink" href="#report-only-alerts-soak-by-default" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Heap slope alert:</li>
-<li>synthetic: &gt;3 MiB/min</li>
-<li><code>default_ef</code>: &gt;8 MiB/min</li>
-<li>Goroutine slope alert: &gt;0.2/min</li>
-<li>WAL anomaly: &gt;=90% non-decreasing WAL samples and final WAL &gt;4x median without record-count growth</li>
-<li>Throughput drift: last quartile throughput &gt;20% lower than first quartile</li>
-</ol>
-<h2 id="reports">Reports<a class="headerlink" href="#reports" title="Permanent link">&para;</a></h2>
-<p>Each scenario writes a JSON summary:</p>
-<ul>
-<li><code>perf-summary-&lt;profile&gt;-&lt;scenario&gt;.json</code></li>
-</ul>
-<p>A profile-level Markdown summary is also generated:</p>
-<ul>
-<li><code>perf-summary-&lt;profile&gt;.md</code></li>
-</ul>
-<p>The CI workflow publishes these artifacts and appends the Markdown summary to job output.</p>
-<h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>CHROMA_PERF_PROFILE</code> - <code>smoke</code> or <code>soak</code> (default: <code>smoke</code>)</li>
-<li><code>CHROMA_PERF_ENFORCE</code> - <code>true</code>/<code>false</code> (default: <code>true</code> for smoke, <code>false</code> for soak)</li>
-<li><code>CHROMA_PERF_INCLUDE_DEFAULT_EF</code> - include <code>default_ef</code> scenarios (default: <code>false</code> for smoke, <code>true</code> for soak)</li>
-<li><code>CHROMA_PERF_REPORT_DIR</code> - directory for JSON/Markdown reports</li>
-<li><code>CHROMA_PERF_ENABLE_DELETE_REINSERT</code> - enable delete+reinsert writes (default: <code>false</code>)</li>
-</ul>
-<h2 id="current-runtime-caveat">Current Runtime Caveat<a class="headerlink" href="#current-runtime-caveat" title="Permanent link">&para;</a></h2>
-<p><code>Delete+reinsert</code> operations are disabled by default in this harness.</p>
-<p>Reason: current local runtime builds can assert/abort under delete-heavy vector
-index mutation (<code>hnswalg.h</code> integrity assertion). The harness keeps this path
-behind <code>CHROMA_PERF_ENABLE_DELETE_REINSERT=true</code> so teams can opt in for
-focused investigation without destabilizing baseline smoke/soak gates.</p>
+<h2 id="portable-intents">Portable Intents<a class="headerlink" href="#portable-intents" title="Permanent link">&para;</a></h2>
+<p>Set an <code>Intent</code> on a <code>Content</code> to communicate the purpose of the request to providers that support it:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w">  </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;retrieval query text&quot;</span><span class="p">)},</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nx">Intent</span><span class="p">:</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">IntentRetrievalQuery</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">}</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<p>The five neutral intent constants map to a provider-independent vocabulary:</p>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IntentRetrievalQuery</code></td>
+<td><code>retrieval_query</code></td>
+</tr>
+<tr>
+<td><code>IntentRetrievalDocument</code></td>
+<td><code>retrieval_document</code></td>
+</tr>
+<tr>
+<td><code>IntentClassification</code></td>
+<td><code>classification</code></td>
+</tr>
+<tr>
+<td><code>IntentClustering</code></td>
+<td><code>clustering</code></td>
+</tr>
+<tr>
+<td><code>IntentSemanticSimilarity</code></td>
+<td><code>semantic_similarity</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="request-options">Request Options<a class="headerlink" href="#request-options" title="Permanent link">&para;</a></h2>
+<p>Use the <code>Dimension</code> field to request a specific output vector size from providers that support truncated embeddings:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nx">dim</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">256</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w">     </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;document text&quot;</span><span class="p">)},</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nx">Dimension</span><span class="p">:</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">dim</span><span class="p">,</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">}</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<div class="admonition note">
+<p class="admonition-title">Advanced</p>
+<p>You can pass raw intent strings and provider-specific hints via the <code>ProviderHints</code> field. See <a href="https://pkg.go.dev/github.com/amikos-tech/chroma-go/pkg/embeddings">godoc</a> for details.</p>
+</div>
+<h2 id="compatibility-with-legacy-api">Compatibility with Legacy API<a class="headerlink" href="#compatibility-with-legacy-api" title="Permanent link">&para;</a></h2>
+<p>Both the Content API and the legacy <code>EmbedDocuments</code> / <code>EmbedQuery</code> API coexist and neither is deprecated. Use whichever fits your use case:</p>
+<table>
+<thead>
+<tr>
+<th>Use Case</th>
+<th>Recommended API</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Text-only embeddings</td>
+<td><code>EmbedDocuments</code> / <code>EmbedQuery</code></td>
+</tr>
+<tr>
+<td>Mixed media (text + images)</td>
+<td>Content API (<code>EmbedContent</code> / <code>EmbedContents</code>)</td>
+</tr>
+<tr>
+<td>Portable intents or dimensions</td>
+<td>Content API (<code>EmbedContent</code> / <code>EmbedContents</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>The legacy API continues to work exactly as before:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nx">embeddings</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedDocuments</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;text1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;text2&quot;</span><span class="p">})</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nx">queryEmb</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedQuery</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;query text&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<p>Existing providers automatically work with the Content API when retrieved through the registry (<code>BuildContent</code>). The registry wraps them with built-in adapters.</p>
 
 
 
@@ -1310,14 +1174,14 @@ focused investigation without destabilizing baseline smoke/soak gates.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.annotate", "content.code.copy", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.indexes"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.indexes"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="../javascripts/gtag.js"></script>
+        <script src="../../javascripts/gtag.js"></script>
       
-        <script src="../javascripts/ethicalads-init.js"></script>
+        <script src="../../javascripts/ethicalads-init.js"></script>
       
     
   </body>
