@@ -15,10 +15,10 @@
 
 ### Capabilities and Compatibility
 
-- [ ] **CAPS-01**: A provider can declare which modalities, intents, and request options it supports through shared capability metadata
-- [ ] **CAPS-02**: Caller can inspect shared capability metadata without depending on provider-specific concrete types
-- [ ] **COMP-01**: Existing `EmbeddingFunction` text-only callers continue to compile and behave the same without adopting the new multimodal request API
-- [ ] **COMP-02**: Existing image-only multimodal callers continue to compile and interoperate with the new shared multimodal foundations
+- [x] **CAPS-01**: A provider can declare which modalities, intents, and request options it supports through shared capability metadata
+- [x] **CAPS-02**: Caller can inspect shared capability metadata without depending on provider-specific concrete types
+- [x] **COMP-01**: Existing `EmbeddingFunction` text-only callers continue to compile and behave the same without adopting the new multimodal request API
+- [x] **COMP-02**: Existing image-only multimodal callers continue to compile and interoperate with the new shared multimodal foundations
 
 ### Registry and Mapping
 
@@ -62,10 +62,10 @@
 | MMOD-03 | Phase 1 | Complete |
 | MMOD-04 | Phase 1 | Complete |
 | MMOD-05 | Phase 1 | Complete |
-| CAPS-01 | Phase 2 | Pending |
-| CAPS-02 | Phase 2 | Pending |
-| COMP-01 | Phase 2 | Pending |
-| COMP-02 | Phase 2 | Pending |
+| CAPS-01 | Phase 2 | Complete |
+| CAPS-02 | Phase 2 | Complete |
+| COMP-01 | Phase 2 | Complete |
+| COMP-02 | Phase 2 | Complete |
 | REG-01 | Phase 3 | Pending |
 | REG-02 | Phase 3 | Pending |
 | MAP-01 | Phase 4 | Pending |
@@ -80,4 +80,4 @@
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after Phase 1 Plan 02 validation and compatibility work*
+*Last updated: 2026-03-19 after Phase 2 Plan 03 regression coverage and verification work*

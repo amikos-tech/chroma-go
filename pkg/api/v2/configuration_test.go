@@ -114,6 +114,10 @@ type mockEmbeddingFunction struct {
 	config embeddings.EmbeddingFunctionConfig
 }
 
+type capabilityAwareMockEmbeddingFunction struct {
+	mockEmbeddingFunction
+}
+
 func (m *mockEmbeddingFunction) EmbedDocuments(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
 	return nil, nil
 }
@@ -136,6 +140,23 @@ func (m *mockEmbeddingFunction) DefaultSpace() embeddings.DistanceMetric {
 
 func (m *mockEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric {
 	return []embeddings.DistanceMetric{embeddings.L2, embeddings.COSINE}
+}
+
+func (m *capabilityAwareMockEmbeddingFunction) Capabilities() embeddings.CapabilityMetadata {
+	return embeddings.CapabilityMetadata{
+		Modalities:        []embeddings.Modality{embeddings.ModalityText},
+		RequestOptions:    []embeddings.RequestOption{embeddings.RequestOptionDimension},
+		SupportsBatch:     true,
+		SupportsMixedPart: false,
+	}
+}
+
+func (m *capabilityAwareMockEmbeddingFunction) EmbedContent(_ context.Context, _ embeddings.Content) (embeddings.Embedding, error) {
+	return nil, nil
+}
+
+func (m *capabilityAwareMockEmbeddingFunction) EmbedContents(_ context.Context, contents []embeddings.Content) ([]embeddings.Embedding, error) {
+	return make([]embeddings.Embedding, len(contents)), nil
 }
 
 func TestEmbeddingFunctionInfo_IsKnown(t *testing.T) {
@@ -291,6 +312,38 @@ func TestCollectionConfiguration_SetEmbeddingFunction(t *testing.T) {
 		assert.Equal(t, "MOCK_API_KEY", info.Config["api_key_env_var"])
 		assert.Equal(t, "mock-model", info.Config["model_name"])
 	})
+}
+
+func TestBuildEmbeddingFunctionFromConfig_IgnoresCapabilityExtensions(t *testing.T) {
+	config := NewCollectionConfiguration()
+	mockEF := &capabilityAwareMockEmbeddingFunction{
+		mockEmbeddingFunction: mockEmbeddingFunction{
+			name: "consistent_hash",
+			config: embeddings.EmbeddingFunctionConfig{
+				"dim": 128,
+			},
+		},
+	}
+
+	config.SetEmbeddingFunction(mockEF)
+
+	raw, ok := config.GetRaw("embedding_function")
+	require.True(t, ok)
+
+	efMap, ok := raw.(map[string]interface{})
+	require.True(t, ok)
+	require.Len(t, efMap, 3)
+	require.Equal(t, "known", efMap["type"])
+	require.Equal(t, "consistent_hash", efMap["name"])
+	require.Equal(t, map[string]interface{}{"dim": 128}, efMap["config"])
+	require.NotContains(t, efMap, "capabilities")
+	require.NotContains(t, efMap, "modalities")
+
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+	require.Equal(t, "consistent_hash", ef.Name())
+	require.Equal(t, embeddings.EmbeddingFunctionConfig{"dim": 128}, ef.GetConfig())
 }
 
 func TestBuildEmbeddingFunctionFromConfig(t *testing.T) {
