@@ -18,7 +18,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 2: Capability Metadata and Compatibility** - Expose provider capabilities and keep legacy callers working unchanged. (completed 2026-03-19)
 - [x] **Phase 3: Registry and Config Integration** - Extend registry/build-from-config and collection auto-wiring for richer multimodal interfaces. (completed 2026-03-20)
 - [x] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly. (completed 2026-03-20)
-- [ ] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility.
+- [x] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility. (completed 2026-03-20)
 - [ ] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443)
 - [ ] **Phase 7: vLLM/Nemotron Provider Validation** - Add vLLM OpenAI-compatible provider targeting nvidia/omni-embed-nemotron-3b to validate the foundation end-to-end.
 
@@ -93,12 +93,11 @@ Plans:
   1. Docs explain portable intents, provider-specific escape hatches, and compatibility expectations.
   2. Tests cover validation, compatibility, registry/config persistence, and unsupported-combination failures.
   3. Example guidance reflects current multimodal support and the new shared foundations.
-**Plans**: 3 plans
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: Update docs and migration guidance for multimodal embeddings
-- [ ] 05-02: Add focused examples or snippets for portable multimodal requests
-- [ ] 05-03: Audit and extend tests for acceptance-criteria coverage
+- [ ] 05-01-PLAN.md — Rewrite multimodal.md as Go Content API page and add cross-link from embeddings.md
+- [ ] 05-02-PLAN.md — Audit DOCS-02 test coverage and add registry round-trip EmbedContent dispatch test
 
 ### Phase 6: Gemini Multimodal Adoption
 **Goal:** Wire Gemini into the shared multimodal contract so it supports text, image, audio, video, and PDF embeddings through the portable interface while keeping existing text-only APIs as backward-compatible wrappers.
@@ -134,6 +133,6 @@ Plans: TBD during planning
 | 2. Capability Metadata and Compatibility | 3/3 | Complete | 2026-03-19 |
 | 3. Registry and Config Integration | 3/3 | Complete   | 2026-03-20 |
 | 4. Provider Mapping and Explicit Failures | 2/2 | Complete   | 2026-03-20 |
-| 5. Documentation and Verification | 0/3 | Not started | - |
+| 5. Documentation and Verification | 2/2 | Complete   | 2026-03-20 |
 | 6. Gemini Multimodal Adoption | - | Not started | - |
 | 7. vLLM/Nemotron Provider Validation | - | Not started | - |

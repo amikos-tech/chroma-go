@@ -450,3 +450,107 @@ func TestRegisterContentDuplicate(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already registered")
 }
+
+// mockContentEFWithResult returns a deterministic embedding from EmbedContent/EmbedContents.
+type mockContentEFWithResult struct {
+	name string
+}
+
+func (m *mockContentEFWithResult) EmbedContent(_ context.Context, _ Content) (Embedding, error) {
+	return NewEmbeddingFromFloat32([]float32{1.0, 2.0, 3.0}), nil
+}
+
+func (m *mockContentEFWithResult) EmbedContents(_ context.Context, contents []Content) ([]Embedding, error) {
+	result := make([]Embedding, len(contents))
+	for i := range contents {
+		result[i] = NewEmbeddingFromFloat32([]float32{1.0, 2.0, 3.0})
+	}
+	return result, nil
+}
+
+// mockDenseEFWithResult returns a deterministic embedding from EmbedDocuments/EmbedQuery.
+type mockDenseEFWithResult struct {
+	name string
+}
+
+func (m *mockDenseEFWithResult) EmbedDocuments(_ context.Context, texts []string) ([]Embedding, error) {
+	result := make([]Embedding, len(texts))
+	for i := range texts {
+		result[i] = NewEmbeddingFromFloat32([]float32{4.0, 5.0, 6.0})
+	}
+	return result, nil
+}
+
+func (m *mockDenseEFWithResult) EmbedQuery(_ context.Context, _ string) (Embedding, error) {
+	return NewEmbeddingFromFloat32([]float32{4.0, 5.0, 6.0}), nil
+}
+
+func (m *mockDenseEFWithResult) Name() string {
+	return m.name
+}
+
+func (m *mockDenseEFWithResult) GetConfig() EmbeddingFunctionConfig {
+	return EmbeddingFunctionConfig{"name": m.name}
+}
+
+func (m *mockDenseEFWithResult) DefaultSpace() DistanceMetric { return COSINE }
+
+func (m *mockDenseEFWithResult) SupportedSpaces() []DistanceMetric {
+	return []DistanceMetric{COSINE}
+}
+
+// TestBuildContentEmbedContentRoundTrip closes the DOCS-02 criterion 3 gap: proves that
+// RegisterContent -> BuildContent -> EmbedContent dispatches end-to-end for the native content path.
+func TestBuildContentEmbedContentRoundTrip(t *testing.T) {
+	name := "test_content_embed_roundtrip"
+	err := RegisterContent(name, func(_ EmbeddingFunctionConfig) (ContentEmbeddingFunction, error) {
+		return &mockContentEFWithResult{name: name}, nil
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		mu.Lock()
+		delete(contentFactories, name)
+		mu.Unlock()
+	})
+
+	ef, err := BuildContent(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+
+	content := Content{
+		Parts: []Part{NewTextPart("test text")},
+	}
+	embedding, err := ef.EmbedContent(context.Background(), content)
+	require.NoError(t, err)
+	require.NotNil(t, embedding)
+	assert.Equal(t, 3, embedding.Len())
+	assert.Equal(t, []float32{1.0, 2.0, 3.0}, embedding.ContentAsFloat32())
+}
+
+// TestBuildContentAdapterEmbedContentRoundTrip closes the DOCS-02 criterion 3 gap: proves that
+// RegisterDense -> BuildContent (adapter fallback) -> EmbedContent dispatches end-to-end.
+func TestBuildContentAdapterEmbedContentRoundTrip(t *testing.T) {
+	name := "test_content_adapter_roundtrip"
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+		return &mockDenseEFWithResult{name: name}, nil
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		mu.Lock()
+		delete(denseFactories, name)
+		mu.Unlock()
+	})
+
+	ef, err := BuildContent(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+
+	content := Content{
+		Parts: []Part{NewTextPart("test text")},
+	}
+	embedding, err := ef.EmbedContent(context.Background(), content)
+	require.NoError(t, err)
+	require.NotNil(t, embedding)
+	assert.Equal(t, 3, embedding.Len())
+	assert.Equal(t, []float32{4.0, 5.0, 6.0}, embedding.ContentAsFloat32())
+}

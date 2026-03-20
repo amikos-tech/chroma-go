@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-03-20T12:22:30.803Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-03-20T16:55:29.356Z"
 progress:
   total_phases: 7
-  completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
+  completed_phases: 5
+  total_plans: 14
+  completed_plans: 14
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 04 — provider-mapping-and-explicit-failures
+**Current focus:** Phase 05 — documentation-and-verification
 
 ## Current Position
 
-Phase: 04 (provider-mapping-and-explicit-failures) — EXECUTING
-Plan: 2 of 2
+Phase: 05 (documentation-and-verification) — EXECUTING
+Plan: 1 of 2
 
 ## Performance Metrics
 
@@ -56,6 +56,8 @@ Plan: 2 of 2
 | Phase 03 P03 | 6min | 2 tasks | 2 files |
 | Phase 04 P01 | 8 | 2 tasks | 3 files |
 | Phase 04 P02 | 4 | 2 tasks | 2 files |
+| Phase 05 P02 | 2 | 1 tasks | 1 files |
+| Phase 05 P01 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -84,6 +86,10 @@ Recent decisions affecting current work:
 - [Phase 04-01]: IntentMapper is an opt-in interface (type-assert pattern) rather than widening ContentEmbeddingFunction
 - [Phase 04-01]: ValidateContentSupport passes through when caps.Modalities is empty to preserve backward compatibility with non-CapabilityAware providers
 - [Phase 04-01]: Custom intents bypass capability intent enforcement — only neutral intents checked against declared caps.Intents
+- [Phase 05-02]: Use NewEmbeddingFromFloat32 helper for mock construction; use distinct fixed values [1,2,3] vs [4,5,6] to distinguish native vs adapter dispatch paths
+- [Phase 05-01]: Show mixed-part Roboflow example with separate Content items via EmbedContents (one Part per Content due to adapter constraint)
+- [Phase 05-01]: Frame both EmbedDocuments and Content API as coexisting indefinitely — no deprecation signal in docs
+- [Phase 05-01]: Escape-hatch admonition for ProviderHints references godoc rather than documenting mechanism inline
 
 ### Roadmap Evolution
 
@@ -116,6 +122,6 @@ None yet.
 
 ## Session
 
-**Last Date:** 2026-03-20T12:18:38.445Z
-**Stopped At:** Completed 04-02-PLAN.md
+**Last Date:** 2026-03-20T16:37:59.612Z
+**Stopped At:** Completed 05-01-PLAN.md
 **Resume File:** None

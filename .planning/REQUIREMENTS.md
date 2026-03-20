@@ -29,8 +29,8 @@
 
 ### Docs and Verification
 
-- [ ] **DOCS-01**: Public docs explain portable intent usage, provider-specific escape hatches, and compatibility expectations for multimodal callers
-- [ ] **DOCS-02**: Tests cover shared type validation, compatibility adapters, registry/config round-trips, and unsupported-combination failures
+- [x] **DOCS-01**: Public docs explain portable intent usage, provider-specific escape hatches, and compatibility expectations for multimodal callers
+- [x] **DOCS-02**: Tests cover shared type validation, compatibility adapters, registry/config round-trips, and unsupported-combination failures
 
 ### Gemini Multimodal Adoption
 
@@ -81,8 +81,8 @@
 | REG-02 | Phase 3 | Complete |
 | MAP-01 | Phase 4 | Complete |
 | MAP-02 | Phase 4 | Complete |
-| DOCS-01 | Phase 5 | Pending |
-| DOCS-02 | Phase 5 | Pending |
+| DOCS-01 | Phase 5 | Complete |
+| DOCS-02 | Phase 5 | Complete |
 | GEM-01 | Phase 6 | Pending |
 | GEM-02 | Phase 6 | Pending |
 | GEM-03 | Phase 6 | Pending |

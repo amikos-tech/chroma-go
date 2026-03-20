@@ -24,7 +24,7 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 
 - [ ] Add a provider-neutral multimodal input model that supports mixed-part requests across text, image, audio, video, and PDF.
 - [ ] Add provider-neutral intent semantics and per-request multimodal options without breaking current text-only and image-only flows.
-- [ ] Add capability introspection, config and registry support, and docs/tests for portable multimodal embeddings.
+- ✓ Public docs explain portable intent usage, escape hatches, and compatibility; tests cover validation, adapters, registry round-trips, and unsupported-combination failures — Validated in Phase 5: Documentation and Verification
 
 ### Out of Scope
 
@@ -60,4 +60,4 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 | Add vLLM/Nemotron as Phase 7 | Second provider (nvidia/omni-embed-nemotron-3b via vLLM) proves portability beyond a single provider | ✓ Good |
 
 ---
-*Last updated: 2026-03-20 — Phase 4 complete, provider mapping contracts and explicit failure paths verified*
+*Last updated: 2026-03-20 — Phase 5 complete, Content API documented, DOCS-02 test coverage verified*
