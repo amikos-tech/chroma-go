@@ -975,3 +975,166 @@ func TestUpdateCollectionConfiguration_JSONMarshal_Combined(t *testing.T) {
 }
 
 func ptrUint(v uint) *uint { return &v }
+
+// mockContentOnlyEmbeddingFunction implements ContentEmbeddingFunction but NOT EmbeddingFunction.
+type mockContentOnlyEmbeddingFunction struct{}
+
+func (m *mockContentOnlyEmbeddingFunction) EmbedContent(_ context.Context, _ embeddings.Content) (embeddings.Embedding, error) {
+	return nil, nil
+}
+
+func (m *mockContentOnlyEmbeddingFunction) EmbedContents(_ context.Context, contents []embeddings.Content) ([]embeddings.Embedding, error) {
+	return make([]embeddings.Embedding, len(contents)), nil
+}
+
+// mockMultimodalEFForConfig implements MultimodalEmbeddingFunction for multimodal fallback tests.
+type mockMultimodalEFForConfig struct {
+	name   string
+	config embeddings.EmbeddingFunctionConfig
+}
+
+func (m *mockMultimodalEFForConfig) EmbedDocuments(_ context.Context, _ []string) ([]embeddings.Embedding, error) {
+	return nil, nil
+}
+
+func (m *mockMultimodalEFForConfig) EmbedQuery(_ context.Context, _ string) (embeddings.Embedding, error) {
+	return nil, nil
+}
+
+func (m *mockMultimodalEFForConfig) Name() string { return m.name }
+
+func (m *mockMultimodalEFForConfig) GetConfig() embeddings.EmbeddingFunctionConfig { return m.config }
+
+func (m *mockMultimodalEFForConfig) DefaultSpace() embeddings.DistanceMetric {
+	return embeddings.COSINE
+}
+
+func (m *mockMultimodalEFForConfig) SupportedSpaces() []embeddings.DistanceMetric {
+	return []embeddings.DistanceMetric{embeddings.COSINE}
+}
+
+func (m *mockMultimodalEFForConfig) EmbedImages(_ context.Context, _ []embeddings.ImageInput) ([]embeddings.Embedding, error) {
+	return nil, nil
+}
+
+func (m *mockMultimodalEFForConfig) EmbedImage(_ context.Context, _ embeddings.ImageInput) (embeddings.Embedding, error) {
+	return nil, nil
+}
+
+func TestBuildContentEFFromConfig_NilConfig(t *testing.T) {
+	ef, err := BuildContentEFFromConfig(nil)
+	assert.NoError(t, err)
+	assert.Nil(t, ef)
+}
+
+func TestBuildContentEFFromConfig_NoEFInfo(t *testing.T) {
+	config := NewCollectionConfiguration()
+	ef, err := BuildContentEFFromConfig(config)
+	assert.NoError(t, err)
+	assert.Nil(t, ef)
+}
+
+func TestBuildContentEFFromConfig_UnknownType(t *testing.T) {
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{Type: "legacy", Name: "old_ef"})
+	ef, err := BuildContentEFFromConfig(config)
+	assert.NoError(t, err)
+	assert.Nil(t, ef)
+}
+
+func TestBuildContentEFFromConfig_UnregisteredName(t *testing.T) {
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type: "known",
+		Name: "not_a_real_provider_xyz_content",
+	})
+	ef, err := BuildContentEFFromConfig(config)
+	assert.NoError(t, err)
+	assert.Nil(t, ef)
+}
+
+func TestBuildContentEFFromConfig_DenseProvider(t *testing.T) {
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type:   "known",
+		Name:   "consistent_hash",
+		Config: map[string]interface{}{"dim": float64(128)},
+	})
+	ef, err := BuildContentEFFromConfig(config)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+	ca, ok := ef.(embeddings.CapabilityAware)
+	require.True(t, ok)
+	assert.True(t, ca.Capabilities().SupportsModality(embeddings.ModalityText))
+}
+
+func TestBuildContentEFFromConfig_ConsistentHashRoundTrip(t *testing.T) {
+	originalEF := embeddings.NewConsistentHashEmbeddingFunction()
+
+	// Store via SetEmbeddingFunction and rebuild via BuildContentEFFromConfig
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunction(originalEF)
+
+	rebuiltContentEF, err := BuildContentEFFromConfig(config)
+	require.NoError(t, err)
+	require.NotNil(t, rebuiltContentEF)
+
+	ca, ok := rebuiltContentEF.(embeddings.CapabilityAware)
+	require.True(t, ok)
+	assert.True(t, ca.Capabilities().SupportsModality(embeddings.ModalityText))
+}
+
+func TestBuildEFFromConfig_MultimodalFallback(t *testing.T) {
+	name := "test_mm_fallback_config"
+	mockMM := &mockMultimodalEFForConfig{name: name, config: embeddings.EmbeddingFunctionConfig{"key": "val"}}
+	err := embeddings.RegisterMultimodal(name, func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.MultimodalEmbeddingFunction, error) {
+		return mockMM, nil
+	})
+	require.NoError(t, err)
+
+	config := NewCollectionConfiguration()
+	config.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type:   "known",
+		Name:   name,
+		Config: map[string]interface{}{"key": "val"},
+	})
+
+	ef, err := BuildEmbeddingFunctionFromConfig(config)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+	assert.Equal(t, name, ef.Name())
+}
+
+func TestSetContentEmbeddingFunction_NilEF(t *testing.T) {
+	config := NewCollectionConfiguration()
+	config.SetContentEmbeddingFunction(nil)
+	_, ok := config.GetRaw("embedding_function")
+	assert.False(t, ok)
+}
+
+func TestSetContentEmbeddingFunction_ImplementsEmbeddingFunction(t *testing.T) {
+	mock := &capabilityAwareMockEmbeddingFunction{
+		mockEmbeddingFunction: mockEmbeddingFunction{
+			name:   "test_content_persist",
+			config: embeddings.EmbeddingFunctionConfig{"key": "value"},
+		},
+	}
+	config := NewCollectionConfiguration()
+	config.SetContentEmbeddingFunction(mock)
+
+	info, ok := config.GetEmbeddingFunctionInfo()
+	require.True(t, ok)
+	require.NotNil(t, info)
+	assert.Equal(t, "known", info.Type)
+	assert.Equal(t, "test_content_persist", info.Name)
+	assert.Equal(t, "value", info.Config["key"])
+}
+
+func TestSetContentEmbeddingFunction_NoEmbeddingFunction(t *testing.T) {
+	mock := &mockContentOnlyEmbeddingFunction{}
+	config := NewCollectionConfiguration()
+	config.SetContentEmbeddingFunction(mock)
+
+	_, ok := config.GetRaw("embedding_function")
+	assert.False(t, ok, "should not persist when ContentEmbeddingFunction does not implement EmbeddingFunction")
+}
