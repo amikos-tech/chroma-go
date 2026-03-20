@@ -22,6 +22,21 @@ const (
 	IntentSemanticSimilarity Intent = "semantic_similarity"
 )
 
+// IsNeutralIntent reports whether the intent is one of the 5 shared neutral constants.
+// Custom or provider-native intent strings return false.
+func IsNeutralIntent(intent Intent) bool {
+	switch intent {
+	case IntentRetrievalQuery,
+		IntentRetrievalDocument,
+		IntentClassification,
+		IntentClustering,
+		IntentSemanticSimilarity:
+		return true
+	default:
+		return false
+	}
+}
+
 // SourceKind identifies how a binary multimodal input is provided.
 type SourceKind string
 
