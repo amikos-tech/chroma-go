@@ -32,6 +32,17 @@
 - [ ] **DOCS-01**: Public docs explain portable intent usage, provider-specific escape hatches, and compatibility expectations for multimodal callers
 - [ ] **DOCS-02**: Tests cover shared type validation, compatibility adapters, registry/config round-trips, and unsupported-combination failures
 
+### Gemini Multimodal Adoption
+
+- [ ] **GEM-01**: Gemini implements `SharedContentEmbeddingFunction` and `CapabilityAware` for text, image, audio, video, and PDF modalities
+- [ ] **GEM-02**: Neutral intents map to Gemini task types with explicit errors for unsupported combinations
+- [ ] **GEM-03**: Gemini is registered in the multimodal factory/registry path with config round-trip support
+
+### vLLM/Nemotron Provider Validation
+
+- [ ] **VLLM-01**: A vLLM/OpenAI-compatible provider implements `SharedContentEmbeddingFunction` and `CapabilityAware` for modalities supported by omni-embed-nemotron-3b
+- [ ] **VLLM-02**: Integration tests validate multimodal embedding through a live vLLM endpoint without provider-specific contract hacks
+
 ## v2 Requirements
 
 ### Provider Adoption
@@ -72,12 +83,17 @@
 | MAP-02 | Phase 4 | Pending |
 | DOCS-01 | Phase 5 | Pending |
 | DOCS-02 | Phase 5 | Pending |
+| GEM-01 | Phase 6 | Pending |
+| GEM-02 | Phase 6 | Pending |
+| GEM-03 | Phase 6 | Pending |
+| VLLM-01 | Phase 7 | Pending |
+| VLLM-02 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 15 total
-- Mapped to phases: 15
+- v1 requirements: 20 total
+- Mapped to phases: 20
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-19 after Phase 2 Plan 03 regression coverage and verification work*
+*Last updated: 2026-03-20 — added GEM-01/02/03 and VLLM-01/02 for phases 6-7*

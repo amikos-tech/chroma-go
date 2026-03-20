@@ -12,6 +12,8 @@ last_activity: 2026-03-19
 progress:
   total_phases: 7
   completed_phases: 2
+  # total_plans/completed_plans track scoped phases only (phases with defined plans)
+  # percent tracks overall phase-level progress (completed_phases/total_phases)
   total_plans: 7
   completed_plans: 7
   percent: 29
