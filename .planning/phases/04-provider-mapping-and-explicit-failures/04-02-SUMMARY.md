@@ -88,6 +88,15 @@ None - no external service configuration required.
 - MAP-01 and MAP-02 are fully proved with automated tests
 - Phase 5 (Gemini provider) and Phase 6 (vLLM/Nemotron) can implement IntentMapper and call ValidateContentSupport before dispatch with confidence the contract is stable
 
+## Self-Check: PASSED
+
+- FOUND: pkg/embeddings/intent_mapper_test.go
+- FOUND: pkg/embeddings/content_validate_test.go
+- FOUND: .planning/phases/04-provider-mapping-and-explicit-failures/04-02-SUMMARY.md
+- COMMIT 7853187: test(04-02): add IntentMapper contract tests and IsNeutralIntent coverage
+- COMMIT 254570f: test(04-02): add ValidateContentSupport and ValidateContentsSupport tests
+- COMMIT 121aa79: docs(04-02): complete IntentMapper and ValidateContentSupport test coverage plan
+
 ---
 *Phase: 04-provider-mapping-and-explicit-failures*
 *Completed: 2026-03-20*
