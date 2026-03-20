@@ -110,8 +110,11 @@ Plans:
   3. Existing `EmbedDocuments`/`EmbedQuery` behavior remains unchanged.
   4. Gemini is registered in the multimodal factory/registry path with config round-trip support.
   5. Unit tests cover request construction, intent mapping, and backward-compatible wrappers.
+**Plans**: 2 plans
 
-Plans: TBD during planning
+Plans:
+- [ ] 06-01-PLAN.md — Implement content helpers, interface methods, CreateContentEmbedding, registration, and default model update
+- [ ] 06-02-PLAN.md — Add unit tests for capability derivation, intent mapping, MIME resolution, content conversion, negative cases, and config round-trip
 
 ### Phase 7: vLLM/Nemotron Provider Validation
 **Goal:** Add a vLLM OpenAI-compatible embedding provider targeting nvidia/omni-embed-nemotron-3b to validate the shared multimodal contract against a second real multimodal model beyond Gemini.
@@ -134,5 +137,5 @@ Plans: TBD during planning
 | 3. Registry and Config Integration | 3/3 | Complete   | 2026-03-20 |
 | 4. Provider Mapping and Explicit Failures | 2/2 | Complete   | 2026-03-20 |
 | 5. Documentation and Verification | 2/2 | Complete   | 2026-03-20 |
-| 6. Gemini Multimodal Adoption | - | Not started | - |
+| 6. Gemini Multimodal Adoption | 0/2 | Planning complete | - |
 | 7. vLLM/Nemotron Provider Validation | - | Not started | - |
