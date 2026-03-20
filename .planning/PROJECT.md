@@ -26,14 +26,16 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 
 ### Out of Scope
 
-- Shipping every provider on the new multimodal contract in the first milestone — foundation first, incremental adoption later
+- Shipping every provider on the new multimodal contract in this milestone — Gemini and vLLM/Nemotron validate the foundation, remaining providers adopt later
 - Replacing or removing existing `EmbeddingFunction` and image-only multimodal APIs — backwards compatibility is an explicit acceptance criterion
 - Changing collection/query semantics outside the embedding abstraction boundary — keep the milestone scoped to shared embedding foundations
 
 ## Context
 
 - Brownfield Go library with public API in `pkg/api/v2`, shared embedding contracts in `pkg/embeddings`, configuration auto-wiring in `pkg/api/v2/configuration.go`, docs in `docs/docs/embeddings.md`, and a codebase map already present under `.planning/codebase/`
-- Issue `#442` defines the active scope: richer multimodal inputs, neutral intents, per-request options, capability introspection, registry/factory support, explicit unsupported-combination failures, and documentation guidance
+- Issue `#442` defines the foundation scope: richer multimodal inputs, neutral intents, per-request options, capability introspection, registry/factory support, explicit unsupported-combination failures, and documentation guidance
+- Issue `#443` defines Gemini multimodal adoption scope: wire Gemini into the shared contract with full modality support
+- vLLM/Nemotron validation targets nvidia/omni-embed-nemotron-3b via an internal vLLM API to prove the contract is portable beyond Gemini
 - Current multimodal support is provider-specific: the shared `EmbeddingFunction` is text-only, the shared `MultimodalEmbeddingFunction` only adds image methods, and Roboflow is the only registered multimodal provider today
 - Repo conventions emphasize V2-first changes, colocated tests with proper build tags, config round-tripping, no panics in production code, and docs/examples updates for public API changes
 
@@ -51,7 +53,9 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 |----------|-----------|---------|
 | Treat issue `#442` as the active initialization scope for GSD planning | The user explicitly named this work before requesting project initialization | — Pending |
 | Use the existing codebase map as brownfield context instead of re-running codebase mapping | `.planning/codebase/` already captures architecture, concerns, structure, and testing | ✓ Good |
-| Label the current roadmap milestone as `v0.5 Provider-Neutral Multimodal Foundations` | The latest shipped tag is `v0.4.0`; the roadmap tooling benefits from a parsable next-minor placeholder | ⚠️ Revisit |
+| Rebrand milestone from `v0.5` to `v0.4.1` | All changes since v0.4.0 are purely additive with no public API breakage — patch bump is correct semver | ✓ Good |
+| Add Gemini multimodal as Phase 6 (issue #443) | First concrete provider adoption validates the shared contract end-to-end | ✓ Good |
+| Add vLLM/Nemotron as Phase 7 | Second provider (nvidia/omni-embed-nemotron-3b via vLLM) proves portability beyond a single provider | ✓ Good |
 
 ---
-*Last updated: 2026-03-18 after initialization*
+*Last updated: 2026-03-20 — rebranded v0.5→v0.4.1, added Phases 6-7*
