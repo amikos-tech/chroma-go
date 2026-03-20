@@ -1,155 +1,132 @@
-# Multimodal Embeddings - Go Examples
+# Multimodal Embeddings - Content API
 
-> **Reference**: [Original Documentation](https://docs.trychroma.com/docs/embeddings/multimodal)
+The Content API provides a unified interface for embedding text, images, and other modalities. It introduces `Content` and `Part` as the canonical request types alongside portable `Intent` constants and per-request options like `Dimension`.
 
-## Overview
+## Quick Start
 
-Multimodal collections can store and query data from multiple modalities (text, images, etc.) in a single embedding space.
-
-> **Note**: Multimodal support (images, data loaders, OpenCLIP embedding function) is not yet available in chroma-go. This page documents the Python API for reference. Track progress at the [chroma-go GitHub repository](https://github.com/amikos-tech/chroma-go).
-
-## Python Examples (For Reference)
-
-### Multi-modal Embedding Functions
-
-```python
-from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
-embedding_function = OpenCLIPEmbeddingFunction()
-```
-
-### Adding Multimodal Data with Data Loaders
-
-```python
-import chromadb
-from chromadb.utils.data_loaders import ImageLoader
-from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
-
-client = chromadb.Client()
-
-data_loader = ImageLoader()
-embedding_function = OpenCLIPEmbeddingFunction()
-
-collection = client.create_collection(
-    name='multimodal_collection',
-    embedding_function=embedding_function,
-    data_loader=data_loader
-)
-```
-
-### Adding Images via URIs
-
-```python
-collection.add(
-    ids=["id1", "id2"],
-    uris=["path/to/file/1", "path/to/file/2"]
-)
-```
-
-### Querying with Images
-
-```python
-results = collection.query(
-    query_images=[...]  # A list of numpy arrays representing images
-)
-```
-
-### Querying with Text
-
-```python
-results = collection.query(
-    query_texts=["This is a query document", "This is another query document"]
-)
-```
-
-## Go Workaround
-
-While multimodal is not directly supported, you can use text-based embeddings or pre-compute image embeddings externally:
+Embed a single piece of text using `EmbedContent`:
 
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
-package main
-
 import (
-	"context"
-	"log"
+    "context"
 
-	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+    "github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-func main() {
-	client, err := v2.NewHTTPClient()
-	if err != nil {
-		log.Fatalf("Error creating client: %v", err)
-	}
-	defer client.Close()
+content := embeddings.Content{
+    Parts: []embeddings.Part{
+        embeddings.NewTextPart("What is Chroma?"),
+    },
+}
+embedding, err := ef.EmbedContent(ctx, content)
+```
+{% /codetab %}
+{% /codetabs %}
 
-	ctx := context.Background()
+The `ef` variable is any `embeddings.ContentEmbeddingFunction` — for example, a Roboflow embedding function (see the mixed-part section below for construction).
 
-	// For multimodal-like functionality, pre-compute embeddings externally
-	// and add them directly to the collection
+## Mixed-Part Requests
 
-	// Create collection without embedding function (manual embeddings)
-	collection, err := client.CreateCollection(ctx, "multimodal_workaround",
-		v2.WithEmbeddingFunctionCreate(nil),
-	)
-	if err != nil {
-		log.Fatalf("Error creating collection: %v", err)
-	}
+Use `EmbedContents` to embed a batch of content items with different modalities. Because Roboflow processes one item per request, pass text and image as separate `Content` items:
 
-	// Pre-computed CLIP embeddings for images (computed externally)
-	imageEmbedding1 := []float32{0.1, 0.2, 0.3} // ... actual CLIP embedding
-	imageEmbedding2 := []float32{0.4, 0.5, 0.6} // ... actual CLIP embedding
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+import (
+    "context"
 
-	// Add with pre-computed embeddings and URIs as metadata
-	err = collection.Add(ctx,
-		v2.WithIDs("img1", "img2"),
-		v2.WithEmbeddings(imageEmbedding1, imageEmbedding2),
-		v2.WithMetadatas(
-			v2.NewDocumentMetadata(
-				v2.NewStringAttribute("uri", "/path/to/image1.jpg"),
-				v2.NewStringAttribute("type", "image"),
-			),
-			v2.NewDocumentMetadata(
-				v2.NewStringAttribute("uri", "/path/to/image2.jpg"),
-				v2.NewStringAttribute("type", "image"),
-			),
-		),
-	)
-	if err != nil {
-		log.Fatalf("Error adding: %v", err)
-	}
+    "github.com/amikos-tech/chroma-go/pkg/embeddings"
+    "github.com/amikos-tech/chroma-go/pkg/embeddings/roboflow"
+)
 
-	// Query with pre-computed query embedding
-	queryEmbedding := []float32{0.15, 0.25, 0.35} // CLIP embedding of query image
-	results, err := collection.Query(ctx,
-		v2.WithQueryEmbeddings(queryEmbedding),
-		v2.WithNResults(5),
-	)
-	if err != nil {
-		log.Fatalf("Error querying: %v", err)
-	}
+ef, err := roboflow.NewRoboflowEmbeddingFunction(roboflow.WithEnvAPIKey())
 
-	log.Printf("Results: %v", results.GetIDsGroups())
+contents := []embeddings.Content{
+    {Parts: []embeddings.Part{embeddings.NewTextPart("A dog running on a beach")}},
+    {Parts: []embeddings.Part{
+        embeddings.NewPartFromSource(
+            embeddings.ModalityImage,
+            embeddings.NewBinarySourceFromURL("https://example.com/dog.jpg"),
+        ),
+    }},
+}
+results, err := ef.EmbedContents(ctx, contents)
+```
+{% /codetab %}
+{% /codetabs %}
+
+Other binary source constructors are available for different input types:
+
+- `embeddings.NewBinarySourceFromFile("/path/to/image.png")`
+- `embeddings.NewBinarySourceFromBase64("base64data==")`
+- `embeddings.NewBinarySourceFromBytes(rawBytes)`
+
+## Portable Intents
+
+Set an `Intent` on a `Content` to communicate the purpose of the request to providers that support it:
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+content := embeddings.Content{
+    Parts:  []embeddings.Part{embeddings.NewTextPart("retrieval query text")},
+    Intent: embeddings.IntentRetrievalQuery,
 }
 ```
 {% /codetab %}
 {% /codetabs %}
 
-## Feature Status
+The five neutral intent constants map to a provider-independent vocabulary:
 
-| Feature | Python | Go |
-|---------|--------|-----|
-| OpenCLIP Embedding Function | ✓ | Not available |
-| ImageLoader Data Loader | ✓ | Not available |
-| `query_images` parameter | ✓ | Not available |
-| `images` parameter in add | ✓ | Not available |
-| `uris` parameter | ✓ | Store as metadata |
-| Pre-computed embeddings | ✓ | ✓ |
+| Constant | Value |
+|----------|-------|
+| `IntentRetrievalQuery` | `retrieval_query` |
+| `IntentRetrievalDocument` | `retrieval_document` |
+| `IntentClassification` | `classification` |
+| `IntentClustering` | `clustering` |
+| `IntentSemanticSimilarity` | `semantic_similarity` |
 
-## Notes
+## Request Options
 
-- Multimodal support requires data loaders and multi-modal embedding functions
-- As a workaround, compute embeddings externally (using Python or other tools) and add them directly
-- Store URIs in metadata for reference to original files
-- Text queries work normally with text embedding functions
+Use the `Dimension` field to request a specific output vector size from providers that support truncated embeddings:
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+dim := 256
+content := embeddings.Content{
+    Parts:     []embeddings.Part{embeddings.NewTextPart("document text")},
+    Dimension: &dim,
+}
+```
+{% /codetab %}
+{% /codetabs %}
+
+!!! note "Advanced"
+
+    You can pass raw intent strings and provider-specific hints via the `ProviderHints` field. See [godoc](https://pkg.go.dev/github.com/amikos-tech/chroma-go/pkg/embeddings) for details.
+
+## Compatibility with Legacy API
+
+Both the Content API and the legacy `EmbedDocuments` / `EmbedQuery` API coexist and neither is deprecated. Use whichever fits your use case:
+
+| Use Case | Recommended API |
+|----------|----------------|
+| Text-only embeddings | `EmbedDocuments` / `EmbedQuery` |
+| Mixed media (text + images) | Content API (`EmbedContent` / `EmbedContents`) |
+| Portable intents or dimensions | Content API (`EmbedContent` / `EmbedContents`) |
+
+The legacy API continues to work exactly as before:
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+embeddings, err := ef.EmbedDocuments(ctx, []string{"text1", "text2"})
+queryEmb, err := ef.EmbedQuery(ctx, "query text")
+```
+{% /codetab %}
+{% /codetabs %}
+
+Existing providers automatically work with the Content API through built-in adapters.
