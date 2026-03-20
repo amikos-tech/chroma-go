@@ -24,8 +24,8 @@
 
 - [x] **REG-01**: Factory and registry code can build richer multimodal embedding functions from stored config using additive shared interfaces
 - [x] **REG-02**: Collection configuration auto-wiring keeps working for existing dense and multimodal providers after the richer interfaces are introduced
-- [ ] **MAP-01**: Neutral intents are mapped to provider-native task and input semantics through a defined contract with tests
-- [ ] **MAP-02**: Unsupported modality or intent combinations fail explicitly instead of silently downgrading or guessing
+- [x] **MAP-01**: Neutral intents are mapped to provider-native task and input semantics through a defined contract with tests
+- [x] **MAP-02**: Unsupported modality or intent combinations fail explicitly instead of silently downgrading or guessing
 
 ### Docs and Verification
 
@@ -79,8 +79,8 @@
 | COMP-02 | Phase 2 | Complete |
 | REG-01 | Phase 3 | Complete |
 | REG-02 | Phase 3 | Complete |
-| MAP-01 | Phase 4 | Pending |
-| MAP-02 | Phase 4 | Pending |
+| MAP-01 | Phase 4 | Complete |
+| MAP-02 | Phase 4 | Complete |
 | DOCS-01 | Phase 5 | Pending |
 | DOCS-02 | Phase 5 | Pending |
 | GEM-01 | Phase 6 | Pending |

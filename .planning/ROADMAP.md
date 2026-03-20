@@ -133,7 +133,7 @@ Plans: TBD during planning
 | 1. Shared Multimodal Contract | 4/4 | Complete | 2026-03-18 |
 | 2. Capability Metadata and Compatibility | 3/3 | Complete | 2026-03-19 |
 | 3. Registry and Config Integration | 3/3 | Complete   | 2026-03-20 |
-| 4. Provider Mapping and Explicit Failures | 0/2 | Not started | - |
+| 4. Provider Mapping and Explicit Failures | 1/2 | In Progress|  |
 | 5. Documentation and Verification | 0/3 | Not started | - |
 | 6. Gemini Multimodal Adoption | - | Not started | - |
 | 7. vLLM/Nemotron Provider Validation | - | Not started | - |
