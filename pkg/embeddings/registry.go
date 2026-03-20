@@ -254,7 +254,7 @@ func BuildContent(name string, config EmbeddingFunctionConfig) (ContentEmbedding
 // inferCaps infers CapabilityMetadata from an embedding function.
 // Uses CapabilityAware metadata when available; falls back to interface-typed defaults:
 // {text, image} for MultimodalEmbeddingFunction, {text} otherwise.
-func inferCaps(ef interface{}) CapabilityMetadata {
+func inferCaps(ef any) CapabilityMetadata {
 	if ca, ok := ef.(CapabilityAware); ok {
 		return ca.Capabilities()
 	}
