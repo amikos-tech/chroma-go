@@ -196,7 +196,7 @@ func ValidateContents(contents []Content) error {
 
 // ValidateContentSupport checks content against declared provider capabilities.
 // Returns on the first unsupported check, consistent with batch fail-on-first behavior.
-// Returns nil when caps has no declared modalities (pass-through for unadapted providers).
+// Empty capability fields are treated as undeclared and pass through without validation.
 func ValidateContentSupport(content Content, caps CapabilityMetadata) error {
 	if len(caps.Modalities) > 0 {
 		for i, part := range content.Parts {
