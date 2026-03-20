@@ -67,9 +67,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Extend registry and factory contracts for richer multimodal builders
-- [ ] 03-02: Update configuration serialization and build-from-config paths
-- [ ] 03-03: Add round-trip and auto-wiring tests across dense and multimodal flows
+- [ ] 03-01-PLAN.md — Add 4th content factory map to registry with fallback chain and inferCaps
+- [ ] 03-02-PLAN.md — Extend config build chain, collection contentEF field, and auto-wiring
+- [ ] 03-03-PLAN.md — Add config round-trip, build chain, and auto-wiring tests
 
 ### Phase 4: Provider Mapping and Explicit Failures
 **Goal:** Define how provider-neutral intents and modalities map to provider-native semantics and fail clearly when a provider cannot support the request.
