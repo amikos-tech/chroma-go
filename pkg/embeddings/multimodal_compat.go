@@ -10,6 +10,8 @@ var (
 	_ ContentEmbeddingFunction = (*multimodalEmbeddingFunctionContentAdapter)(nil)
 	_ CapabilityAware          = (*embeddingFunctionContentAdapter)(nil)
 	_ CapabilityAware          = (*multimodalEmbeddingFunctionContentAdapter)(nil)
+	_ Closeable                = (*embeddingFunctionContentAdapter)(nil)
+	_ Closeable                = (*multimodalEmbeddingFunctionContentAdapter)(nil)
 )
 
 type embeddingFunctionContentAdapter struct {
