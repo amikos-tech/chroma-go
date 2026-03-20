@@ -1,6 +1,6 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.5
+milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
 current_phase: 2
 current_phase_name: Capability Metadata and Compatibility
@@ -10,11 +10,11 @@ stopped_at: Completed 02-03-PLAN.md
 last_updated: "2026-03-19T11:17:25.921Z"
 last_activity: 2026-03-19
 progress:
-  total_phases: 5
+  total_phases: 7
   completed_phases: 2
   total_plans: 7
   completed_plans: 7
-  percent: 100
+  percent: 29
 ---
 
 # Project State
@@ -30,18 +30,18 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Current Phase:** 2
 **Current Phase Name:** Capability Metadata and Compatibility
-**Total Phases:** 5
+**Total Phases:** 7
 **Current Plan:** 3
 **Total Plans in Phase:** 3
 **Status:** Phase complete — ready for verification
 **Last Activity:** 2026-03-19
 **Last Activity Description:** Completed 02-03 regression coverage plan
-**Progress:** [██████████] 100%
+**Progress:** [███-------] 29%
 
-Phase: 2 of 5 (Capability Metadata and Compatibility)
+Phase: 2 of 7 (Capability Metadata and Compatibility)
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Progress: [██████████] 100%
+Progress: [███-------] 29%
 
 ## Performance Metrics
 
@@ -76,7 +76,7 @@ Recent decisions affecting current work:
 
 - [Init]: Use issue #442 as the first planned milestone for GSD tracking.
 - [Init]: Reuse the existing codebase map instead of re-running brownfield mapping.
-- [Init]: Treat `v0.5` as a roadmap placeholder until release naming is finalized.
+- [Init]: Rebranded milestone from `v0.5` to `v0.4.1` — all changes are additive, no public API breakage.
 - [Phase 01-shared-multimodal-contract]: Keep the shared multimodal request model in a dedicated file so later validation and compatibility work can layer on without disturbing legacy APIs.
 - [Phase 01-shared-multimodal-contract]: Add ContentEmbeddingFunction beside MultimodalEmbeddingFunction instead of widening the legacy image-only interface in place.
 - [Phase 02]: Keep shared capability metadata provider-neutral by modeling only modalities, intents, and request options. — This preserves room for non-Roboflow providers and avoids baking provider-native task names into the shared contract.
@@ -89,6 +89,9 @@ Recent decisions affecting current work:
 ### Roadmap Evolution
 
 - Project initialized around provider-neutral multimodal embedding foundations (#442).
+- Rebranded milestone v0.5 → v0.4.1 (all changes additive, no public API breakage).
+- Added Phase 6: Gemini Multimodal Adoption (#443).
+- Added Phase 7: vLLM/Nemotron Provider Validation (nvidia/omni-embed-nemotron-3b).
 
 ### Pending Todos
 
@@ -96,8 +99,8 @@ None yet.
 
 ### Blockers/Concerns
 
-- Release naming for the roadmap milestone may need to be revisited once maintainers pick the actual version line.
 - The neutral multimodal contract must avoid overfitting to the current Roboflow implementation.
+- vLLM/Nemotron validation (Phase 7) requires access to an internal vLLM API endpoint.
 
 ## Decisions Made
 
@@ -105,12 +108,12 @@ None yet.
 |-------|---------|-----------|
 | Init | Scope the first roadmap milestone to issue #442 | The user explicitly named this work before initialization |
 | Init | Reuse the generated codebase map | Brownfield architecture context already exists under `.planning/codebase/` |
-| Init | Use `v0.5` as a milestone placeholder | Tooling benefits from a parsable milestone label even if release naming may change |
+| Init | Rebrand milestone from `v0.5` to `v0.4.1` | All changes are additive — patch bump is correct semver |
 
 ## Blockers
 
-- Release naming for the roadmap milestone may need a follow-up decision.
-- Provider-neutral intent design should be validated against more than one provider pattern during planning.
+- Provider-neutral intent design will be validated against Gemini (Phase 6) and vLLM/Nemotron (Phase 7).
+- vLLM/Nemotron validation requires access to an internal vLLM API endpoint.
 
 ## Session
 

@@ -6,11 +6,11 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 
 ## Milestones
 
-- 🚧 **v0.5 Provider-Neutral Multimodal Foundations** - Phases 1-5 (current planning milestone)
+- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-7 (current planning milestone)
 
-## v0.5 Provider-Neutral Multimodal Foundations
+## v0.4.1 Provider-Neutral Multimodal Foundations
 
-**Milestone Goal:** Add provider-neutral multimodal embedding foundations that support richer modalities and portable intents while preserving existing text-only and image-only APIs.
+**Milestone Goal:** Add provider-neutral multimodal embedding foundations that support richer modalities and portable intents while preserving existing text-only and image-only APIs, then validate with Gemini and vLLM/Nemotron provider adoptions.
 
 ## Phases
 
@@ -19,6 +19,8 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [ ] **Phase 3: Registry and Config Integration** - Extend registry/build-from-config and collection auto-wiring for richer multimodal interfaces.
 - [ ] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly.
 - [ ] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility.
+- [ ] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443)
+- [ ] **Phase 7: vLLM/Nemotron Provider Validation** - Add vLLM OpenAI-compatible provider targeting nvidia/omni-embed-nemotron-3b to validate the foundation end-to-end.
 
 ## Phase Details
 
@@ -98,6 +100,32 @@ Plans:
 - [ ] 05-02: Add focused examples or snippets for portable multimodal requests
 - [ ] 05-03: Audit and extend tests for acceptance-criteria coverage
 
+### Phase 6: Gemini Multimodal Adoption
+**Goal:** Wire Gemini into the shared multimodal contract so it supports text, image, audio, video, and PDF embeddings through the portable interface while keeping existing text-only APIs as backward-compatible wrappers.
+**Depends on**: Phase 5
+**Requirements**: [GEM-01, GEM-02, GEM-03]
+**Issue**: #443
+**Success Criteria** (what must be TRUE):
+  1. Gemini implements `SharedContentEmbeddingFunction` and `CapabilityAware` interfaces for text, image, audio, video, and PDF modalities.
+  2. Neutral intents map to Gemini task types with explicit errors for unsupported combinations.
+  3. Existing `EmbedDocuments`/`EmbedQuery` behavior remains unchanged.
+  4. Gemini is registered in the multimodal factory/registry path with config round-trip support.
+  5. Unit tests cover request construction, intent mapping, and backward-compatible wrappers.
+
+Plans: TBD during planning
+
+### Phase 7: vLLM/Nemotron Provider Validation
+**Goal:** Add a vLLM OpenAI-compatible embedding provider targeting nvidia/omni-embed-nemotron-3b to validate the shared multimodal contract against a second real multimodal model beyond Gemini.
+**Depends on**: Phase 6
+**Requirements**: [VLLM-01, VLLM-02]
+**Success Criteria** (what must be TRUE):
+  1. A vLLM/OpenAI-compatible provider implements `SharedContentEmbeddingFunction` and `CapabilityAware` for the modalities supported by omni-embed-nemotron-3b.
+  2. The provider works against a live vLLM API endpoint with multimodal inputs.
+  3. The shared contract, registry, and intent mapping work without provider-specific hacks — validating the foundation is truly portable.
+  4. Integration tests cover at least text + image multimodal embedding through the vLLM endpoint.
+
+Plans: TBD during planning
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -107,3 +135,5 @@ Plans:
 | 3. Registry and Config Integration | 0/3 | Not started | - |
 | 4. Provider Mapping and Explicit Failures | 0/2 | Not started | - |
 | 5. Documentation and Verification | 0/3 | Not started | - |
+| 6. Gemini Multimodal Adoption | - | Not started | - |
+| 7. vLLM/Nemotron Provider Validation | - | Not started | - |
