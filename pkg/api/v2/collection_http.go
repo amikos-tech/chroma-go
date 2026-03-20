@@ -682,17 +682,24 @@ func (c *CollectionImpl) IndexingStatus(ctx context.Context) (*IndexingStatus, e
 }
 
 func (c *CollectionImpl) Close() error {
+	var firstErr error
 	if c.contentEmbeddingFunction != nil {
 		if closer, ok := c.contentEmbeddingFunction.(io.Closer); ok {
-			return closer.Close()
+			firstErr = closer.Close()
 		}
 	}
 	if c.embeddingFunction != nil {
+		// Skip if dense EF is the same object as content EF (auto-wiring derived case)
+		if ef, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok && ef == c.embeddingFunction {
+			return firstErr
+		}
 		if closer, ok := c.embeddingFunction.(io.Closer); ok {
-			return closer.Close()
+			if err := closer.Close(); err != nil && firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
-	return nil
+	return firstErr
 }
 
 // TODO add utility methods for metadata lookups
