@@ -271,3 +271,182 @@ func TestBuildSparseCloseableUnknown(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown sparse embedding function")
 }
+
+// mockContentEmbeddingFunction is a minimal ContentEmbeddingFunction for testing.
+type mockContentEmbeddingFunction struct {
+	name string
+}
+
+func (m *mockContentEmbeddingFunction) EmbedContent(_ context.Context, _ Content) (Embedding, error) {
+	return nil, nil
+}
+
+func (m *mockContentEmbeddingFunction) EmbedContents(_ context.Context, _ []Content) ([]Embedding, error) {
+	return nil, nil
+}
+
+// mockMultimodalEmbeddingFunction implements MultimodalEmbeddingFunction for testing.
+type mockMultimodalEmbeddingFunction struct {
+	mockEmbeddingFunction
+}
+
+func (m *mockMultimodalEmbeddingFunction) EmbedImages(_ context.Context, _ []ImageInput) ([]Embedding, error) {
+	return nil, nil
+}
+
+func (m *mockMultimodalEmbeddingFunction) EmbedImage(_ context.Context, _ ImageInput) (Embedding, error) {
+	return nil, nil
+}
+
+// mockCapabilityAwareEmbeddingFunction implements EmbeddingFunction + CapabilityAware for testing.
+type mockCapabilityAwareEmbeddingFunction struct {
+	mockEmbeddingFunction
+	caps CapabilityMetadata
+}
+
+func (m *mockCapabilityAwareEmbeddingFunction) Capabilities() CapabilityMetadata {
+	return m.caps
+}
+
+func TestRegisterAndBuildContent(t *testing.T) {
+	name := "test_content_ef"
+	mock := &mockContentEmbeddingFunction{name: name}
+	err := RegisterContent(name, func(_ EmbeddingFunctionConfig) (ContentEmbeddingFunction, error) {
+		return mock, nil
+	})
+	require.NoError(t, err)
+
+	assert.True(t, HasContent(name))
+
+	ef, err := BuildContent(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+}
+
+func TestBuildContentFallbackMultimodal(t *testing.T) {
+	name := "test_content_mm_fallback"
+	err := RegisterMultimodal(name, func(_ EmbeddingFunctionConfig) (MultimodalEmbeddingFunction, error) {
+		return &mockMultimodalEmbeddingFunction{mockEmbeddingFunction: mockEmbeddingFunction{name: name}}, nil
+	})
+	require.NoError(t, err)
+
+	ef, err := BuildContent(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+	// The adapter implements CapabilityAware
+	_, ok := ef.(CapabilityAware)
+	assert.True(t, ok)
+}
+
+func TestBuildContentFallbackDense(t *testing.T) {
+	name := "test_content_dense_fallback"
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+		return &mockEmbeddingFunction{name: name}, nil
+	})
+	require.NoError(t, err)
+
+	ef, err := BuildContent(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+}
+
+func TestBuildContentUnknown(t *testing.T) {
+	_, err := BuildContent("nonexistent_content", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown content embedding function")
+}
+
+func TestBuildContentCloseableWithCloseable(t *testing.T) {
+	name := "test_content_closeable"
+	mockEf := &mockCloseableEmbeddingFunction{name: name}
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+		return mockEf, nil
+	})
+	require.NoError(t, err)
+
+	ef, closer, err := BuildContentCloseable(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+	require.NotNil(t, closer)
+	assert.False(t, mockEf.closed)
+
+	err = closer()
+	require.NoError(t, err)
+	assert.True(t, mockEf.closed)
+}
+
+func TestBuildContentCloseableWithoutCloseable(t *testing.T) {
+	name := "test_content_no_closeable"
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+		return &mockEmbeddingFunction{name: name}, nil
+	})
+	require.NoError(t, err)
+
+	ef, closer, err := BuildContentCloseable(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+	require.NotNil(t, closer)
+
+	err = closer()
+	require.NoError(t, err)
+}
+
+func TestBuildContentFallbackCapabilityAware(t *testing.T) {
+	name := "test_content_capaware"
+	customCaps := CapabilityMetadata{
+		Modalities:    []Modality{ModalityText, ModalityImage},
+		SupportsBatch: true,
+	}
+	err := RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
+		return &mockCapabilityAwareEmbeddingFunction{
+			mockEmbeddingFunction: mockEmbeddingFunction{name: name},
+			caps:                  customCaps,
+		}, nil
+	})
+	require.NoError(t, err)
+
+	ef, err := BuildContent(name, nil)
+	require.NoError(t, err)
+	require.NotNil(t, ef)
+
+	ca, ok := ef.(CapabilityAware)
+	require.True(t, ok)
+	assert.Equal(t, customCaps, ca.Capabilities())
+}
+
+func TestListContent(t *testing.T) {
+	name := "test_list_content"
+	err := RegisterContent(name, func(_ EmbeddingFunctionConfig) (ContentEmbeddingFunction, error) {
+		return &mockContentEmbeddingFunction{name: name}, nil
+	})
+	require.NoError(t, err)
+
+	names := ListContent()
+	assert.Contains(t, names, name)
+}
+
+func TestHasContent(t *testing.T) {
+	name := "test_has_content"
+	assert.False(t, HasContent(name))
+
+	err := RegisterContent(name, func(_ EmbeddingFunctionConfig) (ContentEmbeddingFunction, error) {
+		return &mockContentEmbeddingFunction{name: name}, nil
+	})
+	require.NoError(t, err)
+
+	assert.True(t, HasContent(name))
+}
+
+func TestRegisterContentDuplicate(t *testing.T) {
+	name := "test_content_duplicate"
+	err := RegisterContent(name, func(_ EmbeddingFunctionConfig) (ContentEmbeddingFunction, error) {
+		return &mockContentEmbeddingFunction{name: name}, nil
+	})
+	require.NoError(t, err)
+
+	err = RegisterContent(name, func(_ EmbeddingFunctionConfig) (ContentEmbeddingFunction, error) {
+		return &mockContentEmbeddingFunction{name: name}, nil
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already registered")
+}
