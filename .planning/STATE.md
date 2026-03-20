@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-03-20T16:37:50.466Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-03-20T16:37:59.616Z"
 progress:
   total_phases: 7
   completed_phases: 5
@@ -87,6 +87,9 @@ Recent decisions affecting current work:
 - [Phase 04-01]: ValidateContentSupport passes through when caps.Modalities is empty to preserve backward compatibility with non-CapabilityAware providers
 - [Phase 04-01]: Custom intents bypass capability intent enforcement — only neutral intents checked against declared caps.Intents
 - [Phase 05-02]: Use NewEmbeddingFromFloat32 helper for mock construction; use distinct fixed values [1,2,3] vs [4,5,6] to distinguish native vs adapter dispatch paths
+- [Phase 05-01]: Show mixed-part Roboflow example with separate Content items via EmbedContents (one Part per Content due to adapter constraint)
+- [Phase 05-01]: Frame both EmbedDocuments and Content API as coexisting indefinitely — no deprecation signal in docs
+- [Phase 05-01]: Escape-hatch admonition for ProviderHints references godoc rather than documenting mechanism inline
 
 ### Roadmap Evolution
 
@@ -119,6 +122,6 @@ None yet.
 
 ## Session
 
-**Last Date:** 2026-03-20T16:37:42.133Z
-**Stopped At:** Completed 05-02-PLAN.md
+**Last Date:** 2026-03-20T16:37:59.612Z
+**Stopped At:** Completed 05-01-PLAN.md
 **Resume File:** None
