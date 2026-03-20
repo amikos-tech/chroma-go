@@ -689,13 +689,20 @@ func (c *CollectionImpl) Close() error {
 		}
 	}
 	if c.embeddingFunction != nil {
-		// Skip if dense EF is the same object as content EF (auto-wiring derived case)
-		if ef, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok && ef == c.embeddingFunction {
-			return firstErr
+		// Skip if dense EF shares the same resource as content EF:
+		// (1) content adapter wraps this dense EF (unwrapper case), or
+		// (2) content EF is a dual-interface object also assigned as dense EF
+		shared := false
+		if unwrapper, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunctionUnwrapper); ok {
+			shared = unwrapper.UnwrapEmbeddingFunction() == c.embeddingFunction
+		} else if ef, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {
+			shared = ef == c.embeddingFunction
 		}
-		if closer, ok := c.embeddingFunction.(io.Closer); ok {
-			if err := closer.Close(); err != nil && firstErr == nil {
-				firstErr = err
+		if !shared {
+			if closer, ok := c.embeddingFunction.(io.Closer); ok {
+				if err := closer.Close(); err != nil && firstErr == nil {
+					firstErr = err
+				}
 			}
 		}
 	}

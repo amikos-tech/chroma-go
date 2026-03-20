@@ -5,13 +5,20 @@ import (
 	"fmt"
 )
 
+// EmbeddingFunctionUnwrapper is implemented by adapters that wrap an EmbeddingFunction.
+type EmbeddingFunctionUnwrapper interface {
+	UnwrapEmbeddingFunction() EmbeddingFunction
+}
+
 var (
-	_ ContentEmbeddingFunction = (*embeddingFunctionContentAdapter)(nil)
-	_ ContentEmbeddingFunction = (*multimodalEmbeddingFunctionContentAdapter)(nil)
-	_ CapabilityAware          = (*embeddingFunctionContentAdapter)(nil)
-	_ CapabilityAware          = (*multimodalEmbeddingFunctionContentAdapter)(nil)
-	_ Closeable                = (*embeddingFunctionContentAdapter)(nil)
-	_ Closeable                = (*multimodalEmbeddingFunctionContentAdapter)(nil)
+	_ ContentEmbeddingFunction   = (*embeddingFunctionContentAdapter)(nil)
+	_ ContentEmbeddingFunction   = (*multimodalEmbeddingFunctionContentAdapter)(nil)
+	_ CapabilityAware            = (*embeddingFunctionContentAdapter)(nil)
+	_ CapabilityAware            = (*multimodalEmbeddingFunctionContentAdapter)(nil)
+	_ Closeable                  = (*embeddingFunctionContentAdapter)(nil)
+	_ Closeable                  = (*multimodalEmbeddingFunctionContentAdapter)(nil)
+	_ EmbeddingFunctionUnwrapper = (*embeddingFunctionContentAdapter)(nil)
+	_ EmbeddingFunctionUnwrapper = (*multimodalEmbeddingFunctionContentAdapter)(nil)
 )
 
 type embeddingFunctionContentAdapter struct {
@@ -44,6 +51,10 @@ func AdaptMultimodalEmbeddingFunctionToContent(ef MultimodalEmbeddingFunction, c
 		return nil
 	}
 	return &multimodalEmbeddingFunctionContentAdapter{ef: ef, caps: caps}
+}
+
+func (a *embeddingFunctionContentAdapter) UnwrapEmbeddingFunction() EmbeddingFunction {
+	return a.ef
 }
 
 func (a *embeddingFunctionContentAdapter) Capabilities() CapabilityMetadata {
@@ -87,6 +98,10 @@ func (a *embeddingFunctionContentAdapter) EmbedContents(ctx context.Context, con
 	}
 
 	return a.ef.EmbedDocuments(ctx, texts)
+}
+
+func (a *multimodalEmbeddingFunctionContentAdapter) UnwrapEmbeddingFunction() EmbeddingFunction {
+	return a.ef
 }
 
 func (a *multimodalEmbeddingFunctionContentAdapter) Capabilities() CapabilityMetadata {

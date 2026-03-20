@@ -70,11 +70,14 @@ func (m *mockContentOnlyEF) EmbedContents(
 }
 
 // deriveEFFromContent applies the same logic as client_http.go:
-// if contentEF is non-nil and ef is nil, derive ef from contentEF when possible.
+// unwrap from adapter first, then try direct type assertion, then fall back to nil.
 func deriveEFFromContent(
 	ef embeddings.EmbeddingFunction, contentEF embeddings.ContentEmbeddingFunction,
 ) embeddings.EmbeddingFunction {
 	if contentEF != nil && ef == nil {
+		if unwrapper, ok := contentEF.(embeddings.EmbeddingFunctionUnwrapper); ok {
+			return unwrapper.UnwrapEmbeddingFunction()
+		}
 		if denseFromContent, ok := contentEF.(embeddings.EmbeddingFunction); ok {
 			return denseFromContent
 		}
@@ -115,6 +118,20 @@ func TestAutoWiring_DenseEFDerivedFromContentEF(t *testing.T) {
 
 	require.NotNil(t, ef, "dense EF should be derived from content EF when content implements EmbeddingFunction")
 	assert.Equal(t, "dual_test", ef.Name())
+}
+
+func TestAutoWiring_DenseEFUnwrappedFromAdapter(t *testing.T) {
+	denseEF := embeddings.NewConsistentHashEmbeddingFunction()
+	caps := embeddings.CapabilityMetadata{
+		Modalities:    []embeddings.Modality{embeddings.ModalityText},
+		SupportsBatch: true,
+	}
+	contentEF := embeddings.AdaptEmbeddingFunctionToContent(denseEF, caps)
+
+	ef := deriveEFFromContent(nil, contentEF)
+
+	require.NotNil(t, ef, "dense EF should be unwrapped from content adapter")
+	assert.Equal(t, denseEF, ef, "unwrapped EF should be the same object as the original dense EF")
 }
 
 func TestWithContentEmbeddingFunction_ExplicitOverride(t *testing.T) {

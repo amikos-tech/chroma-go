@@ -419,16 +419,7 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		return nil, errors.Wrap(err, "error decoding response")
 	}
 	configuration := NewCollectionConfigurationFromMap(cm.ConfigurationJSON)
-	// Auto-wire EF: explicit option takes priority, otherwise build from server config
-	ef := req.embeddingFunction
-	if ef == nil {
-		autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
-		if buildErr != nil {
-			client.logger.Warn("failed to auto-wire embedding function", logger.ErrorField("error", buildErr))
-		}
-		ef = autoWiredEF
-	}
-	// Auto-wire content EF: explicit option takes priority, otherwise build from server config
+	// Auto-wire content EF first to avoid double factory instantiation
 	contentEF := req.contentEmbeddingFunction
 	if contentEF == nil {
 		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
@@ -437,10 +428,20 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		}
 		contentEF = autoWiredContentEF
 	}
-	// If content EF is set and also implements EmbeddingFunction, derive dense EF from it
-	if contentEF != nil && ef == nil {
-		if denseFromContent, ok := contentEF.(embeddings.EmbeddingFunction); ok {
+	// Auto-wire dense EF: try unwrapping from content adapter first, then build from config
+	ef := req.embeddingFunction
+	if ef == nil {
+		if unwrapper, ok := contentEF.(embeddings.EmbeddingFunctionUnwrapper); ok {
+			ef = unwrapper.UnwrapEmbeddingFunction()
+		} else if denseFromContent, ok := contentEF.(embeddings.EmbeddingFunction); ok {
 			ef = denseFromContent
+		}
+		if ef == nil {
+			autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
+			if buildErr != nil {
+				client.logger.Warn("failed to auto-wire embedding function", logger.ErrorField("error", buildErr))
+			}
+			ef = autoWiredEF
 		}
 	}
 	c := &CollectionImpl{
