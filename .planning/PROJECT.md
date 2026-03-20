@@ -17,6 +17,7 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 - ✓ Users can use multiple dense and sparse embedding providers with env-var-backed config reconstruction — existing
 - ✓ Users can use at least one multimodal provider (Roboflow) for shared text and image embeddings — existing
 - ✓ Users can use reranking providers, docs, examples, and build-tagged tests across the V2 API — existing
+- ✓ Registry and config-persistence flows can rebuild richer multimodal functions from stored configuration without regressing auto-wiring — Validated in Phase 3: Registry and Config Integration
 
 ### Active
 
@@ -58,4 +59,4 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 | Add vLLM/Nemotron as Phase 7 | Second provider (nvidia/omni-embed-nemotron-3b via vLLM) proves portability beyond a single provider | ✓ Good |
 
 ---
-*Last updated: 2026-03-20 — rebranded v0.5→v0.4.1, added Phases 6-7*
+*Last updated: 2026-03-20 — Phase 3 complete, rebranded v0.5→v0.4.1, added Phases 6-7*

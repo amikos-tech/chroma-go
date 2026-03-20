@@ -46,16 +46,17 @@ func (op *CollectionModel) UnmarshalJSON(b []byte) error {
 }
 
 type CollectionImpl struct {
-	name              string
-	id                string
-	tenant            Tenant
-	database          Database
-	metadata          CollectionMetadata
-	schema            *Schema
-	dimension         int
-	configuration     CollectionConfiguration
-	client            *APIClientV2
-	embeddingFunction embeddings.EmbeddingFunction
+	name                     string
+	id                       string
+	tenant                   Tenant
+	database                 Database
+	metadata                 CollectionMetadata
+	schema                   *Schema
+	dimension                int
+	configuration            CollectionConfiguration
+	client                   *APIClientV2
+	embeddingFunction        embeddings.EmbeddingFunction
+	contentEmbeddingFunction embeddings.ContentEmbeddingFunction
 }
 
 type Option func(*CollectionImpl) error
@@ -403,15 +404,16 @@ func (c *CollectionImpl) Fork(ctx context.Context, newName string) (Collection, 
 		return nil, errors.Wrap(err, "error decoding response")
 	}
 	forkedCollection := &CollectionImpl{
-		name:              cm.Name,
-		id:                cm.ID,
-		tenant:            NewTenant(cm.Tenant),
-		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
-		metadata:          cm.Metadata,
-		schema:            cm.Schema,
-		client:            c.client,
-		dimension:         cm.Dimension,
-		embeddingFunction: c.embeddingFunction,
+		name:                     cm.Name,
+		id:                       cm.ID,
+		tenant:                   NewTenant(cm.Tenant),
+		database:                 NewDatabase(cm.Database, NewTenant(cm.Tenant)),
+		metadata:                 cm.Metadata,
+		schema:                   cm.Schema,
+		client:                   c.client,
+		dimension:                cm.Dimension,
+		embeddingFunction:        c.embeddingFunction,
+		contentEmbeddingFunction: c.contentEmbeddingFunction,
 	}
 	c.client.addCollectionToCache(forkedCollection)
 	return forkedCollection, nil
@@ -680,12 +682,31 @@ func (c *CollectionImpl) IndexingStatus(ctx context.Context) (*IndexingStatus, e
 }
 
 func (c *CollectionImpl) Close() error {
-	if c.embeddingFunction != nil {
-		if closer, ok := c.embeddingFunction.(io.Closer); ok {
-			return closer.Close()
+	var firstErr error
+	if c.contentEmbeddingFunction != nil {
+		if closer, ok := c.contentEmbeddingFunction.(io.Closer); ok {
+			firstErr = closer.Close()
 		}
 	}
-	return nil
+	if c.embeddingFunction != nil {
+		// Skip if dense EF shares the same resource as content EF:
+		// (1) content adapter wraps this dense EF (unwrapper case), or
+		// (2) content EF is a dual-interface object also assigned as dense EF
+		shared := false
+		if unwrapper, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunctionUnwrapper); ok {
+			shared = unwrapper.UnwrapEmbeddingFunction() == c.embeddingFunction
+		} else if ef, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {
+			shared = ef == c.embeddingFunction
+		}
+		if !shared {
+			if closer, ok := c.embeddingFunction.(io.Closer); ok {
+				if err := closer.Close(); err != nil && firstErr == nil {
+					firstErr = err
+				}
+			}
+		}
+	}
+	return firstErr
 }
 
 // TODO add utility methods for metadata lookups

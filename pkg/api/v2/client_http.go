@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	chhttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
@@ -418,26 +419,43 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		return nil, errors.Wrap(err, "error decoding response")
 	}
 	configuration := NewCollectionConfigurationFromMap(cm.ConfigurationJSON)
-	// Auto-wire EF: explicit option takes priority, otherwise build from server config
+	// Auto-wire content EF first to avoid double factory instantiation
+	contentEF := req.contentEmbeddingFunction
+	if contentEF == nil {
+		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
+		if buildErr != nil {
+			client.logger.Warn("failed to auto-wire content embedding function", logger.ErrorField("error", buildErr))
+		}
+		contentEF = autoWiredContentEF
+	}
+	// Auto-wire dense EF: try unwrapping from content adapter first, then build from config
 	ef := req.embeddingFunction
 	if ef == nil {
-		autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
-		if buildErr != nil {
-			client.logger.Warn("failed to auto-wire embedding function", logger.ErrorField("error", buildErr))
+		if unwrapper, ok := contentEF.(embeddings.EmbeddingFunctionUnwrapper); ok {
+			ef = unwrapper.UnwrapEmbeddingFunction()
+		} else if denseFromContent, ok := contentEF.(embeddings.EmbeddingFunction); ok {
+			ef = denseFromContent
 		}
-		ef = autoWiredEF
+		if ef == nil {
+			autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
+			if buildErr != nil {
+				client.logger.Warn("failed to auto-wire embedding function", logger.ErrorField("error", buildErr))
+			}
+			ef = autoWiredEF
+		}
 	}
 	c := &CollectionImpl{
-		name:              cm.Name,
-		id:                cm.ID,
-		tenant:            NewTenant(cm.Tenant),
-		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
-		metadata:          cm.Metadata,
-		schema:            cm.Schema,
-		configuration:     configuration,
-		client:            client,
-		dimension:         cm.Dimension,
-		embeddingFunction: ef,
+		name:                     cm.Name,
+		id:                       cm.ID,
+		tenant:                   NewTenant(cm.Tenant),
+		database:                 NewDatabase(cm.Database, NewTenant(cm.Tenant)),
+		metadata:                 cm.Metadata,
+		schema:                   cm.Schema,
+		configuration:            configuration,
+		client:                   client,
+		dimension:                cm.Dimension,
+		embeddingFunction:        ef,
+		contentEmbeddingFunction: contentEF,
 	}
 	client.addCollectionToCache(c)
 	return c, nil

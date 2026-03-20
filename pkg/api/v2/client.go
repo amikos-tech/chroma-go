@@ -160,9 +160,10 @@ func NewListCollectionsOp(opts ...ListCollectionsOption) (*ListCollectionOp, err
 }
 
 type GetCollectionOp struct {
-	embeddingFunction embeddings.EmbeddingFunction
-	name              string
-	Database          Database `json:"-"`
+	embeddingFunction        embeddings.EmbeddingFunction
+	contentEmbeddingFunction embeddings.ContentEmbeddingFunction
+	name                     string
+	Database                 Database `json:"-"`
 }
 
 func (op *GetCollectionOp) Resource() Resource {
@@ -191,6 +192,16 @@ func WithEmbeddingFunctionGet(embeddingFunction embeddings.EmbeddingFunction) Ge
 			return errors.New("embedding function cannot be nil")
 		}
 		op.embeddingFunction = embeddingFunction
+		return nil
+	}
+}
+
+func WithContentEmbeddingFunctionGet(ef embeddings.ContentEmbeddingFunction) GetCollectionOption {
+	return func(op *GetCollectionOp) error {
+		if ef == nil {
+			return errors.New("content embedding function cannot be nil")
+		}
+		op.contentEmbeddingFunction = ef
 		return nil
 	}
 }

@@ -16,7 +16,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 
 - [x] **Phase 1: Shared Multimodal Contract** - Add additive request and part types, neutral intents, per-request options, and validation primitives. (completed 2026-03-18)
 - [x] **Phase 2: Capability Metadata and Compatibility** - Expose provider capabilities and keep legacy callers working unchanged. (completed 2026-03-19)
-- [ ] **Phase 3: Registry and Config Integration** - Extend registry/build-from-config and collection auto-wiring for richer multimodal interfaces.
+- [x] **Phase 3: Registry and Config Integration** - Extend registry/build-from-config and collection auto-wiring for richer multimodal interfaces. (completed 2026-03-20)
 - [ ] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly.
 - [ ] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility.
 - [ ] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443)
@@ -67,9 +67,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Extend registry and factory contracts for richer multimodal builders
-- [ ] 03-02: Update configuration serialization and build-from-config paths
-- [ ] 03-03: Add round-trip and auto-wiring tests across dense and multimodal flows
+- [ ] 03-01-PLAN.md — Add 4th content factory map to registry with fallback chain and inferCaps
+- [ ] 03-02-PLAN.md — Extend config build chain, collection contentEF field, and auto-wiring
+- [ ] 03-03-PLAN.md — Add config round-trip, build chain, and auto-wiring tests
 
 ### Phase 4: Provider Mapping and Explicit Failures
 **Goal:** Define how provider-neutral intents and modalities map to provider-native semantics and fail clearly when a provider cannot support the request.
@@ -132,7 +132,7 @@ Plans: TBD during planning
 |-------|----------------|--------|-----------|
 | 1. Shared Multimodal Contract | 4/4 | Complete | 2026-03-18 |
 | 2. Capability Metadata and Compatibility | 3/3 | Complete | 2026-03-19 |
-| 3. Registry and Config Integration | 0/3 | Not started | - |
+| 3. Registry and Config Integration | 3/3 | Complete   | 2026-03-20 |
 | 4. Provider Mapping and Explicit Failures | 0/2 | Not started | - |
 | 5. Documentation and Verification | 0/3 | Not started | - |
 | 6. Gemini Multimodal Adoption | - | Not started | - |

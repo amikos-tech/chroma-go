@@ -185,22 +185,29 @@ func (c *CollectionConfigurationImpl) GetSchema() *Schema {
 }
 
 // BuildEmbeddingFunctionFromConfig attempts to reconstruct an embedding function from the configuration.
-// First tries to get EF from configuration.embedding_function, then from schema if present.
+// First tries to get EF from configuration.embedding_function (dense, then multimodal fallback),
+// then from schema if present.
 // Returns nil without error if:
 // - Configuration is nil
 // - No embedding_function in config and no schema with EF
 // - Type is not "known"
-// - Name not registered in the dense registry
+// - Name not registered in any registry
 // Returns error if the factory fails to build the embedding function.
 func BuildEmbeddingFunctionFromConfig(cfg *CollectionConfigurationImpl) (embeddings.EmbeddingFunction, error) {
 	if cfg == nil {
 		return nil, nil
 	}
 
-	// First try to get EF from direct embedding_function config
 	efInfo, ok := cfg.GetEmbeddingFunctionInfo()
-	if ok && efInfo != nil && efInfo.IsKnown() && embeddings.HasDense(efInfo.Name) {
-		return embeddings.BuildDense(efInfo.Name, efInfo.Config)
+	if ok && efInfo != nil && efInfo.IsKnown() {
+		// Try dense first (existing behavior preserved)
+		if embeddings.HasDense(efInfo.Name) {
+			return embeddings.BuildDense(efInfo.Name, efInfo.Config)
+		}
+		// New: try multimodal (MultimodalEmbeddingFunction embeds EmbeddingFunction)
+		if embeddings.HasMultimodal(efInfo.Name) {
+			return embeddings.BuildMultimodal(efInfo.Name, efInfo.Config)
+		}
 	}
 
 	// Try to get EF from schema if present
@@ -213,6 +220,41 @@ func BuildEmbeddingFunctionFromConfig(cfg *CollectionConfigurationImpl) (embeddi
 	}
 
 	return nil, nil
+}
+
+// BuildContentEFFromConfig attempts to reconstruct a ContentEmbeddingFunction from the configuration.
+// Delegates to the registry BuildContent fallback chain (content -> multimodal -> dense).
+// Returns nil without error if:
+// - Configuration is nil
+// - No embedding_function info in config
+// - Type is not "known"
+// - Name not registered in any registry
+// Returns error if the factory fails to build the embedding function.
+func BuildContentEFFromConfig(cfg *CollectionConfigurationImpl) (embeddings.ContentEmbeddingFunction, error) {
+	if cfg == nil {
+		return nil, nil
+	}
+	efInfo, ok := cfg.GetEmbeddingFunctionInfo()
+	if !ok || efInfo == nil || !efInfo.IsKnown() {
+		return nil, nil
+	}
+	if embeddings.HasContent(efInfo.Name) || embeddings.HasMultimodal(efInfo.Name) || embeddings.HasDense(efInfo.Name) {
+		return embeddings.BuildContent(efInfo.Name, efInfo.Config)
+	}
+	return nil, nil
+}
+
+// SetContentEmbeddingFunction persists content EF config by delegating to SetEmbeddingFunction
+// when the content EF also implements EmbeddingFunction.
+func (c *CollectionConfigurationImpl) SetContentEmbeddingFunction(ef embeddings.ContentEmbeddingFunction) {
+	if ef == nil {
+		return
+	}
+	denseEF, ok := ef.(embeddings.EmbeddingFunction)
+	if !ok {
+		return
+	}
+	c.SetEmbeddingFunction(denseEF)
 }
 
 // UpdateHNSWConfiguration contains mutable HNSW parameters that can be changed after collection creation.

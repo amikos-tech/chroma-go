@@ -1,22 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.4.1
-milestone_name: Provider-Neutral Multimodal Foundations
-current_phase: 2
-current_phase_name: Capability Metadata and Compatibility
-current_plan: 3
-status: verifying
-stopped_at: Completed 02-03-PLAN.md
-last_updated: "2026-03-19T11:17:25.921Z"
-last_activity: 2026-03-19
+milestone: v0.4
+milestone_name: milestone
+status: unknown
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-03-20T09:59:27.542Z"
 progress:
   total_phases: 7
-  completed_phases: 2
-  # total_plans/completed_plans track scoped phases only (phases with defined plans)
-  # percent tracks overall phase-level progress (completed_phases/total_phases)
-  total_plans: 7
-  completed_plans: 7
-  percent: 29
+  completed_phases: 3
+  total_plans: 10
+  completed_plans: 10
 ---
 
 # Project State
@@ -26,31 +19,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 2: Capability Metadata and Compatibility
+**Current focus:** Phase 03 — registry-and-config-integration
 
 ## Current Position
 
-**Current Phase:** 2
-**Current Phase Name:** Capability Metadata and Compatibility
-**Total Phases:** 7
-**Current Plan:** 3
-**Total Plans in Phase:** 3
-**Status:** Phase complete — ready for verification
-**Last Activity:** 2026-03-19
-**Last Activity Description:** Completed 02-03 regression coverage plan
-**Progress:** [███-------] 29%
-
-Phase: 2 of 7 (Capability Metadata and Compatibility)
+Phase: 03 (registry-and-config-integration) — COMPLETE
 Plan: 3 of 3
-Status: Phase complete — ready for verification
-Progress: [███-------] 29%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+
+- Total plans completed: 10
 - Average duration: 5 min
-- Total execution time: 36 min
+- Total execution time: 51 min
 
 **By Phase:**
 
@@ -58,16 +40,20 @@ Progress: [███-------] 29%
 |-------|-------|-------|----------|
 | Phase 01 | 4 | 19 min | 5 min |
 | Phase 02 | 3 | 17 min | 6 min |
+| Phase 03 | 3 | 11 min | 4 min |
 
 **Recent Trend:**
+
 - Last 5 plans: -
 - Trend: Stable
 
 | Phase | Duration | Tasks | Files |
 |-------|----------|-------|-------|
-| Phase 02 P01 | 4min | 2 tasks | 2 files |
 | Phase 02 P02 | 6min | 2 tasks | 2 files |
 | Phase 02 P03 | 7min | 2 tasks | 3 files |
+| Phase 03 P01 | 3min | 2 tasks | 2 files |
+| Phase 03 P02 | 2min | 2 tasks | 4 files |
+| Phase 03 P03 | 6min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -87,6 +73,12 @@ Recent decisions affecting current work:
 - [Phase 02]: Delegate Roboflow shared-content support through the compatibility adapter — Using the additive adapter keeps shared-content behavior aligned with existing text and image methods and avoids duplicating provider request logic.
 - [Phase 02]: Test capability discovery through shared interfaces and adapter stubs — Phase 2 should prove the additive shared surface itself, not provider-specific concrete type assertions, so regressions are caught at the contract boundary.
 - [Phase 02]: Skip transient Roboflow live failures in the default suite — Upstream 429/5xx availability noise should not make the default regression suite flaky once provider-specific live tests are runnable by default.
+- [Phase 03-01]: BuildContent fallback chain releases mu.RLock before each factory call to avoid recursive lock deadlock
+- [Phase 03-01]: inferCaps uses CapabilityAware metadata when available and falls back to interface-typed defaults for multimodal and dense EFs
+- [Phase 03-02]: Derive dense EF from content EF at GetCollection time when content implements EmbeddingFunction, avoiding double initialization
+- [Phase 03-02]: Close contentEF first in CollectionImpl.Close() to avoid double-close when contentEF wraps denseEF (adapter case)
+- [Phase 03-03]: Extract deriveEFFromContent helper to test auto-wiring logic without triggering staticcheck SA4023 on concrete-type nil comparisons
+- [Phase 03-03]: Register test multimodal factory inside test function body (not init) to keep registry state isolated between test runs
 
 ### Roadmap Evolution
 
@@ -119,6 +111,6 @@ None yet.
 
 ## Session
 
-**Last Date:** 2026-03-19T11:17:19.520Z
-**Stopped At:** Completed 02-03-PLAN.md
-**Resume File:** .planning/phases/02-capability-metadata-and-compatibility/02-03-SUMMARY.md
+**Last Date:** 2026-03-20T09:53:00Z
+**Stopped At:** Completed 03-03-PLAN.md
+**Resume File:** None

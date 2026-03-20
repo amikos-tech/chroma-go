@@ -15,10 +15,14 @@ type SparseEmbeddingFunctionFactory func(config EmbeddingFunctionConfig) (Sparse
 // MultimodalEmbeddingFunctionFactory creates a MultimodalEmbeddingFunction from config.
 type MultimodalEmbeddingFunctionFactory func(config EmbeddingFunctionConfig) (MultimodalEmbeddingFunction, error)
 
+// ContentEmbeddingFunctionFactory creates a ContentEmbeddingFunction from config.
+type ContentEmbeddingFunctionFactory func(config EmbeddingFunctionConfig) (ContentEmbeddingFunction, error)
+
 var (
 	denseFactories      = make(map[string]EmbeddingFunctionFactory)
 	sparseFactories     = make(map[string]SparseEmbeddingFunctionFactory)
 	multimodalFactories = make(map[string]MultimodalEmbeddingFunctionFactory)
+	contentFactories    = make(map[string]ContentEmbeddingFunctionFactory)
 	mu                  sync.RWMutex
 )
 
@@ -196,5 +200,102 @@ func HasMultimodal(name string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
 	_, ok := multimodalFactories[name]
+	return ok
+}
+
+// RegisterContent registers a content embedding function factory by name.
+// Returns an error if a factory with the same name is already registered.
+func RegisterContent(name string, factory ContentEmbeddingFunctionFactory) error {
+	mu.Lock()
+	defer mu.Unlock()
+	if _, exists := contentFactories[name]; exists {
+		return errors.Errorf("content embedding function %q already registered", name)
+	}
+	contentFactories[name] = factory
+	return nil
+}
+
+// BuildContent creates a ContentEmbeddingFunction from name and config.
+// Falls back from native content factory to multimodal+adapt to dense+adapt when
+// a native content factory is not registered.
+func BuildContent(name string, config EmbeddingFunctionConfig) (ContentEmbeddingFunction, error) {
+	mu.RLock()
+	factory, ok := contentFactories[name]
+	mu.RUnlock()
+	if ok {
+		return factory(config)
+	}
+
+	mu.RLock()
+	mmFactory, ok := multimodalFactories[name]
+	mu.RUnlock()
+	if ok {
+		mmEF, err := mmFactory(config)
+		if err != nil {
+			return nil, err
+		}
+		return AdaptMultimodalEmbeddingFunctionToContent(mmEF, inferCaps(mmEF)), nil
+	}
+
+	mu.RLock()
+	denseFactory, ok := denseFactories[name]
+	mu.RUnlock()
+	if ok {
+		ef, err := denseFactory(config)
+		if err != nil {
+			return nil, err
+		}
+		return AdaptEmbeddingFunctionToContent(ef, inferCaps(ef)), nil
+	}
+
+	return nil, errors.Errorf("unknown content embedding function: %s", name)
+}
+
+// inferCaps infers CapabilityMetadata from an embedding function.
+// Uses CapabilityAware metadata when available; falls back to interface-typed defaults:
+// {text, image} for MultimodalEmbeddingFunction, {text} otherwise.
+func inferCaps(ef any) CapabilityMetadata {
+	if ca, ok := ef.(CapabilityAware); ok {
+		return ca.Capabilities()
+	}
+	if _, ok := ef.(MultimodalEmbeddingFunction); ok {
+		return CapabilityMetadata{Modalities: []Modality{ModalityText, ModalityImage}, SupportsBatch: true}
+	}
+	return CapabilityMetadata{Modalities: []Modality{ModalityText}, SupportsBatch: true}
+}
+
+// BuildContentCloseable creates a ContentEmbeddingFunction and returns a closer function.
+// The closer handles cleanup for embedding functions that implement Closeable.
+// If the embedding function does not implement Closeable, the closer is a no-op.
+func BuildContentCloseable(name string, config EmbeddingFunctionConfig) (ContentEmbeddingFunction, func() error, error) {
+	ef, err := BuildContent(name, config)
+	if err != nil {
+		return nil, nil, err
+	}
+	closer := func() error {
+		if c, ok := ef.(Closeable); ok {
+			return c.Close()
+		}
+		return nil
+	}
+	return ef, closer, nil
+}
+
+// ListContent returns all registered content embedding function names.
+func ListContent() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	names := make([]string, 0, len(contentFactories))
+	for name := range contentFactories {
+		names = append(names, name)
+	}
+	return names
+}
+
+// HasContent checks if a content embedding function is registered.
+func HasContent(name string) bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	_, ok := contentFactories[name]
 	return ok
 }
