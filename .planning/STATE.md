@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-03-20T09:41:34.284Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-20T09:47:20.221Z"
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -52,6 +52,7 @@ Plan: 1 of 3
 | Phase 02 P02 | 6min | 2 tasks | 2 files |
 | Phase 02 P03 | 7min | 2 tasks | 3 files |
 | Phase 03 P01 | 3min | 2 tasks | 2 files |
+| Phase 03 P02 | 2min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,8 @@ Recent decisions affecting current work:
 - [Phase 02]: Skip transient Roboflow live failures in the default suite — Upstream 429/5xx availability noise should not make the default regression suite flaky once provider-specific live tests are runnable by default.
 - [Phase 03-01]: BuildContent fallback chain releases mu.RLock before each factory call to avoid recursive lock deadlock
 - [Phase 03-01]: inferCaps uses CapabilityAware metadata when available and falls back to interface-typed defaults for multimodal and dense EFs
+- [Phase 03-02]: Derive dense EF from content EF at GetCollection time when content implements EmbeddingFunction, avoiding double initialization
+- [Phase 03-02]: Close contentEF first in CollectionImpl.Close() to avoid double-close when contentEF wraps denseEF (adapter case)
 
 ### Roadmap Evolution
 
@@ -105,6 +108,6 @@ None yet.
 
 ## Session
 
-**Last Date:** 2026-03-20T09:41:34.282Z
-**Stopped At:** Completed 03-01-PLAN.md
+**Last Date:** 2026-03-20T09:47:20.218Z
+**Stopped At:** Completed 03-02-PLAN.md
 **Resume File:** None
