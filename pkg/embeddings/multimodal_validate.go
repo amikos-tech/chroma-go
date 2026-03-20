@@ -8,15 +8,15 @@ import (
 )
 
 const (
-	validationCodeForbidden             = "forbidden"
-	validationCodeInvalidValue          = "invalid_value"
-	validationCodeMismatch              = "mismatch"
-	validationCodeOneOf                 = "one_of"
-	validationCodeOutOfRange            = "out_of_range"
-	validationCodeRequired              = "required"
-	validationCodeUnsupportedModality   = "unsupported_modality"
-	validationCodeUnsupportedIntent     = "unsupported_intent"
-	validationCodeUnsupportedDimension  = "unsupported_dimension"
+	validationCodeForbidden            = "forbidden"
+	validationCodeInvalidValue         = "invalid_value"
+	validationCodeMismatch             = "mismatch"
+	validationCodeOneOf                = "one_of"
+	validationCodeOutOfRange           = "out_of_range"
+	validationCodeRequired             = "required"
+	validationCodeUnsupportedModality  = "unsupported_modality"
+	validationCodeUnsupportedIntent    = "unsupported_intent"
+	validationCodeUnsupportedDimension = "unsupported_dimension"
 )
 
 // ValidationIssue describes one structural multimodal validation failure.
