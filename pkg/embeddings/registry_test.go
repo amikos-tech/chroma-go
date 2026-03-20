@@ -507,6 +507,11 @@ func TestBuildContentEmbedContentRoundTrip(t *testing.T) {
 		return &mockContentEFWithResult{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		mu.Lock()
+		delete(contentFactories, name)
+		mu.Unlock()
+	})
 
 	ef, err := BuildContent(name, nil)
 	require.NoError(t, err)
@@ -530,6 +535,11 @@ func TestBuildContentAdapterEmbedContentRoundTrip(t *testing.T) {
 		return &mockDenseEFWithResult{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		mu.Lock()
+		delete(denseFactories, name)
+		mu.Unlock()
+	})
 
 	ef, err := BuildContent(name, nil)
 	require.NoError(t, err)

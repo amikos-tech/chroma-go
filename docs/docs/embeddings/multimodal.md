@@ -129,4 +129,4 @@ queryEmb, err := ef.EmbedQuery(ctx, "query text")
 {% /codetab %}
 {% /codetabs %}
 
-Existing providers automatically work with the Content API through built-in adapters.
+Existing providers automatically work with the Content API when retrieved through the registry (`BuildContent`). The registry wraps them with built-in adapters.

@@ -1,6 +1,6 @@
 # Embedding Models
 
-> **Multimodal Content API**: For embedding mixed media (text, images, and more) with portable intents, see the [Multimodal Embeddings](../go-examples/docs/embeddings/multimodal.md) page.
+> **Multimodal Content API**: For embedding mixed media (text, images, and more) with portable intents, see the [Multimodal Embeddings](embeddings/multimodal.md) page.
 
 The following embedding wrappers are available:
 
