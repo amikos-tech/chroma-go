@@ -113,7 +113,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Implement content helpers, interface methods, CreateContentEmbedding, registration, and default model update
+- [x] 06-01-PLAN.md — Implement content helpers, interface methods, CreateContentEmbedding, registration, and default model update
 - [ ] 06-02-PLAN.md — Add unit tests for capability derivation, intent mapping, MIME resolution, content conversion, negative cases, and config round-trip
 
 ### Phase 7: vLLM/Nemotron Provider Validation
@@ -137,5 +137,5 @@ Plans: TBD during planning
 | 3. Registry and Config Integration | 3/3 | Complete   | 2026-03-20 |
 | 4. Provider Mapping and Explicit Failures | 2/2 | Complete   | 2026-03-20 |
 | 5. Documentation and Verification | 2/2 | Complete   | 2026-03-20 |
-| 6. Gemini Multimodal Adoption | 0/2 | Planning complete | - |
+| 6. Gemini Multimodal Adoption | 1/2 | In Progress|  |
 | 7. vLLM/Nemotron Provider Validation | - | Not started | - |

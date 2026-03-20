@@ -34,9 +34,9 @@
 
 ### Gemini Multimodal Adoption
 
-- [ ] **GEM-01**: Gemini implements `SharedContentEmbeddingFunction` and `CapabilityAware` for text, image, audio, video, and PDF modalities
-- [ ] **GEM-02**: Neutral intents map to Gemini task types with explicit errors for unsupported combinations
-- [ ] **GEM-03**: Gemini is registered in the multimodal factory/registry path with config round-trip support
+- [x] **GEM-01**: Gemini implements `SharedContentEmbeddingFunction` and `CapabilityAware` for text, image, audio, video, and PDF modalities
+- [x] **GEM-02**: Neutral intents map to Gemini task types with explicit errors for unsupported combinations
+- [x] **GEM-03**: Gemini is registered in the multimodal factory/registry path with config round-trip support
 
 ### vLLM/Nemotron Provider Validation
 
@@ -83,9 +83,9 @@
 | MAP-02 | Phase 4 | Complete |
 | DOCS-01 | Phase 5 | Complete |
 | DOCS-02 | Phase 5 | Complete |
-| GEM-01 | Phase 6 | Pending |
-| GEM-02 | Phase 6 | Pending |
-| GEM-03 | Phase 6 | Pending |
+| GEM-01 | Phase 6 | Complete |
+| GEM-02 | Phase 6 | Complete |
+| GEM-03 | Phase 6 | Complete |
 | VLLM-01 | Phase 7 | Pending |
 | VLLM-02 | Phase 7 | Pending |
 

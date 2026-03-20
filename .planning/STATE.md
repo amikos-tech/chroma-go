@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
 status: unknown
-stopped_at: Phase 6 context gathered
-last_updated: "2026-03-20T19:19:29.118Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-20T19:59:46.832Z"
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 14
-  completed_plans: 14
+  total_plans: 16
+  completed_plans: 15
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 05 — documentation-and-verification
+**Current focus:** Phase 06 — gemini-multimodal-adoption
 
 ## Current Position
 
-Phase: 05 (documentation-and-verification) — EXECUTING
-Plan: 1 of 2
+Phase: 06 (gemini-multimodal-adoption) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Plan: 1 of 2
 | Phase 04 P02 | 4 | 2 tasks | 2 files |
 | Phase 05 P02 | 2 | 1 tasks | 1 files |
 | Phase 05 P01 | 2 | 2 tasks | 2 files |
+| Phase 06 P01 | 5 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase 05-01]: Show mixed-part Roboflow example with separate Content items via EmbedContents (one Part per Content due to adapter constraint)
 - [Phase 05-01]: Frame both EmbedDocuments and Content API as coexisting indefinitely — no deprecation signal in docs
 - [Phase 05-01]: Escape-hatch admonition for ProviderHints references godoc rather than documenting mechanism inline
+- [Phase 06-01]: Default model updated to gemini-embedding-2-preview; LegacyEmbeddingModel constant added for gemini-embedding-001
+- [Phase 06-01]: Batch requests use default task type for all items; single-item requests allow per-item ProviderHints override
+- [Phase 06-01]: resolveMIME falls back from BinarySource.MIMEType to file extension; fails explicitly when neither resolves
 
 ### Roadmap Evolution
 
@@ -122,6 +126,6 @@ None yet.
 
 ## Session
 
-**Last Date:** 2026-03-20T19:19:29.116Z
-**Stopped At:** Phase 6 context gathered
-**Resume File:** .planning/phases/06-gemini-multimodal-adoption/06-CONTEXT.md
+**Last Date:** 2026-03-20T19:59:46.830Z
+**Stopped At:** Completed 06-01-PLAN.md
+**Resume File:** None
