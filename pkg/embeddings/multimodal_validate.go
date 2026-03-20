@@ -8,12 +8,15 @@ import (
 )
 
 const (
-	validationCodeForbidden    = "forbidden"
-	validationCodeInvalidValue = "invalid_value"
-	validationCodeMismatch     = "mismatch"
-	validationCodeOneOf        = "one_of"
-	validationCodeOutOfRange   = "out_of_range"
-	validationCodeRequired     = "required"
+	validationCodeForbidden            = "forbidden"
+	validationCodeInvalidValue         = "invalid_value"
+	validationCodeMismatch             = "mismatch"
+	validationCodeOneOf                = "one_of"
+	validationCodeOutOfRange           = "out_of_range"
+	validationCodeRequired             = "required"
+	validationCodeUnsupportedModality  = "unsupported_modality"
+	validationCodeUnsupportedIntent    = "unsupported_intent"
+	validationCodeUnsupportedDimension = "unsupported_dimension"
 )
 
 // ValidationIssue describes one structural multimodal validation failure.
@@ -189,6 +192,54 @@ func ValidateContents(contents []Content) error {
 	}
 
 	return validationErr.orNil()
+}
+
+// ValidateContentSupport checks content against declared provider capabilities.
+// Returns on the first unsupported check, consistent with batch fail-on-first behavior.
+// Empty capability fields are treated as undeclared and pass through without validation.
+func ValidateContentSupport(content Content, caps CapabilityMetadata) error {
+	if len(caps.Modalities) > 0 {
+		for i, part := range content.Parts {
+			if !caps.SupportsModality(part.Modality) {
+				return compatibilityError(
+					fmt.Sprintf("parts[%d].modality", i),
+					validationCodeUnsupportedModality,
+					fmt.Sprintf("provider does not support %q modality", part.Modality),
+				)
+			}
+		}
+	}
+
+	if content.Intent != "" && IsNeutralIntent(content.Intent) && len(caps.Intents) > 0 {
+		if !caps.SupportsIntent(content.Intent) {
+			return compatibilityError(
+				"intent",
+				validationCodeUnsupportedIntent,
+				fmt.Sprintf("provider does not support %q intent", content.Intent),
+			)
+		}
+	}
+
+	if content.Dimension != nil && len(caps.RequestOptions) > 0 && !caps.SupportsRequestOption(RequestOptionDimension) {
+		return compatibilityError(
+			"dimension",
+			validationCodeUnsupportedDimension,
+			"provider does not support output dimension override",
+		)
+	}
+
+	return nil
+}
+
+// ValidateContentsSupport validates a batch of content items against declared provider capabilities.
+// Returns on the first unsupported item, consistent with existing batch validation behavior.
+func ValidateContentsSupport(contents []Content, caps CapabilityMetadata) error {
+	for i, content := range contents {
+		if err := ValidateContentSupport(content, caps); err != nil {
+			return prefixBatchCompatibilityError(i, err)
+		}
+	}
+	return nil
 }
 
 func isKnownSourceKind(kind SourceKind) bool {

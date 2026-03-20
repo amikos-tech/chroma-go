@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-03-20T09:59:27.542Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-20T12:22:30.803Z"
 progress:
   total_phases: 7
-  completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 4
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 03 — registry-and-config-integration
+**Current focus:** Phase 04 — provider-mapping-and-explicit-failures
 
 ## Current Position
 
-Phase: 03 (registry-and-config-integration) — COMPLETE
-Plan: 3 of 3
+Phase: 04 (provider-mapping-and-explicit-failures) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -54,6 +54,8 @@ Plan: 3 of 3
 | Phase 03 P01 | 3min | 2 tasks | 2 files |
 | Phase 03 P02 | 2min | 2 tasks | 4 files |
 | Phase 03 P03 | 6min | 2 tasks | 2 files |
+| Phase 04 P01 | 8 | 2 tasks | 3 files |
+| Phase 04 P02 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -79,6 +81,9 @@ Recent decisions affecting current work:
 - [Phase 03-02]: Close contentEF first in CollectionImpl.Close() to avoid double-close when contentEF wraps denseEF (adapter case)
 - [Phase 03-03]: Extract deriveEFFromContent helper to test auto-wiring logic without triggering staticcheck SA4023 on concrete-type nil comparisons
 - [Phase 03-03]: Register test multimodal factory inside test function body (not init) to keep registry state isolated between test runs
+- [Phase 04-01]: IntentMapper is an opt-in interface (type-assert pattern) rather than widening ContentEmbeddingFunction
+- [Phase 04-01]: ValidateContentSupport passes through when caps.Modalities is empty to preserve backward compatibility with non-CapabilityAware providers
+- [Phase 04-01]: Custom intents bypass capability intent enforcement — only neutral intents checked against declared caps.Intents
 
 ### Roadmap Evolution
 
@@ -111,6 +116,6 @@ None yet.
 
 ## Session
 
-**Last Date:** 2026-03-20T09:53:00Z
-**Stopped At:** Completed 03-03-PLAN.md
+**Last Date:** 2026-03-20T12:18:38.445Z
+**Stopped At:** Completed 04-02-PLAN.md
 **Resume File:** None

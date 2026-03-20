@@ -17,7 +17,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 1: Shared Multimodal Contract** - Add additive request and part types, neutral intents, per-request options, and validation primitives. (completed 2026-03-18)
 - [x] **Phase 2: Capability Metadata and Compatibility** - Expose provider capabilities and keep legacy callers working unchanged. (completed 2026-03-19)
 - [x] **Phase 3: Registry and Config Integration** - Extend registry/build-from-config and collection auto-wiring for richer multimodal interfaces. (completed 2026-03-20)
-- [ ] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly.
+- [x] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly. (completed 2026-03-20)
 - [ ] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility.
 - [ ] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443)
 - [ ] **Phase 7: vLLM/Nemotron Provider Validation** - Add vLLM OpenAI-compatible provider targeting nvidia/omni-embed-nemotron-3b to validate the foundation end-to-end.
@@ -82,8 +82,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: Implement provider mapping helpers and explicit unsupported error paths
-- [ ] 04-02: Adapt current multimodal provider behavior and add mapping tests
+- [ ] 04-01-PLAN.md — Add IntentMapper interface, IsNeutralIntent helper, ValidateContentSupport pre-check, and 3 new validation codes
+- [ ] 04-02-PLAN.md — Add mapping and validation test coverage for IntentMapper contract and pre-check helper
 
 ### Phase 5: Documentation and Verification
 **Goal:** Document the portable multimodal API and verify the foundation through docs, examples, and focused tests before follow-on provider adoption.
@@ -133,7 +133,7 @@ Plans: TBD during planning
 | 1. Shared Multimodal Contract | 4/4 | Complete | 2026-03-18 |
 | 2. Capability Metadata and Compatibility | 3/3 | Complete | 2026-03-19 |
 | 3. Registry and Config Integration | 3/3 | Complete   | 2026-03-20 |
-| 4. Provider Mapping and Explicit Failures | 0/2 | Not started | - |
+| 4. Provider Mapping and Explicit Failures | 2/2 | Complete   | 2026-03-20 |
 | 5. Documentation and Verification | 0/3 | Not started | - |
 | 6. Gemini Multimodal Adoption | - | Not started | - |
 | 7. vLLM/Nemotron Provider Validation | - | Not started | - |

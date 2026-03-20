@@ -439,6 +439,13 @@ type Closeable interface {
 	Close() error
 }
 
+// IntentMapper is implemented by providers that translate neutral intents to provider-native strings.
+// Callers check for this interface via type assertion before calling MapIntent.
+// When a provider does not implement IntentMapper, the intent string is passed through as-is.
+type IntentMapper interface {
+	MapIntent(intent Intent) (string, error)
+}
+
 // NewEmbeddingFromFloat32 creates a new Float32Embedding from a slice of float32 values.
 func NewEmbeddingFromFloat32(embedding []float32) Embedding {
 	return &Float32Embedding{
