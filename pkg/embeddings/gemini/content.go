@@ -88,7 +88,10 @@ func capabilitiesForModel(model string) embeddings.CapabilityMetadata {
 }
 
 // resolveBytes fetches or reads the raw bytes for a binary source.
-func resolveBytes(ctx context.Context, source *embeddings.BinarySource) ([]byte, error) {
+func resolveBytes(ctx context.Context, source *embeddings.BinarySource, maxFileSize int64) ([]byte, error) {
+	if source == nil {
+		return nil, errors.New("source cannot be nil")
+	}
 	switch source.Kind {
 	case embeddings.SourceKindBytes:
 		return source.Bytes, nil
@@ -99,6 +102,13 @@ func resolveBytes(ctx context.Context, source *embeddings.BinarySource) ([]byte,
 		}
 		return data, nil
 	case embeddings.SourceKindFile:
+		info, err := os.Stat(source.FilePath)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to stat file source")
+		}
+		if info.Size() > maxFileSize {
+			return nil, errors.Errorf("file size %d bytes exceeds maximum of %d bytes", info.Size(), maxFileSize)
+		}
 		data, err := os.ReadFile(source.FilePath)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to read file source")
@@ -127,6 +137,9 @@ func resolveBytes(ctx context.Context, source *embeddings.BinarySource) ([]byte,
 // resolveMIME determines the MIME type for a binary source.
 // It uses BinarySource.MIMEType directly if set, then falls back to file extension inference.
 func resolveMIME(source *embeddings.BinarySource) (string, error) {
+	if source == nil {
+		return "", errors.New("source cannot be nil")
+	}
 	if source.MIMEType != "" {
 		return source.MIMEType, nil
 	}
@@ -163,7 +176,7 @@ func validateMIMEModality(modality embeddings.Modality, mimeType string) error {
 }
 
 // convertToGenaiContent converts a shared Content item to a *genai.Content for the Gemini API.
-func convertToGenaiContent(ctx context.Context, content embeddings.Content) (*genai.Content, error) {
+func convertToGenaiContent(ctx context.Context, content embeddings.Content, maxFileSize int64) (*genai.Content, error) {
 	parts := make([]*genai.Part, 0, len(content.Parts))
 	for i, part := range content.Parts {
 		var gPart *genai.Part
@@ -177,7 +190,7 @@ func convertToGenaiContent(ctx context.Context, content embeddings.Content) (*ge
 			if err := validateMIMEModality(part.Modality, mimeType); err != nil {
 				return nil, errors.Wrapf(err, "part[%d]", i)
 			}
-			data, err := resolveBytes(ctx, part.Source)
+			data, err := resolveBytes(ctx, part.Source, maxFileSize)
 			if err != nil {
 				return nil, errors.Wrapf(err, "part[%d]", i)
 			}
@@ -189,10 +202,10 @@ func convertToGenaiContent(ctx context.Context, content embeddings.Content) (*ge
 }
 
 // convertToGenaiContents converts a slice of Content items to []*genai.Content.
-func convertToGenaiContents(ctx context.Context, contents []embeddings.Content) ([]*genai.Content, error) {
+func convertToGenaiContents(ctx context.Context, contents []embeddings.Content, maxFileSize int64) ([]*genai.Content, error) {
 	result := make([]*genai.Content, 0, len(contents))
 	for i, content := range contents {
-		gc, err := convertToGenaiContent(ctx, content)
+		gc, err := convertToGenaiContent(ctx, content, maxFileSize)
 		if err != nil {
 			return nil, errors.Wrapf(err, "content[%d]", i)
 		}

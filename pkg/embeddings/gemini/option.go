@@ -104,3 +104,14 @@ func WithMaxBatchSize(maxBatchSize int) Option {
 		return nil
 	}
 }
+
+// WithMaxFileSize sets the maximum file size in bytes for file-based binary sources.
+func WithMaxFileSize(maxBytes int64) Option {
+	return func(p *Client) error {
+		if maxBytes < 1 {
+			return errors.New("max file size must be greater than 0")
+		}
+		p.MaxFileSize = maxBytes
+		return nil
+	}
+}

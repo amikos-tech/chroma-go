@@ -51,6 +51,7 @@ type Client struct {
 	Client           *genai.Client
 	DefaultContext   *context.Context
 	MaxBatchSize     int
+	MaxFileSize      int64
 }
 
 func applyDefaults(c *Client) (err error) {
@@ -61,6 +62,10 @@ func applyDefaults(c *Client) (err error) {
 	if c.DefaultContext == nil {
 		ctx := context.Background()
 		c.DefaultContext = &ctx
+	}
+
+	if c.MaxFileSize == 0 {
+		c.MaxFileSize = 100 * 1024 * 1024 // 100 MB — matches Gemini API inline payload limit
 	}
 
 	if c.Client == nil {
@@ -155,7 +160,7 @@ func (c *Client) CreateContentEmbedding(ctx context.Context, contents []embeddin
 		}
 	}
 
-	genaiContents, err := convertToGenaiContents(ctx, contents)
+	genaiContents, err := convertToGenaiContents(ctx, contents, c.MaxFileSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert content to Gemini format")
 	}
@@ -362,6 +367,9 @@ func (e *GeminiEmbeddingFunction) MapIntent(intent embeddings.Intent) (string, e
 
 // EmbedContent embeds a single multimodal content item using the shared Content API.
 func (e *GeminiEmbeddingFunction) EmbedContent(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
+	if err := content.Validate(); err != nil {
+		return nil, err
+	}
 	caps := e.Capabilities()
 	if err := embeddings.ValidateContentSupport(content, caps); err != nil {
 		return nil, err
@@ -378,6 +386,9 @@ func (e *GeminiEmbeddingFunction) EmbedContent(ctx context.Context, content embe
 
 // EmbedContents embeds a batch of multimodal content items using the shared Content API.
 func (e *GeminiEmbeddingFunction) EmbedContents(ctx context.Context, contents []embeddings.Content) ([]embeddings.Embedding, error) {
+	if err := embeddings.ValidateContents(contents); err != nil {
+		return nil, err
+	}
 	caps := e.Capabilities()
 	if err := embeddings.ValidateContentsSupport(contents, caps); err != nil {
 		return nil, err

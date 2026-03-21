@@ -202,7 +202,7 @@ func TestResolveBytesKinds(t *testing.T) {
 			Kind:  embeddings.SourceKindBytes,
 			Bytes: []byte("hello"),
 		}
-		data, err := resolveBytes(ctx, source)
+		data, err := resolveBytes(ctx, source, 100*1024*1024)
 		require.NoError(t, err)
 		assert.Equal(t, []byte("hello"), data)
 	})
@@ -212,7 +212,7 @@ func TestResolveBytesKinds(t *testing.T) {
 			Kind:   embeddings.SourceKindBase64,
 			Base64: base64.StdEncoding.EncodeToString([]byte("hello")),
 		}
-		data, err := resolveBytes(ctx, source)
+		data, err := resolveBytes(ctx, source, 100*1024*1024)
 		require.NoError(t, err)
 		assert.Equal(t, []byte("hello"), data)
 	})
@@ -229,7 +229,7 @@ func TestResolveBytesKinds(t *testing.T) {
 			Kind:     embeddings.SourceKindFile,
 			FilePath: tmpFile.Name(),
 		}
-		data, err := resolveBytes(ctx, source)
+		data, err := resolveBytes(ctx, source, 100*1024*1024)
 		require.NoError(t, err)
 		assert.Equal(t, expected, data)
 	})
@@ -246,7 +246,7 @@ func TestConvertToGenaiContentText(t *testing.T) {
 			{Modality: embeddings.ModalityText, Text: "hello world"},
 		},
 	}
-	result, err := convertToGenaiContent(context.Background(), content)
+	result, err := convertToGenaiContent(context.Background(), content, 100*1024*1024)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Len(t, result.Parts, 1)
@@ -267,7 +267,7 @@ func TestConvertToGenaiContentBinary(t *testing.T) {
 			},
 		},
 	}
-	result, err := convertToGenaiContent(context.Background(), content)
+	result, err := convertToGenaiContent(context.Background(), content, 100*1024*1024)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Len(t, result.Parts, 1)
@@ -288,7 +288,7 @@ func TestConvertToGenaiContentMixedParts(t *testing.T) {
 			},
 		},
 	}
-	result, err := convertToGenaiContent(context.Background(), content)
+	result, err := convertToGenaiContent(context.Background(), content, 100*1024*1024)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Len(t, result.Parts, 2)
@@ -307,7 +307,7 @@ func TestConvertToGenaiContentMissingMIME(t *testing.T) {
 			},
 		},
 	}
-	_, err := convertToGenaiContent(context.Background(), content)
+	_, err := convertToGenaiContent(context.Background(), content, 100*1024*1024)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "MIME type is required")
 }
@@ -326,7 +326,7 @@ func TestConvertToGenaiContentMIMEModalityMismatch(t *testing.T) {
 			},
 		},
 	}
-	_, err := convertToGenaiContent(context.Background(), content)
+	_, err := convertToGenaiContent(context.Background(), content, 100*1024*1024)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "image modality requires image/*")
 }
@@ -346,7 +346,7 @@ func TestConvertToGenaiContents(t *testing.T) {
 				}},
 			}},
 		}
-		results, err := convertToGenaiContents(ctx, contents)
+		results, err := convertToGenaiContents(ctx, contents, 100*1024*1024)
 		require.NoError(t, err)
 		require.Len(t, results, 3)
 		assert.Len(t, results[0].Parts, 1)
@@ -362,7 +362,7 @@ func TestConvertToGenaiContents(t *testing.T) {
 				// Missing MIMEType → error
 			}}}},
 		}
-		_, err := convertToGenaiContents(ctx, contents)
+		_, err := convertToGenaiContents(ctx, contents, 100*1024*1024)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "content[1]")
 	})
@@ -380,7 +380,7 @@ func TestResolveBytesURL(t *testing.T) {
 		Kind: embeddings.SourceKindURL,
 		URL:  srv.URL,
 	}
-	data, err := resolveBytes(context.Background(), source)
+	data, err := resolveBytes(context.Background(), source, 100*1024*1024)
 	require.NoError(t, err)
 	assert.Equal(t, expected, data)
 }
@@ -388,7 +388,7 @@ func TestResolveBytesURL(t *testing.T) {
 // TestResolveBytesUnsupportedKind verifies error for unknown source kinds.
 func TestResolveBytesUnsupportedKind(t *testing.T) {
 	source := &embeddings.BinarySource{Kind: embeddings.SourceKind("unknown")}
-	_, err := resolveBytes(context.Background(), source)
+	_, err := resolveBytes(context.Background(), source, 100*1024*1024)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported source kind")
 }
@@ -742,7 +742,7 @@ func TestResolveBytesKindsBase64Invalid(t *testing.T) {
 		Kind:   embeddings.SourceKindBase64,
 		Base64: "!!!not-valid-base64!!!",
 	}
-	_, err := resolveBytes(context.Background(), source)
+	_, err := resolveBytes(context.Background(), source, 100*1024*1024)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to decode base64")
 }
@@ -753,7 +753,60 @@ func TestResolveBytesKindsFileMissing(t *testing.T) {
 		Kind:     embeddings.SourceKindFile,
 		FilePath: filepath.Join(t.TempDir(), "nonexistent.bin"),
 	}
-	_, err := resolveBytes(context.Background(), source)
+	_, err := resolveBytes(context.Background(), source, 100*1024*1024)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read file source")
+	assert.Contains(t, err.Error(), "failed to stat file source")
+}
+
+func TestResolveMIMENilSource(t *testing.T) {
+	_, err := resolveMIME(nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source cannot be nil")
+}
+
+func TestResolveBytesNilSource(t *testing.T) {
+	_, err := resolveBytes(context.Background(), nil, 100*1024*1024)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source cannot be nil")
+}
+
+func TestConvertToGenaiContentNilSourceReturnsError(t *testing.T) {
+	content := embeddings.Content{
+		Parts: []embeddings.Part{
+			{Modality: embeddings.ModalityImage, Source: nil},
+		},
+	}
+	_, err := convertToGenaiContent(context.Background(), content, 100*1024*1024)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source cannot be nil")
+}
+
+func TestEmbedContentValidatesStructure(t *testing.T) {
+	ef := &GeminiEmbeddingFunction{
+		apiClient: &Client{DefaultModel: DefaultEmbeddingModel},
+	}
+	content := embeddings.Content{
+		Parts: []embeddings.Part{
+			{Modality: embeddings.ModalityImage, Source: nil},
+		},
+	}
+	_, err := ef.EmbedContent(context.Background(), content)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "non-text parts must include a binary source")
+}
+
+func TestResolveBytesFileExceedsMaxSize(t *testing.T) {
+	tmpFile, err := os.CreateTemp(t.TempDir(), "big-*.bin")
+	require.NoError(t, err)
+	_, err = tmpFile.Write(make([]byte, 1024))
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	source := &embeddings.BinarySource{
+		Kind:     embeddings.SourceKindFile,
+		FilePath: tmpFile.Name(),
+	}
+	_, err = resolveBytes(context.Background(), source, 512)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum")
 }
