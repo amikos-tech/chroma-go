@@ -147,6 +147,7 @@ func (c *Client) CreateContentEmbedding(ctx context.Context, contents []embeddin
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid task_type override")
 	}
+	contextDim := ctx.Value(dimensionContextKey)
 	outputDimensionality, err := outputDimensionalityFromContext(ctx, c.DefaultDimension)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid dimension override")
@@ -157,6 +158,14 @@ func (c *Client) CreateContentEmbedding(ctx context.Context, contents []embeddin
 		taskType, err = resolveTaskTypeForContent(contents[0], defaultTaskType, mapper)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to resolve task type for content")
+		}
+		// Per-content dimension overrides client default, but not an explicit context override.
+		if contents[0].Dimension != nil && contextDim == nil {
+			dim, dimErr := intToInt32Ptr(*contents[0].Dimension)
+			if dimErr != nil {
+				return nil, errors.Wrap(dimErr, "invalid content dimension")
+			}
+			outputDimensionality = dim
 		}
 	}
 

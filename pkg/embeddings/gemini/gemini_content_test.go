@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -841,4 +842,58 @@ func TestResolveBytesFileExceedsMaxSize(t *testing.T) {
 	_, err = resolveBytes(context.Background(), source, 512)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds maximum")
+}
+
+func TestCreateContentEmbeddingHonorsContentDimension(t *testing.T) {
+	var capturedBody []byte
+	client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(geminiEmbedResponse([]float32{1.0, 2.0}))
+	}))
+	c := &Client{
+		Client:       client,
+		DefaultModel: DefaultEmbeddingModel,
+		APIKey:       embeddings.NewSecret("fake"),
+		MaxFileSize:  100 * 1024 * 1024,
+	}
+	mapper := &GeminiEmbeddingFunction{apiClient: c}
+	dim := 256
+	contents := []embeddings.Content{
+		{
+			Parts:     []embeddings.Part{embeddings.NewTextPart("hello")},
+			Dimension: &dim,
+		},
+	}
+	_, err := c.CreateContentEmbedding(context.Background(), contents, mapper)
+	require.NoError(t, err)
+	assert.Contains(t, string(capturedBody), "256", "request should contain the dimension override")
+}
+
+func TestCreateContentEmbeddingContextDimensionOverridesContentDimension(t *testing.T) {
+	var capturedBody []byte
+	client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(geminiEmbedResponse([]float32{1.0, 2.0}))
+	}))
+	c := &Client{
+		Client:       client,
+		DefaultModel: DefaultEmbeddingModel,
+		APIKey:       embeddings.NewSecret("fake"),
+		MaxFileSize:  100 * 1024 * 1024,
+	}
+	mapper := &GeminiEmbeddingFunction{apiClient: c}
+	dim := 256
+	contents := []embeddings.Content{
+		{
+			Parts:     []embeddings.Part{embeddings.NewTextPart("hello")},
+			Dimension: &dim,
+		},
+	}
+	ctx := ContextWithDimension(context.Background(), 512)
+	_, err := c.CreateContentEmbedding(ctx, contents, mapper)
+	require.NoError(t, err)
+	assert.Contains(t, string(capturedBody), "512", "context dimension should override content dimension")
+	assert.NotContains(t, string(capturedBody), "256", "content dimension should not appear when context overrides")
 }
