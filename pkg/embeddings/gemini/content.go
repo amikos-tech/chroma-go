@@ -3,8 +3,10 @@ package gemini
 import (
 	"context"
 	"encoding/base64"
+	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -97,16 +99,21 @@ func resolveBytes(ctx context.Context, source *embeddings.BinarySource, maxFileS
 		}
 		return data, nil
 	case embeddings.SourceKindFile:
-		info, err := os.Stat(source.FilePath)
+		cleaned := filepath.Clean(source.FilePath)
+		if containsDotDot(cleaned) {
+			return nil, errors.Errorf("file path %q contains path traversal", source.FilePath)
+		}
+		f, err := os.Open(cleaned)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to stat file source")
+			return nil, errors.Wrap(err, "failed to open file source")
 		}
-		if info.Size() > maxFileSize {
-			return nil, errors.Errorf("file size %d bytes exceeds maximum of %d bytes", info.Size(), maxFileSize)
-		}
-		data, err := os.ReadFile(source.FilePath)
+		defer f.Close()
+		data, err := io.ReadAll(io.LimitReader(f, maxFileSize+1))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to read file source")
+		}
+		if int64(len(data)) > maxFileSize {
+			return nil, errors.Errorf("file size exceeds maximum of %d bytes", maxFileSize)
 		}
 		return data, nil
 	case embeddings.SourceKindURL:
@@ -114,6 +121,11 @@ func resolveBytes(ctx context.Context, source *embeddings.BinarySource, maxFileS
 	default:
 		return nil, errors.Errorf("unsupported source kind %q", source.Kind)
 	}
+}
+
+// containsDotDot reports whether the cleaned path still contains ".." components.
+func containsDotDot(path string) bool {
+	return slices.Contains(strings.Split(filepath.ToSlash(path), "/"), "..")
 }
 
 // resolveMIME determines the MIME type for a binary source.

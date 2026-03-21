@@ -788,7 +788,7 @@ func TestResolveBytesKindsFileMissing(t *testing.T) {
 	}
 	_, err := resolveBytes(context.Background(), source, 100*1024*1024)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to stat file source")
+	assert.Contains(t, err.Error(), "failed to open file source")
 }
 
 func TestResolveMIMENilSource(t *testing.T) {
@@ -842,6 +842,46 @@ func TestResolveBytesFileExceedsMaxSize(t *testing.T) {
 	_, err = resolveBytes(context.Background(), source, 512)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds maximum")
+}
+
+func TestResolveBytesFilePathTraversal(t *testing.T) {
+	source := &embeddings.BinarySource{
+		Kind:     embeddings.SourceKindFile,
+		FilePath: "../../etc/passwd",
+	}
+	_, err := resolveBytes(context.Background(), source, 100*1024*1024)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "path traversal")
+}
+
+func TestResolveBytesFilePathTraversalObfuscated(t *testing.T) {
+	source := &embeddings.BinarySource{
+		Kind:     embeddings.SourceKindFile,
+		FilePath: "foo/bar/../../../etc/shadow",
+	}
+	_, err := resolveBytes(context.Background(), source, 100*1024*1024)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "path traversal")
+}
+
+func TestCreateContentEmbeddingValidatesContent(t *testing.T) {
+	client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(geminiEmbedResponse([]float32{1.0, 2.0, 3.0}))
+	}))
+	c := &Client{
+		Client:       client,
+		DefaultModel: DefaultEmbeddingModel,
+		APIKey:       embeddings.NewSecret("fake"),
+		MaxFileSize:  100 * 1024 * 1024,
+	}
+	mapper := &GeminiEmbeddingFunction{apiClient: c}
+	contents := []embeddings.Content{
+		{Parts: []embeddings.Part{{Modality: embeddings.ModalityImage, Source: nil}}},
+	}
+	_, err := c.CreateContentEmbedding(context.Background(), contents, mapper)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "non-text parts must include a binary source")
 }
 
 func TestCreateContentEmbeddingHonorsContentDimension(t *testing.T) {

@@ -143,6 +143,9 @@ func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]embedding
 // For a single item, ProviderHints and intent are honoured per-item via resolveTaskTypeForContent.
 // For batches, the default task type is used for all items (Gemini applies one config per batch).
 func (c *Client) CreateContentEmbedding(ctx context.Context, contents []embeddings.Content, mapper embeddings.IntentMapper) ([]embeddings.Embedding, error) {
+	if err := embeddings.ValidateContents(contents); err != nil {
+		return nil, err
+	}
 	model, err := modelFromContext(ctx, string(c.DefaultModel))
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid model override")
