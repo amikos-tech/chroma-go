@@ -769,6 +769,61 @@ func TestEmbedContentsMock(t *testing.T) {
 	})
 }
 
+func TestCreateContentEmbeddingRejectsBatchPerItemOverrides(t *testing.T) {
+	client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(geminiEmbedResponse([]float32{1, 2}, []float32{3, 4}))
+	}))
+	c := &Client{
+		Client:       client,
+		DefaultModel: DefaultEmbeddingModel,
+		APIKey:       embeddings.NewSecret("fake"),
+		MaxFileSize:  100 * 1024 * 1024,
+	}
+	mapper := &GeminiEmbeddingFunction{apiClient: c}
+
+	t.Run("rejects per-item Intent in batch", func(t *testing.T) {
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{embeddings.NewTextPart("a")}, Intent: embeddings.IntentRetrievalQuery},
+			{Parts: []embeddings.Part{embeddings.NewTextPart("b")}},
+		}
+		_, err := c.CreateContentEmbedding(context.Background(), contents, mapper)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "per-item Intent is not supported in batch")
+	})
+
+	t.Run("rejects per-item Dimension in batch", func(t *testing.T) {
+		dim := 256
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{embeddings.NewTextPart("a")}, Dimension: &dim},
+			{Parts: []embeddings.Part{embeddings.NewTextPart("b")}},
+		}
+		_, err := c.CreateContentEmbedding(context.Background(), contents, mapper)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "per-item Dimension is not supported in batch")
+	})
+
+	t.Run("rejects per-item ProviderHints task_type in batch", func(t *testing.T) {
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{embeddings.NewTextPart("a")}, ProviderHints: map[string]any{"task_type": "CLUSTERING"}},
+			{Parts: []embeddings.Part{embeddings.NewTextPart("b")}},
+		}
+		_, err := c.CreateContentEmbedding(context.Background(), contents, mapper)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "per-item ProviderHints")
+	})
+
+	t.Run("allows batch without per-item overrides", func(t *testing.T) {
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{embeddings.NewTextPart("a")}},
+			{Parts: []embeddings.Part{embeddings.NewTextPart("b")}},
+		}
+		results, err := c.CreateContentEmbedding(context.Background(), contents, mapper)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+	})
+}
+
 // TestResolveBytesKindsBase64Invalid verifies base64 decoding error handling.
 func TestResolveBytesKindsBase64Invalid(t *testing.T) {
 	source := &embeddings.BinarySource{

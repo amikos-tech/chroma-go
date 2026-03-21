@@ -132,7 +132,10 @@ func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]embedding
 		return nil, errors.New("no embeddings returned from Gemini API")
 	}
 	embs := make([][]float32, 0, len(res.Embeddings))
-	for _, e := range res.Embeddings {
+	for i, e := range res.Embeddings {
+		if e.Values == nil {
+			return nil, errors.Errorf("nil embedding values at index %d in Gemini API response", i)
+		}
 		embs = append(embs, e.Values)
 	}
 
@@ -174,6 +177,19 @@ func (c *Client) CreateContentEmbedding(ctx context.Context, contents []embeddin
 			}
 			outputDimensionality = dim
 		}
+	} else {
+		// Gemini applies one config per batch — reject per-item overrides that would be silently dropped.
+		for i, content := range contents {
+			if content.Intent != "" {
+				return nil, errors.Errorf("contents[%d]: per-item Intent is not supported in batch requests; use ContextWithTaskType for batch-wide task type", i)
+			}
+			if content.Dimension != nil {
+				return nil, errors.Errorf("contents[%d]: per-item Dimension is not supported in batch requests; use ContextWithDimension for batch-wide dimension", i)
+			}
+			if _, ok := content.ProviderHints["task_type"]; ok {
+				return nil, errors.Errorf("contents[%d]: per-item ProviderHints[\"task_type\"] is not supported in batch requests; use ContextWithTaskType for batch-wide task type", i)
+			}
+		}
 	}
 
 	genaiContents, err := convertToGenaiContents(ctx, contents, c.MaxFileSize)
@@ -189,7 +205,10 @@ func (c *Client) CreateContentEmbedding(ctx context.Context, contents []embeddin
 		return nil, errors.New("no embeddings returned from Gemini API")
 	}
 	embs := make([][]float32, 0, len(res.Embeddings))
-	for _, e := range res.Embeddings {
+	for i, e := range res.Embeddings {
+		if e.Values == nil {
+			return nil, errors.Errorf("nil embedding values at index %d in Gemini API response", i)
+		}
 		embs = append(embs, e.Values)
 	}
 	return embeddings.NewEmbeddingsFromFloat32(embs)
