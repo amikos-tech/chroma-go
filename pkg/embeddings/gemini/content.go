@@ -91,11 +91,17 @@ func resolveBytes(ctx context.Context, source *embeddings.BinarySource, maxFileS
 	}
 	switch source.Kind {
 	case embeddings.SourceKindBytes:
+		if int64(len(source.Bytes)) > maxFileSize {
+			return nil, errors.Errorf("bytes payload size %d exceeds maximum of %d bytes", len(source.Bytes), maxFileSize)
+		}
 		return source.Bytes, nil
 	case embeddings.SourceKindBase64:
 		data, err := base64.StdEncoding.DecodeString(source.Base64)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to decode base64 source")
+		}
+		if int64(len(data)) > maxFileSize {
+			return nil, errors.Errorf("decoded base64 payload size %d exceeds maximum of %d bytes", len(data), maxFileSize)
 		}
 		return data, nil
 	case embeddings.SourceKindFile:

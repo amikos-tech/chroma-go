@@ -846,6 +846,29 @@ func TestResolveBytesKindsFileMissing(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to open file source")
 }
 
+func TestResolveBytesPayloadExceedsMaxSize(t *testing.T) {
+	source := &embeddings.BinarySource{
+		Kind:  embeddings.SourceKindBytes,
+		Bytes: make([]byte, 1024),
+	}
+	_, err := resolveBytes(context.Background(), source, 512)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bytes payload size")
+	assert.Contains(t, err.Error(), "exceeds maximum")
+}
+
+func TestResolveBytesBase64PayloadExceedsMaxSize(t *testing.T) {
+	largeData := make([]byte, 1024)
+	source := &embeddings.BinarySource{
+		Kind:   embeddings.SourceKindBase64,
+		Base64: base64.StdEncoding.EncodeToString(largeData),
+	}
+	_, err := resolveBytes(context.Background(), source, 512)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decoded base64 payload size")
+	assert.Contains(t, err.Error(), "exceeds maximum")
+}
+
 func TestResolveMIMENilSource(t *testing.T) {
 	_, err := resolveMIME(nil)
 	require.Error(t, err)

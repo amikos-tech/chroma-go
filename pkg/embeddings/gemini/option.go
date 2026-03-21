@@ -105,7 +105,7 @@ func WithMaxBatchSize(maxBatchSize int) Option {
 	}
 }
 
-// WithMaxFileSize sets the maximum file size in bytes for file-based binary sources.
+// WithMaxFileSize sets the maximum payload size in bytes for inline binary sources (files, bytes, base64).
 func WithMaxFileSize(maxBytes int64) Option {
 	return func(p *Client) error {
 		if maxBytes < 1 {
