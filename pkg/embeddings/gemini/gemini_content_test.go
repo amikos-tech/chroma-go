@@ -3,6 +3,9 @@ package gemini
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/genai"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
@@ -327,6 +331,68 @@ func TestConvertToGenaiContentMIMEModalityMismatch(t *testing.T) {
 	assert.Contains(t, err.Error(), "image modality requires image/*")
 }
 
+// TestConvertToGenaiContents verifies batch conversion of multiple content items.
+func TestConvertToGenaiContents(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("converts multiple contents", func(t *testing.T) {
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "first"}}},
+			{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "second"}}},
+			{Parts: []embeddings.Part{
+				{Modality: embeddings.ModalityText, Text: "text part"},
+				{Modality: embeddings.ModalityImage, Source: &embeddings.BinarySource{
+					Kind: embeddings.SourceKindBytes, Bytes: []byte("fake-png"), MIMEType: "image/png",
+				}},
+			}},
+		}
+		results, err := convertToGenaiContents(ctx, contents)
+		require.NoError(t, err)
+		require.Len(t, results, 3)
+		assert.Len(t, results[0].Parts, 1)
+		assert.Len(t, results[1].Parts, 1)
+		assert.Len(t, results[2].Parts, 2)
+	})
+
+	t.Run("error in one content propagates with index", func(t *testing.T) {
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "ok"}}},
+			{Parts: []embeddings.Part{{Modality: embeddings.ModalityImage, Source: &embeddings.BinarySource{
+				Kind: embeddings.SourceKindBytes, Bytes: []byte("data"),
+				// Missing MIMEType → error
+			}}}},
+		}
+		_, err := convertToGenaiContents(ctx, contents)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "content[1]")
+	})
+}
+
+// TestResolveBytesURL verifies URL source resolution using a local HTTP server.
+func TestResolveBytesURL(t *testing.T) {
+	expected := []byte("url-fetched-content")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(expected)
+	}))
+	defer srv.Close()
+
+	source := &embeddings.BinarySource{
+		Kind: embeddings.SourceKindURL,
+		URL:  srv.URL,
+	}
+	data, err := resolveBytes(context.Background(), source)
+	require.NoError(t, err)
+	assert.Equal(t, expected, data)
+}
+
+// TestResolveBytesUnsupportedKind verifies error for unknown source kinds.
+func TestResolveBytesUnsupportedKind(t *testing.T) {
+	source := &embeddings.BinarySource{Kind: embeddings.SourceKind("unknown")}
+	_, err := resolveBytes(context.Background(), source)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported source kind")
+}
+
 // TestResolveTaskTypeForContent verifies the priority chain for task type resolution (D-15, D-16).
 func TestResolveTaskTypeForContent(t *testing.T) {
 	mapper := &GeminiEmbeddingFunction{
@@ -466,6 +532,208 @@ func TestGeminiContentConfigRoundTrip(t *testing.T) {
 	originalCaps := original.Capabilities()
 	assert.Equal(t, len(originalCaps.Modalities), len(caps.Modalities))
 	assert.Equal(t, originalCaps.SupportsMixedPart, caps.SupportsMixedPart)
+}
+
+// --- Mock-based tests for defensive error paths ---
+
+// newMockGenaiClient creates a genai.Client that uses the given HTTP handler for all requests.
+func newMockGenaiClient(t *testing.T, handler http.Handler) *genai.Client {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
+		APIKey:  "fake-key",
+		Backend: genai.BackendGeminiAPI,
+		HTTPClient: &http.Client{
+			Transport: &rewriteTransport{base: http.DefaultTransport, target: srv.URL},
+		},
+	})
+	require.NoError(t, err)
+	return client
+}
+
+// rewriteTransport redirects all requests to the mock server.
+type rewriteTransport struct {
+	base   http.RoundTripper
+	target string
+}
+
+func (t *rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.URL.Scheme = "http"
+	req.URL.Host = strings.TrimPrefix(t.target, "http://")
+	return t.base.RoundTrip(req)
+}
+
+// geminiEmbedResponse builds a JSON response matching the Gemini batchEmbedContents format.
+func geminiEmbedResponse(vectors ...[]float32) []byte {
+	type emb struct {
+		Values []float32 `json:"values"`
+	}
+	type resp struct {
+		Embeddings []emb `json:"embeddings"`
+	}
+	r := resp{}
+	for _, v := range vectors {
+		r.Embeddings = append(r.Embeddings, emb{Values: v})
+	}
+	data, _ := json.Marshal(r)
+	return data
+}
+
+func TestCreateContentEmbeddingMock(t *testing.T) {
+	t.Run("successful single content embedding", func(t *testing.T) {
+		client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(geminiEmbedResponse([]float32{1.0, 2.0, 3.0}))
+		}))
+		c := &Client{
+			Client:       client,
+			DefaultModel: DefaultEmbeddingModel,
+			APIKey:       embeddings.NewSecret("fake"),
+		}
+		mapper := &GeminiEmbeddingFunction{apiClient: c}
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{embeddings.NewTextPart("hello")}},
+		}
+		results, err := c.CreateContentEmbedding(context.Background(), contents, mapper)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		assert.Equal(t, []float32{1.0, 2.0, 3.0}, results[0].ContentAsFloat32())
+	})
+
+	t.Run("empty embeddings response returns error", func(t *testing.T) {
+		client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"embeddings":[]}`))
+		}))
+		c := &Client{
+			Client:       client,
+			DefaultModel: DefaultEmbeddingModel,
+			APIKey:       embeddings.NewSecret("fake"),
+		}
+		mapper := &GeminiEmbeddingFunction{apiClient: c}
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{embeddings.NewTextPart("hello")}},
+		}
+		_, err := c.CreateContentEmbedding(context.Background(), contents, mapper)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no embeddings returned")
+	})
+
+	t.Run("API error propagates", func(t *testing.T) {
+		client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":{"message":"server error","status":"INTERNAL"}}`))
+		}))
+		c := &Client{
+			Client:       client,
+			DefaultModel: DefaultEmbeddingModel,
+			APIKey:       embeddings.NewSecret("fake"),
+		}
+		mapper := &GeminiEmbeddingFunction{apiClient: c}
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{embeddings.NewTextPart("hello")}},
+		}
+		_, err := c.CreateContentEmbedding(context.Background(), contents, mapper)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to embed contents")
+	})
+
+	t.Run("batch embedding returns multiple vectors", func(t *testing.T) {
+		client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(geminiEmbedResponse([]float32{1, 2, 3}, []float32{4, 5, 6}))
+		}))
+		c := &Client{
+			Client:       client,
+			DefaultModel: DefaultEmbeddingModel,
+			APIKey:       embeddings.NewSecret("fake"),
+		}
+		mapper := &GeminiEmbeddingFunction{apiClient: c}
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{embeddings.NewTextPart("first")}},
+			{Parts: []embeddings.Part{embeddings.NewTextPart("second")}},
+		}
+		results, err := c.CreateContentEmbedding(context.Background(), contents, mapper)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+		assert.Equal(t, []float32{1, 2, 3}, results[0].ContentAsFloat32())
+		assert.Equal(t, []float32{4, 5, 6}, results[1].ContentAsFloat32())
+	})
+}
+
+func TestEmbedContentMock(t *testing.T) {
+	t.Run("happy path returns single embedding", func(t *testing.T) {
+		client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(geminiEmbedResponse([]float32{0.1, 0.2, 0.3}))
+		}))
+		ef := &GeminiEmbeddingFunction{apiClient: &Client{
+			Client:       client,
+			DefaultModel: DefaultEmbeddingModel,
+			APIKey:       embeddings.NewSecret("fake"),
+		}}
+		content := embeddings.Content{
+			Parts: []embeddings.Part{embeddings.NewTextPart("test")},
+		}
+		emb, err := ef.EmbedContent(context.Background(), content)
+		require.NoError(t, err)
+		assert.Equal(t, []float32{0.1, 0.2, 0.3}, emb.ContentAsFloat32())
+	})
+
+	t.Run("empty result from API returns error", func(t *testing.T) {
+		client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"embeddings":[]}`))
+		}))
+		ef := &GeminiEmbeddingFunction{apiClient: &Client{
+			Client:       client,
+			DefaultModel: DefaultEmbeddingModel,
+			APIKey:       embeddings.NewSecret("fake"),
+		}}
+		content := embeddings.Content{
+			Parts: []embeddings.Part{embeddings.NewTextPart("test")},
+		}
+		_, err := ef.EmbedContent(context.Background(), content)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no embeddings returned")
+	})
+}
+
+func TestEmbedContentsMock(t *testing.T) {
+	t.Run("happy path returns batch", func(t *testing.T) {
+		client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(geminiEmbedResponse([]float32{1, 2}, []float32{3, 4}))
+		}))
+		ef := &GeminiEmbeddingFunction{apiClient: &Client{
+			Client:       client,
+			DefaultModel: DefaultEmbeddingModel,
+			APIKey:       embeddings.NewSecret("fake"),
+		}}
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{embeddings.NewTextPart("a")}},
+			{Parts: []embeddings.Part{embeddings.NewTextPart("b")}},
+		}
+		results, err := ef.EmbedContents(context.Background(), contents)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+	})
+
+	t.Run("validation rejects unsupported modality", func(t *testing.T) {
+		ef := &GeminiEmbeddingFunction{apiClient: &Client{
+			DefaultModel: LegacyEmbeddingModel,
+			APIKey:       embeddings.NewSecret("fake"),
+		}}
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{{Modality: embeddings.ModalityImage, Source: &embeddings.BinarySource{
+				Kind: embeddings.SourceKindBytes, Bytes: []byte("x"), MIMEType: "image/png",
+			}}}},
+		}
+		_, err := ef.EmbedContents(context.Background(), contents)
+		require.Error(t, err)
+	})
 }
 
 // TestResolveBytesKindsBase64Invalid verifies base64 decoding error handling.

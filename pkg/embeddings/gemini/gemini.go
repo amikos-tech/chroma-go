@@ -262,11 +262,11 @@ func (c *Client) Close() error {
 	return nil
 }
 
-var _ embeddings.EmbeddingFunction         = (*GeminiEmbeddingFunction)(nil)
-var _ embeddings.Closeable                 = (*GeminiEmbeddingFunction)(nil)
-var _ embeddings.ContentEmbeddingFunction  = (*GeminiEmbeddingFunction)(nil)
-var _ embeddings.CapabilityAware           = (*GeminiEmbeddingFunction)(nil)
-var _ embeddings.IntentMapper              = (*GeminiEmbeddingFunction)(nil)
+var _ embeddings.EmbeddingFunction = (*GeminiEmbeddingFunction)(nil)
+var _ embeddings.Closeable = (*GeminiEmbeddingFunction)(nil)
+var _ embeddings.ContentEmbeddingFunction = (*GeminiEmbeddingFunction)(nil)
+var _ embeddings.CapabilityAware = (*GeminiEmbeddingFunction)(nil)
+var _ embeddings.IntentMapper = (*GeminiEmbeddingFunction)(nil)
 
 type GeminiEmbeddingFunction struct {
 	apiClient *Client
