@@ -3,8 +3,6 @@ package gemini
 import (
 	"context"
 	"encoding/base64"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,9 +12,6 @@ import (
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
-
-// maxURLFetchBytes is the maximum number of bytes fetched from a URL source (200 MB).
-const maxURLFetchBytes = 200 * 1024 * 1024
 
 // neutralIntentToTaskType maps the 5 shared neutral intents to Gemini task type strings.
 var neutralIntentToTaskType = map[embeddings.Intent]TaskType{
@@ -115,20 +110,7 @@ func resolveBytes(ctx context.Context, source *embeddings.BinarySource, maxFileS
 		}
 		return data, nil
 	case embeddings.SourceKindURL:
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, source.URL, nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create URL request")
-		}
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to fetch URL source")
-		}
-		defer resp.Body.Close()
-		data, err := io.ReadAll(io.LimitReader(resp.Body, maxURLFetchBytes))
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to read URL response body")
-		}
-		return data, nil
+		return nil, errors.New("URL sources are handled via direct passthrough, not byte resolution")
 	default:
 		return nil, errors.Errorf("unsupported source kind %q", source.Kind)
 	}
@@ -180,9 +162,19 @@ func convertToGenaiContent(ctx context.Context, content embeddings.Content, maxF
 	parts := make([]*genai.Part, 0, len(content.Parts))
 	for i, part := range content.Parts {
 		var gPart *genai.Part
-		if part.Modality == embeddings.ModalityText {
+		switch {
+		case part.Modality == embeddings.ModalityText:
 			gPart = genai.NewPartFromText(part.Text)
-		} else {
+		case part.Source != nil && part.Source.Kind == embeddings.SourceKindURL:
+			mimeType, err := resolveMIME(part.Source)
+			if err != nil {
+				return nil, errors.Wrapf(err, "part[%d]", i)
+			}
+			if err := validateMIMEModality(part.Modality, mimeType); err != nil {
+				return nil, errors.Wrapf(err, "part[%d]", i)
+			}
+			gPart = genai.NewPartFromURI(part.Source.URL, mimeType)
+		default:
 			mimeType, err := resolveMIME(part.Source)
 			if err != nil {
 				return nil, errors.Wrapf(err, "part[%d]", i)

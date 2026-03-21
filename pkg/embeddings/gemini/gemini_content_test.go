@@ -234,9 +234,6 @@ func TestResolveBytesKinds(t *testing.T) {
 		assert.Equal(t, expected, data)
 	})
 
-	t.Run("SourceKindURL is skipped in unit tests", func(t *testing.T) {
-		t.Skip("requires HTTP server — tested in integration tests")
-	})
 }
 
 // TestConvertToGenaiContentText verifies text-only content conversion.
@@ -368,21 +365,56 @@ func TestConvertToGenaiContents(t *testing.T) {
 	})
 }
 
-// TestResolveBytesURL verifies URL source resolution using a local HTTP server.
-func TestResolveBytesURL(t *testing.T) {
-	expected := []byte("url-fetched-content")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(expected)
-	}))
-	defer srv.Close()
+// TestConvertToGenaiContentURLPassthrough verifies URL sources use genai.NewPartFromURI (FileData).
+func TestConvertToGenaiContentURLPassthrough(t *testing.T) {
+	content := embeddings.Content{
+		Parts: []embeddings.Part{
+			{
+				Modality: embeddings.ModalityImage,
+				Source: &embeddings.BinarySource{
+					Kind:     embeddings.SourceKindURL,
+					URL:      "https://example.com/photo.png",
+					MIMEType: "image/png",
+				},
+			},
+		},
+	}
+	result, err := convertToGenaiContent(context.Background(), content, 100*1024*1024)
+	require.NoError(t, err)
+	require.Len(t, result.Parts, 1)
+	require.NotNil(t, result.Parts[0].FileData, "URL source should produce FileData part")
+	assert.Equal(t, "https://example.com/photo.png", result.Parts[0].FileData.FileURI)
+	assert.Equal(t, "image/png", result.Parts[0].FileData.MIMEType)
+	assert.Nil(t, result.Parts[0].InlineData, "URL source should NOT produce InlineData")
+}
 
+// TestConvertToGenaiContentURLMissingMIME verifies error when URL source has no MIME type.
+func TestConvertToGenaiContentURLMissingMIME(t *testing.T) {
+	content := embeddings.Content{
+		Parts: []embeddings.Part{
+			{
+				Modality: embeddings.ModalityImage,
+				Source: &embeddings.BinarySource{
+					Kind: embeddings.SourceKindURL,
+					URL:  "https://example.com/image-no-ext",
+				},
+			},
+		},
+	}
+	_, err := convertToGenaiContent(context.Background(), content, 100*1024*1024)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "MIME type is required")
+}
+
+// TestResolveBytesRejectsURLKind verifies resolveBytes returns an error for URL sources.
+func TestResolveBytesRejectsURLKind(t *testing.T) {
 	source := &embeddings.BinarySource{
 		Kind: embeddings.SourceKindURL,
-		URL:  srv.URL,
+		URL:  "https://example.com/file.bin",
 	}
-	data, err := resolveBytes(context.Background(), source, 100*1024*1024)
-	require.NoError(t, err)
-	assert.Equal(t, expected, data)
+	_, err := resolveBytes(context.Background(), source, 100*1024*1024)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "URL sources are handled via direct passthrough")
 }
 
 // TestResolveBytesUnsupportedKind verifies error for unknown source kinds.
