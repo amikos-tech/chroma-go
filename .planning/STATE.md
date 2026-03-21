@@ -104,6 +104,7 @@ Recent decisions affecting current work:
 - Rebranded milestone v0.5 → v0.4.1 (all changes additive, no public API breakage).
 - Added Phase 6: Gemini Multimodal Adoption (#443).
 - Added Phase 7: vLLM/Nemotron Provider Validation (nvidia/omni-embed-nemotron-3b).
+- Added Phase 8: Document Gemini and Nemotron multimodal embedding functions.
 
 ### Pending Todos
 

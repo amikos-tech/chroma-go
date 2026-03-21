@@ -139,3 +139,13 @@ Plans: TBD during planning
 | 5. Documentation and Verification | 2/2 | Complete   | 2026-03-20 |
 | 6. Gemini Multimodal Adoption | 2/2 | Complete   | 2026-03-20 |
 | 7. vLLM/Nemotron Provider Validation | - | Not started | - |
+
+### Phase 8: Document Gemini and Nemotron multimodal embedding functions
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 8 to break down)
