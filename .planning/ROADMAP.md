@@ -19,7 +19,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 3: Registry and Config Integration** - Extend registry/build-from-config and collection auto-wiring for richer multimodal interfaces. (completed 2026-03-20)
 - [x] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly. (completed 2026-03-20)
 - [x] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility. (completed 2026-03-20)
-- [ ] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443)
+- [x] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443) (completed 2026-03-20)
 - [ ] **Phase 7: vLLM/Nemotron Provider Validation** - Add vLLM OpenAI-compatible provider targeting nvidia/omni-embed-nemotron-3b to validate the foundation end-to-end.
 
 ## Phase Details
@@ -110,8 +110,11 @@ Plans:
   3. Existing `EmbedDocuments`/`EmbedQuery` behavior remains unchanged.
   4. Gemini is registered in the multimodal factory/registry path with config round-trip support.
   5. Unit tests cover request construction, intent mapping, and backward-compatible wrappers.
+**Plans**: 2 plans
 
-Plans: TBD during planning
+Plans:
+- [x] 06-01-PLAN.md — Implement content helpers, interface methods, CreateContentEmbedding, registration, and default model update
+- [x] 06-02-PLAN.md — Add unit tests for capability derivation, intent mapping, MIME resolution, content conversion, negative cases, and config round-trip
 
 ### Phase 7: vLLM/Nemotron Provider Validation
 **Goal:** Add a vLLM OpenAI-compatible embedding provider targeting nvidia/omni-embed-nemotron-3b to validate the shared multimodal contract against a second real multimodal model beyond Gemini.
@@ -134,5 +137,15 @@ Plans: TBD during planning
 | 3. Registry and Config Integration | 3/3 | Complete   | 2026-03-20 |
 | 4. Provider Mapping and Explicit Failures | 2/2 | Complete   | 2026-03-20 |
 | 5. Documentation and Verification | 2/2 | Complete   | 2026-03-20 |
-| 6. Gemini Multimodal Adoption | - | Not started | - |
+| 6. Gemini Multimodal Adoption | 2/2 | Complete   | 2026-03-20 |
 | 7. vLLM/Nemotron Provider Validation | - | Not started | - |
+
+### Phase 8: Document Gemini and Nemotron multimodal embedding functions
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 8 to break down)

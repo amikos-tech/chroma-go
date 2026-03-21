@@ -37,7 +37,8 @@ func ContextWithDimension(ctx context.Context, dimension int) context.Context {
 }
 
 const (
-	DefaultEmbeddingModel = "gemini-embedding-001"
+	DefaultEmbeddingModel = "gemini-embedding-2-preview"
+	LegacyEmbeddingModel  = "gemini-embedding-001"
 	APIKeyEnvVar          = "GEMINI_API_KEY"
 )
 
@@ -50,6 +51,7 @@ type Client struct {
 	Client           *genai.Client
 	DefaultContext   *context.Context
 	MaxBatchSize     int
+	MaxFileSize      int64
 }
 
 func applyDefaults(c *Client) (err error) {
@@ -60,6 +62,14 @@ func applyDefaults(c *Client) (err error) {
 	if c.DefaultContext == nil {
 		ctx := context.Background()
 		c.DefaultContext = &ctx
+	}
+
+	if c.MaxFileSize == 0 {
+		c.MaxFileSize = 100 * 1024 * 1024 // 100 MB — matches Gemini API inline payload limit
+	}
+
+	if c.MaxBatchSize == 0 {
+		c.MaxBatchSize = 250
 	}
 
 	if c.Client == nil {
@@ -122,10 +132,87 @@ func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]embedding
 		return nil, errors.New("no embeddings returned from Gemini API")
 	}
 	embs := make([][]float32, 0, len(res.Embeddings))
-	for _, e := range res.Embeddings {
+	for i, e := range res.Embeddings {
+		if e.Values == nil {
+			return nil, errors.Errorf("nil embedding values at index %d in Gemini API response", i)
+		}
 		embs = append(embs, e.Values)
 	}
 
+	return embeddings.NewEmbeddingsFromFloat32(embs)
+}
+
+// CreateContentEmbedding embeds multimodal content items using the Gemini API.
+// For a single item, ProviderHints["task_type"], Intent, and Dimension are honoured per-item.
+// For batches (len > 1), per-item Intent, Dimension, and ProviderHints["task_type"] are rejected
+// because Gemini applies one EmbedContentConfig to the entire batch. Use ContextWithTaskType
+// or ContextWithDimension for batch-wide overrides.
+func (c *Client) CreateContentEmbedding(ctx context.Context, contents []embeddings.Content, mapper embeddings.IntentMapper) ([]embeddings.Embedding, error) {
+	if err := embeddings.ValidateContents(contents); err != nil {
+		return nil, err
+	}
+	model, err := modelFromContext(ctx, string(c.DefaultModel))
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid model override")
+	}
+	defaultTaskType, err := taskTypeFromContext(ctx, c.DefaultTaskType)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid task_type override")
+	}
+	contextDim := ctx.Value(dimensionContextKey)
+	outputDimensionality, err := outputDimensionalityFromContext(ctx, c.DefaultDimension)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid dimension override")
+	}
+
+	taskType := defaultTaskType
+	if len(contents) == 1 {
+		taskType, err = resolveTaskTypeForContent(contents[0], defaultTaskType, mapper)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to resolve task type for content")
+		}
+		// Per-content dimension overrides client default, but not an explicit context override.
+		if contents[0].Dimension != nil && contextDim == nil {
+			dim, dimErr := intToInt32Ptr(*contents[0].Dimension)
+			if dimErr != nil {
+				return nil, errors.Wrap(dimErr, "invalid content dimension")
+			}
+			outputDimensionality = dim
+		}
+	} else {
+		// Gemini applies one config per batch — reject per-item overrides that would be silently dropped.
+		for i, content := range contents {
+			if content.Intent != "" {
+				return nil, errors.Errorf("contents[%d]: per-item Intent is not supported in batch requests; use ContextWithTaskType for batch-wide task type", i)
+			}
+			if content.Dimension != nil {
+				return nil, errors.Errorf("contents[%d]: per-item Dimension is not supported in batch requests; use ContextWithDimension for batch-wide dimension", i)
+			}
+			if _, ok := content.ProviderHints["task_type"]; ok {
+				return nil, errors.Errorf("contents[%d]: per-item ProviderHints[\"task_type\"] is not supported in batch requests; use ContextWithTaskType for batch-wide task type", i)
+			}
+		}
+	}
+
+	genaiContents, err := convertToGenaiContents(ctx, contents, c.MaxFileSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert content to Gemini format")
+	}
+
+	res, err := c.Client.Models.EmbedContent(ctx, model, genaiContents, buildEmbedContentConfig(taskType, outputDimensionality))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to embed contents")
+	}
+	if res == nil || len(res.Embeddings) == 0 {
+		return nil, errors.New("no embeddings returned from Gemini API")
+	}
+	embs := make([][]float32, 0, len(res.Embeddings))
+	for i, e := range res.Embeddings {
+		if e.Values == nil {
+			return nil, errors.Errorf("nil embedding values at index %d in Gemini API response", i)
+		}
+		embs = append(embs, e.Values)
+	}
 	return embeddings.NewEmbeddingsFromFloat32(embs)
 }
 
@@ -219,6 +306,9 @@ func (c *Client) Close() error {
 
 var _ embeddings.EmbeddingFunction = (*GeminiEmbeddingFunction)(nil)
 var _ embeddings.Closeable = (*GeminiEmbeddingFunction)(nil)
+var _ embeddings.ContentEmbeddingFunction = (*GeminiEmbeddingFunction)(nil)
+var _ embeddings.CapabilityAware = (*GeminiEmbeddingFunction)(nil)
+var _ embeddings.IntentMapper = (*GeminiEmbeddingFunction)(nil)
 
 type GeminiEmbeddingFunction struct {
 	apiClient *Client
@@ -294,6 +384,68 @@ func (e *GeminiEmbeddingFunction) SupportedSpaces() []embeddings.DistanceMetric 
 	return []embeddings.DistanceMetric{embeddings.COSINE, embeddings.L2, embeddings.IP}
 }
 
+// Capabilities returns the capability metadata for the configured Gemini model.
+func (e *GeminiEmbeddingFunction) Capabilities() embeddings.CapabilityMetadata {
+	return capabilitiesForModel(string(e.apiClient.DefaultModel))
+}
+
+// capabilitiesForContext returns capabilities for the effective model,
+// honoring any model override set in the context.
+func (e *GeminiEmbeddingFunction) capabilitiesForContext(ctx context.Context) embeddings.CapabilityMetadata {
+	model, err := modelFromContext(ctx, string(e.apiClient.DefaultModel))
+	if err != nil {
+		return capabilitiesForModel(string(e.apiClient.DefaultModel))
+	}
+	return capabilitiesForModel(model)
+}
+
+// MapIntent translates a neutral shared intent to a Gemini task type string.
+// Only the 5 neutral intents are accepted; provider-native intents should use ProviderHints["task_type"].
+func (e *GeminiEmbeddingFunction) MapIntent(intent embeddings.Intent) (string, error) {
+	if !embeddings.IsNeutralIntent(intent) {
+		return "", errors.Errorf("unsupported intent %q: use ProviderHints[\"task_type\"] for Gemini-native task types", intent)
+	}
+	tt, ok := neutralIntentToTaskType[intent]
+	if !ok {
+		return "", errors.Errorf("intent %q has no Gemini task type mapping", intent)
+	}
+	return string(tt), nil
+}
+
+// EmbedContent embeds a single multimodal content item using the shared Content API.
+func (e *GeminiEmbeddingFunction) EmbedContent(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
+	if err := content.Validate(); err != nil {
+		return nil, err
+	}
+	caps := e.capabilitiesForContext(ctx)
+	if err := embeddings.ValidateContentSupport(content, caps); err != nil {
+		return nil, err
+	}
+	result, err := e.apiClient.CreateContentEmbedding(ctx, []embeddings.Content{content}, e)
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, errors.New("no embedding returned")
+	}
+	return result[0], nil
+}
+
+// EmbedContents embeds a batch of multimodal content items using the shared Content API.
+func (e *GeminiEmbeddingFunction) EmbedContents(ctx context.Context, contents []embeddings.Content) ([]embeddings.Embedding, error) {
+	if err := embeddings.ValidateContents(contents); err != nil {
+		return nil, err
+	}
+	if e.apiClient.MaxBatchSize > 0 && len(contents) > e.apiClient.MaxBatchSize {
+		return nil, errors.Errorf("number of contents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
+	}
+	caps := e.capabilitiesForContext(ctx)
+	if err := embeddings.ValidateContentsSupport(contents, caps); err != nil {
+		return nil, err
+	}
+	return e.apiClient.CreateContentEmbedding(ctx, contents, e)
+}
+
 // NewGeminiEmbeddingFunctionFromConfig creates a Gemini embedding function from a config map.
 // Uses schema-compliant field names: api_key_env_var, model_name, task_type, dimension.
 func NewGeminiEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig) (*GeminiEmbeddingFunction, error) {
@@ -324,6 +476,11 @@ func NewGeminiEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig
 
 func init() {
 	if err := embeddings.RegisterDense("google_genai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewGeminiEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
+	if err := embeddings.RegisterContent("google_genai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.ContentEmbeddingFunction, error) {
 		return NewGeminiEmbeddingFunctionFromConfig(cfg)
 	}); err != nil {
 		panic(err)

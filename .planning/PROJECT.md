@@ -60,4 +60,4 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 | Add vLLM/Nemotron as Phase 7 | Second provider (nvidia/omni-embed-nemotron-3b via vLLM) proves portability beyond a single provider | ✓ Good |
 
 ---
-*Last updated: 2026-03-20 — Phase 5 complete, Content API documented, DOCS-02 test coverage verified*
+*Last updated: 2026-03-20 — Phase 6 complete, Gemini natively implements ContentEmbeddingFunction+CapabilityAware+IntentMapper for 5 modalities, registered in content factory*

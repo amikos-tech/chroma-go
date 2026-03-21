@@ -65,6 +65,11 @@ type Part struct {
 }
 
 // Content is the canonical multimodal request item for one semantic unit.
+//
+// In batch requests, per-item Intent, Dimension, and ProviderHints that affect
+// embedding configuration (e.g. Gemini's "task_type") are rejected because many
+// providers apply a single configuration to the entire batch. Use context-level
+// overrides (e.g. ContextWithTaskType, ContextWithDimension) for batch-wide settings.
 type Content struct {
 	Parts         []Part
 	Intent        Intent
