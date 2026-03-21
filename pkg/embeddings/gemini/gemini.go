@@ -361,6 +361,16 @@ func (e *GeminiEmbeddingFunction) Capabilities() embeddings.CapabilityMetadata {
 	return capabilitiesForModel(string(e.apiClient.DefaultModel))
 }
 
+// capabilitiesForContext returns capabilities for the effective model,
+// honoring any model override set in the context.
+func (e *GeminiEmbeddingFunction) capabilitiesForContext(ctx context.Context) embeddings.CapabilityMetadata {
+	model, err := modelFromContext(ctx, string(e.apiClient.DefaultModel))
+	if err != nil {
+		return capabilitiesForModel(string(e.apiClient.DefaultModel))
+	}
+	return capabilitiesForModel(model)
+}
+
 // MapIntent translates a neutral shared intent to a Gemini task type string.
 // Only the 5 neutral intents are accepted; provider-native intents should use ProviderHints["task_type"].
 func (e *GeminiEmbeddingFunction) MapIntent(intent embeddings.Intent) (string, error) {
@@ -379,7 +389,7 @@ func (e *GeminiEmbeddingFunction) EmbedContent(ctx context.Context, content embe
 	if err := content.Validate(); err != nil {
 		return nil, err
 	}
-	caps := e.Capabilities()
+	caps := e.capabilitiesForContext(ctx)
 	if err := embeddings.ValidateContentSupport(content, caps); err != nil {
 		return nil, err
 	}
@@ -398,7 +408,7 @@ func (e *GeminiEmbeddingFunction) EmbedContents(ctx context.Context, contents []
 	if err := embeddings.ValidateContents(contents); err != nil {
 		return nil, err
 	}
-	caps := e.Capabilities()
+	caps := e.capabilitiesForContext(ctx)
 	if err := embeddings.ValidateContentsSupport(contents, caps); err != nil {
 		return nil, err
 	}

@@ -897,3 +897,66 @@ func TestCreateContentEmbeddingContextDimensionOverridesContentDimension(t *test
 	assert.Contains(t, string(capturedBody), "512", "context dimension should override content dimension")
 	assert.NotContains(t, string(capturedBody), "256", "content dimension should not appear when context overrides")
 }
+
+func TestEmbedContentUsesEffectiveModelCapabilities(t *testing.T) {
+	client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(geminiEmbedResponse([]float32{1.0, 2.0, 3.0}))
+	}))
+	ef := &GeminiEmbeddingFunction{apiClient: &Client{
+		Client:       client,
+		DefaultModel: LegacyEmbeddingModel,
+		APIKey:       embeddings.NewSecret("fake"),
+		MaxFileSize:  100 * 1024 * 1024,
+	}}
+
+	content := embeddings.Content{
+		Parts: []embeddings.Part{
+			{
+				Modality: embeddings.ModalityImage,
+				Source: &embeddings.BinarySource{
+					Kind:     embeddings.SourceKindBytes,
+					Bytes:    []byte("fake-png"),
+					MIMEType: "image/png",
+				},
+			},
+		},
+	}
+
+	// Default model is legacy (text-only), but context override is multimodal model
+	ctx := ContextWithModel(context.Background(), "gemini-embedding-2-preview")
+	_, err := ef.EmbedContent(ctx, content)
+	require.NoError(t, err, "should accept image when effective model supports it")
+}
+
+func TestEmbedContentsUsesEffectiveModelCapabilities(t *testing.T) {
+	client := newMockGenaiClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(geminiEmbedResponse([]float32{1.0, 2.0, 3.0}))
+	}))
+	ef := &GeminiEmbeddingFunction{apiClient: &Client{
+		Client:       client,
+		DefaultModel: LegacyEmbeddingModel,
+		APIKey:       embeddings.NewSecret("fake"),
+		MaxFileSize:  100 * 1024 * 1024,
+	}}
+
+	contents := []embeddings.Content{
+		{
+			Parts: []embeddings.Part{
+				{
+					Modality: embeddings.ModalityImage,
+					Source: &embeddings.BinarySource{
+						Kind:     embeddings.SourceKindBytes,
+						Bytes:    []byte("fake-png"),
+						MIMEType: "image/png",
+					},
+				},
+			},
+		},
+	}
+
+	ctx := ContextWithModel(context.Background(), "gemini-embedding-2-preview")
+	_, err := ef.EmbedContents(ctx, contents)
+	require.NoError(t, err, "should accept image when effective model supports it")
+}
