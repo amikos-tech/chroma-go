@@ -865,7 +865,7 @@ func TestResolveBytesBase64PayloadExceedsMaxSize(t *testing.T) {
 	}
 	_, err := resolveBytes(context.Background(), source, 512)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decoded base64 payload size")
+	assert.Contains(t, err.Error(), "base64 payload too large")
 	assert.Contains(t, err.Error(), "exceeds maximum")
 }
 
