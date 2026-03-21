@@ -228,7 +228,11 @@ func resolveTaskTypeForContent(content embeddings.Content, defaultTaskType TaskT
 		if err != nil {
 			return "", errors.Wrap(err, "failed to map intent to Gemini task type")
 		}
-		return TaskType(mapped), nil
+		tt := TaskType(mapped)
+		if !tt.IsValid() {
+			return "", errors.Errorf("invalid Gemini task type from IntentMapper: %q", mapped)
+		}
+		return tt, nil
 	}
 
 	return defaultTaskType, nil

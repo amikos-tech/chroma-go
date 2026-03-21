@@ -983,3 +983,19 @@ func TestDefaultMaxBatchSize(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 250, ef.apiClient.MaxBatchSize)
 }
+
+type badMapper struct{}
+
+func (m *badMapper) MapIntent(_ embeddings.Intent) (string, error) {
+	return "INVALID_TASK_TYPE", nil
+}
+
+func TestResolveTaskTypeForContentRejectsInvalidMapperResult(t *testing.T) {
+	content := embeddings.Content{
+		Parts:  []embeddings.Part{embeddings.NewTextPart("hello")},
+		Intent: embeddings.IntentRetrievalQuery,
+	}
+	_, err := resolveTaskTypeForContent(content, TaskTypeRetrievalDocument, &badMapper{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid Gemini task type")
+}
