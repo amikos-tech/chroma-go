@@ -143,8 +143,10 @@ func (c *Client) CreateEmbedding(ctx context.Context, req []string) ([]embedding
 }
 
 // CreateContentEmbedding embeds multimodal content items using the Gemini API.
-// For a single item, ProviderHints and intent are honoured per-item via resolveTaskTypeForContent.
-// For batches, the default task type is used for all items (Gemini applies one config per batch).
+// For a single item, ProviderHints["task_type"], Intent, and Dimension are honoured per-item.
+// For batches (len > 1), per-item Intent, Dimension, and ProviderHints["task_type"] are rejected
+// because Gemini applies one EmbedContentConfig to the entire batch. Use ContextWithTaskType
+// or ContextWithDimension for batch-wide overrides.
 func (c *Client) CreateContentEmbedding(ctx context.Context, contents []embeddings.Content, mapper embeddings.IntentMapper) ([]embeddings.Embedding, error) {
 	if err := embeddings.ValidateContents(contents); err != nil {
 		return nil, err
