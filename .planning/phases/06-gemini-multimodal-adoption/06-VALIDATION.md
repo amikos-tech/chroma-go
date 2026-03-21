@@ -1,10 +1,11 @@
 ---
 phase: 6
 slug: gemini-multimodal-adoption
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-20
+updated: 2026-03-21
 ---
 
 # Phase 6 — Validation Strategy
@@ -19,42 +20,48 @@ created: 2026-03-20
 |----------|-------|
 | **Framework** | go test |
 | **Config file** | Makefile (test-ef target) |
-| **Quick run command** | `go test -tags=ef -run TestGemini -count=1 ./pkg/embeddings/gemini/...` |
-| **Full suite command** | `go test -tags=ef -count=1 ./pkg/embeddings/gemini/...` |
-| **Estimated runtime** | ~15 seconds |
+| **Quick run command** | `go test -run TestGemini -count=1 ./pkg/embeddings/gemini/...` |
+| **Full suite command** | `go test -count=1 ./pkg/embeddings/gemini/...` |
+| **Estimated runtime** | ~1 second (unit tests only) |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `go test -tags=ef -run TestGemini -count=1 ./pkg/embeddings/gemini/...`
-- **After every plan wave:** Run `go test -tags=ef -count=1 ./pkg/embeddings/gemini/...`
+- **After every task commit:** Run `go test -count=1 ./pkg/embeddings/gemini/...`
+- **After every plan wave:** Run full suite
 - **Before `/gsd:verify-work`:** Full suite must be green
-- **Max feedback latency:** 15 seconds
+- **Max feedback latency:** 1 second
 
 ---
 
 ## Per-Task Verification Map
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 06-01-01 | 01 | 1 | GEM-01 | unit | `go test -tags=ef -run TestContentConversion ./pkg/embeddings/gemini/...` | ❌ W0 | ⬜ pending |
-| 06-01-02 | 01 | 1 | GEM-01 | unit | `go test -tags=ef -run TestCapabilities ./pkg/embeddings/gemini/...` | ❌ W0 | ⬜ pending |
-| 06-02-01 | 02 | 1 | GEM-02 | unit | `go test -tags=ef -run TestIntentMapping ./pkg/embeddings/gemini/...` | ❌ W0 | ⬜ pending |
-| 06-03-01 | 03 | 2 | GEM-03 | unit | `go test -tags=ef -run TestRegistry ./pkg/embeddings/gemini/...` | ❌ W0 | ⬜ pending |
-| 06-03-02 | 03 | 2 | GEM-03 | unit | `go test -tags=ef -run TestConfigRoundTrip ./pkg/embeddings/gemini/...` | ❌ W0 | ⬜ pending |
+| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | Tests | Status |
+|---------|------|------|-------------|-----------|-------------------|-------|--------|
+| 06-01-01 | 01 | 1 | GEM-01 | unit | `go test -run "TestConvertToGenaiContent" ./pkg/embeddings/gemini/...` | 9 tests | ✅ green |
+| 06-01-02 | 01 | 1 | GEM-01 | unit | `go test -run "TestCapabilities\|TestEmbedContent.*Effective" ./pkg/embeddings/gemini/...` | 4 tests | ✅ green |
+| 06-02-01 | 02 | 1 | GEM-02 | unit | `go test -run "TestMapIntent\|TestResolveTaskType" ./pkg/embeddings/gemini/...` | 4 tests | ✅ green |
+| 06-03-01 | 03 | 2 | GEM-03 | unit | `go test -run "TestGeminiContentRegistration" ./pkg/embeddings/gemini/...` | 1 test | ✅ green |
+| 06-03-02 | 03 | 2 | GEM-03 | unit | `go test -run "TestGeminiContentConfigRoundTrip" ./pkg/embeddings/gemini/...` | 1 test | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
 ---
 
-## Wave 0 Requirements
+## PR Feedback Coverage (added post-review)
 
-- [ ] `pkg/embeddings/gemini/content_test.go` — stubs for GEM-01 (content conversion, capabilities)
-- [ ] `pkg/embeddings/gemini/intent_test.go` — stubs for GEM-02 (intent mapping)
-- [ ] `pkg/embeddings/gemini/registry_test.go` — stubs for GEM-03 (registry, config round-trip)
-
-*Existing go test infrastructure covers framework requirements.*
+| Area | Tests | Status |
+|------|-------|--------|
+| Nil source guards | `TestResolveMIMENilSource`, `TestResolveBytesNilSource`, `TestConvertToGenaiContentNilSourceReturnsError`, `TestEmbedContentValidatesStructure`, `TestCreateContentEmbeddingValidatesContent` | ✅ green |
+| File/payload size limits | `TestResolveBytesFileExceedsMaxSize`, `TestResolveBytesPayloadExceedsMaxSize`, `TestResolveBytesBase64PayloadExceedsMaxSize` | ✅ green |
+| Path traversal | `TestResolveBytesFilePathTraversal`, `TestResolveBytesFilePathTraversalObfuscated` | ✅ green |
+| URL passthrough | `TestConvertToGenaiContentURLPassthrough`, `TestConvertToGenaiContentURLMissingMIME`, `TestResolveBytesRejectsURLKind` | ✅ green |
+| Content.Dimension | `TestCreateContentEmbeddingHonorsContentDimension`, `TestCreateContentEmbeddingContextDimensionOverridesContentDimension` | ✅ green |
+| Effective model caps | `TestEmbedContentUsesEffectiveModelCapabilities`, `TestEmbedContentsUsesEffectiveModelCapabilities` | ✅ green |
+| MaxBatchSize | `TestEmbedContentsEnforcesMaxBatchSize`, `TestDefaultMaxBatchSize` | ✅ green |
+| Batch override rejection | `TestCreateContentEmbeddingRejectsBatchPerItemOverrides` (4 subtests) | ✅ green |
+| IntentMapper validation | `TestResolveTaskTypeForContentRejectsInvalidMapperResult` | ✅ green |
 
 ---
 
@@ -68,11 +75,23 @@ created: 2026-03-20
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have automated verify commands
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s (actual: ~1s)
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** validated
+
+---
+
+## Validation Audit 2026-03-21
+
+| Metric | Count |
+|--------|-------|
+| Total test functions | 56 |
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+| Requirements covered | GEM-01, GEM-02, GEM-03 (all 3) |
