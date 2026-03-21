@@ -960,3 +960,26 @@ func TestEmbedContentsUsesEffectiveModelCapabilities(t *testing.T) {
 	_, err := ef.EmbedContents(ctx, contents)
 	require.NoError(t, err, "should accept image when effective model supports it")
 }
+
+func TestEmbedContentsEnforcesMaxBatchSize(t *testing.T) {
+	ef := &GeminiEmbeddingFunction{apiClient: &Client{
+		DefaultModel: DefaultEmbeddingModel,
+		MaxBatchSize: 2,
+		APIKey:       embeddings.NewSecret("fake"),
+	}}
+	contents := []embeddings.Content{
+		{Parts: []embeddings.Part{embeddings.NewTextPart("a")}},
+		{Parts: []embeddings.Part{embeddings.NewTextPart("b")}},
+		{Parts: []embeddings.Part{embeddings.NewTextPart("c")}},
+	}
+	_, err := ef.EmbedContents(context.Background(), contents)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "maximum batch size")
+}
+
+func TestDefaultMaxBatchSize(t *testing.T) {
+	t.Setenv("GEMINI_API_KEY", "test-key")
+	ef, err := NewGeminiEmbeddingFunction(WithEnvAPIKey())
+	require.NoError(t, err)
+	assert.Equal(t, 250, ef.apiClient.MaxBatchSize)
+}

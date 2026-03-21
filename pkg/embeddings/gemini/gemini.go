@@ -68,6 +68,10 @@ func applyDefaults(c *Client) (err error) {
 		c.MaxFileSize = 100 * 1024 * 1024 // 100 MB — matches Gemini API inline payload limit
 	}
 
+	if c.MaxBatchSize == 0 {
+		c.MaxBatchSize = 250
+	}
+
 	if c.Client == nil {
 		c.Client, err = genai.NewClient(*c.DefaultContext, &genai.ClientConfig{
 			APIKey:  c.APIKey.Value(),
@@ -407,6 +411,9 @@ func (e *GeminiEmbeddingFunction) EmbedContent(ctx context.Context, content embe
 func (e *GeminiEmbeddingFunction) EmbedContents(ctx context.Context, contents []embeddings.Content) ([]embeddings.Embedding, error) {
 	if err := embeddings.ValidateContents(contents); err != nil {
 		return nil, err
+	}
+	if e.apiClient.MaxBatchSize > 0 && len(contents) > e.apiClient.MaxBatchSize {
+		return nil, errors.Errorf("number of contents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
 	caps := e.capabilitiesForContext(ctx)
 	if err := embeddings.ValidateContentsSupport(contents, caps); err != nil {
