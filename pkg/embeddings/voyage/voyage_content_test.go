@@ -4,9 +4,12 @@ package voyage
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +18,7 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-// TestVoyageCapabilitiesForModel verifies capability derivation for known models (VOY-01).
+// TestVoyageCapabilitiesForModel verifies capability derivation for known models.
 func TestVoyageCapabilitiesForModel(t *testing.T) {
 	t.Run("voyage-multimodal-3.5 returns text/image/video", func(t *testing.T) {
 		caps := capabilitiesForModel("voyage-multimodal-3.5")
@@ -47,7 +50,7 @@ func TestVoyageCapabilitiesForModel(t *testing.T) {
 	})
 }
 
-// TestVoyageCapabilities verifies Capabilities() on VoyageAIEmbeddingFunction (VOY-01).
+// TestVoyageCapabilities verifies Capabilities() on VoyageAIEmbeddingFunction.
 func TestVoyageCapabilities(t *testing.T) {
 	t.Run("multimodal model returns 3 modalities", func(t *testing.T) {
 		ef := &VoyageAIEmbeddingFunction{
@@ -68,7 +71,7 @@ func TestVoyageCapabilities(t *testing.T) {
 	})
 }
 
-// TestVoyageMapIntent verifies supported intent mapping (VOY-02).
+// TestVoyageMapIntent verifies supported intent mapping.
 func TestVoyageMapIntent(t *testing.T) {
 	ef := &VoyageAIEmbeddingFunction{
 		apiClient: &VoyageAIClient{DefaultModel: "voyage-multimodal-3.5"},
@@ -87,7 +90,7 @@ func TestVoyageMapIntent(t *testing.T) {
 	})
 }
 
-// TestVoyageMapIntentRejects verifies unsupported intents are rejected (VOY-02).
+// TestVoyageMapIntentRejects verifies unsupported intents are rejected.
 func TestVoyageMapIntentRejects(t *testing.T) {
 	ef := &VoyageAIEmbeddingFunction{
 		apiClient: &VoyageAIClient{DefaultModel: "voyage-multimodal-3.5"},
@@ -114,11 +117,11 @@ func TestVoyageMapIntentRejects(t *testing.T) {
 	t.Run("custom intent rejected", func(t *testing.T) {
 		_, err := ef.MapIntent(embeddings.Intent("custom_thing"))
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unsupported intent")
+		assert.Contains(t, err.Error(), "not supported")
 	})
 }
 
-// TestVoyageResolveInputType verifies priority chain for input type resolution (VOY-02).
+// TestVoyageResolveInputType verifies priority chain for input type resolution.
 func TestVoyageResolveInputType(t *testing.T) {
 	ef := &VoyageAIEmbeddingFunction{
 		apiClient: &VoyageAIClient{DefaultModel: "voyage-multimodal-3.5"},
@@ -168,15 +171,50 @@ func TestVoyageResolveInputType(t *testing.T) {
 	})
 }
 
-// TestVoyageConvertToVoyageInput verifies content-to-VoyageInput conversion (VOY-01).
-func TestVoyageConvertToVoyageInput(t *testing.T) {
-	ctx := context.Background()
+// TestVoyageResolveInputTypeErrors verifies error paths in input type resolution.
+func TestVoyageResolveInputTypeErrors(t *testing.T) {
+	ef := &VoyageAIEmbeddingFunction{
+		apiClient: &VoyageAIClient{DefaultModel: "voyage-multimodal-3.5"},
+	}
 
+	t.Run("non-string ProviderHints input_type", func(t *testing.T) {
+		content := embeddings.Content{
+			Parts:         []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}},
+			ProviderHints: map[string]any{"input_type": 42},
+		}
+		_, err := resolveInputTypeForContent(content, nil, ef)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be a non-empty string")
+	})
+
+	t.Run("empty string ProviderHints input_type", func(t *testing.T) {
+		content := embeddings.Content{
+			Parts:         []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}},
+			ProviderHints: map[string]any{"input_type": ""},
+		}
+		_, err := resolveInputTypeForContent(content, nil, ef)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be a non-empty string")
+	})
+
+	t.Run("intent mapping error is wrapped", func(t *testing.T) {
+		content := embeddings.Content{
+			Parts:  []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}},
+			Intent: embeddings.IntentClassification,
+		}
+		_, err := resolveInputTypeForContent(content, nil, ef)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to map intent")
+	})
+}
+
+// TestVoyageConvertToVoyageInput verifies content-to-VoyageInput conversion.
+func TestVoyageConvertToVoyageInput(t *testing.T) {
 	t.Run("text part", func(t *testing.T) {
 		content := embeddings.Content{
 			Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}},
 		}
-		result, err := convertToVoyageInput(ctx, content, maxMultimodalFileSize)
+		result, err := convertToVoyageInput(content, maxMultimodalFileSize)
 		require.NoError(t, err)
 		require.Len(t, result.Content, 1)
 		assert.Equal(t, "text", result.Content[0].Type)
@@ -195,7 +233,7 @@ func TestVoyageConvertToVoyageInput(t *testing.T) {
 				},
 			},
 		}
-		result, err := convertToVoyageInput(ctx, content, maxMultimodalFileSize)
+		result, err := convertToVoyageInput(content, maxMultimodalFileSize)
 		require.NoError(t, err)
 		require.Len(t, result.Content, 1)
 		assert.Equal(t, "image_url", result.Content[0].Type)
@@ -215,7 +253,7 @@ func TestVoyageConvertToVoyageInput(t *testing.T) {
 				},
 			},
 		}
-		result, err := convertToVoyageInput(ctx, content, maxMultimodalFileSize)
+		result, err := convertToVoyageInput(content, maxMultimodalFileSize)
 		require.NoError(t, err)
 		require.Len(t, result.Content, 1)
 		assert.Equal(t, "image_base64", result.Content[0].Type)
@@ -234,7 +272,7 @@ func TestVoyageConvertToVoyageInput(t *testing.T) {
 				},
 			},
 		}
-		result, err := convertToVoyageInput(ctx, content, maxMultimodalFileSize)
+		result, err := convertToVoyageInput(content, maxMultimodalFileSize)
 		require.NoError(t, err)
 		require.Len(t, result.Content, 1)
 		assert.Equal(t, "video_url", result.Content[0].Type)
@@ -254,7 +292,7 @@ func TestVoyageConvertToVoyageInput(t *testing.T) {
 				},
 			},
 		}
-		result, err := convertToVoyageInput(ctx, content, maxMultimodalFileSize)
+		result, err := convertToVoyageInput(content, maxMultimodalFileSize)
 		require.NoError(t, err)
 		require.Len(t, result.Content, 2)
 		assert.Equal(t, "text", result.Content[0].Type)
@@ -274,7 +312,7 @@ func TestVoyageConvertToVoyageInput(t *testing.T) {
 				},
 			},
 		}
-		_, err := convertToVoyageInput(ctx, content, maxMultimodalFileSize)
+		_, err := convertToVoyageInput(content, maxMultimodalFileSize)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported modality")
 	})
@@ -299,6 +337,16 @@ func TestVoyageResolveMIME(t *testing.T) {
 		assert.Equal(t, "image/png", mime)
 	})
 
+	t.Run("extension fallback .mp4", func(t *testing.T) {
+		source := &embeddings.BinarySource{
+			Kind:     embeddings.SourceKindFile,
+			FilePath: "/path/clip.mp4",
+		}
+		mime, err := resolveMIME(source)
+		require.NoError(t, err)
+		assert.Equal(t, "video/mp4", mime)
+	})
+
 	t.Run("no MIME and no extension fails", func(t *testing.T) {
 		source := &embeddings.BinarySource{
 			Kind:  embeddings.SourceKindBytes,
@@ -308,38 +356,224 @@ func TestVoyageResolveMIME(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "MIME type is required")
 	})
+
+	t.Run("nil source", func(t *testing.T) {
+		_, err := resolveMIME(nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "source cannot be nil")
+	})
+
+	t.Run("unknown extension fails", func(t *testing.T) {
+		source := &embeddings.BinarySource{
+			Kind:     embeddings.SourceKindFile,
+			FilePath: "/path/test.bmp",
+		}
+		_, err := resolveMIME(source)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "MIME type is required")
+	})
+
+	t.Run("case insensitive extension", func(t *testing.T) {
+		source := &embeddings.BinarySource{
+			Kind:     embeddings.SourceKindFile,
+			FilePath: "/path/test.PNG",
+		}
+		mime, err := resolveMIME(source)
+		require.NoError(t, err)
+		assert.Equal(t, "image/png", mime)
+	})
+}
+
+// TestVoyageValidateMIMEModality verifies MIME/modality consistency checks.
+func TestVoyageValidateMIMEModality(t *testing.T) {
+	t.Run("image modality with image MIME passes", func(t *testing.T) {
+		err := validateMIMEModality(embeddings.ModalityImage, "image/png")
+		assert.NoError(t, err)
+	})
+
+	t.Run("video modality with video MIME passes", func(t *testing.T) {
+		err := validateMIMEModality(embeddings.ModalityVideo, "video/mp4")
+		assert.NoError(t, err)
+	})
+
+	t.Run("image modality with video MIME fails", func(t *testing.T) {
+		err := validateMIMEModality(embeddings.ModalityImage, "video/mp4")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "image modality requires image/* MIME type")
+	})
+
+	t.Run("video modality with image MIME fails", func(t *testing.T) {
+		err := validateMIMEModality(embeddings.ModalityVideo, "image/png")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "video modality requires video/* MIME type")
+	})
+
+	t.Run("unknown modality fails", func(t *testing.T) {
+		err := validateMIMEModality(embeddings.ModalityAudio, "audio/mpeg")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "MIME validation not implemented for modality")
+	})
+}
+
+// TestVoyageContainsDotDot verifies path traversal detection.
+func TestVoyageContainsDotDot(t *testing.T) {
+	t.Run("path with .. component", func(t *testing.T) {
+		assert.True(t, containsDotDot("../etc/passwd"))
+	})
+
+	t.Run("path with mid-level ..", func(t *testing.T) {
+		assert.True(t, containsDotDot("foo/../bar"))
+	})
+
+	t.Run("clean path without ..", func(t *testing.T) {
+		assert.False(t, containsDotDot("/usr/local/file.png"))
+	})
+
+	t.Run("path with ... is not traversal", func(t *testing.T) {
+		assert.False(t, containsDotDot("/path/to/.../file"))
+	})
+
+	t.Run("filename containing .. prefix is not traversal", func(t *testing.T) {
+		assert.False(t, containsDotDot("/path/..foo/file"))
+	})
+}
+
+// TestVoyageResolveBytes verifies binary source resolution.
+func TestVoyageResolveBytes(t *testing.T) {
+	t.Run("nil source", func(t *testing.T) {
+		_, err := resolveBytes(nil, 1024)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "source cannot be nil")
+	})
+
+	t.Run("bytes source happy path", func(t *testing.T) {
+		src := &embeddings.BinarySource{Kind: embeddings.SourceKindBytes, Bytes: []byte("hello")}
+		data, err := resolveBytes(src, 1024)
+		require.NoError(t, err)
+		assert.Equal(t, []byte("hello"), data)
+	})
+
+	t.Run("bytes source exceeds max size", func(t *testing.T) {
+		src := &embeddings.BinarySource{Kind: embeddings.SourceKindBytes, Bytes: []byte("toolarge")}
+		_, err := resolveBytes(src, 3)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum")
+	})
+
+	t.Run("base64 source happy path", func(t *testing.T) {
+		encoded := base64.StdEncoding.EncodeToString([]byte("hello"))
+		src := &embeddings.BinarySource{Kind: embeddings.SourceKindBase64, Base64: encoded}
+		data, err := resolveBytes(src, 1024)
+		require.NoError(t, err)
+		assert.Equal(t, []byte("hello"), data)
+	})
+
+	t.Run("base64 source invalid encoding", func(t *testing.T) {
+		src := &embeddings.BinarySource{Kind: embeddings.SourceKindBase64, Base64: "!!!not-base64!!!"}
+		_, err := resolveBytes(src, 1024)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to decode base64")
+	})
+
+	t.Run("base64 source exceeds estimated size", func(t *testing.T) {
+		encoded := base64.StdEncoding.EncodeToString([]byte("toolarge"))
+		src := &embeddings.BinarySource{Kind: embeddings.SourceKindBase64, Base64: encoded}
+		_, err := resolveBytes(src, 3)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "base64 payload too large")
+	})
+
+	t.Run("file source happy path", func(t *testing.T) {
+		tmp := t.TempDir()
+		fp := filepath.Join(tmp, "test.png")
+		require.NoError(t, os.WriteFile(fp, []byte("png-data"), 0644))
+
+		src := &embeddings.BinarySource{Kind: embeddings.SourceKindFile, FilePath: fp}
+		data, err := resolveBytes(src, 1024)
+		require.NoError(t, err)
+		assert.Equal(t, []byte("png-data"), data)
+	})
+
+	t.Run("file source not found", func(t *testing.T) {
+		src := &embeddings.BinarySource{Kind: embeddings.SourceKindFile, FilePath: "/nonexistent/file.png"}
+		_, err := resolveBytes(src, 1024)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to open file source")
+	})
+
+	t.Run("file source exceeds max size", func(t *testing.T) {
+		tmp := t.TempDir()
+		fp := filepath.Join(tmp, "big.bin")
+		require.NoError(t, os.WriteFile(fp, []byte("toolarge"), 0644))
+
+		src := &embeddings.BinarySource{Kind: embeddings.SourceKindFile, FilePath: fp}
+		_, err := resolveBytes(src, 3)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "file size exceeds maximum")
+	})
+
+	t.Run("file source path traversal rejected", func(t *testing.T) {
+		src := &embeddings.BinarySource{Kind: embeddings.SourceKindFile, FilePath: "../../../etc/passwd"}
+		_, err := resolveBytes(src, 1024)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "path traversal")
+	})
+
+	t.Run("URL source returns passthrough error", func(t *testing.T) {
+		src := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/img.png"}
+		_, err := resolveBytes(src, 1024)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "URL sources are handled via direct passthrough")
+	})
+
+	t.Run("unknown source kind", func(t *testing.T) {
+		src := &embeddings.BinarySource{Kind: "unknown"}
+		_, err := resolveBytes(src, 1024)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported source kind")
+	})
 }
 
 // TestVoyageMultimodalURL verifies multimodal endpoint URL derivation.
 func TestVoyageMultimodalURL(t *testing.T) {
 	t.Run("default URL replaced", func(t *testing.T) {
-		result := multimodalURL("https://api.voyageai.com/v1/embeddings")
+		result, err := multimodalURL("https://api.voyageai.com/v1/embeddings")
+		require.NoError(t, err)
 		assert.Equal(t, "https://api.voyageai.com/v1/multimodalembeddings", result)
 	})
 
-	t.Run("custom URL uses hardcoded", func(t *testing.T) {
-		result := multimodalURL("https://custom.proxy.com/api")
-		assert.Equal(t, multimodalBaseAPI, result)
+	t.Run("custom proxy with standard path", func(t *testing.T) {
+		result, err := multimodalURL("https://my-proxy.com/v1/embeddings")
+		require.NoError(t, err)
+		assert.Equal(t, "https://my-proxy.com/v1/multimodalembeddings", result)
+	})
+
+	t.Run("non-standard path returns error", func(t *testing.T) {
+		_, err := multimodalURL("https://custom.proxy.com/api")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot derive multimodal endpoint")
 	})
 }
 
-// TestVoyageBatchRejectsPerItemOverrides verifies batch rejection of per-item overrides (VOY-01, D-16).
-func TestVoyageBatchRejectsPerItemOverrides(t *testing.T) {
-	mockResp := CreateEmbeddingResponse{
-		Object: "list",
-		Data: []EmbeddingResult{
-			{Object: "embedding", Embedding: &EmbeddingTypeResult{Floats: []float32{1, 2, 3}}, Index: 0},
-			{Object: "embedding", Embedding: &EmbeddingTypeResult{Floats: []float32{4, 5, 6}}, Index: 1},
-		},
-		Model: "voyage-multimodal-3.5",
-	}
+// mockEmbeddingData is a test-only struct that serializes the embedding field
+// as a raw []float32 array, matching the Voyage API wire format.
+// (EmbeddingTypeResult has a custom UnmarshalJSON that expects a raw array,
+// but default MarshalJSON produces {"Floats":[...]} which doesn't round-trip.)
+type mockEmbeddingData struct {
+	Object    string    `json:"object"`
+	Embedding []float32 `json:"embedding"`
+	Index     int       `json:"index"`
+}
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(mockResp)
-	}))
-	defer srv.Close()
+type mockEmbeddingResponse struct {
+	Object string               `json:"object"`
+	Data   []mockEmbeddingData  `json:"data"`
+	Model  string               `json:"model"`
+}
 
+// newTestEF creates a VoyageAIEmbeddingFunction backed by the given mock server.
+func newTestEF(t *testing.T, srv *httptest.Server) *VoyageAIEmbeddingFunction {
+	t.Helper()
 	ef, err := NewVoyageAIEmbeddingFunction(
 		WithBaseURL(srv.URL+"/v1/embeddings"),
 		WithAPIKey("test-key"),
@@ -347,6 +581,303 @@ func TestVoyageBatchRejectsPerItemOverrides(t *testing.T) {
 		WithInsecure(),
 	)
 	require.NoError(t, err)
+	return ef
+}
+
+// mockEmbeddingServer returns a test server that responds with the given embedding data.
+func mockEmbeddingServer(t *testing.T, results []mockEmbeddingData) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		resp := mockEmbeddingResponse{
+			Object: "list",
+			Data:   results,
+			Model:  "voyage-multimodal-3.5",
+		}
+		require.NoError(t, json.NewEncoder(w).Encode(resp))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// TestVoyageEmbedContentHappyPath verifies the EmbedContent full round-trip.
+func TestVoyageEmbedContentHappyPath(t *testing.T) {
+	var capturedReq CreateMultimodalEmbeddingRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&capturedReq))
+		w.Header().Set("Content-Type", "application/json")
+		resp := mockEmbeddingResponse{
+			Object: "list",
+			Data: []mockEmbeddingData{
+				{Object: "embedding", Embedding: []float32{0.1, 0.2, 0.3}, Index: 0},
+			},
+			Model: "voyage-multimodal-3.5",
+		}
+		require.NoError(t, json.NewEncoder(w).Encode(resp))
+	}))
+	t.Cleanup(srv.Close)
+
+	ef := newTestEF(t, srv)
+	content := embeddings.Content{
+		Parts:  []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello world"}},
+		Intent: embeddings.IntentRetrievalQuery,
+	}
+
+	emb, err := ef.EmbedContent(context.Background(), content)
+	require.NoError(t, err)
+	assert.Len(t, emb.ContentAsFloat32(), 3)
+	assert.InDelta(t, 0.1, emb.ContentAsFloat32()[0], 1e-6)
+
+	// Verify request body
+	assert.Equal(t, "voyage-multimodal-3.5", capturedReq.Model)
+	require.Len(t, capturedReq.Inputs, 1)
+	require.Len(t, capturedReq.Inputs[0].Content, 1)
+	assert.Equal(t, "text", capturedReq.Inputs[0].Content[0].Type)
+	require.NotNil(t, capturedReq.InputType)
+	assert.Equal(t, InputTypeQuery, *capturedReq.InputType)
+}
+
+// TestVoyageEmbedContentWithDimension verifies dimension is passed through.
+func TestVoyageEmbedContentWithDimension(t *testing.T) {
+	var capturedReq CreateMultimodalEmbeddingRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&capturedReq))
+		w.Header().Set("Content-Type", "application/json")
+		resp := mockEmbeddingResponse{
+			Object: "list",
+			Data: []mockEmbeddingData{
+				{Object: "embedding", Embedding: []float32{0.1, 0.2}, Index: 0},
+			},
+			Model: "voyage-multimodal-3.5",
+		}
+		require.NoError(t, json.NewEncoder(w).Encode(resp))
+	}))
+	t.Cleanup(srv.Close)
+
+	ef := newTestEF(t, srv)
+	dim := 256
+	content := embeddings.Content{
+		Parts:     []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}},
+		Dimension: &dim,
+	}
+
+	_, err := ef.EmbedContent(context.Background(), content)
+	require.NoError(t, err)
+	require.NotNil(t, capturedReq.OutputDimension)
+	assert.Equal(t, 256, *capturedReq.OutputDimension)
+}
+
+// TestVoyageEmbedContentErrors verifies error responses from EmbedContent.
+func TestVoyageEmbedContentErrors(t *testing.T) {
+	t.Run("empty response data", func(t *testing.T) {
+		srv := mockEmbeddingServer(t, []mockEmbeddingData{})
+		ef := newTestEF(t, srv)
+		content := embeddings.Content{
+			Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}},
+		}
+		_, err := ef.EmbedContent(context.Background(), content)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no embedding returned")
+	})
+
+	t.Run("nil embedding in response", func(t *testing.T) {
+		// Server returns a result with no embedding field (null in JSON)
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":null,"index":0}],"model":"voyage-multimodal-3.5"}`))
+		}))
+		t.Cleanup(srv.Close)
+		ef := newTestEF(t, srv)
+		content := embeddings.Content{
+			Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}},
+		}
+		_, err := ef.EmbedContent(context.Background(), content)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "nil embedding")
+	})
+
+	t.Run("empty floats in response", func(t *testing.T) {
+		srv := mockEmbeddingServer(t, []mockEmbeddingData{{Object: "embedding", Embedding: []float32{}, Index: 0}})
+		ef := newTestEF(t, srv)
+		content := embeddings.Content{
+			Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}},
+		}
+		_, err := ef.EmbedContent(context.Background(), content)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty embedding vector")
+	})
+
+	t.Run("API error is wrapped", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":"server error"}`))
+		}))
+		t.Cleanup(srv.Close)
+		ef := newTestEF(t, srv)
+		content := embeddings.Content{
+			Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}},
+		}
+		_, err := ef.EmbedContent(context.Background(), content)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to embed multimodal content")
+	})
+}
+
+// TestVoyageEmbedContentContextInputType verifies context-level input type override.
+func TestVoyageEmbedContentContextInputType(t *testing.T) {
+	var capturedReq CreateMultimodalEmbeddingRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&capturedReq))
+		w.Header().Set("Content-Type", "application/json")
+		resp := mockEmbeddingResponse{
+			Object: "list",
+			Data: []mockEmbeddingData{
+				{Object: "embedding", Embedding: []float32{0.1}, Index: 0},
+			},
+			Model: "voyage-multimodal-3.5",
+		}
+		require.NoError(t, json.NewEncoder(w).Encode(resp))
+	}))
+	t.Cleanup(srv.Close)
+
+	ef := newTestEF(t, srv)
+	ctx := ContextWithInputType(context.Background(), InputTypeDocument)
+	content := embeddings.Content{
+		Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}},
+	}
+
+	_, err := ef.EmbedContent(ctx, content)
+	require.NoError(t, err)
+	require.NotNil(t, capturedReq.InputType)
+	assert.Equal(t, InputTypeDocument, *capturedReq.InputType)
+}
+
+// TestVoyageEmbedContentsHappyPath verifies batch embedding round-trip.
+func TestVoyageEmbedContentsHappyPath(t *testing.T) {
+	srv := mockEmbeddingServer(t, []mockEmbeddingData{
+		{Object: "embedding", Embedding: []float32{1, 2, 3}, Index: 0},
+		{Object: "embedding", Embedding: []float32{4, 5, 6}, Index: 1},
+	})
+	ef := newTestEF(t, srv)
+
+	contents := []embeddings.Content{
+		{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "first"}}},
+		{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "second"}}},
+	}
+	embs, err := ef.EmbedContents(context.Background(), contents)
+	require.NoError(t, err)
+	require.Len(t, embs, 2)
+	assert.Len(t, embs[0].ContentAsFloat32(), 3)
+	assert.Len(t, embs[1].ContentAsFloat32(), 3)
+}
+
+// TestVoyageEmbedContentsContextInputType verifies context-level input type for multi-item batch.
+func TestVoyageEmbedContentsContextInputType(t *testing.T) {
+	var capturedReq CreateMultimodalEmbeddingRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&capturedReq))
+		w.Header().Set("Content-Type", "application/json")
+		resp := mockEmbeddingResponse{
+			Object: "list",
+			Data: []mockEmbeddingData{
+				{Object: "embedding", Embedding: []float32{0.1}, Index: 0},
+				{Object: "embedding", Embedding: []float32{0.2}, Index: 1},
+			},
+			Model: "voyage-multimodal-3.5",
+		}
+		require.NoError(t, json.NewEncoder(w).Encode(resp))
+	}))
+	t.Cleanup(srv.Close)
+
+	ef := newTestEF(t, srv)
+	ctx := ContextWithInputType(context.Background(), InputTypeDocument)
+	contents := []embeddings.Content{
+		{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "a"}}},
+		{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "b"}}},
+	}
+
+	_, err := ef.EmbedContents(ctx, contents)
+	require.NoError(t, err)
+	require.NotNil(t, capturedReq.InputType)
+	assert.Equal(t, InputTypeDocument, *capturedReq.InputType)
+}
+
+// TestVoyageEmbedContentsCountMismatch verifies response count validation.
+func TestVoyageEmbedContentsCountMismatch(t *testing.T) {
+	// Server returns 1 embedding for 2 inputs
+	srv := mockEmbeddingServer(t, []mockEmbeddingData{
+		{Object: "embedding", Embedding: []float32{1, 2, 3}, Index: 0},
+	})
+	ef := newTestEF(t, srv)
+
+	contents := []embeddings.Content{
+		{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "first"}}},
+		{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "second"}}},
+	}
+	_, err := ef.EmbedContents(context.Background(), contents)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "expected 2 embeddings")
+}
+
+// TestVoyageEmbedContentsErrors verifies batch error handling.
+func TestVoyageEmbedContentsErrors(t *testing.T) {
+	t.Run("nil embedding in batch", func(t *testing.T) {
+		// Server returns raw JSON with null embedding
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[1],"index":0},{"object":"embedding","embedding":null,"index":1}],"model":"voyage-multimodal-3.5"}`))
+		}))
+		t.Cleanup(srv.Close)
+		ef := newTestEF(t, srv)
+
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "a"}}},
+			{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "b"}}},
+		}
+		_, err := ef.EmbedContents(context.Background(), contents)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "nil embedding")
+	})
+
+	t.Run("empty floats in batch", func(t *testing.T) {
+		srv := mockEmbeddingServer(t, []mockEmbeddingData{
+			{Object: "embedding", Embedding: []float32{}, Index: 0},
+		})
+		ef := newTestEF(t, srv)
+
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "a"}}},
+		}
+		_, err := ef.EmbedContents(context.Background(), contents)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty embedding vector")
+	})
+
+	t.Run("API error is wrapped", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"bad request"}`))
+		}))
+		t.Cleanup(srv.Close)
+		ef := newTestEF(t, srv)
+
+		contents := []embeddings.Content{
+			{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "a"}}},
+		}
+		_, err := ef.EmbedContents(context.Background(), contents)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to embed multimodal contents batch")
+	})
+}
+
+// TestVoyageBatchRejectsPerItemOverrides verifies batch rejection of per-item overrides.
+func TestVoyageBatchRejectsPerItemOverrides(t *testing.T) {
+	ef := &VoyageAIEmbeddingFunction{
+		apiClient: &VoyageAIClient{
+			DefaultModel: "voyage-multimodal-3.5",
+			MaxBatchSize: 128,
+		},
+	}
 
 	t.Run("batch rejects per-item Intent", func(t *testing.T) {
 		contents := []embeddings.Content{
@@ -380,12 +911,12 @@ func TestVoyageBatchRejectsPerItemOverrides(t *testing.T) {
 	})
 }
 
-// TestVoyageContentRegistration verifies RegisterContent("voyageai") is registered (VOY-03).
+// TestVoyageContentRegistration verifies RegisterContent("voyageai") is registered.
 func TestVoyageContentRegistration(t *testing.T) {
 	assert.True(t, embeddings.HasContent("voyageai"))
 }
 
-// TestVoyageConfigRoundTrip verifies config round-trip GetConfig -> FromConfig -> GetConfig (VOY-03).
+// TestVoyageConfigRoundTrip verifies config round-trip GetConfig -> FromConfig -> GetConfig.
 func TestVoyageConfigRoundTrip(t *testing.T) {
 	t.Setenv("VOYAGE_API_KEY", "test-key-for-config")
 
@@ -405,21 +936,4 @@ func TestVoyageConfigRoundTrip(t *testing.T) {
 	cfg2 := ef2.GetConfig()
 	assert.Equal(t, cfg["model_name"], cfg2["model_name"])
 	assert.Equal(t, cfg["api_key_env_var"], cfg2["api_key_env_var"])
-}
-
-// TestVoyageInterfaceAssertions confirms compile-time interface satisfaction (VOY-01).
-func TestVoyageInterfaceAssertions(t *testing.T) {
-	var _ embeddings.ContentEmbeddingFunction = (*VoyageAIEmbeddingFunction)(nil)
-	var _ embeddings.CapabilityAware = (*VoyageAIEmbeddingFunction)(nil)
-	var _ embeddings.IntentMapper = (*VoyageAIEmbeddingFunction)(nil)
-
-	ef := &VoyageAIEmbeddingFunction{
-		apiClient: &VoyageAIClient{DefaultModel: "voyage-multimodal-3.5"},
-	}
-	caps := ef.Capabilities()
-	assert.NotEmpty(t, caps.Modalities)
-
-	result, err := ef.MapIntent(embeddings.IntentRetrievalQuery)
-	require.NoError(t, err)
-	assert.Equal(t, "query", result)
 }

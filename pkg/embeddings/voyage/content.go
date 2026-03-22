@@ -17,13 +17,10 @@ import (
 
 const (
 	defaultMultimodalModel = "voyage-multimodal-3.5"
-	multimodalBaseAPI      = "https://api.voyageai.com/v1/multimodalembeddings"
 	maxMultimodalFileSize  = 100 * 1024 * 1024 // 100 MB
 )
 
-// MultimodalContentBlock represents a single content block in a Voyage multimodal request.
-// The Type field selects which payload field is active:
-// "text", "image_base64", "image_url", "video_base64", "video_url".
+// MultimodalContentBlock represents a single block in a Voyage multimodal request.
 type MultimodalContentBlock struct {
 	Type        string `json:"type"`
 	Text        string `json:"text,omitempty"`
@@ -99,7 +96,7 @@ func capabilitiesForModel(model string) embeddings.CapabilityMetadata {
 }
 
 // resolveBytes fetches or reads the raw bytes for a binary source.
-func resolveBytes(_ context.Context, source *embeddings.BinarySource, maxFileSize int64) ([]byte, error) {
+func resolveBytes(source *embeddings.BinarySource, maxFileSize int64) ([]byte, error) {
 	if source == nil {
 		return nil, errors.New("source cannot be nil")
 	}
@@ -176,15 +173,17 @@ func validateMIMEModality(modality embeddings.Modality, mimeType string) error {
 		if !strings.HasPrefix(mimeType, "video/") {
 			return errors.Errorf("video modality requires video/* MIME type, got %q", mimeType)
 		}
+	default:
+		return errors.Errorf("MIME validation not implemented for modality %q", modality)
 	}
 	return nil
 }
 
 // convertToVoyageInput converts a shared Content item to a Voyage MultimodalInput.
-func convertToVoyageInput(ctx context.Context, content embeddings.Content, maxFileSize int64) (*MultimodalInput, error) {
+func convertToVoyageInput(content embeddings.Content, maxFileSize int64) (*MultimodalInput, error) {
 	blocks := make([]MultimodalContentBlock, 0, len(content.Parts))
 	for i, part := range content.Parts {
-		block, err := buildContentBlock(ctx, part, maxFileSize)
+		block, err := buildContentBlock(part, maxFileSize)
 		if err != nil {
 			return nil, errors.Wrapf(err, "part[%d]", i)
 		}
@@ -194,14 +193,14 @@ func convertToVoyageInput(ctx context.Context, content embeddings.Content, maxFi
 }
 
 // buildContentBlock converts a single Part to a Voyage MultimodalContentBlock.
-func buildContentBlock(ctx context.Context, part embeddings.Part, maxFileSize int64) (MultimodalContentBlock, error) {
+func buildContentBlock(part embeddings.Part, maxFileSize int64) (MultimodalContentBlock, error) {
 	switch part.Modality {
 	case embeddings.ModalityText:
 		return MultimodalContentBlock{Type: "text", Text: part.Text}, nil
 	case embeddings.ModalityImage:
-		return buildBinaryBlock(ctx, part.Source, "image", maxFileSize)
+		return buildBinaryBlock(part.Source, embeddings.ModalityImage, maxFileSize)
 	case embeddings.ModalityVideo:
-		return buildBinaryBlock(ctx, part.Source, "video", maxFileSize)
+		return buildBinaryBlock(part.Source, embeddings.ModalityVideo, maxFileSize)
 	default:
 		return MultimodalContentBlock{}, errors.Errorf("unsupported modality %q", part.Modality)
 	}
@@ -210,17 +209,19 @@ func buildContentBlock(ctx context.Context, part embeddings.Part, maxFileSize in
 // buildBinaryBlock converts a binary source to a Voyage content block.
 // For URL sources, it passes through as image_url/video_url.
 // For all other kinds, it resolves bytes and encodes as a data URI.
-func buildBinaryBlock(ctx context.Context, source *embeddings.BinarySource, mediaType string, maxFileSize int64) (MultimodalContentBlock, error) {
+func buildBinaryBlock(source *embeddings.BinarySource, modality embeddings.Modality, maxFileSize int64) (MultimodalContentBlock, error) {
 	if source == nil {
 		return MultimodalContentBlock{}, errors.New("binary source is required for non-text parts")
 	}
 	if source.Kind == embeddings.SourceKindURL {
-		block := MultimodalContentBlock{Type: mediaType + "_url"}
-		switch mediaType {
-		case "image":
+		block := MultimodalContentBlock{Type: string(modality) + "_url"}
+		switch modality {
+		case embeddings.ModalityImage:
 			block.ImageURL = source.URL
-		case "video":
+		case embeddings.ModalityVideo:
 			block.VideoURL = source.URL
+		default:
+			return MultimodalContentBlock{}, errors.Errorf("unsupported modality %q for URL source", modality)
 		}
 		return block, nil
 	}
@@ -229,38 +230,36 @@ func buildBinaryBlock(ctx context.Context, source *embeddings.BinarySource, medi
 	if err != nil {
 		return MultimodalContentBlock{}, err
 	}
-	if err := validateMIMEModality(embeddings.Modality(mediaType), mimeType); err != nil {
+	if err := validateMIMEModality(modality, mimeType); err != nil {
 		return MultimodalContentBlock{}, err
 	}
-	data, err := resolveBytes(ctx, source, maxFileSize)
+	data, err := resolveBytes(source, maxFileSize)
 	if err != nil {
 		return MultimodalContentBlock{}, err
 	}
 
 	dataURI := fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data))
-	block := MultimodalContentBlock{Type: mediaType + "_base64"}
-	switch mediaType {
-	case "image":
+	block := MultimodalContentBlock{Type: string(modality) + "_base64"}
+	switch modality {
+	case embeddings.ModalityImage:
 		block.ImageBase64 = dataURI
-	case "video":
+	case embeddings.ModalityVideo:
 		block.VideoBase64 = dataURI
+	default:
+		return MultimodalContentBlock{}, errors.Errorf("unsupported modality %q for binary source", modality)
 	}
 	return block, nil
 }
 
 // MapIntent translates a neutral shared intent to a Voyage input_type string.
-// Only retrieval_query and retrieval_document are supported.
 func (e *VoyageAIEmbeddingFunction) MapIntent(intent embeddings.Intent) (string, error) {
-	if !embeddings.IsNeutralIntent(intent) {
-		return "", errors.Errorf("unsupported intent %q: use ProviderHints[\"input_type\"] for Voyage-native input types", intent)
-	}
 	switch intent {
 	case embeddings.IntentRetrievalQuery:
 		return string(InputTypeQuery), nil
 	case embeddings.IntentRetrievalDocument:
 		return string(InputTypeDocument), nil
 	default:
-		return "", errors.Errorf("intent %q is not supported by Voyage; only retrieval_query and retrieval_document are available", intent)
+		return "", errors.Errorf("intent %q is not supported by Voyage; only retrieval_query and retrieval_document are available; for Voyage-native types use ProviderHints[\"input_type\"]", intent)
 	}
 }
 
@@ -294,12 +293,19 @@ func resolveInputTypeForContent(content embeddings.Content, defaultInputType *In
 }
 
 // multimodalURL derives the multimodal endpoint URL from the client's BaseAPI.
-// If BaseAPI ends with /v1/embeddings, replaces the path; otherwise uses the default.
-func multimodalURL(baseAPI string) string {
+func multimodalURL(baseAPI string) (string, error) {
 	if base, ok := strings.CutSuffix(baseAPI, "/v1/embeddings"); ok {
-		return base + "/v1/multimodalembeddings"
+		return base + "/v1/multimodalembeddings", nil
 	}
-	return multimodalBaseAPI
+	return "", errors.Errorf("cannot derive multimodal endpoint from BaseAPI %q: expected path ending in /v1/embeddings", baseAPI)
+}
+
+// contextInputType extracts the context-level input type if set, otherwise returns nil.
+func contextInputType(ctx context.Context) *InputType {
+	if it, ok := ctx.Value(inputTypeContextKey).(*InputType); ok {
+		return it
+	}
+	return nil
 }
 
 // EmbedContent embeds a single multimodal content item using the shared Content API.
@@ -312,17 +318,12 @@ func (e *VoyageAIEmbeddingFunction) EmbedContent(ctx context.Context, content em
 		return nil, err
 	}
 
-	inputType, err := resolveInputTypeForContent(content, nil, e)
+	inputType, err := resolveInputTypeForContent(content, contextInputType(ctx), e)
 	if err != nil {
 		return nil, err
 	}
 
-	var dimension *int
-	if content.Dimension != nil {
-		dimension = content.Dimension
-	}
-
-	input, err := convertToVoyageInput(ctx, content, maxMultimodalFileSize)
+	input, err := convertToVoyageInput(content, maxMultimodalFileSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert content to Voyage format")
 	}
@@ -332,18 +333,21 @@ func (e *VoyageAIEmbeddingFunction) EmbedContent(ctx context.Context, content em
 		Inputs:          []MultimodalInput{*input},
 		InputType:       inputType,
 		Truncation:      e.getTruncation(ctx),
-		OutputDimension: dimension,
+		OutputDimension: content.Dimension,
 	}
 
 	resp, err := e.apiClient.CreateMultimodalEmbedding(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed multimodal content")
 	}
 	if len(resp.Data) == 0 {
 		return nil, errors.New("no embedding returned from Voyage multimodal API")
 	}
 	if resp.Data[0].Embedding == nil {
 		return nil, errors.New("nil embedding in Voyage multimodal API response")
+	}
+	if len(resp.Data[0].Embedding.Floats) == 0 {
+		return nil, errors.New("empty embedding vector in Voyage multimodal API response")
 	}
 	return embeddings.NewEmbeddingFromFloat32(resp.Data[0].Embedding.Floats), nil
 }
@@ -366,13 +370,11 @@ func (e *VoyageAIEmbeddingFunction) EmbedContents(ctx context.Context, contents 
 	var err error
 
 	if len(contents) == 1 {
-		inputType, err = resolveInputTypeForContent(contents[0], nil, e)
+		inputType, err = resolveInputTypeForContent(contents[0], contextInputType(ctx), e)
 		if err != nil {
 			return nil, err
 		}
-		if contents[0].Dimension != nil {
-			dimension = contents[0].Dimension
-		}
+		dimension = contents[0].Dimension
 	} else {
 		for i, content := range contents {
 			if content.Intent != "" {
@@ -387,11 +389,12 @@ func (e *VoyageAIEmbeddingFunction) EmbedContents(ctx context.Context, contents 
 				}
 			}
 		}
+		inputType = contextInputType(ctx)
 	}
 
 	inputs := make([]MultimodalInput, 0, len(contents))
 	for i, content := range contents {
-		input, convErr := convertToVoyageInput(ctx, content, maxMultimodalFileSize)
+		input, convErr := convertToVoyageInput(content, maxMultimodalFileSize)
 		if convErr != nil {
 			return nil, errors.Wrapf(convErr, "content[%d]", i)
 		}
@@ -408,13 +411,19 @@ func (e *VoyageAIEmbeddingFunction) EmbedContents(ctx context.Context, contents 
 
 	resp, err := e.apiClient.CreateMultimodalEmbedding(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to embed multimodal contents batch")
+	}
+	if len(resp.Data) != len(contents) {
+		return nil, errors.Errorf("expected %d embeddings from Voyage multimodal API, got %d", len(contents), len(resp.Data))
 	}
 
 	embs := make([]embeddings.Embedding, 0, len(resp.Data))
 	for _, result := range resp.Data {
 		if result.Embedding == nil {
 			return nil, errors.New("nil embedding in Voyage multimodal API response")
+		}
+		if len(result.Embedding.Floats) == 0 {
+			return nil, errors.New("empty embedding vector in Voyage multimodal API response")
 		}
 		embs = append(embs, embeddings.NewEmbeddingFromFloat32(result.Embedding.Floats))
 	}

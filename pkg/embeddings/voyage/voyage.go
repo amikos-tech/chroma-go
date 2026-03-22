@@ -216,57 +216,12 @@ func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	return string(data), nil
 }
 
-func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
-	if req == nil {
-		return nil, errors.Errorf("request is nil")
-	}
-	reqJSON, err := req.JSON()
+// doPost sends a JSON POST request to the given URL and returns the raw response body.
+func (c *VoyageAIClient) doPost(ctx context.Context, targetURL string, body any) ([]byte, error) {
+	reqJSON, err := json.Marshal(body)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal embedding request JSON")
+		return nil, errors.Wrap(err, "failed to marshal request JSON")
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseAPI, bytes.NewBufferString(reqJSON))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create HTTP request")
-	}
-	for k, v := range c.DefaultHeaders {
-		httpReq.Header.Set(k, v)
-	}
-	httpReq.Header.Set("Accept", "application/json")
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
-	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
-
-	resp, err := c.Client.Do(httpReq)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to send request to VoyageAI API")
-	}
-	defer resp.Body.Close()
-
-	respData, err := chttp.ReadLimitedBody(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read response body")
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.BaseAPI, string(respData))
-	}
-	var embeddings CreateEmbeddingResponse
-	if err := json.Unmarshal(respData, &embeddings); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal response body")
-	}
-	return &embeddings, nil
-}
-
-// CreateMultimodalEmbedding sends a multimodal embedding request to the Voyage /v1/multimodalembeddings endpoint.
-func (c *VoyageAIClient) CreateMultimodalEmbedding(ctx context.Context, req *CreateMultimodalEmbeddingRequest) (*CreateEmbeddingResponse, error) {
-	if req == nil {
-		return nil, errors.Errorf("request is nil")
-	}
-	reqJSON, err := json.Marshal(req)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal multimodal embedding request JSON")
-	}
-	targetURL := multimodalURL(c.BaseAPI)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(reqJSON))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create HTTP request")
@@ -281,7 +236,7 @@ func (c *VoyageAIClient) CreateMultimodalEmbedding(ctx context.Context, req *Cre
 
 	resp, err := c.Client.Do(httpReq)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to send request to VoyageAI multimodal API")
+		return nil, errors.Wrapf(err, "failed to send request to %s", targetURL)
 	}
 	defer resp.Body.Close()
 
@@ -291,6 +246,37 @@ func (c *VoyageAIClient) CreateMultimodalEmbedding(ctx context.Context, req *Cre
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, targetURL, string(respData))
+	}
+	return respData, nil
+}
+
+func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
+	if req == nil {
+		return nil, errors.Errorf("request is nil")
+	}
+	respData, err := c.doPost(ctx, c.BaseAPI, req)
+	if err != nil {
+		return nil, err
+	}
+	var embeddings CreateEmbeddingResponse
+	if err := json.Unmarshal(respData, &embeddings); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal response body")
+	}
+	return &embeddings, nil
+}
+
+// CreateMultimodalEmbedding sends a multimodal embedding request to the Voyage /v1/multimodalembeddings endpoint.
+func (c *VoyageAIClient) CreateMultimodalEmbedding(ctx context.Context, req *CreateMultimodalEmbeddingRequest) (*CreateEmbeddingResponse, error) {
+	if req == nil {
+		return nil, errors.Errorf("request is nil")
+	}
+	targetURL, err := multimodalURL(c.BaseAPI)
+	if err != nil {
+		return nil, err
+	}
+	respData, err := c.doPost(ctx, targetURL, req)
+	if err != nil {
+		return nil, err
 	}
 	var embResp CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embResp); err != nil {
@@ -326,30 +312,27 @@ func (e *VoyageAIEmbeddingFunction) getModel(ctx context.Context) embeddings.Emb
 	return model
 }
 
-// getTruncation returns the truncation from the context if it exists, otherwise it returns the default truncation
 func (e *VoyageAIEmbeddingFunction) getTruncation(ctx context.Context) *bool {
-	model := e.apiClient.DefaultTruncation
-	if m, ok := ctx.Value(truncationContextKey).(*bool); ok {
-		model = m
+	truncation := e.apiClient.DefaultTruncation
+	if t, ok := ctx.Value(truncationContextKey).(*bool); ok {
+		truncation = t
 	}
-	return model
+	return truncation
 }
 
-// getInputType returns the input type from the context if it exists, otherwise it returns the default input type
 func (e *VoyageAIEmbeddingFunction) getInputType(ctx context.Context, inputType InputType) *InputType {
-	model := &inputType
-	if m, ok := ctx.Value(inputTypeContextKey).(*InputType); ok {
-		model = m
+	if it := contextInputType(ctx); it != nil {
+		return it
 	}
-	return model
+	return &inputType
 }
 
 func (e *VoyageAIEmbeddingFunction) getEncodingFormat(ctx context.Context) *EncodingFormat {
-	model := e.apiClient.DefaultEncodingFormat
-	if m, ok := ctx.Value(encodingFormatContextKey).(*EncodingFormat); ok {
-		model = m
+	format := e.apiClient.DefaultEncodingFormat
+	if f, ok := ctx.Value(encodingFormatContextKey).(*EncodingFormat); ok {
+		format = f
 	}
-	return model
+	return format
 }
 
 func (e *VoyageAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
