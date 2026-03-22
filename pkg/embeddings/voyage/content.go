@@ -60,7 +60,7 @@ var extToMIME = map[string]string{
 // capabilitiesForModel returns the CapabilityMetadata for the given Voyage model.
 func capabilitiesForModel(model string) embeddings.CapabilityMetadata {
 	switch model {
-	case "voyage-multimodal-3.5":
+	case defaultMultimodalModel:
 		return embeddings.CapabilityMetadata{
 			Modalities: []embeddings.Modality{
 				embeddings.ModalityText,
@@ -296,8 +296,8 @@ func resolveInputTypeForContent(content embeddings.Content, defaultInputType *In
 // multimodalURL derives the multimodal endpoint URL from the client's BaseAPI.
 // If BaseAPI ends with /v1/embeddings, replaces the path; otherwise uses the default.
 func multimodalURL(baseAPI string) string {
-	if strings.HasSuffix(baseAPI, "/v1/embeddings") {
-		return strings.TrimSuffix(baseAPI, "/v1/embeddings") + "/v1/multimodalembeddings"
+	if base, ok := strings.CutSuffix(baseAPI, "/v1/embeddings"); ok {
+		return base + "/v1/multimodalembeddings"
 	}
 	return multimodalBaseAPI
 }
