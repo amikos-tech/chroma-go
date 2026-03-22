@@ -130,7 +130,7 @@ Plans:
 
 Plans:
 - [x] 07-01-PLAN.md — Implement content.go with multimodal types, conversion helpers, capabilities, intent mapping, and wire interface implementations + registration into voyage.go
-- [ ] 07-02-PLAN.md — Add unit tests for capability derivation, intent mapping, content conversion, batch rejection, config round-trip, and registration
+- [x] 07-02-PLAN.md — Add unit tests for capability derivation, intent mapping, content conversion, batch rejection, config round-trip, and registration
 
 ## Progress
 
