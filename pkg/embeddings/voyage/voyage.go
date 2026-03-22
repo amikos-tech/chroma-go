@@ -257,7 +257,52 @@ func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddi
 	return &embeddings, nil
 }
 
+// CreateMultimodalEmbedding sends a multimodal embedding request to the Voyage /v1/multimodalembeddings endpoint.
+func (c *VoyageAIClient) CreateMultimodalEmbedding(ctx context.Context, req *CreateMultimodalEmbeddingRequest) (*CreateEmbeddingResponse, error) {
+	if req == nil {
+		return nil, errors.Errorf("request is nil")
+	}
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal multimodal embedding request JSON")
+	}
+	targetURL := multimodalURL(c.BaseAPI)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(reqJSON))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create HTTP request")
+	}
+	for k, v := range c.DefaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
+
+	resp, err := c.Client.Do(httpReq)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to send request to VoyageAI multimodal API")
+	}
+	defer resp.Body.Close()
+
+	respData, err := chttp.ReadLimitedBody(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, targetURL, string(respData))
+	}
+	var embResp CreateEmbeddingResponse
+	if err := json.Unmarshal(respData, &embResp); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal response body")
+	}
+	return &embResp, nil
+}
+
 var _ embeddings.EmbeddingFunction = (*VoyageAIEmbeddingFunction)(nil)
+var _ embeddings.ContentEmbeddingFunction = (*VoyageAIEmbeddingFunction)(nil)
+var _ embeddings.CapabilityAware = (*VoyageAIEmbeddingFunction)(nil)
+var _ embeddings.IntentMapper = (*VoyageAIEmbeddingFunction)(nil)
 
 type VoyageAIEmbeddingFunction struct {
 	apiClient *VoyageAIClient
@@ -412,6 +457,11 @@ func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConf
 
 func init() {
 	if err := embeddings.RegisterDense("voyageai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewVoyageAIEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
+	if err := embeddings.RegisterContent("voyageai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.ContentEmbeddingFunction, error) {
 		return NewVoyageAIEmbeddingFunctionFromConfig(cfg)
 	}); err != nil {
 		panic(err)
