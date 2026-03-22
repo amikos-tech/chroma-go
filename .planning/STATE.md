@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
 status: unknown
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-03-20T20:11:45.881Z"
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-03-22T16:09:52.039Z"
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 18
+  completed_plans: 17
 ---
 
 # Project State
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Current Position
 
-Phase: 7
-Plan: Not started
+Phase: 07 (voyage-multimodal-adoption) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Plan: Not started
 | Phase 05 P01 | 2 | 2 tasks | 2 files |
 | Phase 06 P01 | 5 | 2 tasks | 2 files |
 | Phase 06 P02 | 10min | 1 tasks | 1 files |
+| Phase 07 P01 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,9 @@ Recent decisions affecting current work:
 - [Phase 06-01]: resolveMIME falls back from BinarySource.MIMEType to file extension; fails explicitly when neither resolves
 - [Phase 06-02]: Construct GeminiEmbeddingFunction via struct literal in unit tests to avoid genai.NewClient network calls while keeping tests hermetic
 - [Phase 06-02]: EmbedContentLegacyModelRejectsMultimodal uses dual-string check because ValidateContentSupport produces message with 'does not support' not 'unsupported'
+- [Phase 07]: Copied resolveBytes/resolveMIME helpers from Gemini rather than extracting to shared package
+- [Phase 07]: Batch requests reject per-item Intent/Dimension/ProviderHints with explicit errors matching Gemini pattern
+- [Phase 07]: multimodalURL derives endpoint by replacing /v1/embeddings suffix, falling back to constant for custom base URLs
 
 ### Roadmap Evolution
 
@@ -130,6 +134,6 @@ None yet.
 
 ## Session
 
-**Last Date:** 2026-03-20T20:05:03.640Z
-**Stopped At:** Completed 06-02-PLAN.md
+**Last Date:** 2026-03-22T16:09:52.037Z
+**Stopped At:** Completed 07-01-PLAN.md
 **Resume File:** None

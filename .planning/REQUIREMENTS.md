@@ -40,9 +40,9 @@
 
 ### Voyage Multimodal Adoption
 
-- [ ] **VOY-01**: VoyageAI implements `ContentEmbeddingFunction`, `CapabilityAware`, and `IntentMapper` for text, image, and video modalities
-- [ ] **VOY-02**: Neutral intents map to Voyage input types with explicit errors for unsupported combinations
-- [ ] **VOY-03**: VoyageAI is registered in the multimodal factory/registry path with config round-trip support
+- [x] **VOY-01**: VoyageAI implements `ContentEmbeddingFunction`, `CapabilityAware`, and `IntentMapper` for text, image, and video modalities
+- [x] **VOY-02**: Neutral intents map to Voyage input types with explicit errors for unsupported combinations
+- [x] **VOY-03**: VoyageAI is registered in the multimodal factory/registry path with config round-trip support
 
 ## v2 Requirements
 
@@ -87,9 +87,9 @@
 | GEM-01 | Phase 6 | Complete |
 | GEM-02 | Phase 6 | Complete |
 | GEM-03 | Phase 6 | Complete |
-| VOY-01 | Phase 7 | Pending |
-| VOY-02 | Phase 7 | Pending |
-| VOY-03 | Phase 7 | Pending |
+| VOY-01 | Phase 7 | Complete |
+| VOY-02 | Phase 7 | Complete |
+| VOY-03 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 21 total
