@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 06 — gemini-multimodal-adoption
+**Current focus:** Phase 07 — voyage-multimodal-adoption
 
 ## Current Position
 
@@ -103,7 +103,7 @@ Recent decisions affecting current work:
 - Project initialized around provider-neutral multimodal embedding foundations (#442).
 - Rebranded milestone v0.5 → v0.4.1 (all changes additive, no public API breakage).
 - Added Phase 6: Gemini Multimodal Adoption (#443).
-- Added Phase 7: vLLM/Nemotron Provider Validation (nvidia/omni-embed-nemotron-3b).
+- Added Phase 7: Originally vLLM/Nemotron, pivoted to Voyage Multimodal Adoption (vLLM lacks NVOmniEmbedModel support).
 - Added Phase 8: Document Gemini and Nemotron multimodal embedding functions.
 
 ### Pending Todos
@@ -113,7 +113,7 @@ None yet.
 ### Blockers/Concerns
 
 - The neutral multimodal contract must avoid overfitting to the current Roboflow implementation.
-- vLLM/Nemotron validation (Phase 7) requires access to an internal vLLM API endpoint.
+- Phase 7 pivoted from vLLM/Nemotron to VoyageAI multimodal — vLLM does not support NVOmniEmbedModel architecture.
 
 ## Decisions Made
 
@@ -125,8 +125,8 @@ None yet.
 
 ## Blockers
 
-- Provider-neutral intent design will be validated against Gemini (Phase 6) and vLLM/Nemotron (Phase 7).
-- vLLM/Nemotron validation requires access to an internal vLLM API endpoint.
+- Provider-neutral intent design validated against Gemini (Phase 6), VoyageAI multimodal (Phase 7).
+- Phase 7 requires `VOYAGE_API_KEY` env var for integration tests.
 
 ## Session
 

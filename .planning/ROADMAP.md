@@ -20,7 +20,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly. (completed 2026-03-20)
 - [x] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility. (completed 2026-03-20)
 - [x] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443) (completed 2026-03-20)
-- [ ] **Phase 7: vLLM/Nemotron Provider Validation** - Add vLLM OpenAI-compatible provider targeting nvidia/omni-embed-nemotron-3b to validate the foundation end-to-end.
+- [ ] **Phase 7: Voyage Multimodal Adoption** - Wire VoyageAI into the shared multimodal contract with text, image, and video support to validate the foundation end-to-end. (pivoted from vLLM/Nemotron — vLLM lacks NVOmniEmbedModel support)
 
 ## Phase Details
 
@@ -116,15 +116,16 @@ Plans:
 - [x] 06-01-PLAN.md — Implement content helpers, interface methods, CreateContentEmbedding, registration, and default model update
 - [x] 06-02-PLAN.md — Add unit tests for capability derivation, intent mapping, MIME resolution, content conversion, negative cases, and config round-trip
 
-### Phase 7: vLLM/Nemotron Provider Validation
-**Goal:** Add a vLLM OpenAI-compatible embedding provider targeting nvidia/omni-embed-nemotron-3b to validate the shared multimodal contract against a second real multimodal model beyond Gemini.
+### Phase 7: Voyage Multimodal Adoption
+**Goal:** Wire VoyageAI into the shared multimodal contract so it supports text, image, and video embeddings through the portable interface, validating the foundation against a second real multimodal provider beyond Gemini.
 **Depends on**: Phase 6
-**Requirements**: [VLLM-01, VLLM-02]
+**Requirements**: [VOY-01, VOY-02, VOY-03]
 **Success Criteria** (what must be TRUE):
-  1. A vLLM/OpenAI-compatible provider implements `SharedContentEmbeddingFunction` and `CapabilityAware` for the modalities supported by omni-embed-nemotron-3b.
-  2. The provider works against a live vLLM API endpoint with multimodal inputs.
-  3. The shared contract, registry, and intent mapping work without provider-specific hacks — validating the foundation is truly portable.
-  4. Integration tests cover at least text + image multimodal embedding through the vLLM endpoint.
+  1. Voyage implements `ContentEmbeddingFunction`, `CapabilityAware`, and `IntentMapper` for text, image, and video modalities.
+  2. Neutral intents map to Voyage input types with explicit errors for unsupported combinations.
+  3. Existing `EmbedDocuments`/`EmbedQuery` behavior remains unchanged.
+  4. Voyage is registered in the multimodal factory/registry path with config round-trip support.
+  5. The shared contract, registry, and intent mapping work without provider-specific hacks — validating the foundation is truly portable.
 
 Plans: TBD during planning
 
@@ -138,7 +139,7 @@ Plans: TBD during planning
 | 4. Provider Mapping and Explicit Failures | 2/2 | Complete   | 2026-03-20 |
 | 5. Documentation and Verification | 2/2 | Complete   | 2026-03-20 |
 | 6. Gemini Multimodal Adoption | 2/2 | Complete   | 2026-03-20 |
-| 7. vLLM/Nemotron Provider Validation | - | Not started | - |
+| 7. Voyage Multimodal Adoption | - | Not started | - |
 
 ### Phase 8: Document Gemini and Nemotron multimodal embedding functions
 
