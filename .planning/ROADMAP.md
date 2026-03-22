@@ -126,8 +126,11 @@ Plans:
   3. Existing `EmbedDocuments`/`EmbedQuery` behavior remains unchanged.
   4. Voyage is registered in the multimodal factory/registry path with config round-trip support.
   5. The shared contract, registry, and intent mapping work without provider-specific hacks — validating the foundation is truly portable.
+**Plans**: 2 plans
 
-Plans: TBD during planning
+Plans:
+- [ ] 07-01-PLAN.md — Implement content.go with multimodal types, conversion helpers, capabilities, intent mapping, and wire interface implementations + registration into voyage.go
+- [ ] 07-02-PLAN.md — Add unit tests for capability derivation, intent mapping, content conversion, batch rejection, config round-trip, and registration
 
 ## Progress
 
@@ -139,7 +142,7 @@ Plans: TBD during planning
 | 4. Provider Mapping and Explicit Failures | 2/2 | Complete   | 2026-03-20 |
 | 5. Documentation and Verification | 2/2 | Complete   | 2026-03-20 |
 | 6. Gemini Multimodal Adoption | 2/2 | Complete   | 2026-03-20 |
-| 7. Voyage Multimodal Adoption | - | Not started | - |
+| 7. Voyage Multimodal Adoption | 0/2 | Planning complete | - |
 
 ### Phase 8: Document Gemini and Nemotron multimodal embedding functions
 
