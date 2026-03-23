@@ -38,10 +38,11 @@
 - [x] **GEM-02**: Neutral intents map to Gemini task types with explicit errors for unsupported combinations
 - [x] **GEM-03**: Gemini is registered in the multimodal factory/registry path with config round-trip support
 
-### vLLM/Nemotron Provider Validation
+### Voyage Multimodal Adoption
 
-- [ ] **VLLM-01**: A vLLM/OpenAI-compatible provider implements `SharedContentEmbeddingFunction` and `CapabilityAware` for modalities supported by omni-embed-nemotron-3b
-- [ ] **VLLM-02**: Integration tests validate multimodal embedding through a live vLLM endpoint without provider-specific contract hacks
+- [x] **VOY-01**: VoyageAI implements `ContentEmbeddingFunction`, `CapabilityAware`, and `IntentMapper` for text, image, and video modalities
+- [x] **VOY-02**: Neutral intents map to Voyage input types with explicit errors for unsupported combinations
+- [x] **VOY-03**: VoyageAI is registered in the multimodal factory/registry path with config round-trip support
 
 ## v2 Requirements
 
@@ -86,12 +87,13 @@
 | GEM-01 | Phase 6 | Complete |
 | GEM-02 | Phase 6 | Complete |
 | GEM-03 | Phase 6 | Complete |
-| VLLM-01 | Phase 7 | Pending |
-| VLLM-02 | Phase 7 | Pending |
+| VOY-01 | Phase 7 | Complete |
+| VOY-02 | Phase 7 | Complete |
+| VOY-03 | Phase 7 | Complete |
 
 **Coverage:**
-- v1 requirements: 20 total
-- Mapped to phases: 20
+- v1 requirements: 21 total
+- Mapped to phases: 21
 - Unmapped: 0 ✓
 
 ---

@@ -216,15 +216,13 @@ func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	return string(data), nil
 }
 
-func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
-	if req == nil {
-		return nil, errors.Errorf("request is nil")
-	}
-	reqJSON, err := req.JSON()
+// doPost sends a JSON POST request to the given URL and returns the raw response body.
+func (c *VoyageAIClient) doPost(ctx context.Context, targetURL string, body any) ([]byte, error) {
+	reqJSON, err := json.Marshal(body)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal embedding request JSON")
+		return nil, errors.Wrap(err, "failed to marshal request JSON")
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseAPI, bytes.NewBufferString(reqJSON))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(reqJSON))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create HTTP request")
 	}
@@ -237,9 +235,8 @@ func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddi
 	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey.Value())
 
 	resp, err := c.Client.Do(httpReq)
-
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to send request to VoyageAI API")
+		return nil, errors.Wrapf(err, "failed to send request to %s", targetURL)
 	}
 	defer resp.Body.Close()
 
@@ -248,7 +245,18 @@ func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddi
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.BaseAPI, string(respData))
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, targetURL, string(respData))
+	}
+	return respData, nil
+}
+
+func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingRequest) (*CreateEmbeddingResponse, error) {
+	if req == nil {
+		return nil, errors.Errorf("request is nil")
+	}
+	respData, err := c.doPost(ctx, c.BaseAPI, req)
+	if err != nil {
+		return nil, err
 	}
 	var embeddings CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddings); err != nil {
@@ -257,7 +265,30 @@ func (c *VoyageAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddi
 	return &embeddings, nil
 }
 
+// CreateMultimodalEmbedding sends a multimodal embedding request to the Voyage /v1/multimodalembeddings endpoint.
+func (c *VoyageAIClient) CreateMultimodalEmbedding(ctx context.Context, req *CreateMultimodalEmbeddingRequest) (*CreateEmbeddingResponse, error) {
+	if req == nil {
+		return nil, errors.Errorf("request is nil")
+	}
+	targetURL, err := multimodalURL(c.BaseAPI)
+	if err != nil {
+		return nil, err
+	}
+	respData, err := c.doPost(ctx, targetURL, req)
+	if err != nil {
+		return nil, err
+	}
+	var embResp CreateEmbeddingResponse
+	if err := json.Unmarshal(respData, &embResp); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal response body")
+	}
+	return &embResp, nil
+}
+
 var _ embeddings.EmbeddingFunction = (*VoyageAIEmbeddingFunction)(nil)
+var _ embeddings.ContentEmbeddingFunction = (*VoyageAIEmbeddingFunction)(nil)
+var _ embeddings.CapabilityAware = (*VoyageAIEmbeddingFunction)(nil)
+var _ embeddings.IntentMapper = (*VoyageAIEmbeddingFunction)(nil)
 
 type VoyageAIEmbeddingFunction struct {
 	apiClient *VoyageAIClient
@@ -281,30 +312,27 @@ func (e *VoyageAIEmbeddingFunction) getModel(ctx context.Context) embeddings.Emb
 	return model
 }
 
-// getTruncation returns the truncation from the context if it exists, otherwise it returns the default truncation
 func (e *VoyageAIEmbeddingFunction) getTruncation(ctx context.Context) *bool {
-	model := e.apiClient.DefaultTruncation
-	if m, ok := ctx.Value(truncationContextKey).(*bool); ok {
-		model = m
+	truncation := e.apiClient.DefaultTruncation
+	if t, ok := ctx.Value(truncationContextKey).(*bool); ok {
+		truncation = t
 	}
-	return model
+	return truncation
 }
 
-// getInputType returns the input type from the context if it exists, otherwise it returns the default input type
 func (e *VoyageAIEmbeddingFunction) getInputType(ctx context.Context, inputType InputType) *InputType {
-	model := &inputType
-	if m, ok := ctx.Value(inputTypeContextKey).(*InputType); ok {
-		model = m
+	if it := contextInputType(ctx); it != nil {
+		return it
 	}
-	return model
+	return &inputType
 }
 
 func (e *VoyageAIEmbeddingFunction) getEncodingFormat(ctx context.Context) *EncodingFormat {
-	model := e.apiClient.DefaultEncodingFormat
-	if m, ok := ctx.Value(encodingFormatContextKey).(*EncodingFormat); ok {
-		model = m
+	format := e.apiClient.DefaultEncodingFormat
+	if f, ok := ctx.Value(encodingFormatContextKey).(*EncodingFormat); ok {
+		format = f
 	}
-	return model
+	return format
 }
 
 func (e *VoyageAIEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
@@ -341,7 +369,7 @@ func (e *VoyageAIEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 		Model:          string(e.getModel(ctx)),
 		Input:          &EmbeddingInputs{Input: document},
 		Truncation:     e.getTruncation(ctx),
-		InputType:      e.getInputType(ctx, InputTypeDocument),
+		InputType:      e.getInputType(ctx, InputTypeQuery),
 		EncodingFormat: e.getEncodingFormat(ctx),
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
@@ -412,6 +440,14 @@ func NewVoyageAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConf
 
 func init() {
 	if err := embeddings.RegisterDense("voyageai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.EmbeddingFunction, error) {
+		return NewVoyageAIEmbeddingFunctionFromConfig(cfg)
+	}); err != nil {
+		panic(err)
+	}
+	if err := embeddings.RegisterContent("voyageai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.ContentEmbeddingFunction, error) {
+		if _, hasModel := cfg["model_name"]; !hasModel {
+			cfg["model_name"] = defaultMultimodalModel
+		}
 		return NewVoyageAIEmbeddingFunctionFromConfig(cfg)
 	}); err != nil {
 		panic(err)

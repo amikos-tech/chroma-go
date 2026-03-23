@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
 status: unknown
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-03-20T20:11:45.881Z"
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-03-22T18:59:25.986Z"
 progress:
-  total_phases: 7
-  completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_phases: 8
+  completed_phases: 7
+  total_plans: 18
+  completed_plans: 18
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 06 — gemini-multimodal-adoption
+**Current focus:** Phase 07 — voyage-multimodal-adoption
 
 ## Current Position
 
-Phase: 7
+Phase: 08
 Plan: Not started
 
 ## Performance Metrics
@@ -60,6 +60,8 @@ Plan: Not started
 | Phase 05 P01 | 2 | 2 tasks | 2 files |
 | Phase 06 P01 | 5 | 2 tasks | 2 files |
 | Phase 06 P02 | 10min | 1 tasks | 1 files |
+| Phase 07 P01 | 3min | 2 tasks | 2 files |
+| Phase 07 P02 | 4min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -97,13 +99,17 @@ Recent decisions affecting current work:
 - [Phase 06-01]: resolveMIME falls back from BinarySource.MIMEType to file extension; fails explicitly when neither resolves
 - [Phase 06-02]: Construct GeminiEmbeddingFunction via struct literal in unit tests to avoid genai.NewClient network calls while keeping tests hermetic
 - [Phase 06-02]: EmbedContentLegacyModelRejectsMultimodal uses dual-string check because ValidateContentSupport produces message with 'does not support' not 'unsupported'
+- [Phase 07]: Copied resolveBytes/resolveMIME helpers from Gemini rather than extracting to shared package
+- [Phase 07]: Batch requests reject per-item Intent/Dimension/ProviderHints with explicit errors matching Gemini pattern
+- [Phase 07]: multimodalURL derives endpoint by replacing /v1/embeddings suffix, falling back to constant for custom base URLs
+- [Phase 07]: Used struct literal construction for hermetic VoyageAI unit tests, matching Gemini Phase 06-02 pattern
 
 ### Roadmap Evolution
 
 - Project initialized around provider-neutral multimodal embedding foundations (#442).
 - Rebranded milestone v0.5 → v0.4.1 (all changes additive, no public API breakage).
 - Added Phase 6: Gemini Multimodal Adoption (#443).
-- Added Phase 7: vLLM/Nemotron Provider Validation (nvidia/omni-embed-nemotron-3b).
+- Added Phase 7: Originally vLLM/Nemotron, pivoted to Voyage Multimodal Adoption (vLLM lacks NVOmniEmbedModel support).
 - Added Phase 8: Document Gemini and Nemotron multimodal embedding functions.
 
 ### Pending Todos
@@ -113,7 +119,7 @@ None yet.
 ### Blockers/Concerns
 
 - The neutral multimodal contract must avoid overfitting to the current Roboflow implementation.
-- vLLM/Nemotron validation (Phase 7) requires access to an internal vLLM API endpoint.
+- Phase 7 pivoted from vLLM/Nemotron to VoyageAI multimodal — vLLM does not support NVOmniEmbedModel architecture.
 
 ## Decisions Made
 
@@ -125,11 +131,11 @@ None yet.
 
 ## Blockers
 
-- Provider-neutral intent design will be validated against Gemini (Phase 6) and vLLM/Nemotron (Phase 7).
-- vLLM/Nemotron validation requires access to an internal vLLM API endpoint.
+- Provider-neutral intent design validated against Gemini (Phase 6), VoyageAI multimodal (Phase 7).
+- Phase 7 requires `VOYAGE_API_KEY` env var for integration tests.
 
 ## Session
 
-**Last Date:** 2026-03-20T20:05:03.640Z
-**Stopped At:** Completed 06-02-PLAN.md
+**Last Date:** 2026-03-22T16:18:22.574Z
+**Stopped At:** Completed 07-02-PLAN.md
 **Resume File:** None
