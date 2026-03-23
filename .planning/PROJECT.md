@@ -22,13 +22,17 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 
 ### Active
 
-- [ ] Add a provider-neutral multimodal input model that supports mixed-part requests across text, image, audio, video, and PDF.
-- [ ] Add provider-neutral intent semantics and per-request multimodal options without breaking current text-only and image-only flows.
+None — all v0.4.1 milestone requirements validated.
+
+### Recently Validated
+
+- ✓ Add a provider-neutral multimodal input model that supports mixed-part requests across text, image, audio, video, and PDF — Validated in Phases 1-2
+- ✓ Add provider-neutral intent semantics and per-request multimodal options without breaking current text-only and image-only flows — Validated in Phases 3-4
 - ✓ Public docs explain portable intent usage, escape hatches, and compatibility; tests cover validation, adapters, registry round-trips, and unsupported-combination failures — Validated in Phase 5: Documentation and Verification
 
 ### Out of Scope
 
-- Shipping every provider on the new multimodal contract in this milestone — Gemini and vLLM/Nemotron validate the foundation, remaining providers adopt later
+- Shipping every provider on the new multimodal contract in this milestone — Gemini and VoyageAI validate the foundation, remaining providers adopt later
 - Replacing or removing existing `EmbeddingFunction` and image-only multimodal APIs — backwards compatibility is an explicit acceptance criterion
 - Changing collection/query semantics outside the embedding abstraction boundary — keep the milestone scoped to shared embedding foundations
 
@@ -57,7 +61,7 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 | Use the existing codebase map as brownfield context instead of re-running codebase mapping | `.planning/codebase/` already captures architecture, concerns, structure, and testing | ✓ Good |
 | Rebrand milestone from `v0.5` to `v0.4.1` | All changes since v0.4.0 are purely additive with no public API breakage — patch bump is correct semver | ✓ Good |
 | Add Gemini multimodal as Phase 6 (issue #443) | First concrete provider adoption validates the shared contract end-to-end | ✓ Good |
-| Add vLLM/Nemotron as Phase 7 | Second provider (nvidia/omni-embed-nemotron-3b via vLLM) proves portability beyond a single provider | ✓ Good |
+| Pivot Phase 7 from vLLM/Nemotron to VoyageAI | vLLM lacks NVOmniEmbedModel support; VoyageAI multimodal validates portability with text/image/video | ✓ Good |
 
 ---
-*Last updated: 2026-03-22 — Phase 7 complete, VoyageAI implements ContentEmbeddingFunction+CapabilityAware+IntentMapper for text/image/video, validating the shared multimodal contract is portable across providers*
+*Last updated: 2026-03-23 — v0.4.1 milestone complete. All 8 phases executed: shared contract, capabilities, registry, intent mapping, docs, Gemini multimodal, VoyageAI multimodal, provider documentation and changelog.*
