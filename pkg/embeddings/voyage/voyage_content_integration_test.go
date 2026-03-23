@@ -14,10 +14,12 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-const testdataDir = "../testdata"
-
 func testdataPath(name string) string {
-	return filepath.Join(testdataDir, name)
+	abs, err := filepath.Abs(filepath.Join("..", "testdata", name))
+	if err != nil {
+		panic(err)
+	}
+	return abs
 }
 
 func requireVoyageAPIKey(t *testing.T) {
