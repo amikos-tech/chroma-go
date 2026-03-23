@@ -14,11 +14,10 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-func testdataPath(name string) string {
+func testdataPath(t *testing.T, name string) string {
+	t.Helper()
 	abs, err := filepath.Abs(filepath.Join("..", "testdata", name))
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 	return abs
 }
 
@@ -34,7 +33,7 @@ func newContentEF(t *testing.T) *GeminiEmbeddingFunction {
 func TestContentEmbedText(t *testing.T) {
 	ef := newContentEF(t)
 
-	text, err := os.ReadFile(testdataPath("the_golden_hour.md"))
+	text, err := os.ReadFile(testdataPath(t, "the_golden_hour.md"))
 	require.NoError(t, err)
 
 	content := embeddings.Content{
@@ -55,7 +54,7 @@ func TestContentEmbedImage(t *testing.T) {
 				embeddings.ModalityImage,
 				embeddings.BinarySource{
 					Kind:     embeddings.SourceKindFile,
-					FilePath: testdataPath("lioness.png"),
+					FilePath: testdataPath(t, "lioness.png"),
 					MIMEType: "image/png",
 				},
 			),
@@ -76,7 +75,7 @@ func TestContentEmbedAudio(t *testing.T) {
 				embeddings.ModalityAudio,
 				embeddings.BinarySource{
 					Kind:     embeddings.SourceKindFile,
-					FilePath: testdataPath("the_golden_hour.mp3"),
+					FilePath: testdataPath(t, "the_golden_hour.mp3"),
 					MIMEType: "audio/mpeg",
 				},
 			),
@@ -97,7 +96,7 @@ func TestContentEmbedVideo(t *testing.T) {
 				embeddings.ModalityVideo,
 				embeddings.BinarySource{
 					Kind:     embeddings.SourceKindFile,
-					FilePath: testdataPath("the_pounce.mp4"),
+					FilePath: testdataPath(t, "the_pounce.mp4"),
 					MIMEType: "video/mp4",
 				},
 			),
@@ -118,7 +117,7 @@ func TestContentEmbedPDF(t *testing.T) {
 				embeddings.ModalityPDF,
 				embeddings.BinarySource{
 					Kind:     embeddings.SourceKindFile,
-					FilePath: testdataPath("the_golden_hour.pdf"),
+					FilePath: testdataPath(t, "the_golden_hour.pdf"),
 					MIMEType: "application/pdf",
 				},
 			),
@@ -140,7 +139,7 @@ func TestContentEmbedMixedParts(t *testing.T) {
 				embeddings.ModalityImage,
 				embeddings.BinarySource{
 					Kind:     embeddings.SourceKindFile,
-					FilePath: testdataPath("lioness.png"),
+					FilePath: testdataPath(t, "lioness.png"),
 					MIMEType: "image/png",
 				},
 			),
@@ -162,7 +161,7 @@ func TestContentEmbedContentsBatch(t *testing.T) {
 				embeddings.ModalityImage,
 				embeddings.BinarySource{
 					Kind:     embeddings.SourceKindFile,
-					FilePath: testdataPath("lioness.png"),
+					FilePath: testdataPath(t, "lioness.png"),
 					MIMEType: "image/png",
 				},
 			),
