@@ -34,7 +34,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Single content embedding dimension: %d\n", len(emb.ArrayOfFloat32))
+	fmt.Printf("Single content embedding dimension: %d\n", emb.Len())
 
 	// Embed a batch of content items with different modalities (image and video).
 	contents := []embeddings.Content{

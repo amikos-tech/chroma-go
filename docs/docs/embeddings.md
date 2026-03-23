@@ -446,7 +446,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Image content embedding dimension: %d\n", len(emb.ArrayOfFloat32))
+	fmt.Printf("Image content embedding dimension: %d\n", emb.Len())
 
 	// Embed a video with a text description.
 	videoContent := embeddings.Content{
@@ -462,7 +462,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Video content embedding dimension: %d\n", len(emb.ArrayOfFloat32))
+	fmt.Printf("Video content embedding dimension: %d\n", emb.Len())
 }
 ```
 
@@ -554,7 +554,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Image content embedding dimension: %d\n", len(emb.ArrayOfFloat32))
+	fmt.Printf("Image content embedding dimension: %d\n", emb.Len())
 
 	// Embed a video with a text description.
 	videoContent := embeddings.Content{
@@ -570,7 +570,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Video content embedding dimension: %d\n", len(emb.ArrayOfFloat32))
+	fmt.Printf("Video content embedding dimension: %d\n", emb.Len())
 }
 ```
 
