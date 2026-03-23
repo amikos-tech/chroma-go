@@ -366,6 +366,20 @@ an [API Key](https://dash.voyageai.com/api-keys).
 Available models can be
 in [Voyage AI docs](https://docs.voyageai.com/docs/embeddings). `voyage-2` is the default model.
 
+Supported Embedding Function Options:
+
+- `WithAPIKey` - Provide Voyage API key directly.
+- `WithEnvAPIKey` - Load API key from `VOYAGE_API_KEY`.
+- `WithAPIKeyFromEnvVar` - Load API key from a custom environment variable.
+- `WithDefaultModel` - Set the Voyage model to use. Default is `voyage-2`.
+- `WithMaxBatchSize` - Set an upper bound on documents per embedding call (max 128).
+- `WithDefaultHeaders` - Set custom HTTP headers.
+- `WithHTTPClient` - Provide a custom HTTP client.
+- `WithTruncation` - Enable or disable input truncation.
+- `WithEncodingFormat` - Set the response encoding format.
+- `WithBaseURL` - Set a custom API base URL.
+- `WithInsecure` - Allow HTTP without TLS (development and testing only).
+
 ```go
 package main
 
@@ -393,24 +407,84 @@ func main() {
 }
 ```
 
+### Multimodal (Content API)
+
+VoyageAI supports multimodal embeddings through the [Content API](embeddings/multimodal.md). The `voyage-multimodal-3.5` model accepts text, image, and video inputs.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	voyage "github.com/amikos-tech/chroma-go/pkg/embeddings/voyage"
+)
+
+func main() {
+	ef, err := voyage.NewVoyageAIEmbeddingFunction(
+		voyage.WithEnvAPIKey(),
+		voyage.WithDefaultModel("voyage-multimodal-3.5"),
+	)
+	if err != nil {
+		log.Fatalf("Error creating Voyage embedding function: %s", err)
+	}
+
+	// Embed an image with a text description.
+	imageContent := embeddings.Content{
+		Parts: []embeddings.Part{
+			embeddings.NewTextPart("A dog running on a beach"),
+			embeddings.NewPartFromSource(
+				embeddings.ModalityImage,
+				embeddings.NewBinarySourceFromURL("https://example.com/dog.jpg"),
+			),
+		},
+	}
+	emb, err := ef.EmbedContent(context.Background(), imageContent)
+	if err != nil {
+		log.Fatalf("Error embedding content: %s", err)
+	}
+	fmt.Printf("Image content embedding dimension: %d\n", len(emb.ArrayOfFloat32))
+
+	// Embed a video with a text description.
+	videoContent := embeddings.Content{
+		Parts: []embeddings.Part{
+			embeddings.NewTextPart("A tutorial on building with Go"),
+			embeddings.NewPartFromSource(
+				embeddings.ModalityVideo,
+				embeddings.NewBinarySourceFromURL("https://example.com/tutorial.mp4"),
+			),
+		},
+	}
+	emb, err = ef.EmbedContent(context.Background(), videoContent)
+	if err != nil {
+		log.Fatalf("Error embedding content: %s", err)
+	}
+	fmt.Printf("Video content embedding dimension: %d\n", len(emb.ArrayOfFloat32))
+}
+```
+
 ## Google Gemini
 
 To use Google Gemini AI embeddings, you will need to create an [API Key](https://aistudio.google.com/app/apikey).
 
 Available models can be
-in [Gemini Models](https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding). `gemini-embedding-001` is the
-default model.
+in [Gemini Models](https://ai.google.dev/gemini-api/docs/models/gemini#text-embedding). `gemini-embedding-2-preview` is the
+default model. The legacy `gemini-embedding-001` model is still available via `WithDefaultModel`.
 
 Supported Embedding Function Options:
 
 - `WithAPIKey` - Provide Gemini API key directly.
 - `WithEnvAPIKey` - Load API key from `GEMINI_API_KEY`.
 - `WithAPIKeyFromEnvVar` - Load API key from a custom environment variable.
-- `WithDefaultModel` - Set the Gemini model to use. Default is `gemini-embedding-001`.
+- `WithDefaultModel` - Set the Gemini model to use. Default is `gemini-embedding-2-preview`.
 - `WithTaskType` - Set the embedding task type using constants (for example `TaskTypeRetrievalDocument`, `TaskTypeRetrievalQuery`).
 - `WithDimension` - Set reduced output dimensionality.
 - `WithMaxBatchSize` - Set an upper bound on documents per embedding call.
 - `WithClient` - Provide a preconfigured `google.golang.org/genai` client.
+- `WithMaxFileSize` - Set the maximum payload size for inline binary sources.
 
 ```go
 package main
@@ -429,7 +503,7 @@ func main() {
 	// Make sure that you have the `GEMINI_API_KEY` set in your environment
 	ef, err := g.NewGeminiEmbeddingFunction(
 		g.WithEnvAPIKey(),
-		g.WithDefaultModel("gemini-embedding-001"),
+		g.WithDefaultModel("gemini-embedding-2-preview"),
 		g.WithTaskType(g.TaskTypeRetrievalDocument),
 		g.WithDimension(768),
 	)
@@ -441,6 +515,62 @@ func main() {
 		fmt.Printf("Error embedding documents: %s \n", err)
 	}
 	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+### Multimodal (Content API)
+
+Gemini supports multimodal embeddings through the [Content API](embeddings/multimodal.md). The `gemini-embedding-2-preview` model accepts text, image, audio, video, and PDF inputs.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	gemini "github.com/amikos-tech/chroma-go/pkg/embeddings/gemini"
+)
+
+func main() {
+	ef, err := gemini.NewGeminiEmbeddingFunction(gemini.WithEnvAPIKey())
+	if err != nil {
+		log.Fatalf("Error creating Gemini embedding function: %s", err)
+	}
+
+	// Embed an image with a text description.
+	imageContent := embeddings.Content{
+		Parts: []embeddings.Part{
+			embeddings.NewTextPart("A cat sitting on a windowsill"),
+			embeddings.NewPartFromSource(
+				embeddings.ModalityImage,
+				embeddings.NewBinarySourceFromURL("https://example.com/cat.jpg"),
+			),
+		},
+	}
+	emb, err := ef.EmbedContent(context.Background(), imageContent)
+	if err != nil {
+		log.Fatalf("Error embedding content: %s", err)
+	}
+	fmt.Printf("Image content embedding dimension: %d\n", len(emb.ArrayOfFloat32))
+
+	// Embed a video with a text description.
+	videoContent := embeddings.Content{
+		Parts: []embeddings.Part{
+			embeddings.NewTextPart("A lecture on machine learning"),
+			embeddings.NewPartFromSource(
+				embeddings.ModalityVideo,
+				embeddings.NewBinarySourceFromURL("https://example.com/lecture.mp4"),
+			),
+		},
+	}
+	emb, err = ef.EmbedContent(context.Background(), videoContent)
+	if err != nil {
+		log.Fatalf("Error embedding content: %s", err)
+	}
+	fmt.Printf("Video content embedding dimension: %d\n", len(emb.ArrayOfFloat32))
 }
 ```
 
