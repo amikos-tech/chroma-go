@@ -445,6 +445,9 @@ func init() {
 		panic(err)
 	}
 	if err := embeddings.RegisterContent("voyageai", func(cfg embeddings.EmbeddingFunctionConfig) (embeddings.ContentEmbeddingFunction, error) {
+		if _, hasModel := cfg["model_name"]; !hasModel {
+			cfg["model_name"] = defaultMultimodalModel
+		}
 		return NewVoyageAIEmbeddingFunctionFromConfig(cfg)
 	}); err != nil {
 		panic(err)

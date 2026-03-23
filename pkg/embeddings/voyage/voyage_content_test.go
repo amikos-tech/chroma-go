@@ -916,6 +916,75 @@ func TestVoyageContentRegistration(t *testing.T) {
 	assert.True(t, embeddings.HasContent("voyageai"))
 }
 
+// TestVoyageContentRegistrationDefaultModel verifies content factory defaults to multimodal model.
+func TestVoyageContentRegistrationDefaultModel(t *testing.T) {
+	t.Setenv("VOYAGE_API_KEY", "test-key")
+	cfg := embeddings.EmbeddingFunctionConfig{
+		"api_key_env_var": "VOYAGE_API_KEY",
+	}
+	ef, err := embeddings.BuildContent("voyageai", cfg)
+	require.NoError(t, err)
+
+	capAware, ok := ef.(embeddings.CapabilityAware)
+	require.True(t, ok, "content factory result should implement CapabilityAware")
+	caps := capAware.Capabilities()
+	assert.True(t, caps.SupportsMixedPart, "content factory should default to multimodal model")
+	assert.Len(t, caps.Modalities, 3, "content factory should support text/image/video by default")
+}
+
+// TestVoyageCapabilitiesForContext verifies capabilities honor context model override.
+func TestVoyageCapabilitiesForContext(t *testing.T) {
+	ef := &VoyageAIEmbeddingFunction{
+		apiClient: &VoyageAIClient{DefaultModel: "voyage-multimodal-3.5"},
+	}
+
+	t.Run("default model has 3 modalities", func(t *testing.T) {
+		caps := ef.capabilitiesForContext(context.Background())
+		assert.Len(t, caps.Modalities, 3)
+	})
+
+	t.Run("context override to multimodal-3 has 2 modalities", func(t *testing.T) {
+		ctx := ContextWithModel(context.Background(), "voyage-multimodal-3")
+		caps := ef.capabilitiesForContext(ctx)
+		assert.Len(t, caps.Modalities, 2)
+		assert.Contains(t, caps.Modalities, embeddings.ModalityText)
+		assert.Contains(t, caps.Modalities, embeddings.ModalityImage)
+	})
+
+	t.Run("context override to text-only model has 1 modality", func(t *testing.T) {
+		ctx := ContextWithModel(context.Background(), "voyage-2")
+		caps := ef.capabilitiesForContext(ctx)
+		assert.Len(t, caps.Modalities, 1)
+	})
+}
+
+// TestVoyageEmbedContentRejectsVideoForContextModel verifies validation uses context model.
+func TestVoyageEmbedContentRejectsVideoForContextModel(t *testing.T) {
+	ef := &VoyageAIEmbeddingFunction{
+		apiClient: &VoyageAIClient{
+			DefaultModel: "voyage-multimodal-3.5", // supports video
+			MaxBatchSize: 128,
+		},
+	}
+	// Override to multimodal-3 which does NOT support video
+	ctx := ContextWithModel(context.Background(), "voyage-multimodal-3")
+	content := embeddings.Content{
+		Parts: []embeddings.Part{
+			{
+				Modality: embeddings.ModalityVideo,
+				Source: &embeddings.BinarySource{
+					Kind: embeddings.SourceKindURL,
+					URL:  "https://example.com/video.mp4",
+				},
+			},
+		},
+	}
+
+	_, err := ef.EmbedContent(ctx, content)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "video")
+}
+
 // TestVoyageConfigRoundTrip verifies config round-trip GetConfig -> FromConfig -> GetConfig.
 func TestVoyageConfigRoundTrip(t *testing.T) {
 	t.Setenv("VOYAGE_API_KEY", "test-key-for-config")

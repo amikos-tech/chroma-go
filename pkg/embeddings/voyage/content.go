@@ -268,6 +268,12 @@ func (e *VoyageAIEmbeddingFunction) Capabilities() embeddings.CapabilityMetadata
 	return capabilitiesForModel(string(e.apiClient.DefaultModel))
 }
 
+// capabilitiesForContext returns capabilities for the effective model,
+// honoring any model override set in the context.
+func (e *VoyageAIEmbeddingFunction) capabilitiesForContext(ctx context.Context) embeddings.CapabilityMetadata {
+	return capabilitiesForModel(string(e.getModel(ctx)))
+}
+
 // resolveInputTypeForContent determines the effective Voyage input_type for a content request.
 // Priority: ProviderHints["input_type"] > intent via mapper > defaultInputType.
 func resolveInputTypeForContent(content embeddings.Content, defaultInputType *InputType, mapper embeddings.IntentMapper) (*InputType, error) {
@@ -313,7 +319,7 @@ func (e *VoyageAIEmbeddingFunction) EmbedContent(ctx context.Context, content em
 	if err := content.Validate(); err != nil {
 		return nil, err
 	}
-	caps := e.Capabilities()
+	caps := e.capabilitiesForContext(ctx)
 	if err := embeddings.ValidateContentSupport(content, caps); err != nil {
 		return nil, err
 	}
@@ -360,7 +366,7 @@ func (e *VoyageAIEmbeddingFunction) EmbedContents(ctx context.Context, contents 
 	if len(contents) > e.apiClient.MaxBatchSize {
 		return nil, errors.Errorf("number of contents exceeds the maximum batch size %v", e.apiClient.MaxBatchSize)
 	}
-	caps := e.Capabilities()
+	caps := e.capabilitiesForContext(ctx)
 	if err := embeddings.ValidateContentsSupport(contents, caps); err != nil {
 		return nil, err
 	}
