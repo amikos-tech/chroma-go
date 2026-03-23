@@ -1,96 +1,257 @@
-# Multimodal Embeddings - Content API
+# Multimodal Embeddings — Content API
 
-The Content API provides a unified interface for embedding text, images, and other modalities. It introduces `Content` and `Part` as the canonical request types alongside portable `Intent` constants and per-request options like `Dimension`.
+The Content API lets you embed text, images, audio, video, and PDFs through a single portable interface. Instead of using provider-specific methods, you describe **what** you want to embed and the library handles the **how**.
 
-## Quick Start
+## Why the Content API?
 
-Embed a single piece of text using `EmbedContent`:
+The legacy `EmbedDocuments`/`EmbedQuery` API works great for text. But when you need to embed an image alongside a description, or a video with context, you need a way to express "these things belong together." That's what the Content API does.
+
+```
+Legacy API:  EmbedDocuments(["text1", "text2"])     → []Embedding
+Content API: EmbedContent(Content{text + image})    → Embedding
+```
+
+Both APIs coexist — use whichever fits. The Content API adds multimodal support without replacing anything.
+
+## Core Concepts
+
+The Content API has four building blocks:
+
+```
+Content                          ← One thing to embed
+├── Parts[]                      ← The pieces that make it up
+│   ├── TextPart("a cat photo")  ← Text piece
+│   └── ImagePart(source)        ← Image/video/audio/PDF piece
+│       └── BinarySource         ← Where the data comes from (URL, file, bytes)
+├── Intent                       ← What you're using the embedding for (optional)
+└── Dimension                    ← Output vector size override (optional)
+```
+
+### Content
+
+A `Content` is one semantic unit you want to embed — a document, a query, or a media item. It contains one or more `Part`s that the provider combines into a single embedding vector.
 
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
-import (
-    "context"
-
-    "github.com/amikos-tech/chroma-go/pkg/embeddings"
-)
-
+// A photo with its description → one embedding
 content := embeddings.Content{
     Parts: []embeddings.Part{
-        embeddings.NewTextPart("What is Chroma?"),
+        embeddings.NewTextPart("A lioness hunting at sunset"),
+        embeddings.NewPartFromSource(
+            embeddings.ModalityImage,
+            embeddings.NewBinarySourceFromFile("lioness.png"),
+        ),
     },
 }
-embedding, err := ef.EmbedContent(ctx, content)
 ```
 {% /codetab %}
 {% /codetabs %}
 
-The `ef` variable is any `embeddings.ContentEmbeddingFunction` — for example, a Roboflow embedding function (see the mixed-part section below for construction).
+### Part
 
-## Mixed-Part Requests
+A `Part` is one piece of content — text, an image, a video clip. Each part has a **modality** that declares what type of content it is:
 
-Use `EmbedContents` to embed a batch of content items with different modalities. Because Roboflow processes one item per request, pass text and image as separate `Content` items:
+| Modality | What it represents | Constructors |
+|----------|--------------------|-------------|
+| `ModalityText` | Plain text | `NewTextPart("...")` |
+| `ModalityImage` | Image (PNG, JPEG, WebP, GIF) | `NewPartFromSource(ModalityImage, source)` |
+| `ModalityVideo` | Video (MP4) | `NewPartFromSource(ModalityVideo, source)` |
+| `ModalityAudio` | Audio (MP3, WAV) | `NewPartFromSource(ModalityAudio, source)` |
+| `ModalityPDF` | PDF document | `NewPartFromSource(ModalityPDF, source)` |
+
+Not every provider supports every modality. See [Provider Support](#provider-support) below.
+
+### BinarySource
+
+A `BinarySource` tells the library **where** to find non-text content. You don't construct it directly — use one of the helpers:
 
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
-import (
-    "context"
+// From a URL (provider fetches it)
+embeddings.NewBinarySourceFromURL("https://example.com/cat.jpg")
 
-    "github.com/amikos-tech/chroma-go/pkg/embeddings"
-    "github.com/amikos-tech/chroma-go/pkg/embeddings/roboflow"
-)
+// From a local file (library reads and encodes it)
+embeddings.NewBinarySourceFromFile("/path/to/photo.png")
 
-ef, err := roboflow.NewRoboflowEmbeddingFunction(roboflow.WithEnvAPIKey())
+// From raw bytes already in memory
+embeddings.NewBinarySourceFromBytes(imageBytes)
 
+// From a base64-encoded string
+embeddings.NewBinarySourceFromBase64(b64String)
+```
+{% /codetab %}
+{% /codetabs %}
+
+### Intent
+
+An `Intent` tells the provider **why** you're embedding this content. Providers that support intents (like Gemini and VoyageAI) use this to optimize the embedding for your use case.
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+// Embedding a query to search against stored documents
+query := embeddings.Content{
+    Parts:  []embeddings.Part{embeddings.NewTextPart("how do lionesses hunt?")},
+    Intent: embeddings.IntentRetrievalQuery,
+}
+
+// Embedding a document to be searched later
+doc := embeddings.Content{
+    Parts:  []embeddings.Part{embeddings.NewTextPart("Lionesses hunt cooperatively...")},
+    Intent: embeddings.IntentRetrievalDocument,
+}
+```
+{% /codetab %}
+{% /codetabs %}
+
+**When to use which intent:**
+
+| Intent | Use when... | Example |
+|--------|-------------|---------|
+| `IntentRetrievalQuery` | Embedding a search query | User types "find sunset photos" |
+| `IntentRetrievalDocument` | Embedding content to be searched | Indexing a photo description |
+| `IntentClassification` | Categorizing content | Sorting images into categories |
+| `IntentClustering` | Grouping similar content | Finding related documents |
+| `IntentSemanticSimilarity` | Comparing two items | Checking if two descriptions match |
+
+Intents are optional. If you skip them, the provider uses its default behavior.
+
+!!! note "Not all providers support all intents"
+
+    Gemini supports all five. VoyageAI supports only `IntentRetrievalQuery` and `IntentRetrievalDocument`. Unsupported intents return a clear error — they never silently degrade.
+
+## Common Recipes
+
+### Embed text
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+ef, err := gemini.NewGeminiEmbeddingFunction(gemini.WithEnvAPIKey())
+if err != nil {
+    log.Fatal(err)
+}
+
+content := embeddings.Content{
+    Parts: []embeddings.Part{embeddings.NewTextPart("What is Chroma?")},
+}
+emb, err := ef.EmbedContent(context.Background(), content)
+```
+{% /codetab %}
+{% /codetabs %}
+
+### Embed an image from a URL
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+content := embeddings.Content{
+    Parts: []embeddings.Part{
+        embeddings.NewPartFromSource(
+            embeddings.ModalityImage,
+            embeddings.NewBinarySourceFromURL("https://example.com/cat.jpg"),
+        ),
+    },
+}
+emb, err := ef.EmbedContent(context.Background(), content)
+```
+{% /codetab %}
+{% /codetabs %}
+
+### Embed an image from a local file
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+content := embeddings.Content{
+    Parts: []embeddings.Part{
+        embeddings.NewPartFromSource(
+            embeddings.ModalityImage,
+            embeddings.NewBinarySourceFromFile("/path/to/photo.png"),
+        ),
+    },
+}
+emb, err := ef.EmbedContent(context.Background(), content)
+```
+{% /codetab %}
+{% /codetabs %}
+
+### Embed text + image together
+
+When you combine parts, the provider fuses them into a single embedding that captures both the text and visual content:
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+content := embeddings.Content{
+    Parts: []embeddings.Part{
+        embeddings.NewTextPart("A lioness hunting at sunset"),
+        embeddings.NewPartFromSource(
+            embeddings.ModalityImage,
+            embeddings.NewBinarySourceFromFile("lioness.png"),
+        ),
+    },
+}
+emb, err := ef.EmbedContent(context.Background(), content)
+```
+{% /codetab %}
+{% /codetabs %}
+
+### Embed a batch of items
+
+Use `EmbedContents` to embed multiple content items in one call. Each item produces its own embedding:
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
 contents := []embeddings.Content{
-    {Parts: []embeddings.Part{embeddings.NewTextPart("A dog running on a beach")}},
+    {Parts: []embeddings.Part{embeddings.NewTextPart("The golden hour on the Serengeti")}},
     {Parts: []embeddings.Part{
         embeddings.NewPartFromSource(
             embeddings.ModalityImage,
-            embeddings.NewBinarySourceFromURL("https://example.com/dog.jpg"),
+            embeddings.NewBinarySourceFromFile("lioness.png"),
         ),
     }},
 }
-results, err := ef.EmbedContents(ctx, contents)
+results, err := ef.EmbedContents(context.Background(), contents)
+// results[0] = text embedding, results[1] = image embedding
 ```
 {% /codetab %}
 {% /codetabs %}
 
-Other binary source constructors are available for different input types:
-
-- `embeddings.NewBinarySourceFromFile("/path/to/image.png")`
-- `embeddings.NewBinarySourceFromBase64("base64data==")`
-- `embeddings.NewBinarySourceFromBytes(rawBytes)`
-
-## Portable Intents
-
-Set an `Intent` on a `Content` to communicate the purpose of the request to providers that support it:
+### Embed with an intent
 
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
 content := embeddings.Content{
-    Parts:  []embeddings.Part{embeddings.NewTextPart("retrieval query text")},
+    Parts:  []embeddings.Part{embeddings.NewTextPart("how do lionesses hunt?")},
     Intent: embeddings.IntentRetrievalQuery,
 }
+emb, err := ef.EmbedContent(context.Background(), content)
 ```
 {% /codetab %}
 {% /codetabs %}
 
-The five neutral intent constants map to a provider-independent vocabulary:
+## Provider Support
 
-| Constant | Value |
-|----------|-------|
-| `IntentRetrievalQuery` | `retrieval_query` |
-| `IntentRetrievalDocument` | `retrieval_document` |
-| `IntentClassification` | `classification` |
-| `IntentClustering` | `clustering` |
-| `IntentSemanticSimilarity` | `semantic_similarity` |
+| Provider | Models | Modalities | Mixed Parts | Intents |
+|----------|--------|------------|-------------|---------|
+| **Gemini** | `gemini-embedding-2-preview` | text, image, audio, video, PDF | yes | all 5 |
+| | `gemini-embedding-001` (legacy) | text only | no | all 5 |
+| **VoyageAI** | `voyage-multimodal-3.5` | text, image, video | yes | query, document |
+| | `voyage-2` (default) | text only | no | query, document |
+| **Roboflow** | CLIP | text, image | no (one part per Content) | none |
 
-## Request Options
+See the [Embeddings](../embeddings.md) page for provider setup, API keys, and option functions.
 
-Use the `Dimension` field to request a specific output vector size from providers that support truncated embeddings:
+## Advanced
+
+### Custom output dimensions
+
+Some providers support truncated embeddings for storage efficiency. Use the `Dimension` field:
 
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
@@ -100,33 +261,58 @@ content := embeddings.Content{
     Parts:     []embeddings.Part{embeddings.NewTextPart("document text")},
     Dimension: &dim,
 }
+emb, err := ef.EmbedContent(context.Background(), content)
+// emb.Len() == 256
 ```
 {% /codetab %}
 {% /codetabs %}
 
-!!! note "Advanced"
+### Provider hints
 
-    You can pass raw intent strings and provider-specific hints via the `ProviderHints` field. See [godoc](https://pkg.go.dev/github.com/amikos-tech/chroma-go/pkg/embeddings) for details.
-
-## Compatibility with Legacy API
-
-Both the Content API and the legacy `EmbedDocuments` / `EmbedQuery` API coexist and neither is deprecated. Use whichever fits your use case:
-
-| Use Case | Recommended API |
-|----------|----------------|
-| Text-only embeddings | `EmbedDocuments` / `EmbedQuery` |
-| Mixed media (text + images) | Content API (`EmbedContent` / `EmbedContents`) |
-| Portable intents or dimensions | Content API (`EmbedContent` / `EmbedContents`) |
-
-The legacy API continues to work exactly as before:
+For provider-specific options that don't have a portable equivalent, use `ProviderHints`:
 
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
-embeddings, err := ef.EmbedDocuments(ctx, []string{"text1", "text2"})
-queryEmb, err := ef.EmbedQuery(ctx, "query text")
+content := embeddings.Content{
+    Parts: []embeddings.Part{embeddings.NewTextPart("classify this")},
+    ProviderHints: map[string]any{
+        "task_type": "CLASSIFICATION",  // Gemini-specific
+    },
+}
 ```
 {% /codetab %}
 {% /codetabs %}
 
-Existing providers automatically work with the Content API when retrieved through the registry (`BuildContent`). The registry wraps them with built-in adapters.
+!!! warning
+
+    `ProviderHints` bypass portable intent mapping. They're an escape hatch — prefer `Intent` when a neutral constant fits your use case.
+
+### Capability inspection
+
+Check what a provider supports at runtime:
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+if capAware, ok := ef.(embeddings.CapabilityAware); ok {
+    caps := capAware.Capabilities()
+    fmt.Println("Modalities:", caps.Modalities)     // e.g. [text image audio video pdf]
+    fmt.Println("Mixed parts:", caps.SupportsMixedPart) // true
+    fmt.Println("Intents:", caps.Intents)            // e.g. [retrieval_query retrieval_document ...]
+}
+```
+{% /codetab %}
+{% /codetabs %}
+
+## Compatibility with Legacy API
+
+Both APIs coexist indefinitely — neither is deprecated.
+
+| Use case | Recommended API |
+|----------|----------------|
+| Text-only embeddings | `EmbedDocuments` / `EmbedQuery` |
+| Mixed media (text + images + video) | `EmbedContent` / `EmbedContents` |
+| Portable intents or per-request dimensions | `EmbedContent` / `EmbedContents` |
+
+Existing providers automatically work with the Content API when retrieved through the registry. The registry wraps them with built-in adapters.
