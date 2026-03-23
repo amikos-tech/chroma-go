@@ -6,11 +6,11 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 
 ## Milestones
 
-- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-7 (current planning milestone)
+- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-8 (current planning milestone)
 
 ## v0.4.1 Provider-Neutral Multimodal Foundations
 
-**Milestone Goal:** Add provider-neutral multimodal embedding foundations that support richer modalities and portable intents while preserving existing text-only and image-only APIs, then validate with Gemini and vLLM/Nemotron provider adoptions.
+**Milestone Goal:** Add provider-neutral multimodal embedding foundations that support richer modalities and portable intents while preserving existing text-only and image-only APIs, then validate with Gemini and VoyageAI provider adoptions.
 
 ## Phases
 
@@ -21,6 +21,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility. (completed 2026-03-20)
 - [x] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443) (completed 2026-03-20)
 - [ ] **Phase 7: Voyage Multimodal Adoption** - Wire VoyageAI into the shared multimodal contract with text, image, and video support to validate the foundation end-to-end. (pivoted from vLLM/Nemotron — vLLM lacks NVOmniEmbedModel support)
+- [ ] **Phase 8: Document Gemini and VoyageAI multimodal embedding functions** - Update provider docs, add runnable examples, update README, create changelog.
 
 ## Phase Details
 
@@ -132,6 +133,24 @@ Plans:
 - [x] 07-01-PLAN.md — Implement content.go with multimodal types, conversion helpers, capabilities, intent mapping, and wire interface implementations + registration into voyage.go
 - [x] 07-02-PLAN.md — Add unit tests for capability derivation, intent mapping, content conversion, batch rejection, config round-trip, and registration
 
+### Phase 8: Document Gemini and VoyageAI multimodal embedding functions
+**Goal:** Update provider-specific documentation for Gemini and VoyageAI to show Content API multimodal usage, add runnable examples, update README and changelog to close the v0.4.1 milestone.
+**Depends on:** Phase 7
+**Requirements**: [D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11]
+**Success Criteria** (what must be TRUE):
+  1. Gemini and VoyageAI sections in embeddings.md have "Multimodal (Content API)" subsections with EmbedContent examples.
+  2. Gemini default model references updated to gemini-embedding-2-preview throughout docs.
+  3. VoyageAI section lists all available option functions.
+  4. Runnable multimodal examples exist for both Gemini and VoyageAI.
+  5. README mentions multimodal Content API capabilities and lists new examples.
+  6. CHANGELOG.md documents v0.4.1 release.
+  7. ROADMAP.md references VoyageAI (not Nemotron) consistently.
+**Plans**: 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Update embeddings.md provider sections and add runnable multimodal examples
+- [ ] 08-02-PLAN.md — Update README, create CHANGELOG, correct ROADMAP naming
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -143,13 +162,4 @@ Plans:
 | 5. Documentation and Verification | 2/2 | Complete   | 2026-03-20 |
 | 6. Gemini Multimodal Adoption | 2/2 | Complete   | 2026-03-20 |
 | 7. Voyage Multimodal Adoption | 0/2 | Planning complete | - |
-
-### Phase 8: Document Gemini and Nemotron multimodal embedding functions
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 7
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 8 to break down)
+| 8. Document Gemini and VoyageAI | 0/2 | Planning complete | - |
