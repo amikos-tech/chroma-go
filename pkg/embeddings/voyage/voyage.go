@@ -369,7 +369,7 @@ func (e *VoyageAIEmbeddingFunction) EmbedQuery(ctx context.Context, document str
 		Model:          string(e.getModel(ctx)),
 		Input:          &EmbeddingInputs{Input: document},
 		Truncation:     e.getTruncation(ctx),
-		InputType:      e.getInputType(ctx, InputTypeDocument),
+		InputType:      e.getInputType(ctx, InputTypeQuery),
 		EncodingFormat: e.getEncodingFormat(ctx),
 	}
 	response, err := e.apiClient.CreateEmbedding(ctx, req)
