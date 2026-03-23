@@ -20,7 +20,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 4: Provider Mapping and Explicit Failures** - Define neutral intent mapping and surface unsupported combinations explicitly. (completed 2026-03-20)
 - [x] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility. (completed 2026-03-20)
 - [x] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443) (completed 2026-03-20)
-- [ ] **Phase 7: Voyage Multimodal Adoption** - Wire VoyageAI into the shared multimodal contract with text, image, and video support to validate the foundation end-to-end. (pivoted from vLLM/Nemotron — vLLM lacks NVOmniEmbedModel support)
+- [x] **Phase 7: Voyage Multimodal Adoption** - Wire VoyageAI into the shared multimodal contract with text, image, and video support to validate the foundation end-to-end.
 - [ ] **Phase 8: Document Gemini and VoyageAI multimodal embedding functions** - Update provider docs, add runnable examples, update README, create changelog.
 
 ## Phase Details
@@ -144,7 +144,7 @@ Plans:
   4. Runnable multimodal examples exist for both Gemini and VoyageAI.
   5. README mentions multimodal Content API capabilities and lists new examples.
   6. CHANGELOG.md documents v0.4.1 release.
-  7. ROADMAP.md references VoyageAI (not Nemotron) consistently.
+  7. ROADMAP.md references VoyageAI consistently throughout all phase headings and descriptions.
 **Plans**: 2 plans
 
 Plans:

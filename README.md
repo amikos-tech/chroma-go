@@ -205,6 +205,8 @@ Full auth example: [`examples/v2/auth`](https://github.com/amikos-tech/chroma-go
 | Reranking functions | [`examples/v2/reranking_function_basic`](./examples/v2/reranking_function_basic) | `README.md` | Reranker usage patterns |
 | Logging (Zap) | [`examples/v2/logging`](./examples/v2/logging) | `main.go` | Structured logging with Zap |
 | Logging (slog) | [`examples/v2/logging_slog`](./examples/v2/logging_slog) | `main.go` | Structured logging with `log/slog` |
+| Gemini multimodal | [`examples/v2/gemini_multimodal`](./examples/v2/gemini_multimodal) | `main.go` | Gemini Content API with text + image |
+| Voyage multimodal | [`examples/v2/voyage_multimodal`](./examples/v2/voyage_multimodal) | `main.go` | VoyageAI Content API with text + image |
 
 ## Offline / Air-Gapped Environments
 
@@ -263,6 +265,7 @@ Additional support features:
   Chroma server process.
 - ✅ [Search API Support](https://go-client.chromadb.dev/search/)
 - ✅ Array Metadata support with `$contains`/`$not_contains` operators (Chroma >= 1.5.0)
+- ✅ [Multimodal Content API](https://go-client.chromadb.dev/embeddings/multimodal/) - Portable embedding interface for text, images, audio, video, and PDF with provider-neutral intents
 
 ## Embedding API and Models Support
 
@@ -273,12 +276,12 @@ Additional support features:
 - ✅ [Cohere](https://go-client.chromadb.dev/embeddings/#cohere) (including Multi-language support)
 - ✅ [Sentence Transformers](https://go-client.chromadb.dev/embeddings/#huggingface-inference-api) (HuggingFace Inference
   API and [HFEI local server](https://go-client.chromadb.dev/embeddings/#huggingface-embedding-inference-server))
-- ✅ [Google Gemini Embedding](https://go-client.chromadb.dev/embeddings/#google-gemini-ai) Support
+- ✅ [Google Gemini Embedding](https://go-client.chromadb.dev/embeddings/#google-gemini) Support (Multimodal: text, images, audio, video, PDF via Content API)
 - ✅ [HuggingFace Embedding Inference Server Support](https://go-client.chromadb.dev/embeddings/#huggingface-embedding-inference-server)
 - ✅ [Ollama Embedding](https://go-client.chromadb.dev/embeddings/#ollama) Support
 - ✅ [Cloudflare Workers AI Embedding](https://go-client.chromadb.dev/embeddings/#cloudflare-workers-ai) Support
 - ✅ [Together AI Embedding](https://go-client.chromadb.dev/embeddings/#together-ai) Support
-- ✅ [Voyage AI Embedding](https://go-client.chromadb.dev/embeddings/#voyage-ai) Support
+- ✅ [Voyage AI Embedding](https://go-client.chromadb.dev/embeddings/#voyage-ai) Support (Multimodal: text, images, video via Content API)
 - ✅ [Mistral AI API Embedding](https://go-client.chromadb.dev/embeddings/#mistral-ai) Support
 - ✅ [Nomic AI Embedding](https://go-client.chromadb.dev/embeddings/#nomic-ai) Support
 - ✅ [Jina AI Embedding](https://go-client.chromadb.dev/embeddings/#jina-ai) Support
