@@ -435,10 +435,10 @@ func main() {
 	// Embed an image with a text description.
 	imageContent := embeddings.Content{
 		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A dog running on a beach"),
+			embeddings.NewTextPart("A cat sitting on a windowsill"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromURL("https://example.com/dog.jpg"),
+				embeddings.NewBinarySourceFromURL("https://example.com/cat.jpg"),
 			),
 		},
 	}
@@ -451,10 +451,10 @@ func main() {
 	// Embed a video with a text description.
 	videoContent := embeddings.Content{
 		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A tutorial on building with Go"),
+			embeddings.NewTextPart("A lecture on machine learning"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromURL("https://example.com/tutorial.mp4"),
+				embeddings.NewBinarySourceFromURL("https://example.com/lecture.mp4"),
 			),
 		},
 	}

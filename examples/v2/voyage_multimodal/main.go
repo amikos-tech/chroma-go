@@ -23,10 +23,10 @@ func main() {
 	// Embed a single content item with text and an image.
 	content := embeddings.Content{
 		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A dog running on a beach"),
+			embeddings.NewTextPart("A cat sitting on a windowsill"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromURL("https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/YellowLabradorLooking_new.jpg/1200px-YellowLabradorLooking_new.jpg"),
+				embeddings.NewBinarySourceFromURL("https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1200px-Cat03.jpg"),
 			),
 		},
 	}
@@ -38,18 +38,18 @@ func main() {
 
 	// Embed a batch of content items with different modalities (image and video).
 	contents := []embeddings.Content{
-		{Parts: []embeddings.Part{embeddings.NewTextPart("Ocean waves crashing on rocks")}},
+		{Parts: []embeddings.Part{embeddings.NewTextPart("A dog playing fetch")}},
 		{Parts: []embeddings.Part{
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromURL("https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1200px-Cat03.jpg"),
+				embeddings.NewBinarySourceFromURL("https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/YellowLabradorLooking_new.jpg/1200px-YellowLabradorLooking_new.jpg"),
 			),
 		}},
 		{Parts: []embeddings.Part{
-			embeddings.NewTextPart("A travel vlog exploring coastal scenery"),
+			embeddings.NewTextPart("A short lecture on embeddings"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromURL("https://example.com/travel.mp4"),
+				embeddings.NewBinarySourceFromURL("https://example.com/lecture.mp4"),
 			),
 		}},
 	}
