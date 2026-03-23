@@ -115,6 +115,7 @@ Recent decisions affecting current work:
 - Added Phase 6: Gemini Multimodal Adoption (#443).
 - Added Phase 7: Originally vLLM/Nemotron, pivoted to Voyage Multimodal Adoption (vLLM lacks NVOmniEmbedModel support).
 - Added Phase 8: Document Gemini and Nemotron multimodal embedding functions.
+- Added Phase 9: Convenience Constructors and Documentation Polish — reduce Content API verbosity with shorthand constructors.
 
 ### Pending Todos
 

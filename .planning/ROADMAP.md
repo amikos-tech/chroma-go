@@ -6,7 +6,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 
 ## Milestones
 
-- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-8 (current planning milestone)
+- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-9 (current planning milestone)
 
 ## v0.4.1 Provider-Neutral Multimodal Foundations
 
@@ -21,7 +21,8 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 5: Documentation and Verification** - Update docs, examples, and tests around portable multimodal usage and compatibility. (completed 2026-03-20)
 - [x] **Phase 6: Gemini Multimodal Adoption** - Wire Gemini into the shared multimodal contract with full modality support. (issue #443) (completed 2026-03-20)
 - [x] **Phase 7: Voyage Multimodal Adoption** - Wire VoyageAI into the shared multimodal contract with text, image, and video support to validate the foundation end-to-end.
-- [ ] **Phase 8: Document Gemini and VoyageAI multimodal embedding functions** - Update provider docs, add runnable examples, update README, create changelog.
+- [x] **Phase 8: Document Gemini and VoyageAI multimodal embedding functions** - Update provider docs, add runnable examples, update README, create changelog. (completed 2026-03-23)
+- [ ] **Phase 9: Convenience Constructors and Documentation Polish** - Add shorthand constructors to reduce Content API verbosity and update docs.
 
 ## Phase Details
 
@@ -163,3 +164,18 @@ Plans:
 | 6. Gemini Multimodal Adoption | 2/2 | Complete   | 2026-03-20 |
 | 7. Voyage Multimodal Adoption | 0/2 | Planning complete | - |
 | 8. Document Gemini and VoyageAI | 0/2 | Planning complete | - |
+
+### Phase 9: Convenience Constructors and Documentation Polish
+
+**Goal:** Add shorthand constructors (NewImageURL, NewImageFile, NewVideoURL, etc.) to reduce Content API verbosity, update multimodal docs and examples to use them, and verify the simplified surface end-to-end.
+**Requirements**: TBD
+**Depends on:** Phase 8
+**Success Criteria** (what must be TRUE):
+  1. Convenience constructors exist for common modality+source combinations (at minimum: NewImageURL, NewImageFile, NewVideoURL, NewVideoFile, NewAudioFile, NewPDFFile).
+  2. Existing tests and examples continue to work — constructors are additive sugar, not replacements.
+  3. Multimodal docs and provider examples are updated to show the shorthand forms alongside the verbose forms.
+  4. All new constructors have unit tests.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 9 to break down)
