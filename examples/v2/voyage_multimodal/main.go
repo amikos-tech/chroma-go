@@ -1,0 +1,61 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	voyage "github.com/amikos-tech/chroma-go/pkg/embeddings/voyage"
+)
+
+func main() {
+	// Create a VoyageAI embedding function with the multimodal model.
+	// Set VOYAGE_API_KEY in your environment before running.
+	ef, err := voyage.NewVoyageAIEmbeddingFunction(
+		voyage.WithEnvAPIKey(),
+		voyage.WithDefaultModel("voyage-multimodal-3.5"),
+	)
+	if err != nil {
+		log.Fatalf("Error creating embedding function: %s", err)
+	}
+
+	// Embed a single content item with text and an image.
+	content := embeddings.Content{
+		Parts: []embeddings.Part{
+			embeddings.NewTextPart("A dog running on a beach"),
+			embeddings.NewPartFromSource(
+				embeddings.ModalityImage,
+				embeddings.NewBinarySourceFromURL("https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/YellowLabradorLooking_new.jpg/1200px-YellowLabradorLooking_new.jpg"),
+			),
+		},
+	}
+	emb, err := ef.EmbedContent(context.Background(), content)
+	if err != nil {
+		log.Fatalf("Error embedding content: %s", err)
+	}
+	fmt.Printf("Single content embedding dimension: %d\n", len(emb.ArrayOfFloat32))
+
+	// Embed a batch of content items with different modalities (image and video).
+	contents := []embeddings.Content{
+		{Parts: []embeddings.Part{embeddings.NewTextPart("Ocean waves crashing on rocks")}},
+		{Parts: []embeddings.Part{
+			embeddings.NewPartFromSource(
+				embeddings.ModalityImage,
+				embeddings.NewBinarySourceFromURL("https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1200px-Cat03.jpg"),
+			),
+		}},
+		{Parts: []embeddings.Part{
+			embeddings.NewTextPart("A travel vlog exploring coastal scenery"),
+			embeddings.NewPartFromSource(
+				embeddings.ModalityVideo,
+				embeddings.NewBinarySourceFromURL("https://example.com/travel.mp4"),
+			),
+		}},
+	}
+	results, err := ef.EmbedContents(context.Background(), contents)
+	if err != nil {
+		log.Fatalf("Error embedding contents: %s", err)
+	}
+	fmt.Printf("Batch results: %d embeddings\n", len(results))
+}
