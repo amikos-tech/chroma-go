@@ -4,19 +4,44 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	gemini "github.com/amikos-tech/chroma-go/pkg/embeddings/gemini"
 )
 
-// Run from the repository root: go run ./examples/v2/gemini_multimodal
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
+// findRepoRoot walks up from the current working directory looking for go.mod.
+func findRepoRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("could not find repository root (no go.mod found)")
+		}
+		dir = parent
+	}
+}
+
 func run() error {
+	root, err := findRepoRoot()
+	if err != nil {
+		return err
+	}
+	testdata := filepath.Join(root, "pkg", "embeddings", "testdata")
+
 	// Create a Gemini embedding function using the default multimodal model (gemini-embedding-2-preview).
 	// Set GEMINI_API_KEY in your environment before running.
 	ef, err := gemini.NewGeminiEmbeddingFunction(gemini.WithEnvAPIKey())
@@ -31,7 +56,7 @@ func run() error {
 			embeddings.NewTextPart("A lioness hunting at sunset"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/lioness.png"),
+				embeddings.NewBinarySourceFromFile(filepath.Join(testdata, "lioness.png")),
 			),
 		},
 	}
@@ -47,14 +72,14 @@ func run() error {
 		{Parts: []embeddings.Part{
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/lioness.png"),
+				embeddings.NewBinarySourceFromFile(filepath.Join(testdata, "lioness.png")),
 			),
 		}},
 		{Parts: []embeddings.Part{
 			embeddings.NewTextPart("A lioness pouncing on prey"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/the_pounce.mp4"),
+				embeddings.NewBinarySourceFromFile(filepath.Join(testdata, "the_pounce.mp4")),
 			),
 		}},
 	}

@@ -438,7 +438,7 @@ func main() {
 			embeddings.NewTextPart("A lioness hunting at sunset"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/lioness.png"),
+				embeddings.NewBinarySourceFromFile("/path/to/image.png"),
 			),
 		},
 	}
@@ -455,7 +455,7 @@ func main() {
 			embeddings.NewTextPart("A lioness pouncing on prey"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/the_pounce_small.mp4"),
+				embeddings.NewBinarySourceFromFile("/path/to/video.mp4"),
 			),
 		},
 	}
@@ -547,7 +547,7 @@ func main() {
 			embeddings.NewTextPart("A lioness hunting at sunset"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/lioness.png"),
+				embeddings.NewBinarySourceFromFile("/path/to/image.png"),
 			),
 		},
 	}
@@ -563,7 +563,7 @@ func main() {
 			embeddings.NewTextPart("A lioness pouncing on prey"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/the_pounce.mp4"),
+				embeddings.NewBinarySourceFromFile("/path/to/video.mp4"),
 			),
 		},
 	}
