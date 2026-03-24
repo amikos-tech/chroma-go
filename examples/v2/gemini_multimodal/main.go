@@ -9,13 +9,21 @@ import (
 	gemini "github.com/amikos-tech/chroma-go/pkg/embeddings/gemini"
 )
 
+// Run from the repository root: go run ./examples/v2/gemini_multimodal
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	// Create a Gemini embedding function using the default multimodal model (gemini-embedding-2-preview).
 	// Set GEMINI_API_KEY in your environment before running.
 	ef, err := gemini.NewGeminiEmbeddingFunction(gemini.WithEnvAPIKey())
 	if err != nil {
-		log.Fatalf("Error creating embedding function: %s", err)
+		return fmt.Errorf("error creating embedding function: %w", err)
 	}
+	defer ef.Close()
 
 	// Embed a single content item with text and an image.
 	content := embeddings.Content{
@@ -29,7 +37,7 @@ func main() {
 	}
 	emb, err := ef.EmbedContent(context.Background(), content)
 	if err != nil {
-		log.Fatalf("Error embedding content: %s", err)
+		return fmt.Errorf("error embedding content: %w", err)
 	}
 	fmt.Printf("Single content embedding dimension: %d\n", emb.Len())
 
@@ -52,9 +60,9 @@ func main() {
 	}
 	results, err := ef.EmbedContents(context.Background(), contents)
 	if err != nil {
-		log.Fatalf("Error embedding contents: %s", err)
+		return fmt.Errorf("error embedding contents: %w", err)
 	}
 	fmt.Printf("Batch results: %d embeddings\n", len(results))
 
-	_ = ef.Close()
+	return nil
 }

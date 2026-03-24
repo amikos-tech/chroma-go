@@ -9,7 +9,14 @@ import (
 	voyage "github.com/amikos-tech/chroma-go/pkg/embeddings/voyage"
 )
 
+// Run from the repository root: go run ./examples/v2/voyage_multimodal
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	// Create a VoyageAI embedding function with the multimodal model.
 	// Set VOYAGE_API_KEY in your environment before running.
 	ef, err := voyage.NewVoyageAIEmbeddingFunction(
@@ -17,7 +24,7 @@ func main() {
 		voyage.WithDefaultModel("voyage-multimodal-3.5"),
 	)
 	if err != nil {
-		log.Fatalf("Error creating embedding function: %s", err)
+		return fmt.Errorf("error creating embedding function: %w", err)
 	}
 
 	// Embed a single content item with text and an image.
@@ -32,7 +39,7 @@ func main() {
 	}
 	emb, err := ef.EmbedContent(context.Background(), content)
 	if err != nil {
-		log.Fatalf("Error embedding content: %s", err)
+		return fmt.Errorf("error embedding content: %w", err)
 	}
 	fmt.Printf("Single content embedding dimension: %d\n", emb.Len())
 
@@ -56,7 +63,9 @@ func main() {
 	}
 	results, err := ef.EmbedContents(context.Background(), contents)
 	if err != nil {
-		log.Fatalf("Error embedding contents: %s", err)
+		return fmt.Errorf("error embedding contents: %w", err)
 	}
 	fmt.Printf("Batch results: %d embeddings\n", len(results))
+
+	return nil
 }
