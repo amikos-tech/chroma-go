@@ -33,7 +33,7 @@ func main() {
 	}
 	fmt.Printf("Single content embedding dimension: %d\n", emb.Len())
 
-	// Embed a batch of content items with different modalities (image and video).
+	// Embed a batch of content items with different modalities.
 	contents := []embeddings.Content{
 		{Parts: []embeddings.Part{embeddings.NewTextPart("A dog playing fetch")}},
 		{Parts: []embeddings.Part{
@@ -42,17 +42,12 @@ func main() {
 				embeddings.NewBinarySourceFromURL("https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/YellowLabradorLooking_new.jpg/1200px-YellowLabradorLooking_new.jpg"),
 			),
 		}},
-		{Parts: []embeddings.Part{
-			embeddings.NewTextPart("A short lecture on embeddings"),
-			embeddings.NewPartFromSource(
-				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromURL("https://example.com/lecture.mp4"),
-			),
-		}},
 	}
 	results, err := ef.EmbedContents(context.Background(), contents)
 	if err != nil {
 		log.Fatalf("Error embedding contents: %s", err)
 	}
 	fmt.Printf("Batch results: %d embeddings\n", len(results))
+
+	_ = ef.Close()
 }
