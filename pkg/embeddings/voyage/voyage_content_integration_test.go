@@ -76,7 +76,25 @@ func TestContentEmbedImage(t *testing.T) {
 }
 
 func TestContentEmbedVideo(t *testing.T) {
-	t.Skip("VoyageAI encodes video as inline base64 — the 5.3MB test asset exceeds the 32K token context window")
+	ef := newContentEF(t)
+
+	// Use the small video (480x480, 2s, ~6K tokens) to stay within VoyageAI's 32K token context window.
+	content := embeddings.Content{
+		Parts: []embeddings.Part{
+			embeddings.NewPartFromSource(
+				embeddings.ModalityVideo,
+				embeddings.BinarySource{
+					Kind:     embeddings.SourceKindFile,
+					FilePath: testdataPath(t, "the_pounce_small.mp4"),
+					MIMEType: "video/mp4",
+				},
+			),
+		},
+	}
+	emb, err := ef.EmbedContent(context.Background(), content)
+	require.NoError(t, err)
+	require.NotNil(t, emb)
+	assert.Greater(t, emb.Len(), 0)
 }
 
 func TestContentEmbedMixedParts(t *testing.T) {
