@@ -20,10 +20,10 @@ func main() {
 	// Embed a single content item with text and an image.
 	content := embeddings.Content{
 		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A cat sitting on a windowsill"),
+			embeddings.NewTextPart("A lioness hunting at sunset"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromURL("https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1200px-Cat03.jpg"),
+				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/lioness.png"),
 			),
 		},
 	}
@@ -35,11 +35,18 @@ func main() {
 
 	// Embed a batch of content items with different modalities.
 	contents := []embeddings.Content{
-		{Parts: []embeddings.Part{embeddings.NewTextPart("A dog playing fetch")}},
+		{Parts: []embeddings.Part{embeddings.NewTextPart("The golden hour on the Serengeti")}},
 		{Parts: []embeddings.Part{
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromURL("https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/YellowLabradorLooking_new.jpg/1200px-YellowLabradorLooking_new.jpg"),
+				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/lioness.png"),
+			),
+		}},
+		{Parts: []embeddings.Part{
+			embeddings.NewTextPart("A lioness pouncing on prey"),
+			embeddings.NewPartFromSource(
+				embeddings.ModalityVideo,
+				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/the_pounce.mp4"),
 			),
 		}},
 	}

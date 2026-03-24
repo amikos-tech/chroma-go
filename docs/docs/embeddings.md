@@ -435,10 +435,10 @@ func main() {
 	// Embed an image with a text description.
 	imageContent := embeddings.Content{
 		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A cat sitting on a windowsill"),
+			embeddings.NewTextPart("A lioness hunting at sunset"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromURL("https://example.com/cat.jpg"),
+				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/lioness.png"),
 			),
 		},
 	}
@@ -449,12 +449,13 @@ func main() {
 	fmt.Printf("Image content embedding dimension: %d\n", emb.Len())
 
 	// Embed a video with a text description.
+	// Uses the small video to stay within VoyageAI's 32K token context window.
 	videoContent := embeddings.Content{
 		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A lecture on machine learning"),
+			embeddings.NewTextPart("A lioness pouncing on prey"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromURL("https://example.com/lecture.mp4"),
+				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/the_pounce_small.mp4"),
 			),
 		},
 	}
@@ -543,10 +544,10 @@ func main() {
 	// Embed an image with a text description.
 	imageContent := embeddings.Content{
 		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A cat sitting on a windowsill"),
+			embeddings.NewTextPart("A lioness hunting at sunset"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromURL("https://example.com/cat.jpg"),
+				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/lioness.png"),
 			),
 		},
 	}
@@ -559,10 +560,10 @@ func main() {
 	// Embed a video with a text description.
 	videoContent := embeddings.Content{
 		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A lecture on machine learning"),
+			embeddings.NewTextPart("A lioness pouncing on prey"),
 			embeddings.NewPartFromSource(
 				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromURL("https://example.com/lecture.mp4"),
+				embeddings.NewBinarySourceFromFile("pkg/embeddings/testdata/the_pounce.mp4"),
 			),
 		},
 	}
