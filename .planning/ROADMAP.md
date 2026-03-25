@@ -172,7 +172,7 @@ Plans:
 | 6. Gemini Multimodal Adoption | 2/2 | Complete   | 2026-03-20 |
 | 7. Voyage Multimodal Adoption | 2/2 | Complete | 2026-03-22 |
 | 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
-| 9. Convenience Constructors | 0/0 | Not started | - |
+| 9. Convenience Constructors | 0/2 | Not started | - |
 | 10. Code Cleanups | 0/0 | Not started | - |
 | 11. Fork Double-Close Bug | 0/0 | Not started | - |
 | 12. SDK Auto-Wiring Research | 0/0 | Not started | - |
@@ -185,17 +185,18 @@ Plans:
 ### Phase 9: Convenience Constructors and Documentation Polish
 
 **Goal:** Add shorthand constructors (NewImageURL, NewImageFile, NewVideoURL, etc.) to reduce Content API verbosity, update multimodal docs and examples to use them, and verify the simplified surface end-to-end.
-**Requirements**: TBD
+**Requirements**: [CONV-01, CONV-02, CONV-03, CONV-04]
 **Depends on:** Phase 8
 **Success Criteria** (what must be TRUE):
   1. Convenience constructors exist for common modality+source combinations (at minimum: NewImageURL, NewImageFile, NewVideoURL, NewVideoFile, NewAudioFile, NewPDFFile).
   2. Existing tests and examples continue to work — constructors are additive sugar, not replacements.
   3. Multimodal docs and provider examples are updated to show the shorthand forms alongside the verbose forms.
   4. All new constructors have unit tests.
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 9 to break down)
+- [ ] 09-01-PLAN.md — Implement convenience constructors, ContentOption, and unit tests
+- [ ] 09-02-PLAN.md — Update multimodal docs, provider sections, and rewrite runnable examples
 
 ### Phase 10: Code Cleanups
 **Goal:** Consolidate duplicated path safety utilities into a shared internal package, fix the *context.Context pointer-to-interface anti-pattern across embedding providers, and add registry test cleanup to prevent global state leaks.
