@@ -6,7 +6,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 
 ## Milestones
 
-- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-9 (current planning milestone)
+- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-17 (current planning milestone)
 
 ## v0.4.1 Provider-Neutral Multimodal Foundations
 
@@ -23,12 +23,14 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 7: Voyage Multimodal Adoption** - Wire VoyageAI into the shared multimodal contract with text, image, and video support to validate the foundation end-to-end.
 - [x] **Phase 8: Document Gemini and VoyageAI multimodal embedding functions** - Update provider docs, add runnable examples, update README, create changelog. (completed 2026-03-23)
 - [ ] **Phase 9: Convenience Constructors and Documentation Polish** - Add shorthand constructors to reduce Content API verbosity and update docs.
-- [ ] **Phase 10: Code Cleanups** - Extract shared path safety utilities and fix *context.Context anti-pattern. (issues #461, #466)
-- [ ] **Phase 11: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460)
-- [ ] **Phase 12: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439)
-- [ ] **Phase 13: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438)
-- [ ] **Phase 14: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190)
-- [ ] **Phase 15: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462)
+- [ ] **Phase 10: Code Cleanups** - Extract shared path safety utilities, fix *context.Context anti-pattern, add registry test cleanup. (issues #456, #461, #466)
+- [ ] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454)
+- [ ] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455)
+- [ ] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460)
+- [ ] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439)
+- [ ] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438)
+- [ ] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190)
+- [ ] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462)
 
 ## Phase Details
 
@@ -172,11 +174,13 @@ Plans:
 | 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
 | 9. Convenience Constructors | 0/0 | Not started | - |
 | 10. Code Cleanups | 0/0 | Not started | - |
-| 11. Collection.ForkCount | 0/0 | Not started | - |
-| 12. Delete with Limit | 0/0 | Not started | - |
-| 13. OpenRouter Embeddings | 0/0 | Not started | - |
-| 14. Twelve Labs EF | 0/0 | Not started | - |
-| 15. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
+| 11. Fork Double-Close Bug | 0/0 | Not started | - |
+| 12. SDK Auto-Wiring Research | 0/0 | Not started | - |
+| 13. Collection.ForkCount | 0/0 | Not started | - |
+| 14. Delete with Limit | 0/0 | Not started | - |
+| 15. OpenRouter Embeddings | 0/0 | Not started | - |
+| 16. Twelve Labs EF | 0/0 | Not started | - |
+| 17. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
 
@@ -194,22 +198,50 @@ Plans:
 - [ ] TBD (run /gsd:plan-phase 9 to break down)
 
 ### Phase 10: Code Cleanups
-**Goal:** Consolidate duplicated path safety utilities into a shared internal package and fix the *context.Context pointer-to-interface anti-pattern across embedding providers.
+**Goal:** Consolidate duplicated path safety utilities into a shared internal package, fix the *context.Context pointer-to-interface anti-pattern across embedding providers, and add registry test cleanup to prevent global state leaks.
 **Depends on:** Phase 9
-**Issues**: #461, #466
+**Issues**: #456, #461, #466
 **Success Criteria** (what must be TRUE):
   1. A shared `pkg/internal/pathutil` package provides `ContainsDotDot`, `ValidateFilePath`, and `SafePath` utilities.
   2. Gemini, Voyage, and default_ef use the shared path utilities instead of local duplicates.
   3. Gemini, Nomic, and Mistral use `context.Context` (not `*context.Context`) for DefaultContext.
-  4. All existing tests pass without modification.
+  4. Registry tests use `t.Cleanup` with unregister helpers to prevent global state leaks.
+  5. All existing tests pass without modification.
 **Plans:** 0 plans
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 10 to break down)
 
-### Phase 11: Collection.ForkCount
+### Phase 11: Fork Double-Close Bug
+**Goal:** Fix EF pointer sharing in Fork() that causes the same underlying embedding function resource to be closed twice when client.Close() iterates cached collections.
+**Depends on:** None (independent, but should precede ForkCount work)
+**Issues**: #454
+**Success Criteria** (what must be TRUE):
+  1. Forked collections do not double-close shared EF resources when client.Close() is called.
+  2. Both `embeddingFunction` and `contentEmbeddingFunction` ownership is handled correctly.
+  3. Tests cover Fork + Close lifecycle without panics or use-after-close errors.
+  4. Existing fork tests continue to pass.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 11 to break down)
+
+### Phase 12: SDK Auto-Wiring Research
+**Goal:** Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs (Python, JavaScript) to verify chroma-go's approach is consistent or document deliberate differences.
+**Depends on:** None (research task, informs Phase 13)
+**Issues**: #455
+**Success Criteria** (what must be TRUE):
+  1. Python SDK auto-wiring behavior documented for get_collection, list_collections, and create_collection.
+  2. JavaScript SDK auto-wiring behavior documented for equivalent operations.
+  3. Comparison with chroma-go behavior written up with any recommended changes or documented differences.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 12 to break down)
+
+### Phase 13: Collection.ForkCount
 **Goal:** Add `ForkCount(ctx) (int, error)` to the V2 Collection interface with HTTP transport support, matching upstream Chroma's /fork_count endpoint.
-**Depends on:** None (independent of multimodal phases)
+**Depends on:** Phase 11, Phase 12 (benefits from fork bug fix and SDK research)
 **Issues**: #460
 **Success Criteria** (what must be TRUE):
   1. `pkg/api/v2.Collection` includes `ForkCount(ctx context.Context) (int, error)`.
@@ -220,9 +252,9 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 11 to break down)
+- [ ] TBD (run /gsd:plan-phase 13 to break down)
 
-### Phase 12: Delete with Limit
+### Phase 14: Delete with Limit
 **Goal:** Add limit parameter support to collection delete operations, matching upstream Chroma PRs #6573/#6582.
 **Depends on:** None (independent)
 **Issues**: #439
@@ -233,9 +265,9 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 12 to break down)
+- [ ] TBD (run /gsd:plan-phase 14 to break down)
 
-### Phase 13: OpenRouter Embeddings Compatibility
+### Phase 15: OpenRouter Embeddings Compatibility
 **Goal:** Extend the OpenAI embedding function to support OpenRouter-specific fields (encoding_format, input_type, provider preferences) and relax model validation for provider-prefixed IDs.
 **Depends on:** None (independent)
 **Issues**: #438
@@ -248,9 +280,9 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 13 to break down)
+- [ ] TBD (run /gsd:plan-phase 15 to break down)
 
-### Phase 14: Twelve Labs Embedding Function
+### Phase 16: Twelve Labs Embedding Function
 **Goal:** Add a new Twelve Labs multimodal embedding provider supporting text, image, and audio embeddings via the Twelve Labs API.
 **Depends on:** Phase 9 (benefits from Content API foundations)
 **Issues**: #190
@@ -263,9 +295,9 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 14 to break down)
+- [ ] TBD (run /gsd:plan-phase 16 to break down)
 
-### Phase 15: Cloud RRF and GroupBy Test Coverage
+### Phase 17: Cloud RRF and GroupBy Test Coverage
 **Goal:** Add end-to-end cloud integration tests that exercise Search API RRF and GroupBy primitives against live Chroma Cloud.
 **Depends on:** None (independent, but best run last as test hardening)
 **Issues**: #462
@@ -277,4 +309,4 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 15 to break down)
+- [ ] TBD (run /gsd:plan-phase 17 to break down)
