@@ -22,7 +22,13 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 
 ### Active
 
-None — all v0.4.1 milestone requirements validated.
+- Convenience constructors reduce Content API verbosity for common modality+source combinations — Phase 9
+- Duplicated path safety utilities consolidated into shared internal package, *context.Context anti-pattern fixed — Phase 10 (issues #461, #466)
+- Collection.ForkCount provides Go parity with upstream /fork_count endpoint — Phase 11 (issue #460)
+- Delete operations support optional limit parameter matching upstream — Phase 12 (issue #439)
+- OpenAI embedding function supports OpenRouter provider preferences and encoding_format — Phase 13 (issue #438)
+- Twelve Labs multimodal embedding provider added — Phase 14 (issue #190)
+- Cloud integration tests cover Search API RRF and GroupBy primitives end-to-end — Phase 15 (issue #462)
 
 ### Recently Validated
 
@@ -32,7 +38,7 @@ None — all v0.4.1 milestone requirements validated.
 
 ### Out of Scope
 
-- Shipping every provider on the new multimodal contract in this milestone — Gemini and VoyageAI validate the foundation, remaining providers adopt later
+- Shipping every provider on the new multimodal contract in this milestone — Gemini, VoyageAI, and Twelve Labs are in scope; remaining providers adopt later
 - Replacing or removing existing `EmbeddingFunction` and image-only multimodal APIs — backwards compatibility is an explicit acceptance criterion
 - Changing collection/query semantics outside the embedding abstraction boundary — keep the milestone scoped to shared embedding foundations
 
@@ -64,4 +70,4 @@ None — all v0.4.1 milestone requirements validated.
 | Pivot Phase 7 from vLLM/Nemotron to VoyageAI | vLLM lacks NVOmniEmbedModel support; VoyageAI multimodal validates portability with text/image/video | ✓ Good |
 
 ---
-*Last updated: 2026-03-23 — v0.4.1 milestone complete. All 8 phases executed: shared contract, capabilities, registry, intent mapping, docs, Gemini multimodal, VoyageAI multimodal, provider documentation and changelog.*
+*Last updated: 2026-03-25 — v0.4.1 milestone expanded with phases 10-15: code cleanups (#461, #466), ForkCount (#460), delete-with-limit (#439), OpenRouter compatibility (#438), Twelve Labs EF (#190), and cloud RRF/GroupBy tests (#462).*

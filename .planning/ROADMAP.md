@@ -23,6 +23,12 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 7: Voyage Multimodal Adoption** - Wire VoyageAI into the shared multimodal contract with text, image, and video support to validate the foundation end-to-end.
 - [x] **Phase 8: Document Gemini and VoyageAI multimodal embedding functions** - Update provider docs, add runnable examples, update README, create changelog. (completed 2026-03-23)
 - [ ] **Phase 9: Convenience Constructors and Documentation Polish** - Add shorthand constructors to reduce Content API verbosity and update docs.
+- [ ] **Phase 10: Code Cleanups** - Extract shared path safety utilities and fix *context.Context anti-pattern. (issues #461, #466)
+- [ ] **Phase 11: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460)
+- [ ] **Phase 12: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439)
+- [ ] **Phase 13: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438)
+- [ ] **Phase 14: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190)
+- [ ] **Phase 15: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462)
 
 ## Phase Details
 
@@ -162,8 +168,15 @@ Plans:
 | 4. Provider Mapping and Explicit Failures | 2/2 | Complete   | 2026-03-20 |
 | 5. Documentation and Verification | 2/2 | Complete   | 2026-03-20 |
 | 6. Gemini Multimodal Adoption | 2/2 | Complete   | 2026-03-20 |
-| 7. Voyage Multimodal Adoption | 0/2 | Planning complete | - |
-| 8. Document Gemini and VoyageAI | 0/2 | Planning complete | - |
+| 7. Voyage Multimodal Adoption | 2/2 | Complete | 2026-03-22 |
+| 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
+| 9. Convenience Constructors | 0/0 | Not started | - |
+| 10. Code Cleanups | 0/0 | Not started | - |
+| 11. Collection.ForkCount | 0/0 | Not started | - |
+| 12. Delete with Limit | 0/0 | Not started | - |
+| 13. OpenRouter Embeddings | 0/0 | Not started | - |
+| 14. Twelve Labs EF | 0/0 | Not started | - |
+| 15. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
 
@@ -179,3 +192,89 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 9 to break down)
+
+### Phase 10: Code Cleanups
+**Goal:** Consolidate duplicated path safety utilities into a shared internal package and fix the *context.Context pointer-to-interface anti-pattern across embedding providers.
+**Depends on:** Phase 9
+**Issues**: #461, #466
+**Success Criteria** (what must be TRUE):
+  1. A shared `pkg/internal/pathutil` package provides `ContainsDotDot`, `ValidateFilePath`, and `SafePath` utilities.
+  2. Gemini, Voyage, and default_ef use the shared path utilities instead of local duplicates.
+  3. Gemini, Nomic, and Mistral use `context.Context` (not `*context.Context`) for DefaultContext.
+  4. All existing tests pass without modification.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 10 to break down)
+
+### Phase 11: Collection.ForkCount
+**Goal:** Add `ForkCount(ctx) (int, error)` to the V2 Collection interface with HTTP transport support, matching upstream Chroma's /fork_count endpoint.
+**Depends on:** None (independent of multimodal phases)
+**Issues**: #460
+**Success Criteria** (what must be TRUE):
+  1. `pkg/api/v2.Collection` includes `ForkCount(ctx context.Context) (int, error)`.
+  2. HTTP implementation issues `GET .../fork_count` and decodes `{"count": n}`.
+  3. Embedded/local behavior returns an explicit unsupported error.
+  4. Tests cover HTTP happy path, failure path, and embedded unsupported path.
+  5. Forking docs mention the new method.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 11 to break down)
+
+### Phase 12: Delete with Limit
+**Goal:** Add limit parameter support to collection delete operations, matching upstream Chroma PRs #6573/#6582.
+**Depends on:** None (independent)
+**Issues**: #439
+**Success Criteria** (what must be TRUE):
+  1. Delete operations accept an optional limit parameter.
+  2. HTTP transport sends the limit when specified.
+  3. Tests cover delete-with-limit happy path and edge cases.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 12 to break down)
+
+### Phase 13: OpenRouter Embeddings Compatibility
+**Goal:** Extend the OpenAI embedding function to support OpenRouter-specific fields (encoding_format, input_type, provider preferences) and relax model validation for provider-prefixed IDs.
+**Depends on:** None (independent)
+**Issues**: #438
+**Success Criteria** (what must be TRUE):
+  1. `CreateEmbeddingRequest` supports `encoding_format`, `input_type`, and `provider` fields.
+  2. `WithModel` accepts provider-prefixed model IDs (e.g. `openai/text-embedding-3-small`).
+  3. Provider preferences struct covers documented OpenRouter fields with extensibility.
+  4. Existing OpenAI behavior and tests remain unchanged.
+  5. Docs include OpenRouter usage example with `WithBaseURL`.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 13 to break down)
+
+### Phase 14: Twelve Labs Embedding Function
+**Goal:** Add a new Twelve Labs multimodal embedding provider supporting text, image, and audio embeddings via the Twelve Labs API.
+**Depends on:** Phase 9 (benefits from Content API foundations)
+**Issues**: #190
+**Success Criteria** (what must be TRUE):
+  1. `pkg/embeddings/twelvelabs` implements dense embedding and Content API interfaces.
+  2. Supports text, image, and audio modalities per Twelve Labs API docs.
+  3. Registered in factory/registry with config round-trip support.
+  4. Tests cover request construction, modality validation, and config persistence.
+  5. Docs and examples added for Twelve Labs provider.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 14 to break down)
+
+### Phase 15: Cloud RRF and GroupBy Test Coverage
+**Goal:** Add end-to-end cloud integration tests that exercise Search API RRF and GroupBy primitives against live Chroma Cloud.
+**Depends on:** None (independent, but best run last as test hardening)
+**Issues**: #462
+**Success Criteria** (what must be TRUE):
+  1. RRF smoke test using dense + sparse KNN ranks with `WithKnnReturnRank`.
+  2. RRF weighted/custom-k test proves request acceptance and ordering changes.
+  3. GroupBy MinK/MaxK tests assert per-group caps and flattened limits.
+  4. All tests tagged `cloud` and use existing cloud test infrastructure.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 15 to break down)
