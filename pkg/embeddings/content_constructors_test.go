@@ -14,58 +14,52 @@ func TestNewTextContent(t *testing.T) {
 	require.Nil(t, c.Parts[0].Source)
 }
 
-func TestNewImageURL(t *testing.T) {
-	c := NewImageURL("https://example.com/img.png")
-	require.Len(t, c.Parts, 1)
-	require.Equal(t, ModalityImage, c.Parts[0].Modality)
-	require.NotNil(t, c.Parts[0].Source)
-	require.Equal(t, SourceKindURL, c.Parts[0].Source.Kind)
-	require.Equal(t, "https://example.com/img.png", c.Parts[0].Source.URL)
+func TestBinaryURLConstructors(t *testing.T) {
+	tests := []struct {
+		name     string
+		ctor     func(string, ...ContentOption) Content
+		modality Modality
+		url      string
+	}{
+		{"NewImageURL", NewImageURL, ModalityImage, "https://example.com/img.png"},
+		{"NewVideoURL", NewVideoURL, ModalityVideo, "https://example.com/vid.mp4"},
+		{"NewAudioURL", NewAudioURL, ModalityAudio, "https://example.com/audio.mp3"},
+		{"NewPDFURL", NewPDFURL, ModalityPDF, "https://example.com/doc.pdf"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := tc.ctor(tc.url)
+			require.Len(t, c.Parts, 1)
+			require.Equal(t, tc.modality, c.Parts[0].Modality)
+			require.NotNil(t, c.Parts[0].Source)
+			require.Equal(t, SourceKindURL, c.Parts[0].Source.Kind)
+			require.Equal(t, tc.url, c.Parts[0].Source.URL)
+		})
+	}
 }
 
-func TestNewImageFile(t *testing.T) {
-	c := NewImageFile("/tmp/photo.png")
-	require.Len(t, c.Parts, 1)
-	require.Equal(t, ModalityImage, c.Parts[0].Modality)
-	require.NotNil(t, c.Parts[0].Source)
-	require.Equal(t, SourceKindFile, c.Parts[0].Source.Kind)
-	require.Equal(t, "/tmp/photo.png", c.Parts[0].Source.FilePath)
-}
-
-func TestNewVideoURL(t *testing.T) {
-	c := NewVideoURL("https://example.com/vid.mp4")
-	require.Len(t, c.Parts, 1)
-	require.Equal(t, ModalityVideo, c.Parts[0].Modality)
-	require.NotNil(t, c.Parts[0].Source)
-	require.Equal(t, SourceKindURL, c.Parts[0].Source.Kind)
-	require.Equal(t, "https://example.com/vid.mp4", c.Parts[0].Source.URL)
-}
-
-func TestNewVideoFile(t *testing.T) {
-	c := NewVideoFile("/tmp/vid.mp4")
-	require.Len(t, c.Parts, 1)
-	require.Equal(t, ModalityVideo, c.Parts[0].Modality)
-	require.NotNil(t, c.Parts[0].Source)
-	require.Equal(t, SourceKindFile, c.Parts[0].Source.Kind)
-	require.Equal(t, "/tmp/vid.mp4", c.Parts[0].Source.FilePath)
-}
-
-func TestNewAudioFile(t *testing.T) {
-	c := NewAudioFile("/tmp/audio.wav")
-	require.Len(t, c.Parts, 1)
-	require.Equal(t, ModalityAudio, c.Parts[0].Modality)
-	require.NotNil(t, c.Parts[0].Source)
-	require.Equal(t, SourceKindFile, c.Parts[0].Source.Kind)
-	require.Equal(t, "/tmp/audio.wav", c.Parts[0].Source.FilePath)
-}
-
-func TestNewPDFFile(t *testing.T) {
-	c := NewPDFFile("/tmp/doc.pdf")
-	require.Len(t, c.Parts, 1)
-	require.Equal(t, ModalityPDF, c.Parts[0].Modality)
-	require.NotNil(t, c.Parts[0].Source)
-	require.Equal(t, SourceKindFile, c.Parts[0].Source.Kind)
-	require.Equal(t, "/tmp/doc.pdf", c.Parts[0].Source.FilePath)
+func TestBinaryFileConstructors(t *testing.T) {
+	tests := []struct {
+		name     string
+		ctor     func(string, ...ContentOption) Content
+		modality Modality
+		path     string
+	}{
+		{"NewImageFile", NewImageFile, ModalityImage, "/tmp/photo.png"},
+		{"NewVideoFile", NewVideoFile, ModalityVideo, "/tmp/vid.mp4"},
+		{"NewAudioFile", NewAudioFile, ModalityAudio, "/tmp/audio.wav"},
+		{"NewPDFFile", NewPDFFile, ModalityPDF, "/tmp/doc.pdf"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := tc.ctor(tc.path)
+			require.Len(t, c.Parts, 1)
+			require.Equal(t, tc.modality, c.Parts[0].Modality)
+			require.NotNil(t, c.Parts[0].Source)
+			require.Equal(t, SourceKindFile, c.Parts[0].Source.Kind)
+			require.Equal(t, tc.path, c.Parts[0].Source.FilePath)
+		})
+	}
 }
 
 func TestNewContent(t *testing.T) {
@@ -79,6 +73,25 @@ func TestNewContent(t *testing.T) {
 	require.Equal(t, "a", c.Parts[0].Text)
 	require.Equal(t, ModalityImage, c.Parts[1].Modality)
 	require.Equal(t, "u", c.Parts[1].Source.URL)
+}
+
+func TestNewContentWithOptions(t *testing.T) {
+	parts := []Part{NewTextPart("a"), NewPartFromSource(ModalityImage, NewBinarySourceFromURL("u"))}
+	c := NewContent(parts, WithIntent(IntentClustering), WithDimension(128))
+	require.Len(t, c.Parts, 2)
+	require.Equal(t, IntentClustering, c.Intent)
+	require.NotNil(t, c.Dimension)
+	require.Equal(t, 128, *c.Dimension)
+}
+
+func TestNewContentNilPartsFailsValidation(t *testing.T) {
+	c := NewContent(nil)
+	require.Error(t, c.Validate())
+}
+
+func TestNewContentEmptyPartsFailsValidation(t *testing.T) {
+	c := NewContent([]Part{})
+	require.Error(t, c.Validate())
 }
 
 func TestWithIntent(t *testing.T) {
@@ -111,43 +124,6 @@ func TestWithProviderHintsNoAlias(t *testing.T) {
 	c := NewTextContent("q", WithProviderHints(hints))
 	hints["task_type"] = "CLUSTERING"
 	require.Equal(t, "CLASSIFICATION", c.ProviderHints["task_type"], "mutating original map must not affect Content")
-}
-
-func TestNewAudioURL(t *testing.T) {
-	c := NewAudioURL("https://example.com/audio.mp3")
-	require.Len(t, c.Parts, 1)
-	require.Equal(t, ModalityAudio, c.Parts[0].Modality)
-	require.NotNil(t, c.Parts[0].Source)
-	require.Equal(t, SourceKindURL, c.Parts[0].Source.Kind)
-	require.Equal(t, "https://example.com/audio.mp3", c.Parts[0].Source.URL)
-}
-
-func TestNewPDFURL(t *testing.T) {
-	c := NewPDFURL("https://example.com/doc.pdf")
-	require.Len(t, c.Parts, 1)
-	require.Equal(t, ModalityPDF, c.Parts[0].Modality)
-	require.NotNil(t, c.Parts[0].Source)
-	require.Equal(t, SourceKindURL, c.Parts[0].Source.Kind)
-	require.Equal(t, "https://example.com/doc.pdf", c.Parts[0].Source.URL)
-}
-
-func TestNewContentWithOptions(t *testing.T) {
-	parts := []Part{NewTextPart("a"), NewPartFromSource(ModalityImage, NewBinarySourceFromURL("u"))}
-	c := NewContent(parts, WithIntent(IntentClustering), WithDimension(128))
-	require.Len(t, c.Parts, 2)
-	require.Equal(t, IntentClustering, c.Intent)
-	require.NotNil(t, c.Dimension)
-	require.Equal(t, 128, *c.Dimension)
-}
-
-func TestNewContentNilPartsFailsValidation(t *testing.T) {
-	c := NewContent(nil)
-	require.Error(t, c.Validate(), "nil parts should fail validation")
-}
-
-func TestNewContentEmptyPartsFailsValidation(t *testing.T) {
-	c := NewContent([]Part{})
-	require.Error(t, c.Validate(), "empty parts should fail validation")
 }
 
 func TestConstructorContentValidates(t *testing.T) {

@@ -1,5 +1,7 @@
 package embeddings
 
+import "maps"
+
 // ContentOption configures optional fields on a Content value built by convenience constructors.
 type ContentOption func(*Content)
 
@@ -23,11 +25,7 @@ func WithDimension(dim int) ContentOption {
 // The map is shallow-copied to prevent external mutation from affecting the Content.
 func WithProviderHints(hints map[string]any) ContentOption {
 	return func(c *Content) {
-		copied := make(map[string]any, len(hints))
-		for k, v := range hints {
-			copied[k] = v
-		}
-		c.ProviderHints = copied
+		c.ProviderHints = maps.Clone(hints)
 	}
 }
 
@@ -35,6 +33,12 @@ func applyContentOptions(c *Content, opts []ContentOption) {
 	for _, opt := range opts {
 		opt(c)
 	}
+}
+
+func newBinaryContent(modality Modality, source BinarySource, opts []ContentOption) Content {
+	c := Content{Parts: []Part{NewPartFromSource(modality, source)}}
+	applyContentOptions(&c, opts)
+	return c
 }
 
 // NewTextContent creates a Content with a single text part.
@@ -46,58 +50,42 @@ func NewTextContent(text string, opts ...ContentOption) Content {
 
 // NewImageURL creates a Content with a single URL-backed image part.
 func NewImageURL(url string, opts ...ContentOption) Content {
-	c := Content{Parts: []Part{NewPartFromSource(ModalityImage, NewBinarySourceFromURL(url))}}
-	applyContentOptions(&c, opts)
-	return c
+	return newBinaryContent(ModalityImage, NewBinarySourceFromURL(url), opts)
 }
 
 // NewImageFile creates a Content with a single file-backed image part.
 func NewImageFile(path string, opts ...ContentOption) Content {
-	c := Content{Parts: []Part{NewPartFromSource(ModalityImage, NewBinarySourceFromFile(path))}}
-	applyContentOptions(&c, opts)
-	return c
+	return newBinaryContent(ModalityImage, NewBinarySourceFromFile(path), opts)
 }
 
 // NewVideoURL creates a Content with a single URL-backed video part.
 func NewVideoURL(url string, opts ...ContentOption) Content {
-	c := Content{Parts: []Part{NewPartFromSource(ModalityVideo, NewBinarySourceFromURL(url))}}
-	applyContentOptions(&c, opts)
-	return c
+	return newBinaryContent(ModalityVideo, NewBinarySourceFromURL(url), opts)
 }
 
 // NewVideoFile creates a Content with a single file-backed video part.
 func NewVideoFile(path string, opts ...ContentOption) Content {
-	c := Content{Parts: []Part{NewPartFromSource(ModalityVideo, NewBinarySourceFromFile(path))}}
-	applyContentOptions(&c, opts)
-	return c
+	return newBinaryContent(ModalityVideo, NewBinarySourceFromFile(path), opts)
 }
 
 // NewAudioURL creates a Content with a single URL-backed audio part.
 func NewAudioURL(url string, opts ...ContentOption) Content {
-	c := Content{Parts: []Part{NewPartFromSource(ModalityAudio, NewBinarySourceFromURL(url))}}
-	applyContentOptions(&c, opts)
-	return c
+	return newBinaryContent(ModalityAudio, NewBinarySourceFromURL(url), opts)
 }
 
 // NewAudioFile creates a Content with a single file-backed audio part.
 func NewAudioFile(path string, opts ...ContentOption) Content {
-	c := Content{Parts: []Part{NewPartFromSource(ModalityAudio, NewBinarySourceFromFile(path))}}
-	applyContentOptions(&c, opts)
-	return c
+	return newBinaryContent(ModalityAudio, NewBinarySourceFromFile(path), opts)
 }
 
 // NewPDFURL creates a Content with a single URL-backed PDF part.
 func NewPDFURL(url string, opts ...ContentOption) Content {
-	c := Content{Parts: []Part{NewPartFromSource(ModalityPDF, NewBinarySourceFromURL(url))}}
-	applyContentOptions(&c, opts)
-	return c
+	return newBinaryContent(ModalityPDF, NewBinarySourceFromURL(url), opts)
 }
 
 // NewPDFFile creates a Content with a single file-backed PDF part.
 func NewPDFFile(path string, opts ...ContentOption) Content {
-	c := Content{Parts: []Part{NewPartFromSource(ModalityPDF, NewBinarySourceFromFile(path))}}
-	applyContentOptions(&c, opts)
-	return c
+	return newBinaryContent(ModalityPDF, NewBinarySourceFromFile(path), opts)
 }
 
 // NewContent creates a Content from pre-built parts with optional configuration.

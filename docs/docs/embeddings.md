@@ -14,7 +14,7 @@ The following embedding wrappers are available:
 | [Ollama](#ollama)                                                                 | Ollama embeddings API.<br/>All models are supported - see Ollama [models lib](https://ollama.com/library) for more info.                                    |
 | [Cloudflare Workers AI](#cloudflare-workers-ai)                                   | Cloudflare Workers AI Embedding.<br/> For more info see [CF API Docs](https://developers.cloudflare.com/workers-ai/models/embedding/).                      |
 | [Together AI](#together-ai)                                                       | Together AI Embedding.<br/> For more info see [Together API Docs](https://docs.together.ai/reference/embeddings).                                           |
-| [Voyage AI](#voyage-ai)                                                           | Voyage AI Embedding.<br/> For more info see [Together API Docs](https://docs.voyageai.com/reference/embeddings-api).                                        |
+| [Voyage AI](#voyage-ai)                                                           | Voyage AI Embedding.<br/> For more info see [Voyage AI API Docs](https://docs.voyageai.com/reference/embeddings-api).                                        |
 | [Google Gemini](#google-gemini)                                                   | Google Gemini Embedding.<br/> For more info see [Gemini Docs](https://ai.google.dev/gemini-api/docs/embeddings).                                            |
 | [Mistral AI](#mistral-ai)                                                         | Mistral AI Embedding.<br/> For more info see [Mistral AI API Docs](https://docs.mistral.ai/capabilities/embeddings/).                                       |
 | [Nomic AI](#nomic-ai)                                                             | Nomic AI Embedding.<br/> For more info see [Nomic AI API Docs](https://docs.nomic.ai/atlas/models/text-embedding).                                          |
@@ -397,7 +397,7 @@ func main() {
 	// Make sure that you have the `VOYAGE_API_KEY` set in your environment
 	ef, err := t.NewVoyageAIEmbeddingFunction(t.WithEnvAPIKey(), t.WithDefaultModel("voyage-large-2"))
 	if err != nil {
-		fmt.Printf("Error creating Together embedding function: %s \n", err)
+		fmt.Printf("Error creating Voyage embedding function: %s \n", err)
 	}
 	resp, err := ef.EmbedDocuments(context.Background(), documents)
 	if err != nil {
