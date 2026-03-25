@@ -23,7 +23,7 @@
     
     
       
-        <title>Multimodal Embeddings - Content API - ChromaDB Go Client</title>
+        <title>Multimodal Embeddings — Content API - ChromaDB Go Client</title>
       
     
     
@@ -122,7 +122,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Multimodal Embeddings - Content API
+              Multimodal Embeddings — Content API
             
           </span>
         </div>
@@ -646,7 +646,7 @@
   <span class="md-ellipsis">
     
   
-    Multimodal Embeddings - Content API
+    Multimodal Embeddings — Content API
   
 
     
@@ -664,7 +664,7 @@
   <span class="md-ellipsis">
     
   
-    Multimodal Embeddings - Content API
+    Multimodal Embeddings — Content API
   
 
     
@@ -692,10 +692,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quick-start" class="md-nav__link">
+  <a href="#why-the-content-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick Start
+        Why the Content API?
       
     </span>
   </a>
@@ -703,10 +703,154 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#mixed-part-requests" class="md-nav__link">
+  <a href="#core-concepts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Mixed-Part Requests
+        Core Concepts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#part" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binarysource" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BinarySource
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intent
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-recipes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Recipes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Recipes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#embed-text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embed-an-image-from-a-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed an image from a URL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embed-an-image-from-a-local-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed an image from a local file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embed-text-image-together" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed text + image together
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embed-a-batch-of-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed a batch of items
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embed-with-an-intent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed with an intent
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#provider-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider Support
       
     </span>
   </a>
@@ -714,24 +858,52 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#portable-intents" class="md-nav__link">
+  <a href="#advanced" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Portable Intents
+        Advanced
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#custom-output-dimensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom output dimensions
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#request-options" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#provider-hints" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Request Options
+        Provider hints
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#capability-inspection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability inspection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -791,10 +963,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quick-start" class="md-nav__link">
+  <a href="#why-the-content-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick Start
+        Why the Content API?
       
     </span>
   </a>
@@ -802,10 +974,154 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#mixed-part-requests" class="md-nav__link">
+  <a href="#core-concepts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Mixed-Part Requests
+        Core Concepts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#part" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binarysource" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BinarySource
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intent
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-recipes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Recipes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Recipes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#embed-text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed text
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embed-an-image-from-a-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed an image from a URL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embed-an-image-from-a-local-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed an image from a local file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embed-text-image-together" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed text + image together
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embed-a-batch-of-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed a batch of items
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embed-with-an-intent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embed with an intent
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#provider-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider Support
       
     </span>
   </a>
@@ -813,24 +1129,52 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#portable-intents" class="md-nav__link">
+  <a href="#advanced" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Portable Intents
+        Advanced
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#custom-output-dimensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom output dimensions
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#request-options" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#provider-hints" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Request Options
+        Provider hints
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#capability-inspection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability inspection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -865,120 +1209,339 @@
   
 
 
-<h1 id="multimodal-embeddings-content-api">Multimodal Embeddings - Content API<a class="headerlink" href="#multimodal-embeddings-content-api" title="Permanent link">&para;</a></h1>
-<p>The Content API provides a unified interface for embedding text, images, and other modalities. It introduces <code>Content</code> and <code>Part</code> as the canonical request types alongside portable <code>Intent</code> constants and per-request options like <code>Dimension</code>.</p>
-<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
-<p>Embed a single piece of text using <code>EmbedContent</code>:</p>
+<h1 id="multimodal-embeddings-content-api">Multimodal Embeddings — Content API<a class="headerlink" href="#multimodal-embeddings-content-api" title="Permanent link">&para;</a></h1>
+<p>The Content API lets you embed text, images, audio, video, and PDFs through a single portable interface. Instead of using provider-specific methods, you describe <strong>what</strong> you want to embed and the library handles the <strong>how</strong>.</p>
+<h2 id="why-the-content-api">Why the Content API?<a class="headerlink" href="#why-the-content-api" title="Permanent link">&para;</a></h2>
+<p>The legacy <code>EmbedDocuments</code>/<code>EmbedQuery</code> API works great for text. But when you need to embed an image alongside a description, or a video with context, you need a way to express "these things belong together." That's what the Content API does.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Legacy API:  EmbedDocuments([&quot;text1&quot;, &quot;text2&quot;])     → []Embedding
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Content API: EmbedContent(Content{text + image})    → Embedding
+</span></code></pre></div>
+<p>Both APIs coexist — use whichever fits. The Content API adds multimodal support without replacing anything.</p>
+<h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permanent link">&para;</a></h2>
+<p>The Content API has four building blocks:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Content                          ← One thing to embed
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── Parts[]                      ← The pieces that make it up
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>│   ├── TextPart(&quot;a cat photo&quot;)  ← Text piece
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>│   └── ImagePart(source)        ← Image/video/audio/PDF piece
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>│       └── BinarySource         ← Where the data comes from (URL, file, bytes)
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>├── Intent                       ← What you&#39;re using the embedding for (optional)
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>└── Dimension                    ← Output vector size override (optional)
+</span></code></pre></div>
+<h3 id="content">Content<a class="headerlink" href="#content" title="Permanent link">&para;</a></h3>
+<p>A <code>Content</code> is one semantic unit you want to embed — a document, a query, or a media item. It contains one or more <code>Part</code>s that the provider combines into a single embedding vector.</p>
 <p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
 {% codetab label="Go" %}
-<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings&quot;</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;What is Chroma?&quot;</span><span class="p">),</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="p">},</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">}</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nx">embedding</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContent</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="nx">content</span><span class="p">)</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// A photo with its description → one embedding</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;A lioness hunting at sunset&quot;</span><span class="p">),</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewPartFromSource</span><span class="p">(</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">ModalityImage</span><span class="p">,</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromFile</span><span class="p">(</span><span class="s">&quot;lioness.png&quot;</span><span class="p">),</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">        </span><span class="p">),</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">}</span>
 </span></code></pre></div>
 {% /codetab %}</p>
-<p>The <code>ef</code> variable is any <code>embeddings.ContentEmbeddingFunction</code> — for example, a Roboflow embedding function (see the mixed-part section below for construction).</p>
-<h2 id="mixed-part-requests">Mixed-Part Requests<a class="headerlink" href="#mixed-part-requests" title="Permanent link">&para;</a></h2>
-<p>Use <code>EmbedContents</code> to embed a batch of content items with different modalities. Because Roboflow processes one item per request, pass text and image as separate <code>Content</code> items:</p>
-<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
-{% codetab label="Go" %}
-<div class="language-go highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings&quot;</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="s">&quot;github.com/amikos-tech/chroma-go/pkg/embeddings/roboflow&quot;</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">roboflow</span><span class="p">.</span><span class="nx">NewRoboflowEmbeddingFunction</span><span class="p">(</span><span class="nx">roboflow</span><span class="p">.</span><span class="nx">WithEnvAPIKey</span><span class="p">())</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nx">contents</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="p">{</span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;A dog running on a beach&quot;</span><span class="p">)}},</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="p">{</span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewPartFromSource</span><span class="p">(</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">ModalityImage</span><span class="p">,</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromURL</span><span class="p">(</span><span class="s">&quot;https://example.com/dog.jpg&quot;</span><span class="p">),</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">        </span><span class="p">),</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="p">}},</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="p">}</span>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="nx">results</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContents</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="nx">contents</span><span class="p">)</span>
-</span></code></pre></div>
-{% /codetab %}</p>
-<p>Other binary source constructors are available for different input types:</p>
-<ul>
-<li><code>embeddings.NewBinarySourceFromFile("/path/to/image.png")</code></li>
-<li><code>embeddings.NewBinarySourceFromBase64("base64data==")</code></li>
-<li><code>embeddings.NewBinarySourceFromBytes(rawBytes)</code></li>
-</ul>
-<h2 id="portable-intents">Portable Intents<a class="headerlink" href="#portable-intents" title="Permanent link">&para;</a></h2>
-<p>Set an <code>Intent</code> on a <code>Content</code> to communicate the purpose of the request to providers that support it:</p>
-<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
-{% codetab label="Go" %}
-<div class="language-go highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w">  </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;retrieval query text&quot;</span><span class="p">)},</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nx">Intent</span><span class="p">:</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">IntentRetrievalQuery</span><span class="p">,</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">}</span>
-</span></code></pre></div>
-{% /codetab %}</p>
-<p>The five neutral intent constants map to a provider-independent vocabulary:</p>
+<h3 id="part">Part<a class="headerlink" href="#part" title="Permanent link">&para;</a></h3>
+<p>A <code>Part</code> is one piece of content — text, an image, a video clip. Each part has a <strong>modality</strong> that declares what type of content it is:</p>
 <table>
 <thead>
 <tr>
-<th>Constant</th>
-<th>Value</th>
+<th>Modality</th>
+<th>What it represents</th>
+<th>Constructors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ModalityText</code></td>
+<td>Plain text</td>
+<td><code>NewTextPart("...")</code></td>
+</tr>
+<tr>
+<td><code>ModalityImage</code></td>
+<td>Image (PNG, JPEG, WebP, GIF)</td>
+<td><code>NewPartFromSource(ModalityImage, source)</code></td>
+</tr>
+<tr>
+<td><code>ModalityVideo</code></td>
+<td>Video (MP4)</td>
+<td><code>NewPartFromSource(ModalityVideo, source)</code></td>
+</tr>
+<tr>
+<td><code>ModalityAudio</code></td>
+<td>Audio (MP3, WAV)</td>
+<td><code>NewPartFromSource(ModalityAudio, source)</code></td>
+</tr>
+<tr>
+<td><code>ModalityPDF</code></td>
+<td>PDF document</td>
+<td><code>NewPartFromSource(ModalityPDF, source)</code></td>
+</tr>
+</tbody>
+</table>
+<p>Not every provider supports every modality. See <a href="#provider-support">Provider Support</a> below.</p>
+<h3 id="binarysource">BinarySource<a class="headerlink" href="#binarysource" title="Permanent link">&para;</a></h3>
+<p>A <code>BinarySource</code> tells the library <strong>where</strong> to find non-text content. You don't construct it directly — use one of the helpers:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// From a URL (provider fetches it)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromURL</span><span class="p">(</span><span class="s">&quot;https://example.com/cat.jpg&quot;</span><span class="p">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1">// From a local file (library reads and encodes it)</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromFile</span><span class="p">(</span><span class="s">&quot;/path/to/photo.png&quot;</span><span class="p">)</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1">// From raw bytes already in memory</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromBytes</span><span class="p">(</span><span class="nx">imageBytes</span><span class="p">)</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1">// From a base64-encoded string</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromBase64</span><span class="p">(</span><span class="nx">b64String</span><span class="p">)</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<h3 id="intent">Intent<a class="headerlink" href="#intent" title="Permanent link">&para;</a></h3>
+<p>An <code>Intent</code> tells the provider <strong>why</strong> you're embedding this content. Providers that support intents (like Gemini and VoyageAI) use this to optimize the embedding for your use case.</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">// Embedding a query to search against stored documents</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nx">query</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w">  </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;how do lionesses hunt?&quot;</span><span class="p">)},</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nx">Intent</span><span class="p">:</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">IntentRetrievalQuery</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1">// Embedding a document to be searched later</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nx">doc</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w">  </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;Lionesses hunt cooperatively...&quot;</span><span class="p">)},</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="nx">Intent</span><span class="p">:</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">IntentRetrievalDocument</span><span class="p">,</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">}</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<p><strong>When to use which intent:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Intent</th>
+<th>Use when...</th>
+<th>Example</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>IntentRetrievalQuery</code></td>
-<td><code>retrieval_query</code></td>
+<td>Embedding a search query</td>
+<td>User types "find sunset photos"</td>
 </tr>
 <tr>
 <td><code>IntentRetrievalDocument</code></td>
-<td><code>retrieval_document</code></td>
+<td>Embedding content to be searched</td>
+<td>Indexing a photo description</td>
 </tr>
 <tr>
 <td><code>IntentClassification</code></td>
-<td><code>classification</code></td>
+<td>Categorizing content</td>
+<td>Sorting images into categories</td>
 </tr>
 <tr>
 <td><code>IntentClustering</code></td>
-<td><code>clustering</code></td>
+<td>Grouping similar content</td>
+<td>Finding related documents</td>
 </tr>
 <tr>
 <td><code>IntentSemanticSimilarity</code></td>
-<td><code>semantic_similarity</code></td>
+<td>Comparing two items</td>
+<td>Checking if two descriptions match</td>
 </tr>
 </tbody>
 </table>
-<h2 id="request-options">Request Options<a class="headerlink" href="#request-options" title="Permanent link">&para;</a></h2>
-<p>Use the <code>Dimension</code> field to request a specific output vector size from providers that support truncated embeddings:</p>
+<p>Intents are optional. If you skip them, the provider uses its default behavior.</p>
+<div class="admonition note">
+<p class="admonition-title">Not all providers support all intents</p>
+<p>Gemini supports all five. VoyageAI supports only <code>IntentRetrievalQuery</code> and <code>IntentRetrievalDocument</code>. Unsupported intents return a clear error — they never silently degrade.</p>
+</div>
+<h2 id="common-recipes">Common Recipes<a class="headerlink" href="#common-recipes" title="Permanent link">&para;</a></h2>
+<h3 id="embed-text">Embed text<a class="headerlink" href="#embed-text" title="Permanent link">&para;</a></h3>
 <p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
 {% codetab label="Go" %}
-<div class="language-go highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nx">dim</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">256</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w">     </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;document text&quot;</span><span class="p">)},</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nx">Dimension</span><span class="p">:</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">dim</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">}</span>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nx">ef</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">gemini</span><span class="p">.</span><span class="nx">NewGeminiEmbeddingFunction</span><span class="p">(</span><span class="nx">gemini</span><span class="p">.</span><span class="nx">WithEnvAPIKey</span><span class="p">())</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">}</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;What is Chroma?&quot;</span><span class="p">)},</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">}</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="nx">emb</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContent</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">content</span><span class="p">)</span>
 </span></code></pre></div>
 {% /codetab %}</p>
-<div class="admonition note">
-<p class="admonition-title">Advanced</p>
-<p>You can pass raw intent strings and provider-specific hints via the <code>ProviderHints</code> field. See <a href="https://pkg.go.dev/github.com/amikos-tech/chroma-go/pkg/embeddings">godoc</a> for details.</p>
-</div>
-<h2 id="compatibility-with-legacy-api">Compatibility with Legacy API<a class="headerlink" href="#compatibility-with-legacy-api" title="Permanent link">&para;</a></h2>
-<p>Both the Content API and the legacy <code>EmbedDocuments</code> / <code>EmbedQuery</code> API coexist and neither is deprecated. Use whichever fits your use case:</p>
+<h3 id="embed-an-image-from-a-url">Embed an image from a URL<a class="headerlink" href="#embed-an-image-from-a-url" title="Permanent link">&para;</a></h3>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewPartFromSource</span><span class="p">(</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">ModalityImage</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromURL</span><span class="p">(</span><span class="s">&quot;https://example.com/cat.jpg&quot;</span><span class="p">),</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">        </span><span class="p">),</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">}</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="nx">emb</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContent</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">content</span><span class="p">)</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<h3 id="embed-an-image-from-a-local-file">Embed an image from a local file<a class="headerlink" href="#embed-an-image-from-a-local-file" title="Permanent link">&para;</a></h3>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewPartFromSource</span><span class="p">(</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">ModalityImage</span><span class="p">,</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromFile</span><span class="p">(</span><span class="s">&quot;/path/to/photo.png&quot;</span><span class="p">),</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">        </span><span class="p">),</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="p">}</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="nx">emb</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContent</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">content</span><span class="p">)</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<h3 id="embed-text-image-together">Embed text + image together<a class="headerlink" href="#embed-text-image-together" title="Permanent link">&para;</a></h3>
+<p>When you combine parts, the provider fuses them into a single embedding that captures both the text and visual content:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;A lioness hunting at sunset&quot;</span><span class="p">),</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewPartFromSource</span><span class="p">(</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">ModalityImage</span><span class="p">,</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromFile</span><span class="p">(</span><span class="s">&quot;lioness.png&quot;</span><span class="p">),</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">        </span><span class="p">),</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="p">}</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="nx">emb</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContent</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">content</span><span class="p">)</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<h3 id="embed-a-batch-of-items">Embed a batch of items<a class="headerlink" href="#embed-a-batch-of-items" title="Permanent link">&para;</a></h3>
+<p>Use <code>EmbedContents</code> to embed multiple content items in one call. Each item produces its own embedding:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nx">contents</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="p">{</span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;The golden hour on the Serengeti&quot;</span><span class="p">)}},</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="p">{</span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">        </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewPartFromSource</span><span class="p">(</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">ModalityImage</span><span class="p">,</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">            </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewBinarySourceFromFile</span><span class="p">(</span><span class="s">&quot;lioness.png&quot;</span><span class="p">),</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">        </span><span class="p">),</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="p">}},</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="p">}</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="nx">results</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContents</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">contents</span><span class="p">)</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="c1">// results[0] = text embedding, results[1] = image embedding</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<h3 id="embed-with-an-intent">Embed with an intent<a class="headerlink" href="#embed-with-an-intent" title="Permanent link">&para;</a></h3>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w">  </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;how do lionesses hunt?&quot;</span><span class="p">)},</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nx">Intent</span><span class="p">:</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">IntentRetrievalQuery</span><span class="p">,</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="p">}</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="nx">emb</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContent</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">content</span><span class="p">)</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<h2 id="provider-support">Provider Support<a class="headerlink" href="#provider-support" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Use Case</th>
+<th>Provider</th>
+<th>Models</th>
+<th>Modalities</th>
+<th>Mixed Parts</th>
+<th>Intents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Gemini</strong></td>
+<td><code>gemini-embedding-2-preview</code></td>
+<td>text, image, audio, video, PDF</td>
+<td>yes</td>
+<td>all 5</td>
+</tr>
+<tr>
+<td></td>
+<td><code>gemini-embedding-001</code> (legacy)</td>
+<td>text only</td>
+<td>no</td>
+<td>all 5</td>
+</tr>
+<tr>
+<td><strong>VoyageAI</strong></td>
+<td><code>voyage-multimodal-3.5</code></td>
+<td>text, image, video</td>
+<td>yes</td>
+<td>query, document</td>
+</tr>
+<tr>
+<td></td>
+<td><code>voyage-2</code> (default)</td>
+<td>text only</td>
+<td>no</td>
+<td>query, document</td>
+</tr>
+<tr>
+<td><strong>Roboflow</strong></td>
+<td>CLIP</td>
+<td>text, image</td>
+<td>no (one part per Content)</td>
+<td>none</td>
+</tr>
+</tbody>
+</table>
+<p>See the <a href="../">Embeddings</a> page for provider setup, API keys, and option functions.</p>
+<h2 id="advanced">Advanced<a class="headerlink" href="#advanced" title="Permanent link">&para;</a></h2>
+<h3 id="custom-output-dimensions">Custom output dimensions<a class="headerlink" href="#custom-output-dimensions" title="Permanent link">&para;</a></h3>
+<p>Some providers support truncated embeddings for storage efficiency. Use the <code>Dimension</code> field:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nx">dim</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">256</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w">     </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;document text&quot;</span><span class="p">)},</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nx">Dimension</span><span class="p">:</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">dim</span><span class="p">,</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">}</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="nx">emb</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedContent</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">content</span><span class="p">)</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1">// emb.Len() == 256</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<h3 id="provider-hints">Provider hints<a class="headerlink" href="#provider-hints" title="Permanent link">&para;</a></h3>
+<p>For provider-specific options that don't have a portable equivalent, use <code>ProviderHints</code>:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nx">content</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Content</span><span class="p">{</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">    </span><span class="nx">Parts</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">Part</span><span class="p">{</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">NewTextPart</span><span class="p">(</span><span class="s">&quot;classify this&quot;</span><span class="p">)},</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nx">ProviderHints</span><span class="p">:</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">any</span><span class="p">{</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">        </span><span class="s">&quot;task_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;CLASSIFICATION&quot;</span><span class="p">,</span><span class="w">  </span><span class="c1">// Gemini-specific</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="p">}</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code>ProviderHints</code> bypass portable intent mapping. They're an escape hatch — prefer <code>Intent</code> when a neutral constant fits your use case.</p>
+</div>
+<h3 id="capability-inspection">Capability inspection<a class="headerlink" href="#capability-inspection" title="Permanent link">&para;</a></h3>
+<p>Check what a provider supports at runtime:</p>
+<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
+{% codetab label="Go" %}
+<div class="language-go highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">if</span><span class="w"> </span><span class="nx">capAware</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.(</span><span class="nx">embeddings</span><span class="p">.</span><span class="nx">CapabilityAware</span><span class="p">);</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">    </span><span class="nx">caps</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">capAware</span><span class="p">.</span><span class="nx">Capabilities</span><span class="p">()</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Modalities:&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">caps</span><span class="p">.</span><span class="nx">Modalities</span><span class="p">)</span><span class="w">     </span><span class="c1">// e.g. [text image audio video pdf]</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Mixed parts:&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">caps</span><span class="p">.</span><span class="nx">SupportsMixedPart</span><span class="p">)</span><span class="w"> </span><span class="c1">// true</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Intents:&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">caps</span><span class="p">.</span><span class="nx">Intents</span><span class="p">)</span><span class="w">            </span><span class="c1">// e.g. [retrieval_query retrieval_document ...]</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">}</span>
+</span></code></pre></div>
+{% /codetab %}</p>
+<h2 id="compatibility-with-legacy-api">Compatibility with Legacy API<a class="headerlink" href="#compatibility-with-legacy-api" title="Permanent link">&para;</a></h2>
+<p>Both APIs coexist indefinitely — neither is deprecated.</p>
+<table>
+<thead>
+<tr>
+<th>Use case</th>
 <th>Recommended API</th>
 </tr>
 </thead>
@@ -988,23 +1551,16 @@
 <td><code>EmbedDocuments</code> / <code>EmbedQuery</code></td>
 </tr>
 <tr>
-<td>Mixed media (text + images)</td>
-<td>Content API (<code>EmbedContent</code> / <code>EmbedContents</code>)</td>
+<td>Mixed media (text + images + video)</td>
+<td><code>EmbedContent</code> / <code>EmbedContents</code></td>
 </tr>
 <tr>
-<td>Portable intents or dimensions</td>
-<td>Content API (<code>EmbedContent</code> / <code>EmbedContents</code>)</td>
+<td>Portable intents or per-request dimensions</td>
+<td><code>EmbedContent</code> / <code>EmbedContents</code></td>
 </tr>
 </tbody>
 </table>
-<p>The legacy API continues to work exactly as before:</p>
-<p _="%" _codetabs="/codetabs">{% codetabs group="lang" %}
-{% codetab label="Go" %}
-<div class="language-go highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nx">embeddings</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedDocuments</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;text1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;text2&quot;</span><span class="p">})</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nx">queryEmb</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">ef</span><span class="p">.</span><span class="nx">EmbedQuery</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;query text&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-{% /codetab %}</p>
-<p>Existing providers automatically work with the Content API when retrieved through the registry (<code>BuildContent</code>). The registry wraps them with built-in adapters.</p>
+<p>Existing providers automatically work with the Content API when retrieved through the registry. The registry wraps them with built-in adapters.</p>
 
 
 
