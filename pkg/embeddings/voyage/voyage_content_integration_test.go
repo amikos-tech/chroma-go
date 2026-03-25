@@ -1,6 +1,6 @@
 //go:build ef
 
-package gemini
+package voyage
 
 import (
 	"context"
@@ -21,12 +21,21 @@ func testdataPath(t *testing.T, name string) string {
 	return abs
 }
 
-func newContentEF(t *testing.T) *GeminiEmbeddingFunction {
+func requireVoyageAPIKey(t *testing.T) {
 	t.Helper()
-	_ = requireGeminiAPIKey(t)
-	ef, err := NewGeminiEmbeddingFunction(WithEnvAPIKey())
+	if os.Getenv("VOYAGE_API_KEY") == "" {
+		t.Skip("VOYAGE_API_KEY not set")
+	}
+}
+
+func newContentEF(t *testing.T) *VoyageAIEmbeddingFunction {
+	t.Helper()
+	requireVoyageAPIKey(t)
+	ef, err := NewVoyageAIEmbeddingFunction(
+		WithEnvAPIKey(),
+		WithDefaultModel("voyage-multimodal-3.5"),
+	)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = ef.Close() })
 	return ef
 }
 
@@ -42,7 +51,7 @@ func TestContentEmbedText(t *testing.T) {
 	emb, err := ef.EmbedContent(context.Background(), content)
 	require.NoError(t, err)
 	require.NotNil(t, emb)
-	assert.Equal(t, 3072, emb.Len())
+	assert.Greater(t, emb.Len(), 0)
 }
 
 func TestContentEmbedImage(t *testing.T) {
@@ -63,40 +72,20 @@ func TestContentEmbedImage(t *testing.T) {
 	emb, err := ef.EmbedContent(context.Background(), content)
 	require.NoError(t, err)
 	require.NotNil(t, emb)
-	assert.Equal(t, 3072, emb.Len())
-}
-
-func TestContentEmbedAudio(t *testing.T) {
-	ef := newContentEF(t)
-
-	content := embeddings.Content{
-		Parts: []embeddings.Part{
-			embeddings.NewPartFromSource(
-				embeddings.ModalityAudio,
-				embeddings.BinarySource{
-					Kind:     embeddings.SourceKindFile,
-					FilePath: testdataPath(t, "the_golden_hour.mp3"),
-					MIMEType: "audio/mpeg",
-				},
-			),
-		},
-	}
-	emb, err := ef.EmbedContent(context.Background(), content)
-	require.NoError(t, err)
-	require.NotNil(t, emb)
-	assert.Equal(t, 3072, emb.Len())
+	assert.Greater(t, emb.Len(), 0)
 }
 
 func TestContentEmbedVideo(t *testing.T) {
 	ef := newContentEF(t)
 
+	// Use the small video (480x480, 2s, ~6K tokens) to stay within VoyageAI's 32K token context window.
 	content := embeddings.Content{
 		Parts: []embeddings.Part{
 			embeddings.NewPartFromSource(
 				embeddings.ModalityVideo,
 				embeddings.BinarySource{
 					Kind:     embeddings.SourceKindFile,
-					FilePath: testdataPath(t, "the_pounce.mp4"),
+					FilePath: testdataPath(t, "the_pounce_small.mp4"),
 					MIMEType: "video/mp4",
 				},
 			),
@@ -105,28 +94,7 @@ func TestContentEmbedVideo(t *testing.T) {
 	emb, err := ef.EmbedContent(context.Background(), content)
 	require.NoError(t, err)
 	require.NotNil(t, emb)
-	assert.Equal(t, 3072, emb.Len())
-}
-
-func TestContentEmbedPDF(t *testing.T) {
-	ef := newContentEF(t)
-
-	content := embeddings.Content{
-		Parts: []embeddings.Part{
-			embeddings.NewPartFromSource(
-				embeddings.ModalityPDF,
-				embeddings.BinarySource{
-					Kind:     embeddings.SourceKindFile,
-					FilePath: testdataPath(t, "the_golden_hour.pdf"),
-					MIMEType: "application/pdf",
-				},
-			),
-		},
-	}
-	emb, err := ef.EmbedContent(context.Background(), content)
-	require.NoError(t, err)
-	require.NotNil(t, emb)
-	assert.Equal(t, 3072, emb.Len())
+	assert.Greater(t, emb.Len(), 0)
 }
 
 func TestContentEmbedMixedParts(t *testing.T) {
@@ -148,7 +116,7 @@ func TestContentEmbedMixedParts(t *testing.T) {
 	emb, err := ef.EmbedContent(context.Background(), content)
 	require.NoError(t, err)
 	require.NotNil(t, emb)
-	assert.Equal(t, 3072, emb.Len())
+	assert.Greater(t, emb.Len(), 0)
 }
 
 func TestContentEmbedContentsBatch(t *testing.T) {
@@ -170,8 +138,8 @@ func TestContentEmbedContentsBatch(t *testing.T) {
 	results, err := ef.EmbedContents(context.Background(), contents)
 	require.NoError(t, err)
 	require.Len(t, results, 2)
-	assert.Equal(t, 3072, results[0].Len())
-	assert.Equal(t, 3072, results[1].Len())
+	assert.Greater(t, results[0].Len(), 0)
+	assert.Greater(t, results[1].Len(), 0)
 }
 
 func TestContentEmbedWithIntent(t *testing.T) {
@@ -184,51 +152,5 @@ func TestContentEmbedWithIntent(t *testing.T) {
 	emb, err := ef.EmbedContent(context.Background(), content)
 	require.NoError(t, err)
 	require.NotNil(t, emb)
-	assert.Equal(t, 3072, emb.Len())
-}
-
-func TestContentEmbedWithProviderHints(t *testing.T) {
-	ef := newContentEF(t)
-
-	content := embeddings.Content{
-		Parts: []embeddings.Part{embeddings.NewTextPart("Lioness hunting behavior")},
-		ProviderHints: map[string]any{
-			"task_type": "CLASSIFICATION",
-		},
-	}
-	emb, err := ef.EmbedContent(context.Background(), content)
-	require.NoError(t, err)
-	require.NotNil(t, emb)
-	assert.Equal(t, 3072, emb.Len())
-}
-
-func TestContentEmbedWithDimension(t *testing.T) {
-	_ = requireGeminiAPIKey(t)
-	ef, err := NewGeminiEmbeddingFunction(WithEnvAPIKey(), WithDimension(768))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = ef.Close() })
-
-	content := embeddings.Content{
-		Parts: []embeddings.Part{embeddings.NewTextPart("Reduced dimension test")},
-	}
-	emb, err := ef.EmbedContent(context.Background(), content)
-	require.NoError(t, err)
-	require.NotNil(t, emb)
-	assert.Equal(t, 768, emb.Len())
-}
-
-func TestContentCreateContentEmbeddingDirect(t *testing.T) {
-	_ = requireGeminiAPIKey(t)
-	client, err := NewGeminiClient(WithEnvAPIKey())
-	require.NoError(t, err)
-	defer func() { _ = client.Close() }()
-
-	mapper := &GeminiEmbeddingFunction{apiClient: client}
-	contents := []embeddings.Content{
-		{Parts: []embeddings.Part{embeddings.NewTextPart("Direct client call")}},
-	}
-	results, err := client.CreateContentEmbedding(context.Background(), contents, mapper)
-	require.NoError(t, err)
-	require.Len(t, results, 1)
-	assert.Equal(t, 3072, results[0].Len())
+	assert.Greater(t, emb.Len(), 0)
 }

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: unknown
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-03-22T18:59:25.986Z"
+status: Milestone complete
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-23T14:09:11.460Z"
 progress:
   total_phases: 8
-  completed_phases: 7
-  total_plans: 18
-  completed_plans: 18
+  completed_phases: 8
+  total_plans: 20
+  completed_plans: 20
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 07 — voyage-multimodal-adoption
+**Current focus:** Phase 08 — document-gemini-and-nemotron-multimodal-embedding-functions
 
 ## Current Position
 
@@ -62,6 +62,8 @@ Plan: Not started
 | Phase 06 P02 | 10min | 1 tasks | 1 files |
 | Phase 07 P01 | 3min | 2 tasks | 2 files |
 | Phase 07 P02 | 4min | 1 tasks | 1 files |
+| Phase 08 P01 | 2min | 2 tasks | 3 files |
+| Phase 08 P02 | 4min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -103,6 +105,8 @@ Recent decisions affecting current work:
 - [Phase 07]: Batch requests reject per-item Intent/Dimension/ProviderHints with explicit errors matching Gemini pattern
 - [Phase 07]: multimodalURL derives endpoint by replacing /v1/embeddings suffix, falling back to constant for custom base URLs
 - [Phase 07]: Used struct literal construction for hermetic VoyageAI unit tests, matching Gemini Phase 06-02 pattern
+- [Phase 08]: Follow plan as specified - no deviations required for provider documentation updates
+- [Phase 08]: Reworded ROADMAP Phase 8 success criteria to eliminate last Nemotron text reference
 
 ### Roadmap Evolution
 
@@ -111,6 +115,7 @@ Recent decisions affecting current work:
 - Added Phase 6: Gemini Multimodal Adoption (#443).
 - Added Phase 7: Originally vLLM/Nemotron, pivoted to Voyage Multimodal Adoption (vLLM lacks NVOmniEmbedModel support).
 - Added Phase 8: Document Gemini and Nemotron multimodal embedding functions.
+- Added Phase 9: Convenience Constructors and Documentation Polish — reduce Content API verbosity with shorthand constructors.
 
 ### Pending Todos
 
@@ -136,6 +141,6 @@ None yet.
 
 ## Session
 
-**Last Date:** 2026-03-22T16:18:22.574Z
-**Stopped At:** Completed 07-02-PLAN.md
+**Last Date:** 2026-03-23T12:45:15.049Z
+**Stopped At:** Completed 08-02-PLAN.md
 **Resume File:** None
