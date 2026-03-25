@@ -195,7 +195,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — Implement convenience constructors, ContentOption, and unit tests
+- [x] 09-01-PLAN.md — Implement convenience constructors, ContentOption, and unit tests
 - [ ] 09-02-PLAN.md — Update multimodal docs, provider sections, and rewrite runnable examples
 
 ### Phase 10: Code Cleanups

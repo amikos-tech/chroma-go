@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: Milestone complete
-stopped_at: Phase 9 context gathered
-last_updated: "2026-03-25T14:09:32.047Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-25T16:12:32.519Z"
 progress:
   total_phases: 17
   completed_phases: 8
-  total_plans: 20
-  completed_plans: 20
+  total_plans: 22
+  completed_plans: 21
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 08 — document-gemini-and-nemotron-multimodal-embedding-functions
+**Current focus:** Phase 09 — convenience-constructors-and-documentation-polish
 
 ## Current Position
 
-Phase: 08
-Plan: Not started
+Phase: 09 (convenience-constructors-and-documentation-polish) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -64,6 +64,8 @@ Plan: Not started
 | Phase 07 P02 | 4min | 1 tasks | 1 files |
 | Phase 08 P01 | 2min | 2 tasks | 3 files |
 | Phase 08 P02 | 4min | 2 tasks | 3 files |
+| Phase 09 P01 | 1min | 2 tasks | 2 files |
+| Phase 09 P02 | 5min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -107,6 +109,8 @@ Recent decisions affecting current work:
 - [Phase 07]: Used struct literal construction for hermetic VoyageAI unit tests, matching Gemini Phase 06-02 pattern
 - [Phase 08]: Follow plan as specified - no deviations required for provider documentation updates
 - [Phase 08]: Reworded ROADMAP Phase 8 success criteria to eliminate last Nemotron text reference
+- [Phase 09]: Return Content by value and use ContentOption func(*Content) with no error return for convenience constructors
+- [Phase 09]: Shorthand-first doc pattern: provider multimodal sections show NewTextContent/NewImageFile, link to multimodal.md for verbose
 
 ### Roadmap Evolution
 
@@ -123,8 +127,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- The neutral multimodal contract must avoid overfitting to the current Roboflow implementation.
-- Phase 7 pivoted from vLLM/Nemotron to VoyageAI multimodal — vLLM does not support NVOmniEmbedModel architecture.
+None.
 
 ## Decisions Made
 
@@ -136,11 +139,10 @@ None yet.
 
 ## Blockers
 
-- Provider-neutral intent design validated against Gemini (Phase 6), VoyageAI multimodal (Phase 7).
-- Phase 7 requires `VOYAGE_API_KEY` env var for integration tests.
+None.
 
 ## Session
 
-**Last Date:** 2026-03-25T14:09:32.043Z
-**Stopped At:** Phase 9 context gathered
-**Resume File:** .planning/phases/09-convenience-constructors-and-documentation-polish/09-CONTEXT.md
+**Last Date:** 2026-03-25T16:12:32.516Z
+**Stopped At:** Completed 09-02-PLAN.md
+**Resume File:** None

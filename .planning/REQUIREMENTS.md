@@ -46,10 +46,10 @@
 
 ### Convenience Constructors
 
-- [ ] **CONV-01**: Caller can create single-modality Content with a single function call (NewTextContent, NewImageURL, NewImageFile, NewVideoURL, NewVideoFile, NewAudioFile, NewPDFFile) instead of nested struct literals
-- [ ] **CONV-02**: Caller can compose multi-part Content from Part helpers via NewContent with optional ContentOption configuration
-- [ ] **CONV-03**: All convenience constructors have unit tests and existing tests/examples remain green
-- [ ] **CONV-04**: Multimodal docs and provider examples show shorthand constructors as the primary examples with verbose forms linked from the generic Content API page
+- [x] **CONV-01**: Caller can create single-modality Content with a single function call (NewTextContent, NewImageURL, NewImageFile, NewVideoURL, NewVideoFile, NewAudioFile, NewPDFFile) instead of nested struct literals
+- [x] **CONV-02**: Caller can compose multi-part Content from Part helpers via NewContent with optional ContentOption configuration
+- [x] **CONV-03**: All convenience constructors have unit tests and existing tests/examples remain green
+- [x] **CONV-04**: Multimodal docs and provider examples show shorthand constructors as the primary examples with verbose forms linked from the generic Content API page
 
 ## v2 Requirements
 
