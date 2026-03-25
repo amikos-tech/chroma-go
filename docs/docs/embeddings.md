@@ -432,38 +432,28 @@ func main() {
 		log.Fatalf("Error creating Voyage embedding function: %s", err)
 	}
 
-	// Embed an image with a text description.
-	imageContent := embeddings.Content{
-		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A lioness hunting at sunset"),
-			embeddings.NewPartFromSource(
-				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromFile("/path/to/image.png"),
-			),
-		},
-	}
-	emb, err := ef.EmbedContent(context.Background(), imageContent)
+	// Embed a single image.
+	imageEmb, err := ef.EmbedContent(context.Background(),
+		embeddings.NewImageFile("/path/to/image.png"),
+	)
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Image content embedding dimension: %d\n", emb.Len())
+	fmt.Printf("Image embedding dimension: %d\n", imageEmb.Len())
 
-	// Embed a video with a text description.
-	// Uses the small video to stay within VoyageAI's 32K token context window.
-	videoContent := embeddings.Content{
-		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A lioness pouncing on prey"),
-			embeddings.NewPartFromSource(
-				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromFile("/path/to/video.mp4"),
-			),
-		},
-	}
-	emb, err = ef.EmbedContent(context.Background(), videoContent)
+	// Embed text with a retrieval intent.
+	queryEmb, err := ef.EmbedContent(context.Background(),
+		embeddings.NewTextContent("how do lionesses hunt?",
+			embeddings.WithIntent(embeddings.IntentRetrievalQuery),
+		),
+	)
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Video content embedding dimension: %d\n", emb.Len())
+	fmt.Printf("Query embedding dimension: %d\n", queryEmb.Len())
+
+	// For mixed-part content and verbose construction, see the
+	// [Content API reference](embeddings/multimodal.md).
 }
 ```
 
@@ -541,37 +531,28 @@ func main() {
 		log.Fatalf("Error creating Gemini embedding function: %s", err)
 	}
 
-	// Embed an image with a text description.
-	imageContent := embeddings.Content{
-		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A lioness hunting at sunset"),
-			embeddings.NewPartFromSource(
-				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromFile("/path/to/image.png"),
-			),
-		},
-	}
-	emb, err := ef.EmbedContent(context.Background(), imageContent)
+	// Embed a single image.
+	imageEmb, err := ef.EmbedContent(context.Background(),
+		embeddings.NewImageFile("/path/to/image.png"),
+	)
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Image content embedding dimension: %d\n", emb.Len())
+	fmt.Printf("Image embedding dimension: %d\n", imageEmb.Len())
 
-	// Embed a video with a text description.
-	videoContent := embeddings.Content{
-		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A lioness pouncing on prey"),
-			embeddings.NewPartFromSource(
-				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromFile("/path/to/video.mp4"),
-			),
-		},
-	}
-	emb, err = ef.EmbedContent(context.Background(), videoContent)
+	// Embed text with a retrieval intent.
+	queryEmb, err := ef.EmbedContent(context.Background(),
+		embeddings.NewTextContent("how do lionesses hunt?",
+			embeddings.WithIntent(embeddings.IntentRetrievalQuery),
+		),
+	)
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Video content embedding dimension: %d\n", emb.Len())
+	fmt.Printf("Query embedding dimension: %d\n", queryEmb.Len())
+
+	// For mixed-part content and verbose construction, see the
+	// [Content API reference](embeddings/multimodal.md).
 }
 ```
 
