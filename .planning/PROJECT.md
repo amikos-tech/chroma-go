@@ -19,10 +19,9 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 - ✓ Users can use reranking providers, docs, examples, and build-tagged tests across the V2 API — existing
 - ✓ Registry and config-persistence flows can rebuild richer multimodal functions from stored configuration without regressing auto-wiring — Validated in Phase 3: Registry and Config Integration
 - ✓ Providers can advertise intent support, translate neutral intents to native strings, and reject unsupported modality/intent/dimension combinations before provider I/O — Validated in Phase 4: Provider Mapping and Explicit Failures
+- ✓ Convenience constructors reduce Content API verbosity for common modality+source combinations — Validated in Phase 9: Convenience Constructors and Documentation Polish
 
 ### Active
-
-- Convenience constructors reduce Content API verbosity for common modality+source combinations — Phase 9
 - Duplicated path safety utilities consolidated, *context.Context anti-pattern fixed, registry test cleanup added — Phase 10 (issues #456, #461, #466)
 - Fork() double-close bug fixed for shared EF pointers — Phase 11 (issue #454)
 - SDK auto-wiring behavior traced and documented against official Chroma SDKs — Phase 12 (issue #455)
