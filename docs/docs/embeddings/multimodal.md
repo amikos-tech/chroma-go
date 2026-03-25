@@ -35,15 +35,13 @@ A `Content` is one semantic unit you want to embed — a document, a query, or a
 {% codetab label="Go" %}
 ```go
 // A photo with its description → one embedding
-content := embeddings.Content{
-    Parts: []embeddings.Part{
-        embeddings.NewTextPart("A lioness hunting at sunset"),
-        embeddings.NewPartFromSource(
-            embeddings.ModalityImage,
-            embeddings.NewBinarySourceFromFile("lioness.png"),
-        ),
-    },
-}
+content := embeddings.NewContent([]embeddings.Part{
+    embeddings.NewTextPart("A lioness hunting at sunset"),
+    embeddings.NewPartFromSource(
+        embeddings.ModalityImage,
+        embeddings.NewBinarySourceFromFile("lioness.png"),
+    ),
+})
 ```
 {% /codetab %}
 {% /codetabs %}
@@ -52,13 +50,13 @@ content := embeddings.Content{
 
 A `Part` is one piece of content — text, an image, a video clip. Each part has a **modality** that declares what type of content it is:
 
-| Modality | What it represents | Constructors |
-|----------|--------------------|-------------|
-| `ModalityText` | Plain text | `NewTextPart("...")` |
-| `ModalityImage` | Image (PNG, JPEG, WebP, GIF) | `NewPartFromSource(ModalityImage, source)` |
-| `ModalityVideo` | Video (MP4) | `NewPartFromSource(ModalityVideo, source)` |
-| `ModalityAudio` | Audio (MP3, WAV) | `NewPartFromSource(ModalityAudio, source)` |
-| `ModalityPDF` | PDF document | `NewPartFromSource(ModalityPDF, source)` |
+| Modality | What it represents | Shorthand | Verbose |
+|----------|--------------------|-----------|---------|
+| `ModalityText` | Plain text | `NewTextContent("...")` | `Content{Parts: []Part{NewTextPart("...")}}` |
+| `ModalityImage` | Image (PNG, JPEG, WebP, GIF) | `NewImageURL(url)` / `NewImageFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityImage, source)}}` |
+| `ModalityVideo` | Video (MP4) | `NewVideoURL(url)` / `NewVideoFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityVideo, source)}}` |
+| `ModalityAudio` | Audio (MP3, WAV) | `NewAudioFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityAudio, source)}}` |
+| `ModalityPDF` | PDF document | `NewPDFFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityPDF, source)}}` |
 
 Not every provider supports every modality. See [Provider Support](#provider-support) below.
 
@@ -92,16 +90,14 @@ An `Intent` tells the provider **why** you're embedding this content. Providers 
 {% codetab label="Go" %}
 ```go
 // Embedding a query to search against stored documents
-query := embeddings.Content{
-    Parts:  []embeddings.Part{embeddings.NewTextPart("how do lionesses hunt?")},
-    Intent: embeddings.IntentRetrievalQuery,
-}
+query := embeddings.NewTextContent("how do lionesses hunt?",
+    embeddings.WithIntent(embeddings.IntentRetrievalQuery),
+)
 
 // Embedding a document to be searched later
-doc := embeddings.Content{
-    Parts:  []embeddings.Part{embeddings.NewTextPart("Lionesses hunt cooperatively...")},
-    Intent: embeddings.IntentRetrievalDocument,
-}
+doc := embeddings.NewTextContent("Lionesses hunt cooperatively...",
+    embeddings.WithIntent(embeddings.IntentRetrievalDocument),
+)
 ```
 {% /codetab %}
 {% /codetabs %}
@@ -122,6 +118,60 @@ Intents are optional. If you skip them, the provider uses its default behavior.
 
     Gemini supports all five. VoyageAI supports only `IntentRetrievalQuery` and `IntentRetrievalDocument`. Unsupported intents return a clear error — they never silently degrade.
 
+## Convenience Constructors
+
+For single-modality content, use the shorthand constructors instead of building Content structs manually:
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+
+| Modality | Shorthand | Equivalent verbose form |
+|----------|-----------|-------------------------|
+| Text | `NewTextContent("...")` | `Content{Parts: []Part{NewTextPart("...")}}` |
+| Image (URL) | `NewImageURL(url)` | `Content{Parts: []Part{NewPartFromSource(ModalityImage, NewBinarySourceFromURL(url))}}` |
+| Image (file) | `NewImageFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityImage, NewBinarySourceFromFile(path))}}` |
+| Video (URL) | `NewVideoURL(url)` | `Content{Parts: []Part{NewPartFromSource(ModalityVideo, NewBinarySourceFromURL(url))}}` |
+| Video (file) | `NewVideoFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityVideo, NewBinarySourceFromFile(path))}}` |
+| Audio (file) | `NewAudioFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityAudio, NewBinarySourceFromFile(path))}}` |
+| PDF (file) | `NewPDFFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityPDF, NewBinarySourceFromFile(path))}}` |
+
+{% /codetab %}
+{% /codetabs %}
+
+All constructors accept optional `ContentOption` arguments for intent, dimension, and provider hints:
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+// Embed text for retrieval
+query := embeddings.NewTextContent("how do lionesses hunt?",
+    embeddings.WithIntent(embeddings.IntentRetrievalQuery),
+)
+
+// Embed with custom output dimensions
+doc := embeddings.NewTextContent("document text",
+    embeddings.WithDimension(256),
+)
+```
+{% /codetab %}
+{% /codetabs %}
+
+For mixed-part content, use `NewContent` with Part helpers:
+
+{% codetabs group="lang" %}
+{% codetab label="Go" %}
+```go
+content := embeddings.NewContent([]embeddings.Part{
+    embeddings.NewTextPart("A lioness hunting at sunset"),
+    embeddings.NewPartFromSource(
+        embeddings.ModalityImage,
+        embeddings.NewBinarySourceFromFile("lioness.png"),
+    ),
+})
+```
+{% /codetab %}
+{% /codetabs %}
+
 ## Common Recipes
 
 ### Embed text
@@ -134,9 +184,7 @@ if err != nil {
     log.Fatal(err)
 }
 
-content := embeddings.Content{
-    Parts: []embeddings.Part{embeddings.NewTextPart("What is Chroma?")},
-}
+content := embeddings.NewTextContent("What is Chroma?")
 emb, err := ef.EmbedContent(context.Background(), content)
 ```
 {% /codetab %}
@@ -147,14 +195,7 @@ emb, err := ef.EmbedContent(context.Background(), content)
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
-content := embeddings.Content{
-    Parts: []embeddings.Part{
-        embeddings.NewPartFromSource(
-            embeddings.ModalityImage,
-            embeddings.NewBinarySourceFromURL("https://example.com/cat.jpg"),
-        ),
-    },
-}
+content := embeddings.NewImageURL("https://example.com/cat.jpg")
 emb, err := ef.EmbedContent(context.Background(), content)
 ```
 {% /codetab %}
@@ -165,14 +206,7 @@ emb, err := ef.EmbedContent(context.Background(), content)
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
-content := embeddings.Content{
-    Parts: []embeddings.Part{
-        embeddings.NewPartFromSource(
-            embeddings.ModalityImage,
-            embeddings.NewBinarySourceFromFile("/path/to/photo.png"),
-        ),
-    },
-}
+content := embeddings.NewImageFile("/path/to/photo.png")
 emb, err := ef.EmbedContent(context.Background(), content)
 ```
 {% /codetab %}
@@ -185,19 +219,21 @@ When you combine parts, the provider fuses them into a single embedding that cap
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
-content := embeddings.Content{
-    Parts: []embeddings.Part{
-        embeddings.NewTextPart("A lioness hunting at sunset"),
-        embeddings.NewPartFromSource(
-            embeddings.ModalityImage,
-            embeddings.NewBinarySourceFromFile("lioness.png"),
-        ),
-    },
-}
+content := embeddings.NewContent([]embeddings.Part{
+    embeddings.NewTextPart("A lioness hunting at sunset"),
+    embeddings.NewPartFromSource(
+        embeddings.ModalityImage,
+        embeddings.NewBinarySourceFromFile("lioness.png"),
+    ),
+})
 emb, err := ef.EmbedContent(context.Background(), content)
 ```
 {% /codetab %}
 {% /codetabs %}
+
+!!! note "Verbose construction"
+
+    For manual `Content{}` struct literals and advanced Part composition, see the [Convenience Constructors](#convenience-constructors) table above for the verbose equivalents.
 
 ### Embed a batch of items
 
@@ -207,16 +243,18 @@ Use `EmbedContents` to embed multiple content items in one call. Each item produ
 {% codetab label="Go" %}
 ```go
 contents := []embeddings.Content{
-    {Parts: []embeddings.Part{embeddings.NewTextPart("The golden hour on the Serengeti")}},
-    {Parts: []embeddings.Part{
+    embeddings.NewTextContent("The golden hour on the Serengeti"),
+    embeddings.NewImageFile("lioness.png"),
+    embeddings.NewContent([]embeddings.Part{
+        embeddings.NewTextPart("A lioness pouncing on prey"),
         embeddings.NewPartFromSource(
-            embeddings.ModalityImage,
-            embeddings.NewBinarySourceFromFile("lioness.png"),
+            embeddings.ModalityVideo,
+            embeddings.NewBinarySourceFromFile("the_pounce.mp4"),
         ),
-    }},
+    }),
 }
 results, err := ef.EmbedContents(context.Background(), contents)
-// results[0] = text embedding, results[1] = image embedding
+// results[0] = text embedding, results[1] = image embedding, results[2] = text+video embedding
 ```
 {% /codetab %}
 {% /codetabs %}
@@ -226,10 +264,9 @@ results, err := ef.EmbedContents(context.Background(), contents)
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
-content := embeddings.Content{
-    Parts:  []embeddings.Part{embeddings.NewTextPart("how do lionesses hunt?")},
-    Intent: embeddings.IntentRetrievalQuery,
-}
+content := embeddings.NewTextContent("how do lionesses hunt?",
+    embeddings.WithIntent(embeddings.IntentRetrievalQuery),
+)
 emb, err := ef.EmbedContent(context.Background(), content)
 ```
 {% /codetab %}
@@ -256,11 +293,9 @@ Some providers support truncated embeddings for storage efficiency. Use the `Dim
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
-dim := 256
-content := embeddings.Content{
-    Parts:     []embeddings.Part{embeddings.NewTextPart("document text")},
-    Dimension: &dim,
-}
+content := embeddings.NewTextContent("document text",
+    embeddings.WithDimension(256),
+)
 emb, err := ef.EmbedContent(context.Background(), content)
 // emb.Len() == 256
 ```
@@ -274,12 +309,11 @@ For provider-specific options that don't have a portable equivalent, use `Provid
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
 ```go
-content := embeddings.Content{
-    Parts: []embeddings.Part{embeddings.NewTextPart("classify this")},
-    ProviderHints: map[string]any{
+content := embeddings.NewTextContent("classify this",
+    embeddings.WithProviderHints(map[string]any{
         "task_type": "CLASSIFICATION",  // Gemini-specific
-    },
-}
+    }),
+)
 ```
 {% /codetab %}
 {% /codetabs %}
