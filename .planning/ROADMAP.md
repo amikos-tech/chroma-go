@@ -196,7 +196,7 @@ Plans:
 
 Plans:
 - [x] 09-01-PLAN.md — Implement convenience constructors, ContentOption, and unit tests
-- [ ] 09-02-PLAN.md — Update multimodal docs, provider sections, and rewrite runnable examples
+- [x] 09-02-PLAN.md — Update multimodal docs, provider sections, and rewrite runnable examples
 
 ### Phase 10: Code Cleanups
 **Goal:** Consolidate duplicated path safety utilities into a shared internal package, fix the *context.Context pointer-to-interface anti-pattern across embedding providers, and add registry test cleanup to prevent global state leaks.
