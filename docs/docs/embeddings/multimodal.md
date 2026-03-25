@@ -50,13 +50,15 @@ content := embeddings.NewContent([]embeddings.Part{
 
 A `Part` is one piece of content — text, an image, a video clip. Each part has a **modality** that declares what type of content it is:
 
-| Modality | What it represents | Shorthand | Verbose |
-|----------|--------------------|-----------|---------|
-| `ModalityText` | Plain text | `NewTextContent("...")` | `Content{Parts: []Part{NewTextPart("...")}}` |
-| `ModalityImage` | Image (PNG, JPEG, WebP, GIF) | `NewImageURL(url)` / `NewImageFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityImage, source)}}` |
-| `ModalityVideo` | Video (MP4) | `NewVideoURL(url)` / `NewVideoFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityVideo, source)}}` |
-| `ModalityAudio` | Audio (MP3, WAV) | `NewAudioFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityAudio, source)}}` |
-| `ModalityPDF` | PDF document | `NewPDFFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityPDF, source)}}` |
+| Modality | What it represents | Part constructor |
+|----------|--------------------|-----------------|
+| `ModalityText` | Plain text | `NewTextPart("...")` |
+| `ModalityImage` | Image (PNG, JPEG, WebP, GIF) | `NewPartFromSource(ModalityImage, source)` |
+| `ModalityVideo` | Video (MP4) | `NewPartFromSource(ModalityVideo, source)` |
+| `ModalityAudio` | Audio (MP3, WAV) | `NewPartFromSource(ModalityAudio, source)` |
+| `ModalityPDF` | PDF document | `NewPartFromSource(ModalityPDF, source)` |
+
+For single-modality `Content` shortcuts, see the [Convenience Constructors](#convenience-constructors) table below.
 
 Not every provider supports every modality. See [Provider Support](#provider-support) below.
 
@@ -132,7 +134,9 @@ For single-modality content, use the shorthand constructors instead of building 
 | Image (file) | `NewImageFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityImage, NewBinarySourceFromFile(path))}}` |
 | Video (URL) | `NewVideoURL(url)` | `Content{Parts: []Part{NewPartFromSource(ModalityVideo, NewBinarySourceFromURL(url))}}` |
 | Video (file) | `NewVideoFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityVideo, NewBinarySourceFromFile(path))}}` |
+| Audio (URL) | `NewAudioURL(url)` | `Content{Parts: []Part{NewPartFromSource(ModalityAudio, NewBinarySourceFromURL(url))}}` |
 | Audio (file) | `NewAudioFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityAudio, NewBinarySourceFromFile(path))}}` |
+| PDF (URL) | `NewPDFURL(url)` | `Content{Parts: []Part{NewPartFromSource(ModalityPDF, NewBinarySourceFromURL(url))}}` |
 | PDF (file) | `NewPDFFile(path)` | `Content{Parts: []Part{NewPartFromSource(ModalityPDF, NewBinarySourceFromFile(path))}}` |
 
 {% /codetab %}
@@ -233,7 +237,7 @@ emb, err := ef.EmbedContent(context.Background(), content)
 
 !!! note "Verbose construction"
 
-    For manual `Content{}` struct literals and advanced Part composition, see the [Convenience Constructors](#convenience-constructors) table above for the verbose equivalents.
+    The [Convenience Constructors](#convenience-constructors) table above shows the equivalent verbose `Content{}` struct literals for each modality.
 
 ### Embed a batch of items
 
@@ -288,7 +292,7 @@ See the [Embeddings](../embeddings.md) page for provider setup, API keys, and op
 
 ### Custom output dimensions
 
-Some providers support truncated embeddings for storage efficiency. Use the `Dimension` field:
+Some providers support truncated embeddings for storage efficiency. Use `WithDimension`:
 
 {% codetabs group="lang" %}
 {% codetab label="Go" %}

@@ -20,9 +20,14 @@ func WithDimension(dim int) ContentOption {
 }
 
 // WithProviderHints sets provider-specific hints on the constructed Content.
+// The map is shallow-copied to prevent external mutation from affecting the Content.
 func WithProviderHints(hints map[string]any) ContentOption {
 	return func(c *Content) {
-		c.ProviderHints = hints
+		copied := make(map[string]any, len(hints))
+		for k, v := range hints {
+			copied[k] = v
+		}
+		c.ProviderHints = copied
 	}
 }
 
@@ -67,9 +72,23 @@ func NewVideoFile(path string, opts ...ContentOption) Content {
 	return c
 }
 
+// NewAudioURL creates a Content with a single URL-backed audio part.
+func NewAudioURL(url string, opts ...ContentOption) Content {
+	c := Content{Parts: []Part{NewPartFromSource(ModalityAudio, NewBinarySourceFromURL(url))}}
+	applyContentOptions(&c, opts)
+	return c
+}
+
 // NewAudioFile creates a Content with a single file-backed audio part.
 func NewAudioFile(path string, opts ...ContentOption) Content {
 	c := Content{Parts: []Part{NewPartFromSource(ModalityAudio, NewBinarySourceFromFile(path))}}
+	applyContentOptions(&c, opts)
+	return c
+}
+
+// NewPDFURL creates a Content with a single URL-backed PDF part.
+func NewPDFURL(url string, opts ...ContentOption) Content {
+	c := Content{Parts: []Part{NewPartFromSource(ModalityPDF, NewBinarySourceFromURL(url))}}
 	applyContentOptions(&c, opts)
 	return c
 }

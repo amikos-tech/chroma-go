@@ -106,6 +106,50 @@ func TestWithProviderHints(t *testing.T) {
 	require.Equal(t, "CLASSIFICATION", c.ProviderHints["task_type"])
 }
 
+func TestWithProviderHintsNoAlias(t *testing.T) {
+	hints := map[string]any{"task_type": "CLASSIFICATION"}
+	c := NewTextContent("q", WithProviderHints(hints))
+	hints["task_type"] = "CLUSTERING"
+	require.Equal(t, "CLASSIFICATION", c.ProviderHints["task_type"], "mutating original map must not affect Content")
+}
+
+func TestNewAudioURL(t *testing.T) {
+	c := NewAudioURL("https://example.com/audio.mp3")
+	require.Len(t, c.Parts, 1)
+	require.Equal(t, ModalityAudio, c.Parts[0].Modality)
+	require.NotNil(t, c.Parts[0].Source)
+	require.Equal(t, SourceKindURL, c.Parts[0].Source.Kind)
+	require.Equal(t, "https://example.com/audio.mp3", c.Parts[0].Source.URL)
+}
+
+func TestNewPDFURL(t *testing.T) {
+	c := NewPDFURL("https://example.com/doc.pdf")
+	require.Len(t, c.Parts, 1)
+	require.Equal(t, ModalityPDF, c.Parts[0].Modality)
+	require.NotNil(t, c.Parts[0].Source)
+	require.Equal(t, SourceKindURL, c.Parts[0].Source.Kind)
+	require.Equal(t, "https://example.com/doc.pdf", c.Parts[0].Source.URL)
+}
+
+func TestNewContentWithOptions(t *testing.T) {
+	parts := []Part{NewTextPart("a"), NewPartFromSource(ModalityImage, NewBinarySourceFromURL("u"))}
+	c := NewContent(parts, WithIntent(IntentClustering), WithDimension(128))
+	require.Len(t, c.Parts, 2)
+	require.Equal(t, IntentClustering, c.Intent)
+	require.NotNil(t, c.Dimension)
+	require.Equal(t, 128, *c.Dimension)
+}
+
+func TestNewContentNilPartsFailsValidation(t *testing.T) {
+	c := NewContent(nil)
+	require.Error(t, c.Validate(), "nil parts should fail validation")
+}
+
+func TestNewContentEmptyPartsFailsValidation(t *testing.T) {
+	c := NewContent([]Part{})
+	require.Error(t, c.Validate(), "empty parts should fail validation")
+}
+
 func TestConstructorContentValidates(t *testing.T) {
 	constructors := []struct {
 		name    string
@@ -116,7 +160,9 @@ func TestConstructorContentValidates(t *testing.T) {
 		{"NewImageFile", NewImageFile("/tmp/photo.png")},
 		{"NewVideoURL", NewVideoURL("https://example.com/vid.mp4")},
 		{"NewVideoFile", NewVideoFile("/tmp/vid.mp4")},
+		{"NewAudioURL", NewAudioURL("https://example.com/audio.mp3")},
 		{"NewAudioFile", NewAudioFile("/tmp/audio.wav")},
+		{"NewPDFURL", NewPDFURL("https://example.com/doc.pdf")},
 		{"NewPDFFile", NewPDFFile("/tmp/doc.pdf")},
 		{"NewContent", NewContent([]Part{NewTextPart("a")})},
 	}

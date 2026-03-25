@@ -452,10 +452,10 @@ func main() {
 	}
 	fmt.Printf("Query embedding dimension: %d\n", queryEmb.Len())
 
-	// For mixed-part content and verbose construction, see the
-	// [Content API reference](embeddings/multimodal.md).
 }
 ```
+
+For mixed-part content and verbose construction, see the [Content API reference](embeddings/multimodal.md).
 
 ## Google Gemini
 
@@ -551,10 +551,10 @@ func main() {
 	}
 	fmt.Printf("Query embedding dimension: %d\n", queryEmb.Len())
 
-	// For mixed-part content and verbose construction, see the
-	// [Content API reference](embeddings/multimodal.md).
 }
 ```
+
+For mixed-part content and verbose construction, see the [Content API reference](embeddings/multimodal.md).
 
 ## Mistral AI
 
