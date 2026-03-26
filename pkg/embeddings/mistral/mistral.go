@@ -33,7 +33,7 @@ type Client struct {
 	APIKeyEnvVar      string
 	DefaultModel      string
 	Client            *http.Client
-	DefaultContext    *context.Context
+	DefaultContext    context.Context
 	MaxBatchSize      int
 	EmbeddingEndpoint string
 	DefaultHeaders    map[string]string
@@ -45,8 +45,7 @@ func applyDefaults(c *Client) (err error) {
 	}
 
 	if c.DefaultContext == nil {
-		ctx := context.Background()
-		c.DefaultContext = &ctx
+		c.DefaultContext = context.Background()
 	}
 
 	if c.Client == nil {

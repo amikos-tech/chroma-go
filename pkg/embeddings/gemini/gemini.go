@@ -49,7 +49,7 @@ type Client struct {
 	DefaultTaskType  TaskType
 	DefaultDimension *int32
 	Client           *genai.Client
-	DefaultContext   *context.Context
+	DefaultContext   context.Context
 	MaxBatchSize     int
 	MaxFileSize      int64
 }
@@ -60,8 +60,7 @@ func applyDefaults(c *Client) (err error) {
 	}
 
 	if c.DefaultContext == nil {
-		ctx := context.Background()
-		c.DefaultContext = &ctx
+		c.DefaultContext = context.Background()
 	}
 
 	if c.MaxFileSize == 0 {
@@ -73,7 +72,7 @@ func applyDefaults(c *Client) (err error) {
 	}
 
 	if c.Client == nil {
-		c.Client, err = genai.NewClient(*c.DefaultContext, &genai.ClientConfig{
+		c.Client, err = genai.NewClient(c.DefaultContext, &genai.ClientConfig{
 			APIKey:  c.APIKey.Value(),
 			Backend: genai.BackendGeminiAPI,
 		})
