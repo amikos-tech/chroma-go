@@ -3,10 +3,12 @@ package v2
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -58,6 +60,8 @@ type CollectionImpl struct {
 	embeddingFunction        embeddings.EmbeddingFunction
 	contentEmbeddingFunction embeddings.ContentEmbeddingFunction
 	ownsEF                   bool
+	closeOnce                sync.Once
+	closeErr                 error
 }
 
 type Option func(*CollectionImpl) error
@@ -687,31 +691,36 @@ func (c *CollectionImpl) Close() error {
 	if !c.ownsEF {
 		return nil
 	}
-	var firstErr error
-	if c.contentEmbeddingFunction != nil {
-		if closer, ok := c.contentEmbeddingFunction.(io.Closer); ok {
-			firstErr = closer.Close()
-		}
-	}
-	if c.embeddingFunction != nil {
-		// Skip if dense EF shares the same resource as content EF:
-		// (1) content adapter wraps this dense EF (unwrapper case), or
-		// (2) content EF is a dual-interface object also assigned as dense EF
-		shared := false
-		if unwrapper, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunctionUnwrapper); ok {
-			shared = unwrapper.UnwrapEmbeddingFunction() == c.embeddingFunction
-		} else if ef, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {
-			shared = ef == c.embeddingFunction
-		}
-		if !shared {
-			if closer, ok := c.embeddingFunction.(io.Closer); ok {
-				if err := closer.Close(); err != nil && firstErr == nil {
-					firstErr = err
+	c.closeOnce.Do(func() {
+		var errs []error
+		if c.contentEmbeddingFunction != nil {
+			if closer, ok := c.contentEmbeddingFunction.(io.Closer); ok {
+				if err := closer.Close(); err != nil {
+					errs = append(errs, err)
 				}
 			}
 		}
-	}
-	return firstErr
+		if c.embeddingFunction != nil {
+			// Skip if dense EF shares the same resource as content EF:
+			// (1) content adapter wraps this dense EF (unwrapper case), or
+			// (2) content EF is a dual-interface object also assigned as dense EF
+			shared := false
+			if unwrapper, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunctionUnwrapper); ok {
+				shared = unwrapper.UnwrapEmbeddingFunction() == c.embeddingFunction
+			} else if ef, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {
+				shared = ef == c.embeddingFunction
+			}
+			if !shared {
+				if closer, ok := c.embeddingFunction.(io.Closer); ok {
+					if err := closer.Close(); err != nil {
+						errs = append(errs, err)
+					}
+				}
+			}
+		}
+		c.closeErr = stderrors.Join(errs...)
+	})
+	return c.closeErr
 }
 
 // TODO add utility methods for metadata lookups

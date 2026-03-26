@@ -787,6 +787,8 @@ type embeddedCollection struct {
 	embeddingFunction embeddingspkg.EmbeddingFunction
 	client            *embeddedLocalClient
 	ownsEF            bool
+	closeOnce         sync.Once
+	closeErr          error
 }
 
 func (c *embeddedCollection) Name() string {
@@ -1386,19 +1388,19 @@ func (c *embeddedCollection) Fork(ctx context.Context, newName string) (Collecti
 	c.mu.RUnlock()
 
 	c.client.upsertCollectionState(forked.ID, func(state *embeddedCollectionState) {
-		state.embeddingFunction = embeddingFunction
+		// Fork's EF is set directly below, not via collection state.
 		state.metadata = metadata
 		state.configuration = configuration
 		state.schema = schema
 		state.dimension = c.Dimension()
 	})
 
-	forkedCollection, err := c.client.buildEmbeddedCollection(*forked, database, embeddingFunction)
+	forkedCollection, err := c.client.buildEmbeddedCollection(*forked, database, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building forked collection")
 	}
 	forkedCollection.ownsEF = false
-	forkedCollection.embeddingFunction = wrapEFCloseOnce(forkedCollection.embeddingFunction)
+	forkedCollection.embeddingFunction = wrapEFCloseOnce(embeddingFunction)
 	return forkedCollection, nil
 }
 
@@ -1426,13 +1428,15 @@ func (c *embeddedCollection) Close() error {
 	if !c.ownsEF {
 		return nil
 	}
-	embeddingFunction := c.embeddingFunctionSnapshot()
-	if embeddingFunction != nil {
-		if closer, ok := embeddingFunction.(io.Closer); ok {
-			return closer.Close()
+	ef := c.embeddingFunctionSnapshot()
+	c.closeOnce.Do(func() {
+		if ef != nil {
+			if closer, ok := ef.(io.Closer); ok {
+				c.closeErr = closer.Close()
+			}
 		}
-	}
-	return nil
+	})
+	return c.closeErr
 }
 
 func documentIDsToStrings(ids []DocumentID) []string {

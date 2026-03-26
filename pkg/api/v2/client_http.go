@@ -547,6 +547,7 @@ func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListColl
 				dimension:         cm.Dimension,
 				client:            client,
 				embeddingFunction: ef,
+				ownsEF:            true,
 			}
 			apiCollections = append(apiCollections, c)
 		}
