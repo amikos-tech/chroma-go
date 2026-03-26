@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: Ready to plan
+status: "Phase 9 shipped — PR #468"
 stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-03-25T16:19:00.436Z"
+last_updated: "2026-03-26T08:17:06.350Z"
 progress:
   total_phases: 17
   completed_phases: 9
