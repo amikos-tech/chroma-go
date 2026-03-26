@@ -56,8 +56,8 @@
 - [x] **CLN-01**: Duplicated path safety functions (`containsDotDot`, `safePath`) are extracted into a shared `pkg/internal/pathutil` package with unit tests
 - [x] **CLN-02**: Gemini, Voyage, and default_ef providers import path safety utilities from the shared package instead of maintaining local copies
 - [x] **CLN-03**: Gemini, Nomic, and Mistral providers use `context.Context` (value type) for `DefaultContext` instead of `*context.Context` (pointer-to-interface anti-pattern)
-- [ ] **CLN-04**: Registry tests use `t.Cleanup` with unexported unregister helpers to prevent global state leaks between test runs
-- [ ] **CLN-05**: Gemini and VoyageAI `resolveMIME` functions infer MIME type from URL path extensions as a fallback, making URL constructors work end-to-end
+- [x] **CLN-04**: Registry tests use `t.Cleanup` with unexported unregister helpers to prevent global state leaks between test runs
+- [x] **CLN-05**: Gemini and VoyageAI `resolveMIME` functions infer MIME type from URL path extensions as a fallback, making URL constructors work end-to-end
 - [x] **CLN-06**: All existing tests pass without modification after cleanup changes
 
 ## v2 Requirements

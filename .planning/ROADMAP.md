@@ -23,7 +23,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 7: Voyage Multimodal Adoption** - Wire VoyageAI into the shared multimodal contract with text, image, and video support to validate the foundation end-to-end.
 - [x] **Phase 8: Document Gemini and VoyageAI multimodal embedding functions** - Update provider docs, add runnable examples, update README, create changelog. (completed 2026-03-23)
 - [ ] **Phase 9: Convenience Constructors and Documentation Polish** - Add shorthand constructors to reduce Content API verbosity and update docs.
-- [ ] **Phase 10: Code Cleanups** - Extract shared path safety utilities, fix *context.Context anti-pattern, add registry test cleanup, fix resolveMIME for URL-backed sources. (issues #456, #461, #466, #469)
+- [x] **Phase 10: Code Cleanups** - Extract shared path safety utilities, fix *context.Context anti-pattern, add registry test cleanup, fix resolveMIME for URL-backed sources. (issues #456, #461, #466, #469) (completed 2026-03-26)
 - [ ] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454)
 - [ ] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455)
 - [ ] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460)
@@ -173,7 +173,7 @@ Plans:
 | 7. Voyage Multimodal Adoption | 2/2 | Complete | 2026-03-22 |
 | 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
 | 9. Convenience Constructors | 2/2 | Complete | - |
-| 10. Code Cleanups | 1/2 | In Progress|  |
+| 10. Code Cleanups | 2/2 | Complete   | 2026-03-26 |
 | 11. Fork Double-Close Bug | 0/0 | Not started | - |
 | 12. SDK Auto-Wiring Research | 0/0 | Not started | - |
 | 13. Collection.ForkCount | 0/0 | Not started | - |
@@ -210,11 +210,11 @@ Plans:
   4. Registry tests use `t.Cleanup` with unregister helpers to prevent global state leaks.
   5. All existing tests pass without modification.
   6. Gemini and VoyageAI `resolveMIME` infer MIME type from URL path extensions, making URL constructors work end-to-end.
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 10-01-PLAN.md — Create shared pathutil package, replace local implementations, fix *context.Context anti-pattern
-- [ ] 10-02-PLAN.md — Add resolveMIME URL fallback, registry unregister helpers, and t.Cleanup to all tests
+- [x] 10-02-PLAN.md — Add resolveMIME URL fallback, registry unregister helpers, and t.Cleanup to all tests
 
 ### Phase 11: Fork Double-Close Bug
 **Goal:** Fix EF pointer sharing in Fork() that causes the same underlying embedding function resource to be closed twice when client.Close() iterates cached collections.
