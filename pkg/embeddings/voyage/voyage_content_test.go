@@ -410,6 +410,27 @@ func TestVoyageResolveMIME(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "MIME type is required")
 	})
+
+	t.Run("URL with unknown extension fails", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/data.parquet"}
+		_, err := resolveMIME(source)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "MIME type is required")
+	})
+
+	t.Run("URL with case-mixed extension resolves", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/photo.PNG"}
+		mime, err := resolveMIME(source)
+		require.NoError(t, err)
+		assert.Equal(t, "image/png", mime)
+	})
+
+	t.Run("malformed URL returns parse error", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "://invalid"}
+		_, err := resolveMIME(source)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse URL")
+	})
 }
 
 // TestVoyageValidateMIMEModality verifies MIME/modality consistency checks.

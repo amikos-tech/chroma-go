@@ -9,16 +9,19 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ContainsDotDot reports whether the cleaned path still contains ".." components.
-func ContainsDotDot(path string) bool {
+// containsDotDot reports whether the cleaned path still contains ".." components.
+func containsDotDot(path string) bool {
 	return slices.Contains(strings.Split(filepath.ToSlash(path), "/"), "..")
 }
 
 // ValidateFilePath cleans a file path and checks for path traversal.
 // Returns the cleaned path or an error if traversal is detected.
 func ValidateFilePath(path string) (string, error) {
+	if path == "" {
+		return "", errors.New("file path cannot be empty")
+	}
 	cleaned := filepath.Clean(path)
-	if ContainsDotDot(cleaned) {
+	if containsDotDot(cleaned) {
 		return "", errors.Errorf("file path %q contains path traversal", path)
 	}
 	return cleaned, nil
@@ -27,9 +30,16 @@ func ValidateFilePath(path string) (string, error) {
 // SafePath validates that joining destPath with filename results in a path
 // within destPath, preventing path traversal attacks from malicious tar entries.
 func SafePath(destPath, filename string) (string, error) {
+	if destPath == "" {
+		return "", errors.New("destination path cannot be empty")
+	}
+	base := filepath.Base(filename)
+	if base == "." || base == string(os.PathSeparator) {
+		return "", errors.Errorf("invalid filename: %q", filename)
+	}
 	destPath = filepath.Clean(destPath)
-	targetPath := filepath.Join(destPath, filepath.Base(filename))
-	if !strings.HasPrefix(targetPath, destPath+string(os.PathSeparator)) && targetPath != destPath {
+	targetPath := filepath.Join(destPath, base)
+	if !strings.HasPrefix(targetPath, destPath+string(os.PathSeparator)) {
 		return "", errors.Errorf("invalid path: %q escapes destination directory", filename)
 	}
 	return targetPath, nil

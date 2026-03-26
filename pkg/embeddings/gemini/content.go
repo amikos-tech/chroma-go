@@ -111,7 +111,7 @@ func resolveBytes(ctx context.Context, source *embeddings.BinarySource, maxFileS
 	case embeddings.SourceKindFile:
 		cleaned, err := pathutil.ValidateFilePath(source.FilePath)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "invalid file source path")
 		}
 		f, err := os.Open(cleaned)
 		if err != nil {
@@ -151,11 +151,12 @@ func resolveMIME(source *embeddings.BinarySource) (string, error) {
 	}
 	if source.URL != "" {
 		u, err := url.Parse(source.URL)
-		if err == nil {
-			ext := strings.ToLower(filepath.Ext(u.Path))
-			if mime, ok := extToMIME[ext]; ok {
-				return mime, nil
-			}
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to parse URL %q for MIME inference", source.URL)
+		}
+		ext := strings.ToLower(filepath.Ext(u.Path))
+		if mime, ok := extToMIME[ext]; ok {
+			return mime, nil
 		}
 	}
 	return "", errors.New("MIME type is required: set BinarySource.MIMEType or use a file/URL with a known extension")

@@ -185,7 +185,7 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 			}
 			outPath, err := pathutil.SafePath(destPath, targetFile)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "unsafe tar entry %q", targetFile)
 			}
 			if err := writeTarEntryToFile(outPath, tarReader); err != nil {
 				return err
@@ -198,7 +198,7 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 			}
 			outPath, err := pathutil.SafePath(destPath, header.Name)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "unsafe tar entry %q", header.Name)
 			}
 			if err := writeTarEntryToFile(outPath, tarReader); err != nil {
 				return err

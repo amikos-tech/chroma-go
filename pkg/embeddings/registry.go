@@ -302,24 +302,24 @@ func HasContent(name string) bool {
 
 func unregisterDense(name string) {
 	mu.Lock()
+	defer mu.Unlock()
 	delete(denseFactories, name)
-	mu.Unlock()
 }
 
 func unregisterSparse(name string) {
 	mu.Lock()
+	defer mu.Unlock()
 	delete(sparseFactories, name)
-	mu.Unlock()
 }
 
 func unregisterMultimodal(name string) {
 	mu.Lock()
+	defer mu.Unlock()
 	delete(multimodalFactories, name)
-	mu.Unlock()
 }
 
 func unregisterContent(name string) {
 	mu.Lock()
+	defer mu.Unlock()
 	delete(contentFactories, name)
-	mu.Unlock()
 }
