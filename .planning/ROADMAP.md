@@ -23,7 +23,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 7: Voyage Multimodal Adoption** - Wire VoyageAI into the shared multimodal contract with text, image, and video support to validate the foundation end-to-end.
 - [x] **Phase 8: Document Gemini and VoyageAI multimodal embedding functions** - Update provider docs, add runnable examples, update README, create changelog. (completed 2026-03-23)
 - [ ] **Phase 9: Convenience Constructors and Documentation Polish** - Add shorthand constructors to reduce Content API verbosity and update docs.
-- [ ] **Phase 10: Code Cleanups** - Extract shared path safety utilities, fix *context.Context anti-pattern, add registry test cleanup. (issues #456, #461, #466)
+- [ ] **Phase 10: Code Cleanups** - Extract shared path safety utilities, fix *context.Context anti-pattern, add registry test cleanup, fix resolveMIME for URL-backed sources. (issues #456, #461, #466, #469)
 - [ ] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454)
 - [ ] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455)
 - [ ] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460)
@@ -172,7 +172,7 @@ Plans:
 | 6. Gemini Multimodal Adoption | 2/2 | Complete   | 2026-03-20 |
 | 7. Voyage Multimodal Adoption | 2/2 | Complete | 2026-03-22 |
 | 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
-| 9. Convenience Constructors | 0/0 | Not started | - |
+| 9. Convenience Constructors | 0/2 | Not started | - |
 | 10. Code Cleanups | 0/0 | Not started | - |
 | 11. Fork Double-Close Bug | 0/0 | Not started | - |
 | 12. SDK Auto-Wiring Research | 0/0 | Not started | - |
@@ -185,28 +185,30 @@ Plans:
 ### Phase 9: Convenience Constructors and Documentation Polish
 
 **Goal:** Add shorthand constructors (NewImageURL, NewImageFile, NewVideoURL, etc.) to reduce Content API verbosity, update multimodal docs and examples to use them, and verify the simplified surface end-to-end.
-**Requirements**: TBD
+**Requirements**: [CONV-01, CONV-02, CONV-03, CONV-04]
 **Depends on:** Phase 8
 **Success Criteria** (what must be TRUE):
   1. Convenience constructors exist for common modality+source combinations (at minimum: NewImageURL, NewImageFile, NewVideoURL, NewVideoFile, NewAudioFile, NewPDFFile).
   2. Existing tests and examples continue to work — constructors are additive sugar, not replacements.
   3. Multimodal docs and provider examples are updated to show the shorthand forms alongside the verbose forms.
   4. All new constructors have unit tests.
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 9 to break down)
+- [x] 09-01-PLAN.md — Implement convenience constructors, ContentOption, and unit tests
+- [x] 09-02-PLAN.md — Update multimodal docs, provider sections, and rewrite runnable examples
 
 ### Phase 10: Code Cleanups
-**Goal:** Consolidate duplicated path safety utilities into a shared internal package, fix the *context.Context pointer-to-interface anti-pattern across embedding providers, and add registry test cleanup to prevent global state leaks.
+**Goal:** Consolidate duplicated path safety utilities into a shared internal package, fix the *context.Context pointer-to-interface anti-pattern across embedding providers, add registry test cleanup to prevent global state leaks, and fix resolveMIME for URL-backed sources.
 **Depends on:** Phase 9
-**Issues**: #456, #461, #466
+**Issues**: #456, #461, #466, #469
 **Success Criteria** (what must be TRUE):
   1. A shared `pkg/internal/pathutil` package provides `ContainsDotDot`, `ValidateFilePath`, and `SafePath` utilities.
   2. Gemini, Voyage, and default_ef use the shared path utilities instead of local duplicates.
   3. Gemini, Nomic, and Mistral use `context.Context` (not `*context.Context`) for DefaultContext.
   4. Registry tests use `t.Cleanup` with unregister helpers to prevent global state leaks.
   5. All existing tests pass without modification.
+  6. Gemini and VoyageAI `resolveMIME` infer MIME type from URL path extensions, making URL constructors work end-to-end.
 **Plans:** 0 plans
 
 Plans:

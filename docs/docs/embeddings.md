@@ -14,7 +14,7 @@ The following embedding wrappers are available:
 | [Ollama](#ollama)                                                                 | Ollama embeddings API.<br/>All models are supported - see Ollama [models lib](https://ollama.com/library) for more info.                                    |
 | [Cloudflare Workers AI](#cloudflare-workers-ai)                                   | Cloudflare Workers AI Embedding.<br/> For more info see [CF API Docs](https://developers.cloudflare.com/workers-ai/models/embedding/).                      |
 | [Together AI](#together-ai)                                                       | Together AI Embedding.<br/> For more info see [Together API Docs](https://docs.together.ai/reference/embeddings).                                           |
-| [Voyage AI](#voyage-ai)                                                           | Voyage AI Embedding.<br/> For more info see [Together API Docs](https://docs.voyageai.com/reference/embeddings-api).                                        |
+| [Voyage AI](#voyage-ai)                                                           | Voyage AI Embedding.<br/> For more info see [Voyage AI API Docs](https://docs.voyageai.com/reference/embeddings-api).                                        |
 | [Google Gemini](#google-gemini)                                                   | Google Gemini Embedding.<br/> For more info see [Gemini Docs](https://ai.google.dev/gemini-api/docs/embeddings).                                            |
 | [Mistral AI](#mistral-ai)                                                         | Mistral AI Embedding.<br/> For more info see [Mistral AI API Docs](https://docs.mistral.ai/capabilities/embeddings/).                                       |
 | [Nomic AI](#nomic-ai)                                                             | Nomic AI Embedding.<br/> For more info see [Nomic AI API Docs](https://docs.nomic.ai/atlas/models/text-embedding).                                          |
@@ -397,7 +397,7 @@ func main() {
 	// Make sure that you have the `VOYAGE_API_KEY` set in your environment
 	ef, err := t.NewVoyageAIEmbeddingFunction(t.WithEnvAPIKey(), t.WithDefaultModel("voyage-large-2"))
 	if err != nil {
-		fmt.Printf("Error creating Together embedding function: %s \n", err)
+		fmt.Printf("Error creating Voyage embedding function: %s \n", err)
 	}
 	resp, err := ef.EmbedDocuments(context.Background(), documents)
 	if err != nil {
@@ -432,40 +432,30 @@ func main() {
 		log.Fatalf("Error creating Voyage embedding function: %s", err)
 	}
 
-	// Embed an image with a text description.
-	imageContent := embeddings.Content{
-		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A lioness hunting at sunset"),
-			embeddings.NewPartFromSource(
-				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromFile("/path/to/image.png"),
-			),
-		},
-	}
-	emb, err := ef.EmbedContent(context.Background(), imageContent)
+	// Embed a single image.
+	imageEmb, err := ef.EmbedContent(context.Background(),
+		embeddings.NewImageFile("/path/to/image.png"),
+	)
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Image content embedding dimension: %d\n", emb.Len())
+	fmt.Printf("Image embedding dimension: %d\n", imageEmb.Len())
 
-	// Embed a video with a text description.
-	// Uses the small video to stay within VoyageAI's 32K token context window.
-	videoContent := embeddings.Content{
-		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A lioness pouncing on prey"),
-			embeddings.NewPartFromSource(
-				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromFile("/path/to/video.mp4"),
-			),
-		},
-	}
-	emb, err = ef.EmbedContent(context.Background(), videoContent)
+	// Embed text with a retrieval intent.
+	queryEmb, err := ef.EmbedContent(context.Background(),
+		embeddings.NewTextContent("how do lionesses hunt?",
+			embeddings.WithIntent(embeddings.IntentRetrievalQuery),
+		),
+	)
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Video content embedding dimension: %d\n", emb.Len())
+	fmt.Printf("Query embedding dimension: %d\n", queryEmb.Len())
+
 }
 ```
+
+For mixed-part content and verbose construction, see the [Content API reference](embeddings/multimodal.md).
 
 ## Google Gemini
 
@@ -541,39 +531,30 @@ func main() {
 		log.Fatalf("Error creating Gemini embedding function: %s", err)
 	}
 
-	// Embed an image with a text description.
-	imageContent := embeddings.Content{
-		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A lioness hunting at sunset"),
-			embeddings.NewPartFromSource(
-				embeddings.ModalityImage,
-				embeddings.NewBinarySourceFromFile("/path/to/image.png"),
-			),
-		},
-	}
-	emb, err := ef.EmbedContent(context.Background(), imageContent)
+	// Embed a single image.
+	imageEmb, err := ef.EmbedContent(context.Background(),
+		embeddings.NewImageFile("/path/to/image.png"),
+	)
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Image content embedding dimension: %d\n", emb.Len())
+	fmt.Printf("Image embedding dimension: %d\n", imageEmb.Len())
 
-	// Embed a video with a text description.
-	videoContent := embeddings.Content{
-		Parts: []embeddings.Part{
-			embeddings.NewTextPart("A lioness pouncing on prey"),
-			embeddings.NewPartFromSource(
-				embeddings.ModalityVideo,
-				embeddings.NewBinarySourceFromFile("/path/to/video.mp4"),
-			),
-		},
-	}
-	emb, err = ef.EmbedContent(context.Background(), videoContent)
+	// Embed text with a retrieval intent.
+	queryEmb, err := ef.EmbedContent(context.Background(),
+		embeddings.NewTextContent("how do lionesses hunt?",
+			embeddings.WithIntent(embeddings.IntentRetrievalQuery),
+		),
+	)
 	if err != nil {
 		log.Fatalf("Error embedding content: %s", err)
 	}
-	fmt.Printf("Video content embedding dimension: %d\n", emb.Len())
+	fmt.Printf("Query embedding dimension: %d\n", queryEmb.Len())
+
 }
 ```
+
+For mixed-part content and verbose construction, see the [Content API reference](embeddings/multimodal.md).
 
 ## Mistral AI
 

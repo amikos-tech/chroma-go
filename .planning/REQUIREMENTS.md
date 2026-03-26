@@ -44,6 +44,13 @@
 - [x] **VOY-02**: Neutral intents map to Voyage input types with explicit errors for unsupported combinations
 - [x] **VOY-03**: VoyageAI is registered in the multimodal factory/registry path with config round-trip support
 
+### Convenience Constructors
+
+- [x] **CONV-01**: Caller can create single-modality Content with a single function call (NewTextContent, NewImageURL, NewImageFile, NewVideoURL, NewVideoFile, NewAudioURL, NewAudioFile, NewPDFURL, NewPDFFile) instead of nested struct literals
+- [x] **CONV-02**: Caller can compose multi-part Content from Part helpers via NewContent with optional ContentOption configuration
+- [x] **CONV-03**: All convenience constructors have unit tests and existing tests/examples remain green
+- [x] **CONV-04**: Multimodal docs and provider examples show shorthand constructors as the primary examples with verbose forms linked from the generic Content API page
+
 ## v2 Requirements
 
 ### Provider Adoption
@@ -90,12 +97,16 @@
 | VOY-01 | Phase 7 | Complete |
 | VOY-02 | Phase 7 | Complete |
 | VOY-03 | Phase 7 | Complete |
+| CONV-01 | Phase 9 | Planned |
+| CONV-02 | Phase 9 | Planned |
+| CONV-03 | Phase 9 | Planned |
+| CONV-04 | Phase 9 | Planned |
 
 **Coverage:**
-- v1 requirements: 21 total
-- Mapped to phases: 21
-- Unmapped: 0 ✓
+- v1 requirements: 25 total
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-20 — added GEM-01/02/03 and VLLM-01/02 for phases 6-7*
+*Last updated: 2026-03-25 — added CONV-01/02/03/04 for phase 9*
