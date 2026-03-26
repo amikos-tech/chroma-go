@@ -160,7 +160,7 @@ func resolveMIME(source *embeddings.BinarySource) (string, error) {
 	if source.URL != "" {
 		u, err := url.Parse(source.URL)
 		if err != nil {
-			return "", errors.Wrapf(err, "failed to parse URL %q for MIME inference", source.URL)
+			return "", errors.Wrap(err, "failed to parse source URL for MIME inference")
 		}
 		ext := strings.ToLower(filepath.Ext(u.Path))
 		if mime, ok := extToMIME[ext]; ok {

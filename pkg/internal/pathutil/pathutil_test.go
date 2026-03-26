@@ -84,6 +84,12 @@ func TestSafePath(t *testing.T) {
 		assert.Equal(t, "/tmp/extract/extract", result)
 	})
 
+	t.Run("root destPath with valid filename succeeds", func(t *testing.T) {
+		result, err := SafePath("/", "model.bin")
+		require.NoError(t, err)
+		assert.Equal(t, "/model.bin", result)
+	})
+
 	t.Run("empty destPath returns error", func(t *testing.T) {
 		_, err := SafePath("", "model.bin")
 		require.Error(t, err)

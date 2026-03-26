@@ -429,7 +429,7 @@ func TestVoyageResolveMIME(t *testing.T) {
 		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "://invalid"}
 		_, err := resolveMIME(source)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse URL")
+		assert.Contains(t, err.Error(), "failed to parse source URL")
 	})
 }
 

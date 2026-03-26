@@ -39,7 +39,11 @@ func SafePath(destPath, filename string) (string, error) {
 	}
 	destPath = filepath.Clean(destPath)
 	targetPath := filepath.Join(destPath, base)
-	if !strings.HasPrefix(targetPath, destPath+string(os.PathSeparator)) {
+	if destPath == "/" {
+		if !strings.HasPrefix(targetPath, "/") {
+			return "", errors.Errorf("invalid path: %q escapes destination directory", filename)
+		}
+	} else if !strings.HasPrefix(targetPath, destPath+string(os.PathSeparator)) {
 		return "", errors.Errorf("invalid path: %q escapes destination directory", filename)
 	}
 	return targetPath, nil
