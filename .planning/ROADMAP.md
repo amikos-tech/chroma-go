@@ -174,7 +174,7 @@ Plans:
 | 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
 | 9. Convenience Constructors | 2/2 | Complete | - |
 | 10. Code Cleanups | 2/2 | Complete    | 2026-03-26 |
-| 11. Fork Double-Close Bug | 2/2 | Complete   | 2026-03-26 |
+| 11. Fork Double-Close Bug | 2/2 | Complete    | 2026-03-26 |
 | 12. SDK Auto-Wiring Research | 0/0 | Not started | - |
 | 13. Collection.ForkCount | 0/0 | Not started | - |
 | 14. Delete with Limit | 0/0 | Not started | - |
