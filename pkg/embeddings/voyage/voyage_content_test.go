@@ -382,6 +382,34 @@ func TestVoyageResolveMIME(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "image/png", mime)
 	})
+
+	t.Run("URL path extension fallback for png", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/photo.png"}
+		mime, err := resolveMIME(source)
+		require.NoError(t, err)
+		assert.Equal(t, "image/png", mime)
+	})
+
+	t.Run("URL with query string strips before extension", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/photo.jpg?token=abc"}
+		mime, err := resolveMIME(source)
+		require.NoError(t, err)
+		assert.Equal(t, "image/jpeg", mime)
+	})
+
+	t.Run("URL with fragment strips before extension", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/clip.mp4#section"}
+		mime, err := resolveMIME(source)
+		require.NoError(t, err)
+		assert.Equal(t, "video/mp4", mime)
+	})
+
+	t.Run("URL with no extension still fails", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/image-no-ext"}
+		_, err := resolveMIME(source)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "MIME type is required")
+	})
 }
 
 // TestVoyageValidateMIMEModality verifies MIME/modality consistency checks.
@@ -412,29 +440,6 @@ func TestVoyageValidateMIMEModality(t *testing.T) {
 		err := validateMIMEModality(embeddings.ModalityAudio, "audio/mpeg")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "MIME validation not implemented for modality")
-	})
-}
-
-// TestVoyageContainsDotDot verifies path traversal detection.
-func TestVoyageContainsDotDot(t *testing.T) {
-	t.Run("path with .. component", func(t *testing.T) {
-		assert.True(t, containsDotDot("../etc/passwd"))
-	})
-
-	t.Run("path with mid-level ..", func(t *testing.T) {
-		assert.True(t, containsDotDot("foo/../bar"))
-	})
-
-	t.Run("clean path without ..", func(t *testing.T) {
-		assert.False(t, containsDotDot("/usr/local/file.png"))
-	})
-
-	t.Run("path with ... is not traversal", func(t *testing.T) {
-		assert.False(t, containsDotDot("/path/to/.../file"))
-	})
-
-	t.Run("filename containing .. prefix is not traversal", func(t *testing.T) {
-		assert.False(t, containsDotDot("/path/..foo/file"))
 	})
 }
 

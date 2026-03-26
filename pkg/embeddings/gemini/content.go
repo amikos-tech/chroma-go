@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -133,7 +134,8 @@ func resolveBytes(ctx context.Context, source *embeddings.BinarySource, maxFileS
 }
 
 // resolveMIME determines the MIME type for a binary source.
-// It uses BinarySource.MIMEType directly if set, then falls back to file extension inference.
+// It uses BinarySource.MIMEType directly if set, then falls back to file extension,
+// then to URL path extension inference.
 func resolveMIME(source *embeddings.BinarySource) (string, error) {
 	if source == nil {
 		return "", errors.New("source cannot be nil")
@@ -147,7 +149,16 @@ func resolveMIME(source *embeddings.BinarySource) (string, error) {
 			return mime, nil
 		}
 	}
-	return "", errors.New("MIME type is required: set BinarySource.MIMEType or use a file with a known extension")
+	if source.URL != "" {
+		u, err := url.Parse(source.URL)
+		if err == nil {
+			ext := strings.ToLower(filepath.Ext(u.Path))
+			if mime, ok := extToMIME[ext]; ok {
+				return mime, nil
+			}
+		}
+	}
+	return "", errors.New("MIME type is required: set BinarySource.MIMEType or use a file/URL with a known extension")
 }
 
 // validateMIMEModality ensures the MIME type is consistent with the declared modality.
