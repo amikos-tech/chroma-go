@@ -35,6 +35,9 @@ func applyContentOptions(c *Content, opts []ContentOption) {
 	}
 }
 
+// TODO(#469): URL constructors produce BinarySource without MIMEType, which causes
+// resolveMIME to fail in Gemini and VoyageAI providers. Fix by adding URL extension
+// inference to resolveMIME.
 func newBinaryContent(modality Modality, source BinarySource, opts []ContentOption) Content {
 	c := Content{Parts: []Part{NewPartFromSource(modality, source)}}
 	applyContentOptions(&c, opts)

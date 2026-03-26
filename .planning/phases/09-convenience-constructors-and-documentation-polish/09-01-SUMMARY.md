@@ -12,7 +12,7 @@ requires:
 provides:
   - ContentOption type for functional options on Content
   - WithIntent, WithDimension, WithProviderHints option functions
-  - 7 single-modality constructors (NewTextContent, NewImageURL, NewImageFile, NewVideoURL, NewVideoFile, NewAudioFile, NewPDFFile)
+  - 9 single-modality constructors (NewTextContent, NewImageURL, NewImageFile, NewVideoURL, NewVideoFile, NewAudioURL, NewAudioFile, NewPDFURL, NewPDFFile)
   - NewContent multi-part compositor
 affects: [09-02, docs, examples, twelve-labs]
 
@@ -55,7 +55,7 @@ completed: 2026-03-25
 
 ## Accomplishments
 - ContentOption type and 3 option functions (WithIntent, WithDimension, WithProviderHints) for configuring constructed Content
-- 7 single-modality constructors (NewTextContent, NewImageURL, NewImageFile, NewVideoURL, NewVideoFile, NewAudioFile, NewPDFFile)
+- 9 single-modality constructors (NewTextContent, NewImageURL, NewImageFile, NewVideoURL, NewVideoFile, NewAudioURL, NewAudioFile, NewPDFURL, NewPDFFile)
 - NewContent multi-part compositor for pre-built parts
 - 14 unit tests covering all constructors, options, validation integration, pointer aliasing, and multi-option composition
 
