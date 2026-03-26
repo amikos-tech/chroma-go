@@ -24,7 +24,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 8: Document Gemini and VoyageAI multimodal embedding functions** - Update provider docs, add runnable examples, update README, create changelog. (completed 2026-03-23)
 - [ ] **Phase 9: Convenience Constructors and Documentation Polish** - Add shorthand constructors to reduce Content API verbosity and update docs.
 - [x] **Phase 10: Code Cleanups** - Extract shared path safety utilities, fix *context.Context anti-pattern, add registry test cleanup, fix resolveMIME for URL-backed sources. (issues #456, #461, #466, #469) (completed 2026-03-26)
-- [ ] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454)
+- [x] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454) (completed 2026-03-26)
 - [ ] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455)
 - [ ] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460)
 - [ ] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439)
@@ -174,7 +174,7 @@ Plans:
 | 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
 | 9. Convenience Constructors | 2/2 | Complete | - |
 | 10. Code Cleanups | 2/2 | Complete    | 2026-03-26 |
-| 11. Fork Double-Close Bug | 1/2 | In progress | - |
+| 11. Fork Double-Close Bug | 2/2 | Complete   | 2026-03-26 |
 | 12. SDK Auto-Wiring Research | 0/0 | Not started | - |
 | 13. Collection.ForkCount | 0/0 | Not started | - |
 | 14. Delete with Limit | 0/0 | Not started | - |
@@ -226,11 +226,11 @@ Plans:
   3. Tests cover Fork + Close lifecycle without panics or use-after-close errors.
   4. Existing fork tests continue to pass.
 **Requirements**: [FORK-01, FORK-02, FORK-03, FORK-04]
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 11-01-PLAN.md — Create close-once EF wrappers, add ownsEF flag, gate Close() in HTTP and embedded paths
-- [ ] 11-02-PLAN.md — Add unit tests for close-once wrappers and ownership gating
+- [x] 11-02-PLAN.md — Add unit tests for close-once wrappers and ownership gating
 
 ### Phase 12: SDK Auto-Wiring Research
 **Goal:** Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs (Python, JavaScript) to verify chroma-go's approach is consistent or document deliberate differences.

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: Executing
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-03-26T17:52:51Z"
+status: Ready to execute
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-03-26T17:59:58.458Z"
 progress:
   total_phases: 17
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 26
-  completed_plans: 25
+  completed_plans: 26
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 11
-Plan: 1 of 2
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Plan: 1 of 2
 | Phase 10 P01 | 4min | 2 tasks | 8 files |
 | Phase 10 P02 | 7min | 2 tasks | 6 files |
 | Phase 11 P01 | 3min | 2 tasks | 4 files |
+| Phase 11 P02 | 1min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,8 @@ Recent decisions affecting current work:
 - [Phase 10]: Remove dead TestVoyageContainsDotDot referencing function eliminated in Plan 01
 - [Phase 11]: Use ownsEF bool flag as primary ownership guard with close-once wrapper as defence-in-depth
 - [Phase 11]: Forked collections get close-once wrapped copies of parent EFs, preventing double-close even if ownsEF check is bypassed
+- [Phase 11]: Use atomic.Int32 close counters in mocks to verify exact call counts without race conditions
+- [Phase 11]: Test ownership gating via direct struct construction - no server required
 
 ### Roadmap Evolution
 
@@ -150,6 +153,6 @@ None.
 
 ## Session
 
-**Last Date:** 2026-03-26T17:52:51Z
-**Stopped At:** Completed 11-01-PLAN.md
+**Last Date:** 2026-03-26T17:59:58.454Z
+**Stopped At:** Completed 11-02-PLAN.md
 **Resume File:** None
