@@ -299,3 +299,27 @@ func HasContent(name string) bool {
 	_, ok := contentFactories[name]
 	return ok
 }
+
+func unregisterDense(name string) {
+	mu.Lock()
+	delete(denseFactories, name)
+	mu.Unlock()
+}
+
+func unregisterSparse(name string) {
+	mu.Lock()
+	delete(sparseFactories, name)
+	mu.Unlock()
+}
+
+func unregisterMultimodal(name string) {
+	mu.Lock()
+	delete(multimodalFactories, name)
+	mu.Unlock()
+}
+
+func unregisterContent(name string) {
+	mu.Lock()
+	delete(contentFactories, name)
+	mu.Unlock()
+}
