@@ -9,16 +9,9 @@ import (
 )
 
 // mimeTypeRe matches a basic RFC 2045 type/subtype MIME format.
-// Compiled once at package init with panic recovery; isValidMIMEType
-// falls back to a simple check if compilation ever fails.
-var mimeTypeRe = func() (re *regexp.Regexp) {
-	defer func() {
-		if r := recover(); r != nil {
-			re = nil
-		}
-	}()
-	return regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*/[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*$`)
-}()
+//
+//nolint:gocritic // regexp.Compile used intentionally to avoid panic per project guidelines.
+var mimeTypeRe, _ = regexp.Compile(`^[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*/[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*$`)
 
 func isValidMIMEType(mime string) bool {
 	if mimeTypeRe != nil {
