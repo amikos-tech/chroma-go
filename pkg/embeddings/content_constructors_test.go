@@ -137,10 +137,20 @@ func TestWithProviderHintsNil(t *testing.T) {
 }
 
 func TestNoOptionsDefaultState(t *testing.T) {
-	c := NewTextContent("hello")
-	require.Equal(t, Intent(""), c.Intent)
-	require.Nil(t, c.Dimension)
-	require.Nil(t, c.ProviderHints)
+	for _, tc := range []struct {
+		name string
+		opts []ContentOption
+	}{
+		{"no options", nil},
+		{"nil option", []ContentOption{nil}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := NewTextContent("hello", tc.opts...)
+			require.Equal(t, Intent(""), c.Intent)
+			require.Nil(t, c.Dimension)
+			require.Nil(t, c.ProviderHints)
+		})
+	}
 }
 
 func TestSameOptionLastWins(t *testing.T) {
@@ -151,13 +161,6 @@ func TestSameOptionLastWins(t *testing.T) {
 func TestNilOptionSkipped(t *testing.T) {
 	c := NewTextContent("q", nil, WithIntent(IntentClustering))
 	require.Equal(t, IntentClustering, c.Intent)
-}
-
-func TestNilAsSoleOption(t *testing.T) {
-	c := NewTextContent("q", nil)
-	require.Equal(t, Intent(""), c.Intent)
-	require.Nil(t, c.Dimension)
-	require.Nil(t, c.ProviderHints)
 }
 
 func TestNewContentCopiesParts(t *testing.T) {

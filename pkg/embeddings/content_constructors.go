@@ -90,8 +90,11 @@ func NewPDFFile(path string, opts ...ContentOption) Content {
 
 // NewContent creates a Content from pre-built parts with optional configuration.
 func NewContent(parts []Part, opts ...ContentOption) Content {
-	partsCopy := make([]Part, len(parts))
-	copy(partsCopy, parts)
+	var partsCopy []Part
+	if parts != nil {
+		partsCopy = make([]Part, len(parts))
+		copy(partsCopy, parts)
+	}
 	c := Content{Parts: partsCopy}
 	applyContentOptions(&c, opts)
 	return c
