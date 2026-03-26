@@ -14,11 +14,10 @@ import (
 var mimeTypeRe, _ = regexp.Compile(`^[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*/[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*$`)
 
 func isValidMIMEType(mime string) bool {
-	if mimeTypeRe != nil {
-		return mimeTypeRe.MatchString(mime)
+	if mimeTypeRe == nil {
+		return false
 	}
-	parts := strings.SplitN(mime, "/", 2)
-	return len(parts) == 2 && parts[0] != "" && parts[1] != ""
+	return mimeTypeRe.MatchString(mime)
 }
 
 const (
