@@ -126,6 +126,47 @@ func TestWithProviderHintsNoAlias(t *testing.T) {
 	require.Equal(t, "CLASSIFICATION", c.ProviderHints["task_type"], "mutating original map must not affect Content")
 }
 
+func TestNewTextContentEmptyStringFailsValidation(t *testing.T) {
+	c := NewTextContent("")
+	require.Error(t, c.Validate())
+}
+
+func TestWithProviderHintsNil(t *testing.T) {
+	c := NewTextContent("q", WithProviderHints(nil))
+	require.Nil(t, c.ProviderHints)
+}
+
+func TestNoOptionsDefaultState(t *testing.T) {
+	c := NewTextContent("hello")
+	require.Equal(t, Intent(""), c.Intent)
+	require.Nil(t, c.Dimension)
+	require.Nil(t, c.ProviderHints)
+}
+
+func TestSameOptionLastWins(t *testing.T) {
+	c := NewTextContent("q", WithIntent(IntentClustering), WithIntent(IntentRetrievalQuery))
+	require.Equal(t, IntentRetrievalQuery, c.Intent)
+}
+
+func TestNilOptionSkipped(t *testing.T) {
+	c := NewTextContent("q", nil, WithIntent(IntentClustering))
+	require.Equal(t, IntentClustering, c.Intent)
+}
+
+func TestNilAsSoleOption(t *testing.T) {
+	c := NewTextContent("q", nil)
+	require.Equal(t, Intent(""), c.Intent)
+	require.Nil(t, c.Dimension)
+	require.Nil(t, c.ProviderHints)
+}
+
+func TestNewContentCopiesParts(t *testing.T) {
+	parts := []Part{NewTextPart("a")}
+	c := NewContent(parts)
+	parts[0] = NewTextPart("b")
+	require.Equal(t, "a", c.Parts[0].Text, "mutating original slice must not affect Content")
+}
+
 func TestConstructorContentValidates(t *testing.T) {
 	constructors := []struct {
 		name    string

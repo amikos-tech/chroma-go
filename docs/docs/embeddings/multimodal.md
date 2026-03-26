@@ -308,7 +308,7 @@ emb, err := ef.EmbedContent(context.Background(), content)
 
 ### Provider hints
 
-For provider-specific options that don't have a portable equivalent, use `ProviderHints`:
+For provider-specific options that don't have a portable equivalent, use `WithProviderHints`:
 
 {% codetabs group="lang" %}
 {% codetab label="Go" %}
@@ -324,7 +324,7 @@ content := embeddings.NewTextContent("classify this",
 
 !!! warning
 
-    `ProviderHints` bypass portable intent mapping. They're an escape hatch — prefer `Intent` when a neutral constant fits your use case.
+    `WithProviderHints` bypasses portable intent mapping. It's an escape hatch — prefer `WithIntent` when a neutral constant fits your use case.
 
 ### Capability inspection
 

@@ -13,7 +13,6 @@ func WithIntent(intent Intent) ContentOption {
 }
 
 // WithDimension sets the target output dimensionality on the constructed Content.
-// Each call allocates a fresh pointer to avoid aliasing between Content values.
 func WithDimension(dim int) ContentOption {
 	return func(c *Content) {
 		d := dim
@@ -22,7 +21,6 @@ func WithDimension(dim int) ContentOption {
 }
 
 // WithProviderHints sets provider-specific hints on the constructed Content.
-// The map is shallow-copied to prevent external mutation from affecting the Content.
 func WithProviderHints(hints map[string]any) ContentOption {
 	return func(c *Content) {
 		c.ProviderHints = maps.Clone(hints)
@@ -31,7 +29,9 @@ func WithProviderHints(hints map[string]any) ContentOption {
 
 func applyContentOptions(c *Content, opts []ContentOption) {
 	for _, opt := range opts {
-		opt(c)
+		if opt != nil {
+			opt(c)
+		}
 	}
 }
 
@@ -90,7 +90,9 @@ func NewPDFFile(path string, opts ...ContentOption) Content {
 
 // NewContent creates a Content from pre-built parts with optional configuration.
 func NewContent(parts []Part, opts ...ContentOption) Content {
-	c := Content{Parts: parts}
+	partsCopy := make([]Part, len(parts))
+	copy(partsCopy, parts)
+	c := Content{Parts: partsCopy}
 	applyContentOptions(&c, opts)
 	return c
 }
