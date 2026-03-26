@@ -172,8 +172,8 @@ Plans:
 | 6. Gemini Multimodal Adoption | 2/2 | Complete   | 2026-03-20 |
 | 7. Voyage Multimodal Adoption | 2/2 | Complete | 2026-03-22 |
 | 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
-| 9. Convenience Constructors | 0/2 | Not started | - |
-| 10. Code Cleanups | 0/0 | Not started | - |
+| 9. Convenience Constructors | 2/2 | Complete | - |
+| 10. Code Cleanups | 0/2 | Not started | - |
 | 11. Fork Double-Close Bug | 0/0 | Not started | - |
 | 12. SDK Auto-Wiring Research | 0/0 | Not started | - |
 | 13. Collection.ForkCount | 0/0 | Not started | - |
@@ -202,6 +202,7 @@ Plans:
 **Goal:** Consolidate duplicated path safety utilities into a shared internal package, fix the *context.Context pointer-to-interface anti-pattern across embedding providers, add registry test cleanup to prevent global state leaks, and fix resolveMIME for URL-backed sources.
 **Depends on:** Phase 9
 **Issues**: #456, #461, #466, #469
+**Requirements**: [CLN-01, CLN-02, CLN-03, CLN-04, CLN-05, CLN-06]
 **Success Criteria** (what must be TRUE):
   1. A shared `pkg/internal/pathutil` package provides `ContainsDotDot`, `ValidateFilePath`, and `SafePath` utilities.
   2. Gemini, Voyage, and default_ef use the shared path utilities instead of local duplicates.
@@ -209,10 +210,11 @@ Plans:
   4. Registry tests use `t.Cleanup` with unregister helpers to prevent global state leaks.
   5. All existing tests pass without modification.
   6. Gemini and VoyageAI `resolveMIME` infer MIME type from URL path extensions, making URL constructors work end-to-end.
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 10 to break down)
+- [ ] 10-01-PLAN.md — Create shared pathutil package, replace local implementations, fix *context.Context anti-pattern
+- [ ] 10-02-PLAN.md — Add resolveMIME URL fallback, registry unregister helpers, and t.Cleanup to all tests
 
 ### Phase 11: Fork Double-Close Bug
 **Goal:** Fix EF pointer sharing in Fork() that causes the same underlying embedding function resource to be closed twice when client.Close() iterates cached collections.
