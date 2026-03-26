@@ -60,6 +60,13 @@
 - [x] **CLN-05**: Gemini and VoyageAI `resolveMIME` functions infer MIME type from URL path extensions as a fallback, making URL constructors work end-to-end
 - [x] **CLN-06**: All existing tests pass without modification after cleanup changes
 
+### Fork Double-Close Bug
+
+- [x] **FORK-01**: Forked collections do not double-close shared EF resources when `client.Close()` iterates the collection cache
+- [x] **FORK-02**: Both `embeddingFunction` and `contentEmbeddingFunction` ownership is tracked via an `ownsEF` flag on collection structs
+- [x] **FORK-03**: Shared EFs are wrapped in a `sync.Once`-based close-once adapter that makes `Close()` idempotent as defence-in-depth
+- [ ] **FORK-04**: Tests cover Fork + Close lifecycle including idempotent close, use-after-close errors, and ownership gating without panics
+
 ## v2 Requirements
 
 ### Provider Adoption
@@ -116,12 +123,16 @@
 | CLN-04 | Phase 10 | Planned |
 | CLN-05 | Phase 10 | Planned |
 | CLN-06 | Phase 10 | Planned |
+| FORK-01 | Phase 11 | Complete |
+| FORK-02 | Phase 11 | Complete |
+| FORK-03 | Phase 11 | Complete |
+| FORK-04 | Phase 11 | Planned |
 
 **Coverage:**
-- v1 requirements: 31 total
-- Mapped to phases: 31
+- v1 requirements: 35 total
+- Mapped to phases: 35
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-26 -- added CLN-01/02/03/04/05/06 for phase 10*
+*Last updated: 2026-03-26 -- added FORK-01/02/03/04 for phase 11*

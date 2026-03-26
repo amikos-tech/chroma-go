@@ -174,7 +174,7 @@ Plans:
 | 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
 | 9. Convenience Constructors | 2/2 | Complete | - |
 | 10. Code Cleanups | 2/2 | Complete    | 2026-03-26 |
-| 11. Fork Double-Close Bug | 0/0 | Not started | - |
+| 11. Fork Double-Close Bug | 1/2 | In progress | - |
 | 12. SDK Auto-Wiring Research | 0/0 | Not started | - |
 | 13. Collection.ForkCount | 0/0 | Not started | - |
 | 14. Delete with Limit | 0/0 | Not started | - |
@@ -225,10 +225,12 @@ Plans:
   2. Both `embeddingFunction` and `contentEmbeddingFunction` ownership is handled correctly.
   3. Tests cover Fork + Close lifecycle without panics or use-after-close errors.
   4. Existing fork tests continue to pass.
-**Plans:** 0 plans
+**Requirements**: [FORK-01, FORK-02, FORK-03, FORK-04]
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 11 to break down)
+- [x] 11-01-PLAN.md — Create close-once EF wrappers, add ownsEF flag, gate Close() in HTTP and embedded paths
+- [ ] 11-02-PLAN.md — Add unit tests for close-once wrappers and ownership gating
 
 ### Phase 12: SDK Auto-Wiring Research
 **Goal:** Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs (Python, JavaScript) to verify chroma-go's approach is consistent or document deliberate differences.
