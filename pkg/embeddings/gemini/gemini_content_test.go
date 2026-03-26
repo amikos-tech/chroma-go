@@ -152,6 +152,55 @@ func TestResolveMIME(t *testing.T) {
 		_, err := resolveMIME(source)
 		require.Error(t, err)
 	})
+
+	t.Run("URL path extension fallback for png", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/photo.png"}
+		mime, err := resolveMIME(source)
+		require.NoError(t, err)
+		assert.Equal(t, "image/png", mime)
+	})
+
+	t.Run("URL with query string strips before extension", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/photo.jpg?token=abc&size=large"}
+		mime, err := resolveMIME(source)
+		require.NoError(t, err)
+		assert.Equal(t, "image/jpeg", mime)
+	})
+
+	t.Run("URL with fragment strips before extension", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/video.mp4#t=10"}
+		mime, err := resolveMIME(source)
+		require.NoError(t, err)
+		assert.Equal(t, "video/mp4", mime)
+	})
+
+	t.Run("URL with no extension still fails", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/image-no-ext"}
+		_, err := resolveMIME(source)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "MIME type is required")
+	})
+
+	t.Run("URL with unknown extension fails", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/data.parquet"}
+		_, err := resolveMIME(source)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "MIME type is required")
+	})
+
+	t.Run("URL with case-mixed extension resolves", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/photo.PNG"}
+		mime, err := resolveMIME(source)
+		require.NoError(t, err)
+		assert.Equal(t, "image/png", mime)
+	})
+
+	t.Run("malformed URL returns parse error", func(t *testing.T) {
+		source := &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "://invalid"}
+		_, err := resolveMIME(source)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse source URL")
+	})
 }
 
 // TestValidateMIMEModality verifies MIME-modality consistency checks (D-07).
@@ -183,6 +232,7 @@ func TestValidateMIMEModality(t *testing.T) {
 		{embeddings.ModalityAudio, "image/png", "audio modality requires audio/*"},
 		{embeddings.ModalityVideo, "application/pdf", "video modality requires video/*"},
 		{embeddings.ModalityPDF, "image/jpeg", "pdf modality requires application/pdf"},
+		{embeddings.Modality("hologram"), "application/octet-stream", "MIME validation not implemented for modality"},
 	}
 
 	for _, tc := range invalidCases {

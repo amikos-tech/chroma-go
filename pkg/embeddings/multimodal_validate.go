@@ -4,8 +4,21 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 )
+
+// mimeTypeRe matches a basic RFC 2045 type/subtype MIME format.
+//
+//nolint:gocritic // regexp.Compile used intentionally to avoid panic per project guidelines.
+var mimeTypeRe, _ = regexp.Compile(`^[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*/[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*$`)
+
+func isValidMIMEType(mime string) bool {
+	if mimeTypeRe == nil {
+		return false
+	}
+	return mimeTypeRe.MatchString(mime)
+}
 
 const (
 	validationCodeForbidden            = "forbidden"
@@ -171,6 +184,10 @@ func (s BinarySource) Validate() error {
 		if len(s.Bytes) == 0 {
 			validationErr.addIssue("kind", validationCodeMismatch, "source kind \"bytes\" requires the Bytes field")
 		}
+	}
+
+	if s.MIMEType != "" && !isValidMIMEType(s.MIMEType) {
+		validationErr.addIssue("mime_type", validationCodeInvalidValue, fmt.Sprintf("MIME type %q is not a valid type/subtype format", s.MIMEType))
 	}
 
 	return validationErr.orNil()

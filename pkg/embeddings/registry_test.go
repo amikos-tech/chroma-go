@@ -96,6 +96,7 @@ func TestRegisterAndBuildDense(t *testing.T) {
 		return &mockEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterDense(name) })
 
 	assert.True(t, HasDense(name))
 
@@ -110,6 +111,7 @@ func TestRegisterAndBuildSparse(t *testing.T) {
 		return &mockSparseEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterSparse(name) })
 
 	assert.True(t, HasSparse(name))
 
@@ -136,6 +138,7 @@ func TestListDense(t *testing.T) {
 		return &mockEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterDense(name) })
 
 	names := ListDense()
 	assert.Contains(t, names, name)
@@ -147,6 +150,7 @@ func TestListSparse(t *testing.T) {
 		return &mockSparseEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterSparse(name) })
 
 	names := ListSparse()
 	assert.Contains(t, names, name)
@@ -160,6 +164,7 @@ func TestHasDense(t *testing.T) {
 		return &mockEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterDense(name) })
 
 	assert.True(t, HasDense(name))
 }
@@ -172,6 +177,7 @@ func TestHasSparse(t *testing.T) {
 		return &mockSparseEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterSparse(name) })
 
 	assert.True(t, HasSparse(name))
 }
@@ -182,6 +188,7 @@ func TestRegisterDenseDuplicate(t *testing.T) {
 		return &mockEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterDense(name) })
 
 	err = RegisterDense(name, func(_ EmbeddingFunctionConfig) (EmbeddingFunction, error) {
 		return &mockEmbeddingFunction{name: name}, nil
@@ -196,6 +203,7 @@ func TestRegisterSparseDuplicate(t *testing.T) {
 		return &mockSparseEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterSparse(name) })
 
 	err = RegisterSparse(name, func(_ EmbeddingFunctionConfig) (SparseEmbeddingFunction, error) {
 		return &mockSparseEmbeddingFunction{name: name}, nil
@@ -211,6 +219,7 @@ func TestBuildDenseCloseableWithCloseable(t *testing.T) {
 		return mockEf, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterDense(name) })
 
 	ef, closer, err := BuildDenseCloseable(name, nil)
 	require.NoError(t, err)
@@ -230,6 +239,7 @@ func TestBuildDenseCloseableWithoutCloseable(t *testing.T) {
 		return &mockEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterDense(name) })
 
 	ef, closer, err := BuildDenseCloseable(name, nil)
 	require.NoError(t, err)
@@ -254,6 +264,7 @@ func TestBuildSparseCloseableWithoutCloseable(t *testing.T) {
 		return &mockSparseEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterSparse(name) })
 
 	ef, closer, err := BuildSparseCloseable(name, nil)
 	require.NoError(t, err)
@@ -315,6 +326,7 @@ func TestRegisterAndBuildContent(t *testing.T) {
 		return mock, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterContent(name) })
 
 	assert.True(t, HasContent(name))
 
@@ -329,6 +341,7 @@ func TestBuildContentFallbackMultimodal(t *testing.T) {
 		return &mockMultimodalEmbeddingFunction{mockEmbeddingFunction: mockEmbeddingFunction{name: name}}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterMultimodal(name) })
 
 	ef, err := BuildContent(name, nil)
 	require.NoError(t, err)
@@ -344,6 +357,7 @@ func TestBuildContentFallbackDense(t *testing.T) {
 		return &mockEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterDense(name) })
 
 	ef, err := BuildContent(name, nil)
 	require.NoError(t, err)
@@ -363,6 +377,7 @@ func TestBuildContentCloseableWithCloseable(t *testing.T) {
 		return mockEf, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterDense(name) })
 
 	ef, closer, err := BuildContentCloseable(name, nil)
 	require.NoError(t, err)
@@ -381,6 +396,7 @@ func TestBuildContentCloseableWithoutCloseable(t *testing.T) {
 		return &mockEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterDense(name) })
 
 	ef, closer, err := BuildContentCloseable(name, nil)
 	require.NoError(t, err)
@@ -404,6 +420,7 @@ func TestBuildContentFallbackCapabilityAware(t *testing.T) {
 		}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterDense(name) })
 
 	ef, err := BuildContent(name, nil)
 	require.NoError(t, err)
@@ -420,6 +437,7 @@ func TestListContent(t *testing.T) {
 		return &mockContentEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterContent(name) })
 
 	names := ListContent()
 	assert.Contains(t, names, name)
@@ -433,6 +451,7 @@ func TestHasContent(t *testing.T) {
 		return &mockContentEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterContent(name) })
 
 	assert.True(t, HasContent(name))
 }
@@ -443,6 +462,7 @@ func TestRegisterContentDuplicate(t *testing.T) {
 		return &mockContentEmbeddingFunction{name: name}, nil
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { unregisterContent(name) })
 
 	err = RegisterContent(name, func(_ EmbeddingFunctionConfig) (ContentEmbeddingFunction, error) {
 		return &mockContentEmbeddingFunction{name: name}, nil
@@ -507,11 +527,7 @@ func TestBuildContentEmbedContentRoundTrip(t *testing.T) {
 		return &mockContentEFWithResult{name: name}, nil
 	})
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		mu.Lock()
-		delete(contentFactories, name)
-		mu.Unlock()
-	})
+	t.Cleanup(func() { unregisterContent(name) })
 
 	ef, err := BuildContent(name, nil)
 	require.NoError(t, err)
@@ -535,11 +551,7 @@ func TestBuildContentAdapterEmbedContentRoundTrip(t *testing.T) {
 		return &mockDenseEFWithResult{name: name}, nil
 	})
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		mu.Lock()
-		delete(denseFactories, name)
-		mu.Unlock()
-	})
+	t.Cleanup(func() { unregisterDense(name) })
 
 	ef, err := BuildContent(name, nil)
 	require.NoError(t, err)

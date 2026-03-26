@@ -5,14 +5,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/amikos-tech/chroma-go/pkg/internal/pathutil"
 )
 
 const (
@@ -116,9 +117,9 @@ func resolveBytes(source *embeddings.BinarySource, maxFileSize int64) ([]byte, e
 		}
 		return data, nil
 	case embeddings.SourceKindFile:
-		cleaned := filepath.Clean(source.FilePath)
-		if containsDotDot(cleaned) {
-			return nil, errors.Errorf("file path %q contains path traversal", source.FilePath)
+		cleaned, err := pathutil.ValidateFilePath(source.FilePath)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid file source path")
 		}
 		f, err := os.Open(cleaned)
 		if err != nil {
@@ -140,12 +141,9 @@ func resolveBytes(source *embeddings.BinarySource, maxFileSize int64) ([]byte, e
 	}
 }
 
-// containsDotDot reports whether the cleaned path still contains ".." components.
-func containsDotDot(path string) bool {
-	return slices.Contains(strings.Split(filepath.ToSlash(path), "/"), "..")
-}
-
 // resolveMIME determines the MIME type for a binary source.
+// It uses BinarySource.MIMEType directly if set, then falls back to file extension,
+// then to URL path extension inference.
 func resolveMIME(source *embeddings.BinarySource) (string, error) {
 	if source == nil {
 		return "", errors.New("source cannot be nil")
@@ -159,7 +157,17 @@ func resolveMIME(source *embeddings.BinarySource) (string, error) {
 			return mime, nil
 		}
 	}
-	return "", errors.New("MIME type is required: set BinarySource.MIMEType or use a file with a known extension")
+	if source.URL != "" {
+		u, err := url.Parse(source.URL)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to parse source URL for MIME inference")
+		}
+		ext := strings.ToLower(filepath.Ext(u.Path))
+		if mime, ok := extToMIME[ext]; ok {
+			return mime, nil
+		}
+	}
+	return "", errors.New("MIME type is required: set BinarySource.MIMEType or use a file/URL with a known extension")
 }
 
 // validateMIMEModality ensures the MIME type is consistent with the declared modality.
