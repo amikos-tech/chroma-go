@@ -51,6 +51,15 @@
 - [x] **CONV-03**: All convenience constructors have unit tests and existing tests/examples remain green
 - [x] **CONV-04**: Multimodal docs and provider examples show shorthand constructors as the primary examples with verbose forms linked from the generic Content API page
 
+### Code Cleanups
+
+- [x] **CLN-01**: Duplicated path safety functions (`containsDotDot`, `safePath`) are extracted into a shared `pkg/internal/pathutil` package with unit tests
+- [x] **CLN-02**: Gemini, Voyage, and default_ef providers import path safety utilities from the shared package instead of maintaining local copies
+- [x] **CLN-03**: Gemini, Nomic, and Mistral providers use `context.Context` (value type) for `DefaultContext` instead of `*context.Context` (pointer-to-interface anti-pattern)
+- [ ] **CLN-04**: Registry tests use `t.Cleanup` with unexported unregister helpers to prevent global state leaks between test runs
+- [ ] **CLN-05**: Gemini and VoyageAI `resolveMIME` functions infer MIME type from URL path extensions as a fallback, making URL constructors work end-to-end
+- [x] **CLN-06**: All existing tests pass without modification after cleanup changes
+
 ## v2 Requirements
 
 ### Provider Adoption
@@ -101,12 +110,18 @@
 | CONV-02 | Phase 9 | Planned |
 | CONV-03 | Phase 9 | Planned |
 | CONV-04 | Phase 9 | Planned |
+| CLN-01 | Phase 10 | Planned |
+| CLN-02 | Phase 10 | Planned |
+| CLN-03 | Phase 10 | Planned |
+| CLN-04 | Phase 10 | Planned |
+| CLN-05 | Phase 10 | Planned |
+| CLN-06 | Phase 10 | Planned |
 
 **Coverage:**
-- v1 requirements: 25 total
-- Mapped to phases: 25
+- v1 requirements: 31 total
+- Mapped to phases: 31
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-25 — added CONV-01/02/03/04 for phase 9*
+*Last updated: 2026-03-26 -- added CLN-01/02/03/04/05/06 for phase 10*
