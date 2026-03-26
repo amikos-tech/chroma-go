@@ -13,12 +13,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
 	"github.com/pkg/errors"
+
+	"github.com/amikos-tech/chroma-go/pkg/internal/pathutil"
 )
 
 // Known SHA256 checksum for the ONNX model archive.
@@ -152,17 +153,6 @@ func getOSAndArch() (string, string) {
 	return runtime.GOOS, runtime.GOARCH
 }
 
-// safePath validates that joining destPath with filename results in a path
-// within destPath, preventing path traversal attacks from malicious tar entries.
-func safePath(destPath, filename string) (string, error) {
-	destPath = filepath.Clean(destPath)
-	targetPath := filepath.Join(destPath, filepath.Base(filename))
-	if !strings.HasPrefix(targetPath, destPath+string(os.PathSeparator)) && targetPath != destPath {
-		return "", errors.Errorf("invalid path: %q escapes destination directory", filename)
-	}
-	return targetPath, nil
-}
-
 func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 	f, err := os.Open(tarGzPath)
 	if err != nil {
@@ -193,7 +183,7 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 			if !isRegularTarFile(header) {
 				return errors.Errorf("tar entry %q is not a regular file", targetFile)
 			}
-			outPath, err := safePath(destPath, targetFile)
+			outPath, err := pathutil.SafePath(destPath, targetFile)
 			if err != nil {
 				return err
 			}
@@ -206,7 +196,7 @@ func extractSpecificFile(tarGzPath, targetFile, destPath string) error {
 			if !isRegularTarFile(header) {
 				continue
 			}
-			outPath, err := safePath(destPath, header.Name)
+			outPath, err := pathutil.SafePath(destPath, header.Name)
 			if err != nil {
 				return err
 			}

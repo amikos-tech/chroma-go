@@ -173,7 +173,7 @@ Plans:
 | 7. Voyage Multimodal Adoption | 2/2 | Complete | 2026-03-22 |
 | 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
 | 9. Convenience Constructors | 2/2 | Complete | - |
-| 10. Code Cleanups | 0/2 | Not started | - |
+| 10. Code Cleanups | 1/2 | In Progress|  |
 | 11. Fork Double-Close Bug | 0/0 | Not started | - |
 | 12. SDK Auto-Wiring Research | 0/0 | Not started | - |
 | 13. Collection.ForkCount | 0/0 | Not started | - |
@@ -210,10 +210,10 @@ Plans:
   4. Registry tests use `t.Cleanup` with unregister helpers to prevent global state leaks.
   5. All existing tests pass without modification.
   6. Gemini and VoyageAI `resolveMIME` infer MIME type from URL path extensions, making URL constructors work end-to-end.
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 10-01-PLAN.md — Create shared pathutil package, replace local implementations, fix *context.Context anti-pattern
+- [x] 10-01-PLAN.md — Create shared pathutil package, replace local implementations, fix *context.Context anti-pattern
 - [ ] 10-02-PLAN.md — Add resolveMIME URL fallback, registry unregister helpers, and t.Cleanup to all tests
 
 ### Phase 11: Fork Double-Close Bug

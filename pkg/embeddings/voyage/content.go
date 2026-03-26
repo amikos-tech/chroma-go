@@ -7,12 +7,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/amikos-tech/chroma-go/pkg/internal/pathutil"
 )
 
 const (
@@ -116,9 +116,9 @@ func resolveBytes(source *embeddings.BinarySource, maxFileSize int64) ([]byte, e
 		}
 		return data, nil
 	case embeddings.SourceKindFile:
-		cleaned := filepath.Clean(source.FilePath)
-		if containsDotDot(cleaned) {
-			return nil, errors.Errorf("file path %q contains path traversal", source.FilePath)
+		cleaned, err := pathutil.ValidateFilePath(source.FilePath)
+		if err != nil {
+			return nil, err
 		}
 		f, err := os.Open(cleaned)
 		if err != nil {
@@ -138,11 +138,6 @@ func resolveBytes(source *embeddings.BinarySource, maxFileSize int64) ([]byte, e
 	default:
 		return nil, errors.Errorf("unsupported source kind %q", source.Kind)
 	}
-}
-
-// containsDotDot reports whether the cleaned path still contains ".." components.
-func containsDotDot(path string) bool {
-	return slices.Contains(strings.Split(filepath.ToSlash(path), "/"), "..")
 }
 
 // resolveMIME determines the MIME type for a binary source.

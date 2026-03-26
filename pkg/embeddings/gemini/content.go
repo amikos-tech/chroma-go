@@ -6,13 +6,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
 	"google.golang.org/genai"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/amikos-tech/chroma-go/pkg/internal/pathutil"
 )
 
 // neutralIntentToTaskType maps the 5 shared neutral intents to Gemini task type strings.
@@ -108,9 +108,9 @@ func resolveBytes(ctx context.Context, source *embeddings.BinarySource, maxFileS
 		}
 		return data, nil
 	case embeddings.SourceKindFile:
-		cleaned := filepath.Clean(source.FilePath)
-		if containsDotDot(cleaned) {
-			return nil, errors.Errorf("file path %q contains path traversal", source.FilePath)
+		cleaned, err := pathutil.ValidateFilePath(source.FilePath)
+		if err != nil {
+			return nil, err
 		}
 		f, err := os.Open(cleaned)
 		if err != nil {
@@ -130,11 +130,6 @@ func resolveBytes(ctx context.Context, source *embeddings.BinarySource, maxFileS
 	default:
 		return nil, errors.Errorf("unsupported source kind %q", source.Kind)
 	}
-}
-
-// containsDotDot reports whether the cleaned path still contains ".." components.
-func containsDotDot(path string) bool {
-	return slices.Contains(strings.Split(filepath.ToSlash(path), "/"), "..")
 }
 
 // resolveMIME determines the MIME type for a binary source.
