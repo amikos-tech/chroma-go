@@ -57,6 +57,7 @@ type CollectionImpl struct {
 	client                   *APIClientV2
 	embeddingFunction        embeddings.EmbeddingFunction
 	contentEmbeddingFunction embeddings.ContentEmbeddingFunction
+	ownsEF                   bool
 }
 
 type Option func(*CollectionImpl) error
@@ -412,8 +413,9 @@ func (c *CollectionImpl) Fork(ctx context.Context, newName string) (Collection, 
 		schema:                   cm.Schema,
 		client:                   c.client,
 		dimension:                cm.Dimension,
-		embeddingFunction:        c.embeddingFunction,
-		contentEmbeddingFunction: c.contentEmbeddingFunction,
+		embeddingFunction:        wrapEFCloseOnce(c.embeddingFunction),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(c.contentEmbeddingFunction),
+		ownsEF:                   false,
 	}
 	c.client.addCollectionToCache(forkedCollection)
 	return forkedCollection, nil
@@ -682,6 +684,9 @@ func (c *CollectionImpl) IndexingStatus(ctx context.Context) (*IndexingStatus, e
 }
 
 func (c *CollectionImpl) Close() error {
+	if !c.ownsEF {
+		return nil
+	}
 	var firstErr error
 	if c.contentEmbeddingFunction != nil {
 		if closer, ok := c.contentEmbeddingFunction.(io.Closer); ok {

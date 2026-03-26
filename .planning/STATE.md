@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: Ready to plan
-stopped_at: Phase 11 context gathered
-last_updated: "2026-03-26T15:27:45.144Z"
+status: Executing
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-26T17:52:51Z"
 progress:
   total_phases: 17
   completed_phases: 10
-  total_plans: 24
-  completed_plans: 24
+  total_plans: 26
+  completed_plans: 25
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 10 — code-cleanups
+**Current focus:** Phase 11 — fork-double-close-bug
 
 ## Current Position
 
 Phase: 11
-Plan: Not started
+Plan: 1 of 2
 
 ## Performance Metrics
 
@@ -68,6 +68,7 @@ Plan: Not started
 | Phase 09 P02 | 5min | 2 tasks | 4 files |
 | Phase 10 P01 | 4min | 2 tasks | 8 files |
 | Phase 10 P02 | 7min | 2 tasks | 6 files |
+| Phase 11 P01 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,8 @@ Recent decisions affecting current work:
 - [Phase 09]: Shorthand-first doc pattern: provider multimodal sections show NewTextContent/NewImageFile, link to multimodal.md for verbose
 - [Phase 10]: Follow plan as specified - no deviations required for path safety consolidation and context anti-pattern fix
 - [Phase 10]: Remove dead TestVoyageContainsDotDot referencing function eliminated in Plan 01
+- [Phase 11]: Use ownsEF bool flag as primary ownership guard with close-once wrapper as defence-in-depth
+- [Phase 11]: Forked collections get close-once wrapped copies of parent EFs, preventing double-close even if ownsEF check is bypassed
 
 ### Roadmap Evolution
 
@@ -147,6 +150,6 @@ None.
 
 ## Session
 
-**Last Date:** 2026-03-26T15:27:45.136Z
-**Stopped At:** Phase 11 context gathered
-**Resume File:** .planning/phases/11-fork-double-close-bug/11-CONTEXT.md
+**Last Date:** 2026-03-26T17:52:51Z
+**Stopped At:** Completed 11-01-PLAN.md
+**Resume File:** None

@@ -766,6 +766,7 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		dimension:         snapshot.dimension,
 		embeddingFunction: snapshot.embeddingFunction,
 		client:            client,
+		ownsEF:            true,
 	}
 	client.state.localAddCollectionToCache(collection)
 	return collection, nil
@@ -785,6 +786,7 @@ type embeddedCollection struct {
 
 	embeddingFunction embeddingspkg.EmbeddingFunction
 	client            *embeddedLocalClient
+	ownsEF            bool
 }
 
 func (c *embeddedCollection) Name() string {
@@ -1395,6 +1397,8 @@ func (c *embeddedCollection) Fork(ctx context.Context, newName string) (Collecti
 	if err != nil {
 		return nil, errors.Wrap(err, "error building forked collection")
 	}
+	forkedCollection.ownsEF = false
+	forkedCollection.embeddingFunction = wrapEFCloseOnce(forkedCollection.embeddingFunction)
 	return forkedCollection, nil
 }
 
@@ -1419,6 +1423,9 @@ func (c *embeddedCollection) IndexingStatus(ctx context.Context) (*IndexingStatu
 }
 
 func (c *embeddedCollection) Close() error {
+	if !c.ownsEF {
+		return nil
+	}
 	embeddingFunction := c.embeddingFunctionSnapshot()
 	if embeddingFunction != nil {
 		if closer, ok := embeddingFunction.(io.Closer); ok {

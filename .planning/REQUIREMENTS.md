@@ -62,9 +62,9 @@
 
 ### Fork Double-Close Bug
 
-- [ ] **FORK-01**: Forked collections do not double-close shared EF resources when `client.Close()` iterates the collection cache
-- [ ] **FORK-02**: Both `embeddingFunction` and `contentEmbeddingFunction` ownership is tracked via an `ownsEF` flag on collection structs
-- [ ] **FORK-03**: Shared EFs are wrapped in a `sync.Once`-based close-once adapter that makes `Close()` idempotent as defence-in-depth
+- [x] **FORK-01**: Forked collections do not double-close shared EF resources when `client.Close()` iterates the collection cache
+- [x] **FORK-02**: Both `embeddingFunction` and `contentEmbeddingFunction` ownership is tracked via an `ownsEF` flag on collection structs
+- [x] **FORK-03**: Shared EFs are wrapped in a `sync.Once`-based close-once adapter that makes `Close()` idempotent as defence-in-depth
 - [ ] **FORK-04**: Tests cover Fork + Close lifecycle including idempotent close, use-after-close errors, and ownership gating without panics
 
 ## v2 Requirements
@@ -123,9 +123,9 @@
 | CLN-04 | Phase 10 | Planned |
 | CLN-05 | Phase 10 | Planned |
 | CLN-06 | Phase 10 | Planned |
-| FORK-01 | Phase 11 | Planned |
-| FORK-02 | Phase 11 | Planned |
-| FORK-03 | Phase 11 | Planned |
+| FORK-01 | Phase 11 | Complete |
+| FORK-02 | Phase 11 | Complete |
+| FORK-03 | Phase 11 | Complete |
 | FORK-04 | Phase 11 | Planned |
 
 **Coverage:**

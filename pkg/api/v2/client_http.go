@@ -352,6 +352,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		client:            client,
 		embeddingFunction: req.embeddingFunction,
 		dimension:         cm.Dimension,
+		ownsEF:            true,
 	}
 	client.addCollectionToCache(c)
 	return c, nil
@@ -456,6 +457,7 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		dimension:                cm.Dimension,
 		embeddingFunction:        ef,
 		contentEmbeddingFunction: contentEF,
+		ownsEF:                   true,
 	}
 	client.addCollectionToCache(c)
 	return c, nil
