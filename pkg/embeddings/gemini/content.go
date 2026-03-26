@@ -165,6 +165,9 @@ func resolveMIME(source *embeddings.BinarySource) (string, error) {
 // validateMIMEModality ensures the MIME type is consistent with the declared modality.
 func validateMIMEModality(modality embeddings.Modality, mimeType string) error {
 	switch modality {
+	case embeddings.ModalityText:
+		// Text parts are handled before MIME validation in the conversion flow,
+		// but allow pass-through if called directly.
 	case embeddings.ModalityImage:
 		if !strings.HasPrefix(mimeType, "image/") {
 			return errors.Errorf("image modality requires image/* MIME type, got %q", mimeType)
@@ -181,6 +184,8 @@ func validateMIMEModality(modality embeddings.Modality, mimeType string) error {
 		if mimeType != "application/pdf" {
 			return errors.Errorf("pdf modality requires application/pdf MIME type, got %q", mimeType)
 		}
+	default:
+		return errors.Errorf("MIME validation not implemented for modality %q", modality)
 	}
 	return nil
 }

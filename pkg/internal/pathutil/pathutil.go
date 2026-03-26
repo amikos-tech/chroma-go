@@ -14,8 +14,10 @@ func containsDotDot(path string) bool {
 	return slices.Contains(strings.Split(filepath.ToSlash(path), "/"), "..")
 }
 
-// ValidateFilePath cleans a file path and checks for path traversal.
-// Returns the cleaned path or an error if traversal is detected.
+// ValidateFilePath cleans a file path and rejects relative ".." traversal.
+// It does NOT sandbox absolute paths: an input like "/a/b/../../etc/passwd"
+// cleans to "/etc/passwd" and is accepted. Callers needing confinement to a
+// specific directory should use SafePath instead.
 func ValidateFilePath(path string) (string, error) {
 	if path == "" {
 		return "", errors.New("file path cannot be empty")

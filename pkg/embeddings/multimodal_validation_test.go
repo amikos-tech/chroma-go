@@ -179,6 +179,57 @@ func TestMultimodalValidationErrors(t *testing.T) {
 	}
 }
 
+func TestBinarySourceMIMETypeValidation(t *testing.T) {
+	valid := []string{
+		"image/png",
+		"image/jpeg",
+		"audio/mpeg",
+		"video/mp4",
+		"application/pdf",
+		"application/octet-stream",
+	}
+	for _, mime := range valid {
+		t.Run("valid_"+mime, func(t *testing.T) {
+			src := BinarySource{Kind: SourceKindBytes, Bytes: []byte("x"), MIMEType: mime}
+			require.NoError(t, src.Validate())
+		})
+	}
+
+	invalid := []struct {
+		name string
+		mime string
+	}{
+		{"empty_type", "/png"},
+		{"empty_subtype", "image/"},
+		{"no_slash", "imagepng"},
+		{"newline_injection", "image/png\nX-Evil: true"},
+		{"space_in_type", "im age/png"},
+		{"semicolon_injection", "image/png;base64,AAAA"},
+	}
+	for _, tc := range invalid {
+		t.Run("invalid_"+tc.name, func(t *testing.T) {
+			src := BinarySource{Kind: SourceKindBytes, Bytes: []byte("x"), MIMEType: tc.mime}
+			err := src.Validate()
+			require.Error(t, err)
+			var validationErr *ValidationError
+			require.ErrorAs(t, err, &validationErr)
+			found := false
+			for _, issue := range validationErr.Issues {
+				if issue.Path == "mime_type" {
+					found = true
+					require.Equal(t, validationCodeInvalidValue, issue.Code)
+				}
+			}
+			require.True(t, found, "expected mime_type validation issue")
+		})
+	}
+
+	t.Run("empty MIMEType is allowed", func(t *testing.T) {
+		src := BinarySource{Kind: SourceKindBytes, Bytes: []byte("x")}
+		require.NoError(t, src.Validate())
+	})
+}
+
 func TestNewImagePartFromImageInput(t *testing.T) {
 	urlPart, err := NewImagePartFromImageInput(NewImageInputFromURL("https://example.com/image.png"))
 	require.NoError(t, err)

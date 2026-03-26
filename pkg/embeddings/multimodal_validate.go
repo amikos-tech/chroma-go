@@ -4,8 +4,29 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 )
+
+// mimeTypeRe matches a basic RFC 2045 type/subtype MIME format.
+// Compiled once at package init with panic recovery; isValidMIMEType
+// falls back to a simple check if compilation ever fails.
+var mimeTypeRe = func() (re *regexp.Regexp) {
+	defer func() {
+		if r := recover(); r != nil {
+			re = nil
+		}
+	}()
+	return regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*/[a-zA-Z0-9][a-zA-Z0-9!#$&\-^_.+]*$`)
+}()
+
+func isValidMIMEType(mime string) bool {
+	if mimeTypeRe != nil {
+		return mimeTypeRe.MatchString(mime)
+	}
+	parts := strings.SplitN(mime, "/", 2)
+	return len(parts) == 2 && parts[0] != "" && parts[1] != ""
+}
 
 const (
 	validationCodeForbidden            = "forbidden"
@@ -171,6 +192,10 @@ func (s BinarySource) Validate() error {
 		if len(s.Bytes) == 0 {
 			validationErr.addIssue("kind", validationCodeMismatch, "source kind \"bytes\" requires the Bytes field")
 		}
+	}
+
+	if s.MIMEType != "" && !isValidMIMEType(s.MIMEType) {
+		validationErr.addIssue("mime_type", validationCodeInvalidValue, fmt.Sprintf("MIME type %q is not a valid type/subtype format", s.MIMEType))
 	}
 
 	return validationErr.orNil()

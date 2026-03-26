@@ -232,6 +232,7 @@ func TestValidateMIMEModality(t *testing.T) {
 		{embeddings.ModalityAudio, "image/png", "audio modality requires audio/*"},
 		{embeddings.ModalityVideo, "application/pdf", "video modality requires video/*"},
 		{embeddings.ModalityPDF, "image/jpeg", "pdf modality requires application/pdf"},
+		{embeddings.Modality("hologram"), "application/octet-stream", "MIME validation not implemented for modality"},
 	}
 
 	for _, tc := range invalidCases {
