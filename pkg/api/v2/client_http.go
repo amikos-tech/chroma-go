@@ -796,6 +796,7 @@ func (client *APIClientV2) localDeleteCollectionFromCache(name string) {
 			continue
 		}
 		if collectionsShareEF(impl, other) {
+			impl.ownsEF.Store(false)
 			other.ownsEF.Store(true)
 			return
 		}

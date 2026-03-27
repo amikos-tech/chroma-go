@@ -693,6 +693,11 @@ func (c *CollectionImpl) Close() error {
 		return nil
 	}
 	c.closeOnce.Do(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				c.closeErr = reportClosePanic(r)
+			}
+		}()
 		var errs []error
 		if c.contentEmbeddingFunction != nil {
 			if closer, ok := c.contentEmbeddingFunction.(io.Closer); ok {
