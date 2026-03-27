@@ -1361,46 +1361,9 @@ func (c *embeddedCollection) Search(_ context.Context, _ ...SearchCollectionOpti
 	return nil, errors.New("search is not supported in embedded local mode")
 }
 
-func (c *embeddedCollection) Fork(ctx context.Context, newName string) (Collection, error) {
-	if strings.TrimSpace(newName) == "" {
-		return nil, errors.New("newName cannot be empty")
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
-
-	forked, err := c.client.embedded.ForkCollection(localchroma.EmbeddedForkCollectionRequest{
-		SourceCollectionID:   collectionID,
-		TargetCollectionName: strings.TrimSpace(newName),
-		TenantID:             tenantName,
-		DatabaseName:         databaseName,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error forking collection")
-	}
-	c.mu.RLock()
-	embeddingFunction := c.embeddingFunction
-	metadata := c.metadata
-	configuration := c.configuration
-	schema := c.schema
-	database := c.database
-	c.mu.RUnlock()
-
-	wrappedEF := wrapEFCloseOnce(embeddingFunction)
-	c.client.upsertCollectionState(forked.ID, func(state *embeddedCollectionState) {
-		state.embeddingFunction = wrappedEF
-		state.metadata = metadata
-		state.configuration = configuration
-		state.schema = schema
-		state.dimension = c.Dimension()
-	})
-
-	forkedCollection, err := c.client.buildEmbeddedCollection(*forked, database, wrappedEF, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "error building forked collection")
-	}
-	return forkedCollection, nil
+// Fork is not supported in embedded local mode — forking is a cloud-only feature.
+func (c *embeddedCollection) Fork(_ context.Context, _ string) (Collection, error) {
+	return nil, errors.New("fork is not supported in embedded local mode")
 }
 
 func (c *embeddedCollection) IndexingStatus(ctx context.Context) (*IndexingStatus, error) {

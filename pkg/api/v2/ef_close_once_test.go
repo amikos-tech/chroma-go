@@ -640,3 +640,50 @@ func TestCloseOnceEF_ConcurrentEmbedAndClose(t *testing.T) {
 	assert.ErrorIs(t, err, errEFClosed, "embed after close must return errEFClosed")
 	assert.Equal(t, int32(1), inner.closeCount.Load(), "inner must be closed exactly once")
 }
+
+type mockPanickingCloseEF struct {
+	mockCloseableEF
+}
+
+func (m *mockPanickingCloseEF) Close() error {
+	panic("close exploded")
+}
+
+func TestCloseOnceEF_ClosePanicCaptured(t *testing.T) {
+	inner := &mockPanickingCloseEF{}
+	wrapped := wrapEFCloseOnce(inner)
+	closer := wrapped.(io.Closer)
+
+	err := closer.Close()
+	require.Error(t, err, "panic during close must be captured as an error")
+	assert.Contains(t, err.Error(), "panic during EF close")
+
+	err2 := closer.Close()
+	assert.Equal(t, err, err2, "subsequent Close must return the same captured error")
+}
+
+func TestCloseOnceContentEF_ClosePanicCaptured(t *testing.T) {
+	inner := &mockCloseableContentEF{}
+	wrapped := wrapContentEFCloseOnce(inner)
+
+	// Replace inner's close with a panicking one via a wrapper.
+	panicking := &mockPanickingCloseContentEF{mockCloseableContentEF: *inner}
+	wrappedPanic := wrapContentEFCloseOnce(panicking)
+	closer := wrappedPanic.(io.Closer)
+
+	err := closer.Close()
+	require.Error(t, err, "panic during close must be captured as an error")
+	assert.Contains(t, err.Error(), "panic during EF close")
+
+	// Original wrapped is independent — verify it still works.
+	err2 := wrapped.(io.Closer).Close()
+	assert.NoError(t, err2)
+}
+
+type mockPanickingCloseContentEF struct {
+	mockCloseableContentEF
+}
+
+func (m *mockPanickingCloseContentEF) Close() error {
+	panic("content close exploded")
+}

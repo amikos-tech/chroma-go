@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -46,6 +47,11 @@ func (s *closeOnceState) isClosed() bool {
 func (s *closeOnceState) doClose(fn func() error) error {
 	s.once.Do(func() {
 		s.closed.Store(true)
+		defer func() {
+			if r := recover(); r != nil {
+				s.closeErr = fmt.Errorf("panic during EF close: %v", r)
+			}
+		}()
 		s.closeErr = fn()
 	})
 	return s.closeErr // safe: sync.Once guarantees happens-before for closeErr write
