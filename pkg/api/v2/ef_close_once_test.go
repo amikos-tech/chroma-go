@@ -301,16 +301,16 @@ func TestCollectionImpl_ForkOwnsEF(t *testing.T) {
 
 	nonOwner := &CollectionImpl{
 		embeddingFunction: inner,
-		ownsEF:            false,
 	}
+	// ownsEF defaults to false (atomic.Bool zero value)
 	err := nonOwner.Close()
 	assert.NoError(t, err)
 	assert.Equal(t, int32(0), inner.closeCount.Load(), "non-owner Close() should not close EF")
 
 	owner := &CollectionImpl{
 		embeddingFunction: inner,
-		ownsEF:            true,
 	}
+	owner.ownsEF.Store(true)
 	err = owner.Close()
 	assert.NoError(t, err)
 	assert.Equal(t, int32(1), inner.closeCount.Load(), "owner Close() should close EF")
@@ -321,16 +321,16 @@ func TestEmbeddedCollection_ForkOwnsEF(t *testing.T) {
 
 	nonOwner := &embeddedCollection{
 		embeddingFunction: inner,
-		ownsEF:            false,
 	}
+	// ownsEF defaults to false (atomic.Bool zero value)
 	err := nonOwner.Close()
 	assert.NoError(t, err)
 	assert.Equal(t, int32(0), inner.closeCount.Load(), "non-owner Close() should not close EF")
 
 	owner := &embeddedCollection{
 		embeddingFunction: inner,
-		ownsEF:            true,
 	}
+	owner.ownsEF.Store(true)
 	err = owner.Close()
 	assert.NoError(t, err)
 	assert.Equal(t, int32(1), inner.closeCount.Load(), "owner Close() should close EF")
@@ -379,13 +379,12 @@ func TestForkCloseLifecycle_CollectionImpl(t *testing.T) {
 
 	parent := &CollectionImpl{
 		embeddingFunction: inner,
-		ownsEF:            true,
 	}
+	parent.ownsEF.Store(true)
 
-	// Simulate Fork wiring: fork gets wrapped EF and ownsEF=false
+	// Simulate Fork wiring: fork gets wrapped EF and ownsEF=false (default)
 	forked := &CollectionImpl{
 		embeddingFunction: wrapEFCloseOnce(parent.embeddingFunction),
-		ownsEF:            false,
 	}
 
 	ctx := context.Background()
@@ -410,12 +409,11 @@ func TestForkCloseLifecycle_EmbeddedCollection(t *testing.T) {
 
 	parent := &embeddedCollection{
 		embeddingFunction: inner,
-		ownsEF:            true,
 	}
+	parent.ownsEF.Store(true)
 
 	forked := &embeddedCollection{
 		embeddingFunction: wrapEFCloseOnce(parent.embeddingFunction),
-		ownsEF:            false,
 	}
 
 	ctx := context.Background()
@@ -436,8 +434,8 @@ func TestCollectionImpl_OwnerDoubleClose(t *testing.T) {
 	inner := &mockCloseableEF{}
 	owner := &CollectionImpl{
 		embeddingFunction: inner,
-		ownsEF:            true,
 	}
+	owner.ownsEF.Store(true)
 
 	err := owner.Close()
 	assert.NoError(t, err)
@@ -452,8 +450,8 @@ func TestEmbeddedCollection_OwnerDoubleClose(t *testing.T) {
 	inner := &mockCloseableEF{}
 	owner := &embeddedCollection{
 		embeddingFunction: inner,
-		ownsEF:            true,
 	}
+	owner.ownsEF.Store(true)
 
 	err := owner.Close()
 	assert.NoError(t, err)
@@ -572,14 +570,14 @@ func TestForkCloseLifecycle_CollectionImpl_WithContentEF(t *testing.T) {
 	parent := &CollectionImpl{
 		embeddingFunction:        innerEF,
 		contentEmbeddingFunction: innerContentEF,
-		ownsEF:                   true,
 	}
+	parent.ownsEF.Store(true)
 
 	forked := &CollectionImpl{
 		embeddingFunction:        wrapEFCloseOnce(parent.embeddingFunction),
 		contentEmbeddingFunction: wrapContentEFCloseOnce(parent.contentEmbeddingFunction),
-		ownsEF:                   false,
 	}
+	// ownsEF defaults to false
 
 	err := forked.Close()
 	require.NoError(t, err)
@@ -605,8 +603,8 @@ func TestCollectionImpl_Close_DualError(t *testing.T) {
 	owner := &CollectionImpl{
 		embeddingFunction:        &mockFailingCloseEF{closeErr: efErr},
 		contentEmbeddingFunction: &mockFailingCloseContentEF{closeErr: contentErr},
-		ownsEF:                   true,
 	}
+	owner.ownsEF.Store(true)
 
 	err := owner.Close()
 	require.Error(t, err)
@@ -657,9 +655,70 @@ func TestCloseOnceEF_ClosePanicCaptured(t *testing.T) {
 	err := closer.Close()
 	require.Error(t, err, "panic during close must be captured as an error")
 	assert.Contains(t, err.Error(), "panic during EF close")
+	assert.Contains(t, err.Error(), "stack:", "captured panic must include stack trace")
 
 	err2 := closer.Close()
 	assert.Equal(t, err, err2, "subsequent Close must return the same captured error")
+}
+
+func TestCloseOnceContentEF_DualEF_MetadataDelegation(t *testing.T) {
+	dual := &mockDualEF{}
+	wrapped := wrapContentEFCloseOnce(dual)
+
+	ef, ok := wrapped.(embeddings.EmbeddingFunction)
+	require.True(t, ok, "wrapper of dual-interface type must satisfy EmbeddingFunction")
+
+	assert.Equal(t, "mock", ef.Name())
+	assert.Equal(t, embeddings.EmbeddingFunctionConfig{"name": "mock"}, ef.GetConfig())
+	assert.Equal(t, embeddings.L2, ef.DefaultSpace())
+	assert.Equal(t, []embeddings.DistanceMetric{embeddings.L2}, ef.SupportedSpaces())
+
+	ctx := context.Background()
+	docs, err := ef.EmbedDocuments(ctx, []string{"hello"})
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+
+	query, err := ef.EmbedQuery(ctx, "hello")
+	require.NoError(t, err)
+	assert.Equal(t, []float32{1, 2, 3}, query.ContentAsFloat32())
+}
+
+func TestCloseOnceContentEF_NonDual_MetadataDefaults(t *testing.T) {
+	inner := &mockCloseableContentEF{}
+	wrapped := wrapContentEFCloseOnce(inner)
+
+	ef, ok := wrapped.(embeddings.EmbeddingFunction)
+	require.True(t, ok, "wrapper always satisfies EmbeddingFunction")
+
+	assert.Equal(t, "", ef.Name())
+	assert.Equal(t, embeddings.EmbeddingFunctionConfig{}, ef.GetConfig())
+	assert.Equal(t, embeddings.DistanceMetric(""), ef.DefaultSpace())
+	assert.Nil(t, ef.SupportedSpaces())
+
+	ctx := context.Background()
+	_, err := ef.EmbedDocuments(ctx, []string{"hello"})
+	assert.ErrorIs(t, err, errEFNotSupported, "EmbedDocuments on non-dual content EF should return errEFNotSupported")
+
+	_, err = ef.EmbedQuery(ctx, "hello")
+	assert.ErrorIs(t, err, errEFNotSupported, "EmbedQuery on non-dual content EF should return errEFNotSupported")
+}
+
+func TestCloseOnceContentEF_DualEF_UseAfterClose(t *testing.T) {
+	dual := &mockDualEF{}
+	wrapped := wrapContentEFCloseOnce(dual)
+
+	closer := wrapped.(io.Closer)
+	err := closer.Close()
+	require.NoError(t, err)
+
+	ef := wrapped.(embeddings.EmbeddingFunction)
+	ctx := context.Background()
+
+	_, err = ef.EmbedDocuments(ctx, []string{"hello"})
+	assert.ErrorIs(t, err, errEFClosed)
+
+	_, err = ef.EmbedQuery(ctx, "hello")
+	assert.ErrorIs(t, err, errEFClosed)
 }
 
 func TestCloseOnceContentEF_ClosePanicCaptured(t *testing.T) {
@@ -678,6 +737,114 @@ func TestCloseOnceContentEF_ClosePanicCaptured(t *testing.T) {
 	// Original wrapped is independent — verify it still works.
 	err2 := wrapped.(io.Closer).Close()
 	assert.NoError(t, err2)
+}
+
+func TestDeleteCollectionFromCache_TransfersOwnership(t *testing.T) {
+	inner := &mockCloseableEF{}
+
+	parent := &CollectionImpl{
+		name:              "parent",
+		embeddingFunction: inner,
+	}
+	parent.ownsEF.Store(true)
+	fork := &CollectionImpl{
+		name:              "fork",
+		embeddingFunction: wrapEFCloseOnce(parent.embeddingFunction),
+	}
+
+	client := &APIClientV2{
+		collectionCache: map[string]Collection{
+			"parent": parent,
+			"fork":   fork,
+		},
+	}
+
+	client.localDeleteCollectionFromCache("parent")
+
+	assert.True(t, fork.ownsEF.Load(), "fork must receive ownership after parent is deleted")
+	assert.Equal(t, int32(0), inner.closeCount.Load(), "EF must not be closed when ownership transfers")
+
+	// Fork can now close the EF as owner
+	err := fork.Close()
+	assert.NoError(t, err)
+	assert.Equal(t, int32(1), inner.closeCount.Load(), "fork must close EF as new owner")
+}
+
+func TestDeleteCollectionFromCache_ClosesEFWhenNoFork(t *testing.T) {
+	inner := &mockCloseableEF{}
+
+	parent := &CollectionImpl{
+		name:              "parent",
+		embeddingFunction: inner,
+	}
+	parent.ownsEF.Store(true)
+
+	client := &APIClientV2{
+		collectionCache: map[string]Collection{
+			"parent": parent,
+		},
+	}
+
+	client.localDeleteCollectionFromCache("parent")
+
+	assert.Equal(t, int32(1), inner.closeCount.Load(), "EF must be closed when no fork exists")
+}
+
+func TestDeleteCollectionFromCache_TransfersWithContentEF(t *testing.T) {
+	innerEF := &mockCloseableEF{}
+	innerContentEF := &mockCloseableContentEF{}
+
+	parent := &CollectionImpl{
+		name:                     "parent",
+		embeddingFunction:        innerEF,
+		contentEmbeddingFunction: innerContentEF,
+	}
+	parent.ownsEF.Store(true)
+	fork := &CollectionImpl{
+		name:                     "fork",
+		embeddingFunction:        wrapEFCloseOnce(parent.embeddingFunction),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(parent.contentEmbeddingFunction),
+	}
+
+	client := &APIClientV2{
+		collectionCache: map[string]Collection{
+			"parent": parent,
+			"fork":   fork,
+		},
+	}
+
+	client.localDeleteCollectionFromCache("parent")
+
+	assert.True(t, fork.ownsEF.Load(), "fork must receive ownership")
+	assert.Equal(t, int32(0), innerEF.closeCount.Load(), "dense EF must not be closed on transfer")
+	assert.Equal(t, int32(0), innerContentEF.closeCount.Load(), "content EF must not be closed on transfer")
+}
+
+func TestDeleteCollectionFromCache_NonOwnerNoEffect(t *testing.T) {
+	inner := &mockCloseableEF{}
+
+	parent := &CollectionImpl{
+		name:              "parent",
+		embeddingFunction: inner,
+	}
+	parent.ownsEF.Store(true)
+	fork := &CollectionImpl{
+		name:              "fork",
+		embeddingFunction: wrapEFCloseOnce(parent.embeddingFunction),
+	}
+
+	client := &APIClientV2{
+		collectionCache: map[string]Collection{
+			"parent": parent,
+			"fork":   fork,
+		},
+	}
+
+	// Deleting the fork (non-owner) should not affect ownership or close anything
+	client.localDeleteCollectionFromCache("fork")
+
+	assert.True(t, parent.ownsEF.Load(), "parent ownership must not change")
+	assert.Equal(t, int32(0), inner.closeCount.Load(), "EF must not be closed when non-owner is deleted")
 }
 
 type mockPanickingCloseContentEF struct {

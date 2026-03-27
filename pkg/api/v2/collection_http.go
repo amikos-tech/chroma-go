@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -59,7 +60,7 @@ type CollectionImpl struct {
 	client                   *APIClientV2
 	embeddingFunction        embeddings.EmbeddingFunction
 	contentEmbeddingFunction embeddings.ContentEmbeddingFunction
-	ownsEF                   bool
+	ownsEF                   atomic.Bool
 	closeOnce                sync.Once
 	closeErr                 error
 }
@@ -419,7 +420,7 @@ func (c *CollectionImpl) Fork(ctx context.Context, newName string) (Collection, 
 		dimension:                cm.Dimension,
 		embeddingFunction:        wrapEFCloseOnce(c.embeddingFunction),
 		contentEmbeddingFunction: wrapContentEFCloseOnce(c.contentEmbeddingFunction),
-		ownsEF:                   false,
+		// ownsEF defaults to false (atomic.Bool zero value) — fork does not own EF
 	}
 	c.client.addCollectionToCache(forkedCollection)
 	return forkedCollection, nil
@@ -688,7 +689,7 @@ func (c *CollectionImpl) IndexingStatus(ctx context.Context) (*IndexingStatus, e
 }
 
 func (c *CollectionImpl) Close() error {
-	if !c.ownsEF {
+	if !c.ownsEF.Load() {
 		return nil
 	}
 	c.closeOnce.Do(func() {
@@ -722,5 +723,3 @@ func (c *CollectionImpl) Close() error {
 	})
 	return c.closeErr
 }
-
-// TODO add utility methods for metadata lookups

@@ -11,13 +11,16 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
-var errEFClosed = errors.New("embedding function is closed")
+var (
+	errEFClosed       = errors.New("embedding function is closed; ensure Close() is not called while operations are in flight")
+	errEFNotSupported = errors.New("content embedding function does not support this operation")
+)
 
 // Close-once wrappers are one layer in a three-layer defense against
 // double-close bugs in forked collections:
 //
 //  1. ownsEF flag — fork's Close() skips EF cleanup entirely.
-//  2. closeOnce wrapper — guards the fork's reference to the parent's EF as defense-in-depth.
+//  2. closeOnce wrapper — guards direct Close() calls on the fork's wrapped EF reference as defense-in-depth.
 //  3. Collection-level sync.Once — makes the owner's Close() idempotent.
 
 var (
@@ -28,6 +31,7 @@ var (
 
 var (
 	_ embeddings.ContentEmbeddingFunction   = (*closeOnceContentEF)(nil)
+	_ embeddings.EmbeddingFunction          = (*closeOnceContentEF)(nil)
 	_ io.Closer                             = (*closeOnceContentEF)(nil)
 	_ embeddings.EmbeddingFunctionUnwrapper = (*closeOnceContentEF)(nil)
 )
@@ -49,7 +53,7 @@ func (s *closeOnceState) doClose(fn func() error) error {
 		s.closed.Store(true)
 		defer func() {
 			if r := recover(); r != nil {
-				s.closeErr = fmt.Errorf("panic during EF close: %v", r)
+				s.closeErr = reportClosePanic(r)
 			}
 		}()
 		s.closeErr = fn()
@@ -128,6 +132,59 @@ func (w *closeOnceContentEF) EmbedContents(ctx context.Context, contents []embed
 	return w.ef.EmbedContents(ctx, contents)
 }
 
+// EmbeddingFunction methods delegate to the inner type when it implements
+// EmbeddingFunction (dual-interface types). This preserves decorator
+// transparency so type assertions like ef.(EmbeddingFunction) succeed on the
+// wrapper when they would succeed on the unwrapped type.
+
+func (w *closeOnceContentEF) EmbedDocuments(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
+	if w.isClosed() {
+		return nil, errEFClosed
+	}
+	if ef, ok := w.ef.(embeddings.EmbeddingFunction); ok {
+		return ef.EmbedDocuments(ctx, texts)
+	}
+	return nil, fmt.Errorf("EmbedDocuments: %w", errEFNotSupported)
+}
+
+func (w *closeOnceContentEF) EmbedQuery(ctx context.Context, text string) (embeddings.Embedding, error) {
+	if w.isClosed() {
+		return nil, errEFClosed
+	}
+	if ef, ok := w.ef.(embeddings.EmbeddingFunction); ok {
+		return ef.EmbedQuery(ctx, text)
+	}
+	return nil, fmt.Errorf("EmbedQuery: %w", errEFNotSupported)
+}
+
+func (w *closeOnceContentEF) Name() string {
+	if ef, ok := w.ef.(embeddings.EmbeddingFunction); ok {
+		return ef.Name()
+	}
+	return ""
+}
+
+func (w *closeOnceContentEF) GetConfig() embeddings.EmbeddingFunctionConfig {
+	if ef, ok := w.ef.(embeddings.EmbeddingFunction); ok {
+		return ef.GetConfig()
+	}
+	return embeddings.EmbeddingFunctionConfig{}
+}
+
+func (w *closeOnceContentEF) DefaultSpace() embeddings.DistanceMetric {
+	if ef, ok := w.ef.(embeddings.EmbeddingFunction); ok {
+		return ef.DefaultSpace()
+	}
+	return ""
+}
+
+func (w *closeOnceContentEF) SupportedSpaces() []embeddings.DistanceMetric {
+	if ef, ok := w.ef.(embeddings.EmbeddingFunction); ok {
+		return ef.SupportedSpaces()
+	}
+	return nil
+}
+
 func (w *closeOnceContentEF) UnwrapEmbeddingFunction() embeddings.EmbeddingFunction {
 	if unwrapper, ok := w.ef.(embeddings.EmbeddingFunctionUnwrapper); ok {
 		return unwrapper.UnwrapEmbeddingFunction()
@@ -143,6 +200,9 @@ func wrapEFCloseOnce(ef embeddings.EmbeddingFunction) embeddings.EmbeddingFuncti
 		return nil
 	}
 	if _, ok := ef.(*closeOnceEF); ok {
+		return ef
+	}
+	if _, ok := ef.(*closeOnceContentEF); ok {
 		return ef
 	}
 	return &closeOnceEF{ef: ef}

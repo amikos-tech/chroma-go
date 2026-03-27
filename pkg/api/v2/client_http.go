@@ -352,8 +352,8 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		client:            client,
 		embeddingFunction: req.embeddingFunction,
 		dimension:         cm.Dimension,
-		ownsEF:            true,
 	}
+	c.ownsEF.Store(true)
 	client.addCollectionToCache(c)
 	return c, nil
 }
@@ -457,8 +457,8 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		dimension:                cm.Dimension,
 		embeddingFunction:        ef,
 		contentEmbeddingFunction: contentEF,
-		ownsEF:                   true,
 	}
+	c.ownsEF.Store(true)
 	client.addCollectionToCache(c)
 	return c, nil
 }
@@ -547,8 +547,8 @@ func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListColl
 				dimension:         cm.Dimension,
 				client:            client,
 				embeddingFunction: ef,
-				ownsEF:            true,
 			}
+			c.ownsEF.Store(true)
 			apiCollections = append(apiCollections, c)
 		}
 	}
@@ -779,7 +779,36 @@ func (client *APIClientV2) localDeleteCollectionFromCache(name string) {
 	}
 	client.collectionMu.Lock()
 	defer client.collectionMu.Unlock()
+	deleted, exists := client.collectionCache[name]
 	delete(client.collectionCache, name)
+	if !exists {
+		return
+	}
+	impl, ok := deleted.(*CollectionImpl)
+	if !ok || !impl.ownsEF.Load() {
+		return
+	}
+	// Owner being removed — transfer EF ownership to a fork that shares
+	// the same underlying EF, or close it if no such fork exists.
+	for _, c := range client.collectionCache {
+		other, ok := c.(*CollectionImpl)
+		if !ok || other.ownsEF.Load() {
+			continue
+		}
+		if collectionsShareEF(impl, other) {
+			other.ownsEF.Store(true)
+			return
+		}
+	}
+	if err := deleted.Close(); err != nil {
+		if client.logger != nil {
+			client.logger.Error("failed to close EF during collection cache cleanup",
+				logger.String("collection", name),
+				logger.ErrorField("error", err))
+			return
+		}
+		logCollectionCleanupCloseErrorToStderr(name, err)
+	}
 }
 
 func (client *APIClientV2) localRenameCollectionInCache(oldName string, collection Collection) {
@@ -803,4 +832,34 @@ func (client *APIClientV2) addCollectionToCache(c Collection) {
 
 func (client *APIClientV2) deleteCollectionFromCache(name string) {
 	client.localDeleteCollectionFromCache(name)
+}
+
+// collectionsShareEF reports whether two CollectionImpl instances reference the
+// same underlying embedding function (after unwrapping closeOnce wrappers).
+func collectionsShareEF(a, b *CollectionImpl) bool {
+	if a.embeddingFunction != nil && b.embeddingFunction != nil {
+		if unwrapCloseOnceEF(a.embeddingFunction) == unwrapCloseOnceEF(b.embeddingFunction) {
+			return true
+		}
+	}
+	if a.contentEmbeddingFunction != nil && b.contentEmbeddingFunction != nil {
+		if unwrapCloseOnceContentEF(a.contentEmbeddingFunction) == unwrapCloseOnceContentEF(b.contentEmbeddingFunction) {
+			return true
+		}
+	}
+	return false
+}
+
+func unwrapCloseOnceEF(ef embeddings.EmbeddingFunction) embeddings.EmbeddingFunction {
+	if w, ok := ef.(*closeOnceEF); ok {
+		return w.ef
+	}
+	return ef
+}
+
+func unwrapCloseOnceContentEF(ef embeddings.ContentEmbeddingFunction) embeddings.ContentEmbeddingFunction {
+	if w, ok := ef.(*closeOnceContentEF); ok {
+		return w.ef
+	}
+	return ef
 }

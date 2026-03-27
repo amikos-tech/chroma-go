@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -766,8 +767,8 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		dimension:         snapshot.dimension,
 		embeddingFunction: snapshot.embeddingFunction,
 		client:            client,
-		ownsEF:            ownsEF,
 	}
+	collection.ownsEF.Store(ownsEF)
 	client.state.localAddCollectionToCache(collection)
 	return collection, nil
 }
@@ -786,7 +787,7 @@ type embeddedCollection struct {
 
 	embeddingFunction embeddingspkg.EmbeddingFunction
 	client            *embeddedLocalClient
-	ownsEF            bool
+	ownsEF            atomic.Bool
 	closeOnce         sync.Once
 	closeErr          error
 }
@@ -1361,7 +1362,7 @@ func (c *embeddedCollection) Search(_ context.Context, _ ...SearchCollectionOpti
 	return nil, errors.New("search is not supported in embedded local mode")
 }
 
-// Fork is not supported in embedded local mode — forking is a cloud-only feature.
+// Fork is not supported in embedded local mode.
 func (c *embeddedCollection) Fork(_ context.Context, _ string) (Collection, error) {
 	return nil, errors.New("fork is not supported in embedded local mode")
 }
@@ -1387,11 +1388,16 @@ func (c *embeddedCollection) IndexingStatus(ctx context.Context) (*IndexingStatu
 }
 
 func (c *embeddedCollection) Close() error {
-	if !c.ownsEF {
+	if !c.ownsEF.Load() {
 		return nil
 	}
 	ef := c.embeddingFunctionSnapshot()
 	c.closeOnce.Do(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				c.closeErr = reportClosePanic(r)
+			}
+		}()
 		if ef != nil {
 			if closer, ok := ef.(io.Closer); ok {
 				c.closeErr = closer.Close()
