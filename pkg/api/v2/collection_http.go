@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 type CollectionModel struct {
@@ -696,6 +697,11 @@ func (c *CollectionImpl) Close() error {
 		defer func() {
 			if r := recover(); r != nil {
 				c.closeErr = reportClosePanic(r)
+				if c.client != nil && c.client.logger != nil {
+					c.client.logger.Error("panic during EF close",
+						logger.String("collection", c.name),
+						logger.ErrorField("error", c.closeErr))
+				}
 			}
 		}()
 		var errs []error
@@ -710,11 +716,14 @@ func (c *CollectionImpl) Close() error {
 			// Skip if dense EF shares the same resource as content EF:
 			// (1) content adapter wraps this dense EF (unwrapper case), or
 			// (2) content EF is a dual-interface object also assigned as dense EF
+			// Unwrap closeOnce wrappers before comparing so sharing is detected
+			// even when both fields are independently wrapped (e.g. after Fork).
 			shared := false
+			denseEF := unwrapCloseOnceEF(c.embeddingFunction)
 			if unwrapper, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunctionUnwrapper); ok {
-				shared = unwrapper.UnwrapEmbeddingFunction() == c.embeddingFunction
+				shared = unwrapper.UnwrapEmbeddingFunction() == denseEF
 			} else if ef, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {
-				shared = ef == c.embeddingFunction
+				shared = ef == denseEF
 			}
 			if !shared {
 				if closer, ok := c.embeddingFunction.(io.Closer); ok {

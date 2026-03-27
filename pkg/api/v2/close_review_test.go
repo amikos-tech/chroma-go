@@ -275,3 +275,48 @@ func TestWrapEFCloseOnce_RejectsCrossTypeDoubleWrap(t *testing.T) {
 
 	assert.Same(t, contentWrapped, wrapEFCloseOnce(ef))
 }
+
+func TestUnwrapCloseOnceEF_HandlesCloseOnceContentEF(t *testing.T) {
+	dual := &mockDualEF{}
+	contentWrapped := wrapContentEFCloseOnce(dual)
+	ef := contentWrapped.(embeddings.EmbeddingFunction)
+
+	unwrapped := unwrapCloseOnceEF(ef)
+	assert.Same(t, dual, unwrapped, "unwrapCloseOnceEF must unwrap *closeOnceContentEF to its inner EmbeddingFunction")
+}
+
+func TestCollectionImpl_Close_SharedDetectionWithWrappedEFs(t *testing.T) {
+	innerEF := &mockCloseableEF{}
+	contentAdapter := &mockSharedContentAdapter{inner: innerEF}
+
+	// Simulate fork with ownership transfer: both EFs are wrapped
+	fork := &CollectionImpl{
+		embeddingFunction:        wrapEFCloseOnce(innerEF),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(contentAdapter),
+	}
+	fork.ownsEF.Store(true)
+
+	err := fork.Close()
+	require.NoError(t, err)
+	assert.Equal(t, 1, contentAdapter.closeCount, "content adapter must be closed exactly once")
+	assert.Equal(t, int32(1), innerEF.closeCount.Load(), "shared dense EF must not be double-closed via both wrappers")
+}
+
+func TestCollectionImpl_Close_PanicLogsViaStructuredLogger(t *testing.T) {
+	log := &capturingLogger{}
+	owner := &CollectionImpl{
+		name:              "panic-test",
+		embeddingFunction: &mockPanickingCloseEF{},
+		client:            &APIClientV2{BaseAPIClient: BaseAPIClient{logger: log}},
+	}
+	owner.ownsEF.Store(true)
+
+	output := captureStderr(t, func() {
+		err := owner.Close()
+		require.Error(t, err)
+	})
+
+	assert.Contains(t, output, "panic during EF close", "stderr fallback must still fire")
+	assert.Equal(t, 1, log.errorCount, "structured logger must also receive the panic error")
+	assert.Equal(t, "panic during EF close", log.lastMsg)
+}

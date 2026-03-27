@@ -790,6 +790,12 @@ func (client *APIClientV2) localDeleteCollectionFromCache(name string) {
 	}
 	// Owner being removed — transfer EF ownership to a fork that shares
 	// the same underlying EF, or close it if no such fork exists.
+	//
+	// The two ownsEF stores below are not atomic together, so a concurrent
+	// Close() on the fork could read a stale value. This is safe because
+	// close-once wrappers (layer 2) make the underlying EF's Close()
+	// idempotent, and collection-level sync.Once (layer 3) prevents the
+	// Close() body from running more than once per collection.
 	for _, c := range client.collectionCache {
 		other, ok := c.(*CollectionImpl)
 		if !ok || other.ownsEF.Load() {
@@ -854,6 +860,11 @@ func collectionsShareEF(a, b *CollectionImpl) bool {
 func unwrapCloseOnceEF(ef embeddings.EmbeddingFunction) embeddings.EmbeddingFunction {
 	if w, ok := ef.(*closeOnceEF); ok {
 		return w.ef
+	}
+	if w, ok := ef.(*closeOnceContentEF); ok {
+		if inner, ok := w.ef.(embeddings.EmbeddingFunction); ok {
+			return inner
+		}
 	}
 	return ef
 }
