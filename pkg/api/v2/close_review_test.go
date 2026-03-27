@@ -302,21 +302,20 @@ func TestCollectionImpl_Close_SharedDetectionWithWrappedEFs(t *testing.T) {
 	assert.Equal(t, int32(1), innerEF.closeCount.Load(), "shared dense EF must not be double-closed via both wrappers")
 }
 
-func TestCollectionImpl_Close_PanicLogsViaStructuredLogger(t *testing.T) {
-	log := &capturingLogger{}
+func TestCollectionImpl_Close_ContentPanicStillClosesDenseEF(t *testing.T) {
+	denseEF := &mockCloseableEF{}
 	owner := &CollectionImpl{
-		name:              "panic-test",
-		embeddingFunction: &mockPanickingCloseEF{},
-		client:            &APIClientV2{BaseAPIClient: BaseAPIClient{logger: log}},
+		embeddingFunction:        denseEF,
+		contentEmbeddingFunction: &mockPanickingCloseContentEF{},
 	}
 	owner.ownsEF.Store(true)
 
 	output := captureStderr(t, func() {
 		err := owner.Close()
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "panic during EF close")
 	})
 
-	assert.Contains(t, output, "panic during EF close", "stderr fallback must still fire")
-	assert.Equal(t, 1, log.errorCount, "structured logger must also receive the panic error")
-	assert.Equal(t, "panic during EF close", log.lastMsg)
+	assert.Contains(t, output, "content close exploded", "panic must be reported to stderr")
+	assert.Equal(t, int32(1), denseEF.closeCount.Load(), "dense EF must still be closed after content EF panic")
 }

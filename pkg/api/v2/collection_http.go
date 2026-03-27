@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
-	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 type CollectionModel struct {
@@ -694,20 +693,10 @@ func (c *CollectionImpl) Close() error {
 		return nil
 	}
 	c.closeOnce.Do(func() {
-		defer func() {
-			if r := recover(); r != nil {
-				c.closeErr = reportClosePanic(r)
-				if c.client != nil && c.client.logger != nil {
-					c.client.logger.Error("panic during EF close",
-						logger.String("collection", c.name),
-						logger.ErrorField("error", c.closeErr))
-				}
-			}
-		}()
 		var errs []error
 		if c.contentEmbeddingFunction != nil {
 			if closer, ok := c.contentEmbeddingFunction.(io.Closer); ok {
-				if err := closer.Close(); err != nil {
+				if err := safeCloseEF(closer); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -727,7 +716,7 @@ func (c *CollectionImpl) Close() error {
 			}
 			if !shared {
 				if closer, ok := c.embeddingFunction.(io.Closer); ok {
-					if err := closer.Close(); err != nil {
+					if err := safeCloseEF(closer); err != nil {
 						errs = append(errs, err)
 					}
 				}
