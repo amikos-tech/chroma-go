@@ -399,7 +399,7 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		overrideEF = nil
 	}
 
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -518,7 +518,7 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 			state.embeddingFunction = req.embeddingFunction
 		})
 	}
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, req.embeddingFunction)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, req.embeddingFunction, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -591,7 +591,7 @@ func (client *embeddedLocalClient) ListCollections(ctx context.Context, opts ...
 
 	collections := make([]Collection, 0, len(models))
 	for _, model := range models {
-		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil)
+		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil, true)
 		if buildErr != nil {
 			return nil, errors.Wrapf(buildErr, "error building listed collection %s", model.ID)
 		}
@@ -693,7 +693,7 @@ func (client *embeddedLocalClient) collectionDimension(collectionID string, fall
 	return state.dimension
 }
 
-func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction) (*embeddedCollection, error) {
+func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction, ownsEF bool) (*embeddedCollection, error) {
 	tenantName := model.Tenant
 	databaseName := model.Database
 
@@ -766,7 +766,7 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		dimension:         snapshot.dimension,
 		embeddingFunction: snapshot.embeddingFunction,
 		client:            client,
-		ownsEF:            true,
+		ownsEF:            ownsEF,
 	}
 	client.state.localAddCollectionToCache(collection)
 	return collection, nil
@@ -1387,20 +1387,19 @@ func (c *embeddedCollection) Fork(ctx context.Context, newName string) (Collecti
 	database := c.database
 	c.mu.RUnlock()
 
+	wrappedEF := wrapEFCloseOnce(embeddingFunction)
 	c.client.upsertCollectionState(forked.ID, func(state *embeddedCollectionState) {
-		// Fork's EF is set directly below, not via collection state.
+		state.embeddingFunction = wrappedEF
 		state.metadata = metadata
 		state.configuration = configuration
 		state.schema = schema
 		state.dimension = c.Dimension()
 	})
 
-	forkedCollection, err := c.client.buildEmbeddedCollection(*forked, database, nil)
+	forkedCollection, err := c.client.buildEmbeddedCollection(*forked, database, wrappedEF, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building forked collection")
 	}
-	forkedCollection.ownsEF = false
-	forkedCollection.embeddingFunction = wrapEFCloseOnce(embeddingFunction)
 	return forkedCollection, nil
 }
 
