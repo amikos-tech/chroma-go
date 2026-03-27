@@ -6,7 +6,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 
 ## Milestones
 
-- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-17 (current planning milestone)
+- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-18 (current planning milestone)
 
 ## v0.4.1 Provider-Neutral Multimodal Foundations
 
@@ -31,6 +31,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [ ] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438)
 - [ ] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190)
 - [ ] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462)
+- [ ] **Phase 18: Embedded Client contentEmbeddingFunction Parity** - Add contentEmbeddingFunction support to embeddedCollection for feature parity with HTTP client. (issue #472)
 
 ## Phase Details
 
@@ -181,6 +182,7 @@ Plans:
 | 15. OpenRouter Embeddings | 0/0 | Not started | - |
 | 16. Twelve Labs EF | 0/0 | Not started | - |
 | 17. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
+| 18. Embedded contentEF Parity | 0/0 | Not started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
 
@@ -316,3 +318,19 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 17 to break down)
+
+### Phase 18: Embedded Client contentEmbeddingFunction Parity
+**Goal:** Add contentEmbeddingFunction support to embeddedCollection so the embedded client has feature parity with the HTTP client for content embedding lifecycle, auto-wiring, and Fork/Close handling.
+**Depends on:** Phase 11 (fork double-close fix provides the close-once infrastructure)
+**Issues**: #472
+**Success Criteria** (what must be TRUE):
+  1. `embeddedCollection` struct and state include `contentEmbeddingFunction` field.
+  2. `buildEmbeddedCollection` accepts and wires contentEF.
+  3. `embeddedCollection.Close()` handles contentEF with sharing detection matching HTTP path.
+  4. `embeddedCollection.Fork()` propagates contentEF with close-once wrapping.
+  5. Embedded `GetCollection()` respects `WithContentEmbeddingFunctionGet` option.
+  6. Tests cover lifecycle, Fork, Close, and auto-wiring for content EF on embedded path.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 18 to break down)
