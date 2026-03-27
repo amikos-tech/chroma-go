@@ -350,7 +350,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		schema:            cm.Schema,
 		configuration:     NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
 		client:            client,
-		embeddingFunction: req.embeddingFunction,
+		embeddingFunction: wrapEFCloseOnce(req.embeddingFunction),
 		dimension:         cm.Dimension,
 	}
 	c.ownsEF.Store(true)
@@ -455,8 +455,8 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		configuration:            configuration,
 		client:                   client,
 		dimension:                cm.Dimension,
-		embeddingFunction:        ef,
-		contentEmbeddingFunction: contentEF,
+		embeddingFunction:        wrapEFCloseOnce(ef),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(contentEF),
 	}
 	c.ownsEF.Store(true)
 	client.addCollectionToCache(c)
@@ -777,37 +777,43 @@ func (client *APIClientV2) localDeleteCollectionFromCache(name string) {
 	if name == "" {
 		return
 	}
+	// Determine what to close under the lock, then close outside the lock
+	// to avoid blocking concurrent cache operations during slow EF teardown.
+	var toClose Collection
 	client.collectionMu.Lock()
-	defer client.collectionMu.Unlock()
 	deleted, exists := client.collectionCache[name]
 	delete(client.collectionCache, name)
-	if !exists {
+	if exists {
+		impl, ok := deleted.(*CollectionImpl)
+		if ok && impl.ownsEF.Load() {
+			// Owner being removed — transfer EF ownership to a fork that
+			// shares the same underlying EF, or close it if no such fork
+			// exists. EFs are wrapped in closeOnce wrappers at creation
+			// time, so parent and fork share the same wrapper; the
+			// wrapper's sync.Once ensures Close() runs at most once.
+			transferred := false
+			for _, c := range client.collectionCache {
+				other, ok := c.(*CollectionImpl)
+				if !ok || other.ownsEF.Load() {
+					continue
+				}
+				if collectionsShareEF(impl, other) {
+					impl.ownsEF.Store(false)
+					other.ownsEF.Store(true)
+					transferred = true
+					break
+				}
+			}
+			if !transferred {
+				toClose = deleted
+			}
+		}
+	}
+	client.collectionMu.Unlock()
+	if toClose == nil {
 		return
 	}
-	impl, ok := deleted.(*CollectionImpl)
-	if !ok || !impl.ownsEF.Load() {
-		return
-	}
-	// Owner being removed — transfer EF ownership to a fork that shares
-	// the same underlying EF, or close it if no such fork exists.
-	//
-	// The two ownsEF stores below are not atomic together, so a concurrent
-	// Close() on the fork could read a stale value. This is safe because
-	// close-once wrappers (layer 2) make the underlying EF's Close()
-	// idempotent, and collection-level sync.Once (layer 3) prevents the
-	// Close() body from running more than once per collection.
-	for _, c := range client.collectionCache {
-		other, ok := c.(*CollectionImpl)
-		if !ok || other.ownsEF.Load() {
-			continue
-		}
-		if collectionsShareEF(impl, other) {
-			impl.ownsEF.Store(false)
-			other.ownsEF.Store(true)
-			return
-		}
-	}
-	if err := deleted.Close(); err != nil {
+	if err := toClose.Close(); err != nil {
 		if client.logger != nil {
 			client.logger.Error("failed to close EF during collection cache cleanup",
 				logger.String("collection", name),
