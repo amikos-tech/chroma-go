@@ -25,7 +25,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [ ] **Phase 9: Convenience Constructors and Documentation Polish** - Add shorthand constructors to reduce Content API verbosity and update docs.
 - [x] **Phase 10: Code Cleanups** - Extract shared path safety utilities, fix *context.Context anti-pattern, add registry test cleanup, fix resolveMIME for URL-backed sources. (issues #456, #461, #466, #469) (completed 2026-03-26)
 - [x] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454) (completed 2026-03-26)
-- [ ] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455)
+- [x] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455) (completed 2026-03-28)
 - [ ] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460)
 - [ ] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439)
 - [ ] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438)
@@ -176,7 +176,7 @@ Plans:
 | 9. Convenience Constructors | 2/2 | Complete | - |
 | 10. Code Cleanups | 2/2 | Complete    | 2026-03-26 |
 | 11. Fork Double-Close Bug | 2/2 | Complete    | 2026-03-26 |
-| 12. SDK Auto-Wiring Research | 0/1 | In Progress | - |
+| 12. SDK Auto-Wiring Research | 1/1 | Complete   | 2026-03-28 |
 | 13. Collection.ForkCount | 0/0 | Not started | - |
 | 14. Delete with Limit | 0/0 | Not started | - |
 | 15. OpenRouter Embeddings | 0/0 | Not started | - |
@@ -242,10 +242,10 @@ Plans:
   1. Python SDK auto-wiring behavior documented for get_collection, list_collections, and create_collection.
   2. JavaScript SDK auto-wiring behavior documented for equivalent operations.
   3. Comparison with chroma-go behavior written up with any recommended changes or documented differences.
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 12-01-PLAN.md — Verify SDK source claims and finalize comparison document
+- [x] 12-01-PLAN.md — Verify SDK source claims and finalize comparison document
 
 ### Phase 13: Collection.ForkCount
 **Goal:** Add `ForkCount(ctx) (int, error)` to the V2 Collection interface with HTTP transport support, matching upstream Chroma's /fork_count endpoint.
