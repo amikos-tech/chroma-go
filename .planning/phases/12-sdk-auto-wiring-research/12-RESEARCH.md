@@ -12,10 +12,8 @@ The key finding is that chroma-go's auto-wiring approach is broadly consistent w
 
 **Primary recommendation:** Document chroma-go's content EF auto-wiring and close lifecycle as Go-specific enhancements. No removals needed -- behavior aligns with official SDK intent while providing additional safety.
 
-<user_constraints>
-## User Constraints (from CONTEXT.md)
+## Locked Decisions
 
-### Locked Decisions
 - **D-01:** Source reading only -- read latest stable release source of each SDK on GitHub. No live test setup, no docs cross-referencing.
 - **D-02:** Target latest stable release tags for Python (`chromadb`), JavaScript (`chromadb`), and Rust SDKs.
 - **D-03:** Include Rust SDK in addition to Python and JS (three comparison points total, plus chroma-go).
@@ -24,15 +22,6 @@ The key finding is that chroma-go's auto-wiring approach is broadly consistent w
 - **D-06:** Full scope -- trace four behavior areas across all SDKs.
 - **D-07:** Document differences AND include a "Recommendations" section with proposed changes for downstream phases.
 - **D-08:** If chroma-go does something extra that official SDKs don't, document it as a deliberate Go-specific enhancement. Only flag as "remove" if it causes actual bugs or confusion. Default posture: keep enhancements.
-
-### Claude's Discretion
-- Exact structure of comparison matrix subsections (may group by behavior area or by SDK)
-- Level of code snippet inclusion in the research doc (enough to support claims, not full reproductions)
-- Whether to include a summary table or just per-area tables
-
-### Deferred Ideas (OUT OF SCOPE)
-None -- discussion stayed within phase scope
-</user_constraints>
 
 ## Project Constraints (from CLAUDE.md)
 
