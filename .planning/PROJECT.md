@@ -71,4 +71,4 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 | Pivot Phase 7 from vLLM/Nemotron to VoyageAI | vLLM lacks NVOmniEmbedModel support; VoyageAI multimodal validates portability with text/image/video | ✓ Good |
 
 ---
-*Last updated: 2026-03-28 — Phase 12 (SDK auto-wiring research) complete: verified auto-wiring behavior across Python, JS, Rust, and chroma-go SDKs. All Go-specific enhancements documented as deliberate; no removals recommended.*
+*Last updated: 2026-03-28 — Phase 13 (Collection ForkCount) complete: added ForkCount method to Collection interface with HTTP and embedded implementations, unit tests, documentation, and runnable example.*
