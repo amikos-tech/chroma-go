@@ -177,7 +177,7 @@ Plans:
 | 10. Code Cleanups | 2/2 | Complete    | 2026-03-26 |
 | 11. Fork Double-Close Bug | 2/2 | Complete    | 2026-03-26 |
 | 12. SDK Auto-Wiring Research | 1/1 | Complete    | 2026-03-28 |
-| 13. Collection.ForkCount | 0/0 | Not started | - |
+| 13. Collection.ForkCount | 0/2 | Planning | - |
 | 14. Delete with Limit | 0/0 | Not started | - |
 | 15. OpenRouter Embeddings | 0/0 | Not started | - |
 | 16. Twelve Labs EF | 0/0 | Not started | - |
@@ -251,16 +251,18 @@ Plans:
 **Goal:** Add `ForkCount(ctx) (int, error)` to the V2 Collection interface with HTTP transport support, matching upstream Chroma's /fork_count endpoint.
 **Depends on:** Phase 11, Phase 12 (benefits from fork bug fix and SDK research)
 **Issues**: #460
+**Requirements**: [FC-01, FC-02, FC-03, FC-04, FC-05, FC-06]
 **Success Criteria** (what must be TRUE):
   1. `pkg/api/v2.Collection` includes `ForkCount(ctx context.Context) (int, error)`.
   2. HTTP implementation issues `GET .../fork_count` and decodes `{"count": n}`.
   3. Embedded/local behavior returns an explicit unsupported error.
   4. Tests cover HTTP happy path, failure path, and embedded unsupported path.
   5. Forking docs mention the new method.
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 13 to break down)
+- [ ] 13-01-PLAN.md — Add ForkCount to interface, HTTP and embedded implementations, and unit tests
+- [ ] 13-02-PLAN.md — Update forking docs with ForkCount section and add runnable example
 
 ### Phase 14: Delete with Limit
 **Goal:** Add limit parameter support to collection delete operations, matching upstream Chroma PRs #6573/#6582.
