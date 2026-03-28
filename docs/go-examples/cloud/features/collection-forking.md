@@ -405,11 +405,57 @@ func main() {
 {% /codetab %}
 {% /codetabs %}
 
+### Checking Fork Count
+
+{% codetabs group="lang" %}
+{% codetab label="Python" %}
+```python
+source_collection = client.get_collection(name="main-repo-index")
+fork_count = source_collection.fork_count()
+print(f"Total forks in lineage: {fork_count}")
+```
+{% /codetab %}
+{% codetab label="Go" %}
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	v2 "github.com/amikos-tech/chroma-go/pkg/api/v2"
+)
+
+func main() {
+	ctx := context.Background()
+
+	client, err := v2.NewHTTPClient(v2.WithBaseURL("http://localhost:8000"))
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+
+	collection, err := client.GetCollection(ctx, "main-repo-index")
+	if err != nil {
+		log.Fatalf("Failed to get collection: %v", err)
+	}
+
+	forkCount, err := collection.ForkCount(ctx)
+	if err != nil {
+		log.Fatalf("Failed to get fork count: %v", err)
+	}
+	fmt.Printf("Total forks in lineage: %d\n", forkCount)
+}
+```
+{% /codetab %}
+{% /codetabs %}
+
 ## Fork API Reference
 
 | Python | Go Function | Description |
 |--------|-------------|-------------|
 | `collection.fork(name="new-name")` | `collection.Fork(ctx, "new-name")` | Create fork of collection |
+| `collection.fork_count()` | `collection.ForkCount(ctx)` | Get lineage-wide fork count |
 
 ## Notes
 
@@ -419,6 +465,7 @@ func main() {
 - **Pricing**: $0.03 per fork call, plus storage for incremental blocks written after the fork.
 - **Quota**: Default limit is 4,096 fork edges per tree. Deleted collections still count toward this limit.
 - **Database scope**: Forked collections belong to the same database as the source collection.
+- **ForkCount is lineage-wide**: Both the source and all forked descendants report the same total count. This counts all forks in the entire tree, not just direct children.
 
 ## Use Cases
 
