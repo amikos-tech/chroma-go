@@ -62,6 +62,31 @@ None -- discussion stayed within phase scope
 
 **chroma-go goes further** by auto-wiring both `contentEmbeddingFunction` AND `embeddingFunction` in `GetCollection`, with a derivation chain (content -> dense unwrap -> dense build). This is a Go-specific enhancement.
 
+Key code from `client_http.go` `GetCollection` (verified against source):
+```go
+// Auto-wire content EF first to avoid double factory instantiation
+contentEF := req.contentEmbeddingFunction
+if contentEF == nil {
+    autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
+    // ...
+    contentEF = autoWiredContentEF
+}
+// Auto-wire dense EF: try unwrapping from content adapter first, then build from config
+ef := req.embeddingFunction
+if ef == nil {
+    if unwrapper, ok := contentEF.(embeddings.EmbeddingFunctionUnwrapper); ok {
+        ef = unwrapper.UnwrapEmbeddingFunction()
+    } else if denseFromContent, ok := contentEF.(embeddings.EmbeddingFunction); ok {
+        ef = denseFromContent
+    }
+    if ef == nil {
+        autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
+        // ...
+        ef = autoWiredEF
+    }
+}
+```
+
 **`list_collections` behavior varies widely:**
 - Python: Returns Collection objects but without EF
 - JS (old): Returns just names (no Collection objects at all)
@@ -86,6 +111,15 @@ Source: Direct reading of GitHub source at tag 1.5.5 for Python and JS; master b
 ### Key Observations
 
 The Python and JS SDKs both persist EF config at create time. The Python SDK stores the EF more opaquely (as a Python object reference in the config dict that the server serializes), while JS uses an explicit `{ type, name, config }` serialization format. chroma-go matches the JS serialization format with its `EmbeddingFunctionInfo` struct.
+
+Key code from `configuration.go` (verified against source):
+```go
+type EmbeddingFunctionInfo struct {
+    Type   string                 `json:"type"`   // "known"
+    Name   string                 `json:"name"`   // e.g. "openai"
+    Config map[string]interface{} `json:"config"` // provider-specific config
+}
+```
 
 ### Confidence: HIGH
 
@@ -120,6 +154,21 @@ This is a clear Go-specific enhancement driven by Go's resource management idiom
 ### Key Finding
 
 chroma-go has a richer registry system with three tiers (dense, multimodal, content) and a fallback chain in `BuildContent` that wraps lower-level EFs into content adapters. The Python and JS SDKs have flat registries with a single EF concept. This is consistent with chroma-go's multimodal foundations work (phases 1-11).
+
+Key code from `configuration.go` `BuildEmbeddingFunctionFromConfig` (verified against source):
+```go
+// Try dense first (existing behavior preserved)
+if embeddings.HasDense(efInfo.Name) {
+    return embeddings.BuildDense(efInfo.Name, efInfo.Config)
+}
+// New: try multimodal (MultimodalEmbeddingFunction embeds EmbeddingFunction)
+if embeddings.HasMultimodal(efInfo.Name) {
+    return embeddings.BuildMultimodal(efInfo.Name, efInfo.Config)
+}
+// Try to get EF from schema if present
+schema := cfg.GetSchema()
+if schema != nil { ef := schema.GetEmbeddingFunction() ... }
+```
 
 ### Confidence: HIGH
 
