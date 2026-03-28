@@ -26,7 +26,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 10: Code Cleanups** - Extract shared path safety utilities, fix *context.Context anti-pattern, add registry test cleanup, fix resolveMIME for URL-backed sources. (issues #456, #461, #466, #469) (completed 2026-03-26)
 - [x] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454) (completed 2026-03-26)
 - [x] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455) (completed 2026-03-28)
-- [ ] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460)
+- [x] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460) (completed 2026-03-28)
 - [ ] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439)
 - [ ] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438)
 - [ ] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190)
@@ -177,7 +177,7 @@ Plans:
 | 10. Code Cleanups | 2/2 | Complete    | 2026-03-26 |
 | 11. Fork Double-Close Bug | 2/2 | Complete    | 2026-03-26 |
 | 12. SDK Auto-Wiring Research | 1/1 | Complete    | 2026-03-28 |
-| 13. Collection.ForkCount | 0/2 | Planning | - |
+| 13. Collection.ForkCount | 1/1 | Complete   | 2026-03-28 |
 | 14. Delete with Limit | 0/0 | Not started | - |
 | 15. OpenRouter Embeddings | 0/0 | Not started | - |
 | 16. Twelve Labs EF | 0/0 | Not started | - |
@@ -251,18 +251,16 @@ Plans:
 **Goal:** Add `ForkCount(ctx) (int, error)` to the V2 Collection interface with HTTP transport support, matching upstream Chroma's /fork_count endpoint.
 **Depends on:** Phase 11, Phase 12 (benefits from fork bug fix and SDK research)
 **Issues**: #460
-**Requirements**: [FC-01, FC-02, FC-03, FC-04, FC-05, FC-06]
 **Success Criteria** (what must be TRUE):
   1. `pkg/api/v2.Collection` includes `ForkCount(ctx context.Context) (int, error)`.
   2. HTTP implementation issues `GET .../fork_count` and decodes `{"count": n}`.
   3. Embedded/local behavior returns an explicit unsupported error.
   4. Tests cover HTTP happy path, failure path, and embedded unsupported path.
   5. Forking docs mention the new method.
-**Plans:** 2 plans
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 13-01-PLAN.md — Add ForkCount to interface, HTTP and embedded implementations, and unit tests
-- [ ] 13-02-PLAN.md — Update forking docs with ForkCount section and add runnable example
+- [ ] TBD (run /gsd:plan-phase 13 to break down)
 
 ### Phase 14: Delete with Limit
 **Goal:** Add limit parameter support to collection delete operations, matching upstream Chroma PRs #6573/#6582.

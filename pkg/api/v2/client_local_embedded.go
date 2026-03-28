@@ -1367,6 +1367,11 @@ func (c *embeddedCollection) Fork(_ context.Context, _ string) (Collection, erro
 	return nil, errors.New("fork is not supported in embedded local mode")
 }
 
+// ForkCount is not supported in embedded local mode.
+func (c *embeddedCollection) ForkCount(_ context.Context) (int, error) {
+	return 0, errors.New("fork count is not supported in embedded local mode")
+}
+
 func (c *embeddedCollection) IndexingStatus(ctx context.Context) (*IndexingStatus, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
