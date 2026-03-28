@@ -6,7 +6,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 
 ## Milestones
 
-- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-17 (current planning milestone)
+- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-18 (current planning milestone)
 
 ## v0.4.1 Provider-Neutral Multimodal Foundations
 
@@ -24,13 +24,14 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 8: Document Gemini and VoyageAI multimodal embedding functions** - Update provider docs, add runnable examples, update README, create changelog. (completed 2026-03-23)
 - [ ] **Phase 9: Convenience Constructors and Documentation Polish** - Add shorthand constructors to reduce Content API verbosity and update docs.
 - [x] **Phase 10: Code Cleanups** - Extract shared path safety utilities, fix *context.Context anti-pattern, add registry test cleanup, fix resolveMIME for URL-backed sources. (issues #456, #461, #466, #469) (completed 2026-03-26)
-- [ ] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454)
+- [x] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454) (completed 2026-03-26)
 - [ ] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455)
 - [ ] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460)
 - [ ] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439)
 - [ ] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438)
 - [ ] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190)
 - [ ] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462)
+- [ ] **Phase 18: Embedded Client contentEmbeddingFunction Parity** - Add contentEmbeddingFunction support to embeddedCollection for feature parity with HTTP client. (issue #472)
 
 ## Phase Details
 
@@ -174,13 +175,14 @@ Plans:
 | 8. Document Gemini and VoyageAI | 2/2 | Complete | 2026-03-23 |
 | 9. Convenience Constructors | 2/2 | Complete | - |
 | 10. Code Cleanups | 2/2 | Complete    | 2026-03-26 |
-| 11. Fork Double-Close Bug | 0/0 | Not started | - |
+| 11. Fork Double-Close Bug | 2/2 | Complete    | 2026-03-26 |
 | 12. SDK Auto-Wiring Research | 0/0 | Not started | - |
 | 13. Collection.ForkCount | 0/0 | Not started | - |
 | 14. Delete with Limit | 0/0 | Not started | - |
 | 15. OpenRouter Embeddings | 0/0 | Not started | - |
 | 16. Twelve Labs EF | 0/0 | Not started | - |
 | 17. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
+| 18. Embedded contentEF Parity | 0/0 | Not started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
 
@@ -225,10 +227,12 @@ Plans:
   2. Both `embeddingFunction` and `contentEmbeddingFunction` ownership is handled correctly.
   3. Tests cover Fork + Close lifecycle without panics or use-after-close errors.
   4. Existing fork tests continue to pass.
-**Plans:** 0 plans
+**Requirements**: [FORK-01, FORK-02, FORK-03, FORK-04]
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 11 to break down)
+- [x] 11-01-PLAN.md — Create close-once EF wrappers, add ownsEF flag, gate Close() in HTTP and embedded paths
+- [x] 11-02-PLAN.md — Add unit tests for close-once wrappers and ownership gating
 
 ### Phase 12: SDK Auto-Wiring Research
 **Goal:** Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs (Python, JavaScript) to verify chroma-go's approach is consistent or document deliberate differences.
@@ -314,3 +318,19 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 17 to break down)
+
+### Phase 18: Embedded Client contentEmbeddingFunction Parity
+**Goal:** Add contentEmbeddingFunction support to embeddedCollection so the embedded client has feature parity with the HTTP client for content embedding lifecycle, auto-wiring, and Fork/Close handling.
+**Depends on:** Phase 11 (fork double-close fix provides the close-once infrastructure)
+**Issues**: #472
+**Success Criteria** (what must be TRUE):
+  1. `embeddedCollection` struct and state include `contentEmbeddingFunction` field.
+  2. `buildEmbeddedCollection` accepts and wires contentEF.
+  3. `embeddedCollection.Close()` handles contentEF with sharing detection matching HTTP path.
+  4. `embeddedCollection.Fork()` propagates contentEF with close-once wrapping.
+  5. Embedded `GetCollection()` respects `WithContentEmbeddingFunctionGet` option.
+  6. Tests cover lifecycle, Fork, Close, and auto-wiring for content EF on embedded path.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 18 to break down)

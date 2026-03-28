@@ -3,10 +3,13 @@ package v2
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -57,6 +60,9 @@ type CollectionImpl struct {
 	client                   *APIClientV2
 	embeddingFunction        embeddings.EmbeddingFunction
 	contentEmbeddingFunction embeddings.ContentEmbeddingFunction
+	ownsEF                   atomic.Bool
+	closeOnce                sync.Once
+	closeErr                 error
 }
 
 type Option func(*CollectionImpl) error
@@ -412,8 +418,9 @@ func (c *CollectionImpl) Fork(ctx context.Context, newName string) (Collection, 
 		schema:                   cm.Schema,
 		client:                   c.client,
 		dimension:                cm.Dimension,
-		embeddingFunction:        c.embeddingFunction,
-		contentEmbeddingFunction: c.contentEmbeddingFunction,
+		embeddingFunction:        wrapEFCloseOnce(c.embeddingFunction),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(c.contentEmbeddingFunction),
+		// ownsEF defaults to false (atomic.Bool zero value) — fork does not own EF
 	}
 	c.client.addCollectionToCache(forkedCollection)
 	return forkedCollection, nil
@@ -682,31 +689,40 @@ func (c *CollectionImpl) IndexingStatus(ctx context.Context) (*IndexingStatus, e
 }
 
 func (c *CollectionImpl) Close() error {
-	var firstErr error
-	if c.contentEmbeddingFunction != nil {
-		if closer, ok := c.contentEmbeddingFunction.(io.Closer); ok {
-			firstErr = closer.Close()
-		}
+	if !c.ownsEF.Load() {
+		return nil
 	}
-	if c.embeddingFunction != nil {
-		// Skip if dense EF shares the same resource as content EF:
-		// (1) content adapter wraps this dense EF (unwrapper case), or
-		// (2) content EF is a dual-interface object also assigned as dense EF
-		shared := false
-		if unwrapper, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunctionUnwrapper); ok {
-			shared = unwrapper.UnwrapEmbeddingFunction() == c.embeddingFunction
-		} else if ef, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {
-			shared = ef == c.embeddingFunction
-		}
-		if !shared {
-			if closer, ok := c.embeddingFunction.(io.Closer); ok {
-				if err := closer.Close(); err != nil && firstErr == nil {
-					firstErr = err
+	c.closeOnce.Do(func() {
+		var errs []error
+		if c.contentEmbeddingFunction != nil {
+			if closer, ok := c.contentEmbeddingFunction.(io.Closer); ok {
+				if err := safeCloseEF(closer); err != nil {
+					errs = append(errs, err)
 				}
 			}
 		}
-	}
-	return firstErr
+		if c.embeddingFunction != nil {
+			// Skip if dense EF shares the same resource as content EF:
+			// (1) content adapter wraps this dense EF (unwrapper case), or
+			// (2) content EF is a dual-interface object also assigned as dense EF
+			// Unwrap closeOnce wrappers before comparing so sharing is detected
+			// even when both fields are independently wrapped (e.g. after Fork).
+			shared := false
+			denseEF := unwrapCloseOnceEF(c.embeddingFunction)
+			if unwrapper, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunctionUnwrapper); ok {
+				shared = unwrapper.UnwrapEmbeddingFunction() == denseEF
+			} else if ef, ok := c.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {
+				shared = ef == denseEF
+			}
+			if !shared {
+				if closer, ok := c.embeddingFunction.(io.Closer); ok {
+					if err := safeCloseEF(closer); err != nil {
+						errs = append(errs, err)
+					}
+				}
+			}
+		}
+		c.closeErr = stderrors.Join(errs...)
+	})
+	return c.closeErr
 }
-
-// TODO add utility methods for metadata lookups

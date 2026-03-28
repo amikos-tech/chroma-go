@@ -616,3 +616,10 @@ func TestWaitForLocalServerReady_PassesTimeoutContextToHeartbeat(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, transport.sawDeadline)
 }
+
+func TestEmbeddedCollection_ForkNotSupported(t *testing.T) {
+	col := &embeddedCollection{}
+	_, err := col.Fork(nil, "any-name")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not supported in embedded local mode")
+}

@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -399,7 +400,7 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		overrideEF = nil
 	}
 
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -518,7 +519,7 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 			state.embeddingFunction = req.embeddingFunction
 		})
 	}
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, req.embeddingFunction)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, req.embeddingFunction, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -591,7 +592,7 @@ func (client *embeddedLocalClient) ListCollections(ctx context.Context, opts ...
 
 	collections := make([]Collection, 0, len(models))
 	for _, model := range models {
-		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil)
+		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil, true)
 		if buildErr != nil {
 			return nil, errors.Wrapf(buildErr, "error building listed collection %s", model.ID)
 		}
@@ -693,7 +694,7 @@ func (client *embeddedLocalClient) collectionDimension(collectionID string, fall
 	return state.dimension
 }
 
-func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction) (*embeddedCollection, error) {
+func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction, ownsEF bool) (*embeddedCollection, error) {
 	tenantName := model.Tenant
 	databaseName := model.Database
 
@@ -767,6 +768,7 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		embeddingFunction: snapshot.embeddingFunction,
 		client:            client,
 	}
+	collection.ownsEF.Store(ownsEF)
 	client.state.localAddCollectionToCache(collection)
 	return collection, nil
 }
@@ -785,6 +787,9 @@ type embeddedCollection struct {
 
 	embeddingFunction embeddingspkg.EmbeddingFunction
 	client            *embeddedLocalClient
+	ownsEF            atomic.Bool
+	closeOnce         sync.Once
+	closeErr          error
 }
 
 func (c *embeddedCollection) Name() string {
@@ -1357,45 +1362,9 @@ func (c *embeddedCollection) Search(_ context.Context, _ ...SearchCollectionOpti
 	return nil, errors.New("search is not supported in embedded local mode")
 }
 
-func (c *embeddedCollection) Fork(ctx context.Context, newName string) (Collection, error) {
-	if strings.TrimSpace(newName) == "" {
-		return nil, errors.New("newName cannot be empty")
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
-
-	forked, err := c.client.embedded.ForkCollection(localchroma.EmbeddedForkCollectionRequest{
-		SourceCollectionID:   collectionID,
-		TargetCollectionName: strings.TrimSpace(newName),
-		TenantID:             tenantName,
-		DatabaseName:         databaseName,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error forking collection")
-	}
-	c.mu.RLock()
-	embeddingFunction := c.embeddingFunction
-	metadata := c.metadata
-	configuration := c.configuration
-	schema := c.schema
-	database := c.database
-	c.mu.RUnlock()
-
-	c.client.upsertCollectionState(forked.ID, func(state *embeddedCollectionState) {
-		state.embeddingFunction = embeddingFunction
-		state.metadata = metadata
-		state.configuration = configuration
-		state.schema = schema
-		state.dimension = c.Dimension()
-	})
-
-	forkedCollection, err := c.client.buildEmbeddedCollection(*forked, database, embeddingFunction)
-	if err != nil {
-		return nil, errors.Wrap(err, "error building forked collection")
-	}
-	return forkedCollection, nil
+// Fork is not supported in embedded local mode.
+func (c *embeddedCollection) Fork(_ context.Context, _ string) (Collection, error) {
+	return nil, errors.New("fork is not supported in embedded local mode")
 }
 
 func (c *embeddedCollection) IndexingStatus(ctx context.Context) (*IndexingStatus, error) {
@@ -1419,13 +1388,23 @@ func (c *embeddedCollection) IndexingStatus(ctx context.Context) (*IndexingStatu
 }
 
 func (c *embeddedCollection) Close() error {
-	embeddingFunction := c.embeddingFunctionSnapshot()
-	if embeddingFunction != nil {
-		if closer, ok := embeddingFunction.(io.Closer); ok {
-			return closer.Close()
-		}
+	if !c.ownsEF.Load() {
+		return nil
 	}
-	return nil
+	ef := c.embeddingFunctionSnapshot()
+	c.closeOnce.Do(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				c.closeErr = reportClosePanic(r)
+			}
+		}()
+		if ef != nil {
+			if closer, ok := ef.(io.Closer); ok {
+				c.closeErr = closer.Close()
+			}
+		}
+	})
+	return c.closeErr
 }
 
 func documentIDsToStrings(ids []DocumentID) []string {
