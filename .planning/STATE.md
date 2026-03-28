@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: "Phase 11 shipped — PR #471"
-stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-03-26T19:33:39.561Z"
+status: Ready to plan
+stopped_at: Phase 12 context gathered
+last_updated: "2026-03-28T13:06:51.466Z"
 progress:
-  total_phases: 17
-  completed_phases: 11
-  total_plans: 26
-  completed_plans: 26
+  total_phases: 18
+  completed_phases: 12
+  total_plans: 27
+  completed_plans: 27
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 11 — fork-double-close-bug
+**Current focus:** Phase 12 — sdk-auto-wiring-research
 
 ## Current Position
 
-Phase: 12
+Phase: 13
 Plan: Not started
 
 ## Performance Metrics
@@ -153,6 +153,6 @@ None.
 
 ## Session
 
-**Last Date:** 2026-03-26T17:59:58.454Z
-**Stopped At:** Completed 11-02-PLAN.md
-**Resume File:** None
+**Last Date:** 2026-03-28T09:27:37.840Z
+**Stopped At:** Phase 12 context gathered
+**Resume File:** .planning/phases/12-sdk-auto-wiring-research/12-CONTEXT.md
