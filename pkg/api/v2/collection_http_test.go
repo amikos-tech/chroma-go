@@ -547,6 +547,59 @@ func TestCollectionIndexingStatus(t *testing.T) {
 	require.InDelta(t, 0.909, status.OpIndexingProgress, 0.001)
 }
 
+func TestCollectionForkCount(t *testing.T) {
+	rx1 := regexp.MustCompile(`/api/v2/tenants/[^/]+/databases/[^/]+/collections/[^/]+/fork_count`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("Request: %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
+		switch {
+		case r.Method == http.MethodGet && rx1.MatchString(r.URL.Path):
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"count":5}`))
+			require.NoError(t, err)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	client, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+	collection := &CollectionImpl{
+		name:     "test",
+		id:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+		tenant:   NewDefaultTenant(),
+		database: NewDefaultDatabase(),
+		client:   client.(*APIClientV2),
+	}
+	r, err := collection.ForkCount(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 5, r)
+}
+
+func TestCollectionForkCountServerError(t *testing.T) {
+	rx1 := regexp.MustCompile(`/api/v2/tenants/[^/]+/databases/[^/]+/collections/[^/]+/fork_count`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && rx1.MatchString(r.URL.Path):
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`internal server error`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	client, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+	collection := &CollectionImpl{
+		name:     "test",
+		id:       "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+		tenant:   NewDefaultTenant(),
+		database: NewDefaultDatabase(),
+		client:   client.(*APIClientV2),
+	}
+	_, err = collection.ForkCount(context.Background())
+	require.Error(t, err)
+}
+
 func TestCollectionQuery(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pathMatch := regexp.MustCompile("/api/v2/tenants/[^/]+/databases/[^/]+/collections/[^/]+/query")
