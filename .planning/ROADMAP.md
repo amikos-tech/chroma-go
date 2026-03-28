@@ -177,7 +177,7 @@ Plans:
 | 10. Code Cleanups | 2/2 | Complete    | 2026-03-26 |
 | 11. Fork Double-Close Bug | 2/2 | Complete    | 2026-03-26 |
 | 12. SDK Auto-Wiring Research | 1/1 | Complete    | 2026-03-28 |
-| 13. Collection.ForkCount | 1/1 | Complete   | 2026-03-28 |
+| 13. Collection.ForkCount | 2/2 | Complete   | 2026-03-28 |
 | 14. Delete with Limit | 0/0 | Not started | - |
 | 15. OpenRouter Embeddings | 0/0 | Not started | - |
 | 16. Twelve Labs EF | 0/0 | Not started | - |
@@ -257,10 +257,10 @@ Plans:
   3. Embedded/local behavior returns an explicit unsupported error.
   4. Tests cover HTTP happy path, failure path, and embedded unsupported path.
   5. Forking docs mention the new method.
-**Plans:** 1/1 plans complete
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 13 to break down)
+- [x] TBD (run /gsd:plan-phase 13 to break down) (completed 2026-03-28)
 
 ### Phase 14: Delete with Limit
 **Goal:** Add limit parameter support to collection delete operations, matching upstream Chroma PRs #6573/#6582.

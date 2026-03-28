@@ -73,8 +73,8 @@
 - [ ] **FC-02**: HTTP implementation issues `GET .../fork_count` and decodes `{"count": n}` using strict struct with `json:"count"` tag
 - [ ] **FC-03**: Embedded/local implementation returns explicit unsupported error matching existing Fork/Search pattern
 - [ ] **FC-04**: Tests cover HTTP happy path, HTTP failure path, and embedded unsupported path
-- [ ] **FC-05**: Forking docs page includes ForkCount section with Go and Python examples and API reference row
-- [ ] **FC-06**: Runnable Fork + ForkCount example exists under `examples/v2/`
+- [x] **FC-05**: Forking docs page includes ForkCount section with Go and Python examples and API reference row
+- [x] **FC-06**: Runnable Fork + ForkCount example exists under `examples/v2/`
 
 ## v2 Requirements
 
