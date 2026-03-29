@@ -39,14 +39,12 @@ func run() error {
 	}
 	defer client.Close()
 
-	// Create a source collection
 	source, err := client.CreateCollection(ctx, "fork-count-demo")
 	if err != nil {
 		return fmt.Errorf("failed to create collection: %w", err)
 	}
 	defer cleanupCollection(ctx, client, "fork-count-demo")
 
-	// Fork the collection
 	forked, err := source.Fork(ctx, "fork-count-demo-fork")
 	if err != nil {
 		return fmt.Errorf("failed to fork collection: %w", err)

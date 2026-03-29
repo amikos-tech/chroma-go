@@ -688,7 +688,6 @@ func (c *CollectionImpl) IndexingStatus(ctx context.Context) (*IndexingStatus, e
 	return result, nil
 }
 
-// ForkCount returns the total number of forks in this collection's lineage.
 func (c *CollectionImpl) ForkCount(ctx context.Context) (int, error) {
 	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "fork_count")
 	if err != nil {

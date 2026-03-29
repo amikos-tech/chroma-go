@@ -15,6 +15,14 @@ Forking lets you create a new collection from an existing one instantly, using c
 {% codetabs group="lang" %}
 {% codetab label="Python" %}
 ```python
+import chromadb
+
+client = chromadb.CloudClient(
+    tenant="your-tenant",
+    database="your-database",
+    api_key="your-api-key"
+)
+
 source_collection = client.get_collection(name="main-repo-index")
 
 # Create a forked collection. Name must be unique within the database.
