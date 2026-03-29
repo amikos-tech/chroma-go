@@ -3,6 +3,7 @@
 package v2
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -593,5 +594,73 @@ func TestWithIDsDuplicateAcrossMultipleCalls(t *testing.T) {
 		err := opt2.ApplyToSearchRequest(req)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "duplicate id: id2")
+	})
+}
+
+func TestDeleteWithLimit(t *testing.T) {
+	t.Run("ApplyToDelete sets limit", func(t *testing.T) {
+		op := &CollectionDeleteOp{}
+		err := WithLimit(10).ApplyToDelete(op)
+		require.NoError(t, err)
+		require.NotNil(t, op.Limit)
+		require.Equal(t, int32(10), *op.Limit)
+	})
+
+	t.Run("ApplyToDelete rejects zero", func(t *testing.T) {
+		op := &CollectionDeleteOp{}
+		err := WithLimit(0).ApplyToDelete(op)
+		require.ErrorIs(t, err, ErrInvalidLimit)
+	})
+
+	t.Run("ApplyToDelete rejects negative", func(t *testing.T) {
+		op := &CollectionDeleteOp{}
+		err := WithLimit(-1).ApplyToDelete(op)
+		require.ErrorIs(t, err, ErrInvalidLimit)
+	})
+
+	t.Run("PrepareAndValidate rejects limit without filter", func(t *testing.T) {
+		limit := int32(10)
+		op := &CollectionDeleteOp{}
+		op.Ids = []DocumentID{"1"}
+		op.Limit = &limit
+		err := op.PrepareAndValidate()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "limit can only be specified when a where or where_document clause is provided")
+	})
+
+	t.Run("PrepareAndValidate accepts limit with where", func(t *testing.T) {
+		limit := int32(10)
+		op := &CollectionDeleteOp{}
+		op.Where = EqString(K("status"), "archived")
+		op.Limit = &limit
+		err := op.PrepareAndValidate()
+		require.NoError(t, err)
+	})
+
+	t.Run("PrepareAndValidate accepts limit with where_document", func(t *testing.T) {
+		limit := int32(10)
+		op := &CollectionDeleteOp{}
+		op.WhereDocument = Contains("DRAFT")
+		op.Limit = &limit
+		err := op.PrepareAndValidate()
+		require.NoError(t, err)
+	})
+
+	t.Run("JSON omits limit when nil", func(t *testing.T) {
+		op := &CollectionDeleteOp{}
+		op.Ids = []DocumentID{"1"}
+		b, err := op.MarshalJSON()
+		require.NoError(t, err)
+		require.NotContains(t, string(b), `"limit"`)
+	})
+
+	t.Run("JSON includes limit when set", func(t *testing.T) {
+		limit := int32(50)
+		op := &CollectionDeleteOp{}
+		op.Ids = []DocumentID{"1"}
+		op.Limit = &limit
+		b, err := json.Marshal(op)
+		require.NoError(t, err)
+		require.Contains(t, string(b), `"limit":50`)
 	})
 }
