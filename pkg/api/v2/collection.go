@@ -1092,9 +1092,16 @@ func WithEmbeddingsUpdate(embs ...embeddings.Embedding) UpdateOption {
 //
 //	// Delete by document content
 //	err := collection.Delete(ctx, WithWhereDocument(Contains("DEPRECATED")))
+//
+//	// Delete with limit (requires a where or where_document filter)
+//	err := collection.Delete(ctx,
+//	    WithWhere(EqString("status", "archived")),
+//	    WithLimit(100),
+//	)
 type CollectionDeleteOp struct {
 	FilterOp   // Where and WhereDocument filters
 	FilterIDOp // ID filter
+	Limit      *int32 `json:"limit,omitempty"`
 }
 
 // NewCollectionDeleteOp creates a new Delete operation with the given options.
@@ -1126,6 +1133,15 @@ func (c *CollectionDeleteOp) PrepareAndValidate() error {
 	if c.WhereDocument != nil {
 		if err := c.WhereDocument.Validate(); err != nil {
 			return err
+		}
+	}
+
+	if c.Limit != nil {
+		if *c.Limit <= 0 {
+			return errors.New("limit must be greater than 0")
+		}
+		if c.Where == nil && c.WhereDocument == nil {
+			return errors.New("limit can only be specified when a where or where_document clause is provided")
 		}
 	}
 

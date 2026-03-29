@@ -991,11 +991,18 @@ func (c *embeddedCollection) Delete(ctx context.Context, opts ...CollectionDelet
 	}
 	collectionID, tenantName, databaseName := c.runtimeScopeSnapshot()
 
+	var limit *uint32
+	if deleteObject.Limit != nil {
+		l := uint32(*deleteObject.Limit)
+		limit = &l
+	}
+
 	return c.client.embedded.DeleteRecords(localchroma.EmbeddedDeleteRecordsRequest{
 		CollectionID:  collectionID,
 		IDs:           documentIDsToStrings(deleteObject.Ids),
 		Where:         where,
 		WhereDocument: whereDocument,
+		Limit:         limit,
 		TenantID:      tenantName,
 		DatabaseName:  databaseName,
 	})

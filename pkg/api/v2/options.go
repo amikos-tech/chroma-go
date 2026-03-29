@@ -22,7 +22,7 @@ The following table shows which options work with which operations:
 	WithWhere           |  ✓  |   ✓   |   ✓    |     |        |
 	WithWhereDocument   |  ✓  |   ✓   |   ✓    |     |        |
 	WithInclude         |  ✓  |   ✓   |        |     |        |
-	WithLimit           |  ✓  |       |        |     |        |   ✓
+	WithLimit           |  ✓  |       |   ✓    |     |        |   ✓
 	WithOffset          |  ✓  |       |        |     |        |   ✓
 	Page (NewPage)      |  ✓  |       |        |     |        |   ✓
 	WithNResults        |     |   ✓   |        |     |        |
@@ -522,10 +522,12 @@ type limitOption struct {
 	limit int
 }
 
-// WithLimit sets the maximum number of results to return.
+// WithLimit sets the maximum number of results to return or delete.
 //
-// Works with both [Collection.Get] and [Collection.Search]. Use with [WithOffset]
-// for pagination. The limit must be greater than 0.
+// Works with [Collection.Get], [Collection.Search], and [Collection.Delete].
+// For Delete, a where or where_document filter must also be specified.
+// Use with [WithOffset] for pagination (Get and Search only).
+// The limit must be greater than 0.
 //
 // For [Collection.Query], use [WithNResults] instead.
 //
@@ -550,6 +552,13 @@ type limitOption struct {
 //	    WithLimit(100),
 //	    WithOffset(200),
 //	)
+//
+// # Delete Example
+//
+//	err := collection.Delete(ctx,
+//	    WithWhere(EqString("status", "archived")),
+//	    WithLimit(100),
+//	)
 func WithLimit(limit int) *limitOption {
 	return &limitOption{limit: limit}
 }
@@ -570,6 +579,15 @@ func (o *limitOption) ApplyToSearchRequest(req *SearchRequest) error {
 		req.Limit = &SearchPage{}
 	}
 	req.Limit.Limit = o.limit
+	return nil
+}
+
+func (o *limitOption) ApplyToDelete(op *CollectionDeleteOp) error {
+	if o.limit <= 0 {
+		return ErrInvalidLimit
+	}
+	limit := int32(o.limit)
+	op.Limit = &limit
 	return nil
 }
 
