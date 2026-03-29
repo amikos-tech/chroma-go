@@ -82,7 +82,7 @@
 - [x] **DEL-02**: `CollectionDeleteOp` has a `Limit *int32` field with `json:"limit,omitempty"` tag
 - [x] **DEL-03**: `PrepareAndValidate` rejects limit without where/where_document filter and limit <= 0 with exact upstream error messages
 - [x] **DEL-04**: Embedded path converts `*int32` limit to `*uint32` and passes to `EmbeddedDeleteRecordsRequest.Limit`
-- [ ] **DEL-05**: Tests cover option application, validation edge cases, and HTTP serialization round-trip
+- [x] **DEL-05**: Tests cover option application, validation edge cases, and HTTP serialization round-trip
 
 ## v2 Requirements
 
