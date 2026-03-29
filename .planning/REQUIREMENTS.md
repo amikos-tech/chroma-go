@@ -67,6 +67,15 @@
 - [x] **FORK-03**: Shared EFs are wrapped in a `sync.Once`-based close-once adapter that makes `Close()` idempotent as defence-in-depth
 - [x] **FORK-04**: Tests cover Fork + Close lifecycle including idempotent close, use-after-close errors, and ownership gating without panics
 
+### Collection ForkCount
+
+- [ ] **FC-01**: `pkg/api/v2.Collection` interface includes `ForkCount(ctx context.Context) (int, error)`
+- [ ] **FC-02**: HTTP implementation issues `GET .../fork_count` and decodes `{"count": n}` using strict struct with `json:"count"` tag
+- [ ] **FC-03**: Embedded/local implementation returns explicit unsupported error matching existing Fork/Search pattern
+- [ ] **FC-04**: Tests cover HTTP happy path, HTTP failure path, and embedded unsupported path
+- [x] **FC-05**: Forking docs page includes ForkCount section with Go and Python examples and API reference row
+- [x] **FC-06**: Runnable Fork + ForkCount example exists under `examples/v2/`
+
 ## v2 Requirements
 
 ### Provider Adoption
@@ -127,12 +136,18 @@
 | FORK-02 | Phase 11 | Complete |
 | FORK-03 | Phase 11 | Complete |
 | FORK-04 | Phase 11 | Planned |
+| FC-01 | Phase 13 | Planned |
+| FC-02 | Phase 13 | Planned |
+| FC-03 | Phase 13 | Planned |
+| FC-04 | Phase 13 | Planned |
+| FC-05 | Phase 13 | Planned |
+| FC-06 | Phase 13 | Planned |
 
 **Coverage:**
-- v1 requirements: 35 total
-- Mapped to phases: 35
+- v1 requirements: 41 total
+- Mapped to phases: 41
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-26 -- added FORK-01/02/03/04 for phase 11*
+*Last updated: 2026-03-28 -- added FC-01/02/03/04/05/06 for phase 13*

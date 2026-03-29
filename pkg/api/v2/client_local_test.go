@@ -623,3 +623,10 @@ func TestEmbeddedCollection_ForkNotSupported(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not supported in embedded local mode")
 }
+
+func TestEmbeddedCollection_ForkCountNotSupported(t *testing.T) {
+	col := &embeddedCollection{}
+	_, err := col.ForkCount(nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not supported in embedded local mode")
+}

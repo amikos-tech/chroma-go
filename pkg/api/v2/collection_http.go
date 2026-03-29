@@ -688,6 +688,24 @@ func (c *CollectionImpl) IndexingStatus(ctx context.Context) (*IndexingStatus, e
 	return result, nil
 }
 
+func (c *CollectionImpl) ForkCount(ctx context.Context) (int, error) {
+	reqURL, err := url.JoinPath("tenants", c.Tenant().Name(), "databases", c.Database().Name(), "collections", c.ID(), "fork_count")
+	if err != nil {
+		return 0, errors.Wrap(err, "error composing request URL")
+	}
+	respBody, err := c.client.ExecuteRequest(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return 0, errors.Wrap(err, "error getting fork count")
+	}
+	var result struct {
+		Count int `json:"count"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return 0, errors.Wrap(err, "error decoding fork count response")
+	}
+	return result.Count, nil
+}
+
 func (c *CollectionImpl) Close() error {
 	if !c.ownsEF.Load() {
 		return nil

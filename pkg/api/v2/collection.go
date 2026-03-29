@@ -206,7 +206,13 @@ type Collection interface {
 
 	// Fork creates a copy of this collection with a new name.
 	// The new collection contains all documents from the original.
+	// Requires Chroma Cloud; embedded local mode returns an error.
 	Fork(ctx context.Context, newName string) (Collection, error)
+
+	// ForkCount returns the total number of forks in this collection's lineage.
+	// This count is lineage-wide: source and all forked descendants report the
+	// same value. Requires Chroma Cloud; embedded local mode returns an error.
+	ForkCount(ctx context.Context) (int, error)
 
 	// IndexingStatus returns the current indexing progress for this collection.
 	// Requires Chroma server version >= 1.4.1.
