@@ -27,7 +27,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454) (completed 2026-03-26)
 - [x] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455) (completed 2026-03-28)
 - [x] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460) (completed 2026-03-28)
-- [ ] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439)
+- [ ] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439) [1/2 plans complete]
 - [ ] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438)
 - [ ] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190)
 - [ ] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462)

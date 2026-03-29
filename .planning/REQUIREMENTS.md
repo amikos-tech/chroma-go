@@ -78,10 +78,10 @@
 
 ### Delete with Limit
 
-- [ ] **DEL-01**: `WithLimit(n)` applies to `Collection.Delete` via `ApplyToDelete` method on `limitOption`, reusing the existing option function
-- [ ] **DEL-02**: `CollectionDeleteOp` has a `Limit *int32` field with `json:"limit,omitempty"` tag
-- [ ] **DEL-03**: `PrepareAndValidate` rejects limit without where/where_document filter and limit <= 0 with exact upstream error messages
-- [ ] **DEL-04**: Embedded path converts `*int32` limit to `*uint32` and passes to `EmbeddedDeleteRecordsRequest.Limit`
+- [x] **DEL-01**: `WithLimit(n)` applies to `Collection.Delete` via `ApplyToDelete` method on `limitOption`, reusing the existing option function
+- [x] **DEL-02**: `CollectionDeleteOp` has a `Limit *int32` field with `json:"limit,omitempty"` tag
+- [x] **DEL-03**: `PrepareAndValidate` rejects limit without where/where_document filter and limit <= 0 with exact upstream error messages
+- [x] **DEL-04**: Embedded path converts `*int32` limit to `*uint32` and passes to `EmbeddedDeleteRecordsRequest.Limit`
 - [ ] **DEL-05**: Tests cover option application, validation edge cases, and HTTP serialization round-trip
 
 ## v2 Requirements
@@ -150,10 +150,10 @@
 | FC-04 | Phase 13 | Planned |
 | FC-05 | Phase 13 | Planned |
 | FC-06 | Phase 13 | Planned |
-| DEL-01 | Phase 14 | Planned |
-| DEL-02 | Phase 14 | Planned |
-| DEL-03 | Phase 14 | Planned |
-| DEL-04 | Phase 14 | Planned |
+| DEL-01 | Phase 14 | Complete |
+| DEL-02 | Phase 14 | Complete |
+| DEL-03 | Phase 14 | Complete |
+| DEL-04 | Phase 14 | Complete |
 | DEL-05 | Phase 14 | Planned |
 
 **Coverage:**
