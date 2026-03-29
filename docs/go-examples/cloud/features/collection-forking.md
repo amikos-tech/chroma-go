@@ -410,6 +410,14 @@ func main() {
 {% codetabs group="lang" %}
 {% codetab label="Python" %}
 ```python
+import chromadb
+
+client = chromadb.CloudClient(
+    tenant="your-tenant",
+    database="your-database",
+    api_key="your-api-key"
+)
+
 source_collection = client.get_collection(name="main-repo-index")
 fork_count = source_collection.fork_count()
 print(f"Total forks in lineage: {fork_count}")
@@ -430,10 +438,14 @@ import (
 func main() {
 	ctx := context.Background()
 
-	client, err := v2.NewHTTPClient(v2.WithBaseURL("http://localhost:8000"))
+	client, err := v2.NewCloudClient(
+		v2.WithCloudAPIKey("your-api-key"),
+		v2.WithDatabaseAndTenant("your-database", "your-tenant"),
+	)
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
+	defer client.Close()
 
 	collection, err := client.GetCollection(ctx, "main-repo-index")
 	if err != nil {
@@ -473,4 +485,3 @@ func main() {
 2. **Git-like workflows**: Index a branch by forking from its divergence point, then apply the diff
 3. **A/B testing**: Compare different embedding strategies or data configurations
 4. **Safe experimentation**: Test changes without affecting production data
-
