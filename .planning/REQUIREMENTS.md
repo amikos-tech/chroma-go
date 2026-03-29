@@ -76,6 +76,14 @@
 - [x] **FC-05**: Forking docs page includes ForkCount section with Go and Python examples and API reference row
 - [x] **FC-06**: Runnable Fork + ForkCount example exists under `examples/v2/`
 
+### Delete with Limit
+
+- [ ] **DEL-01**: `WithLimit(n)` applies to `Collection.Delete` via `ApplyToDelete` method on `limitOption`, reusing the existing option function
+- [ ] **DEL-02**: `CollectionDeleteOp` has a `Limit *int32` field with `json:"limit,omitempty"` tag
+- [ ] **DEL-03**: `PrepareAndValidate` rejects limit without where/where_document filter and limit <= 0 with exact upstream error messages
+- [ ] **DEL-04**: Embedded path converts `*int32` limit to `*uint32` and passes to `EmbeddedDeleteRecordsRequest.Limit`
+- [ ] **DEL-05**: Tests cover option application, validation edge cases, and HTTP serialization round-trip
+
 ## v2 Requirements
 
 ### Provider Adoption
@@ -142,12 +150,17 @@
 | FC-04 | Phase 13 | Planned |
 | FC-05 | Phase 13 | Planned |
 | FC-06 | Phase 13 | Planned |
+| DEL-01 | Phase 14 | Planned |
+| DEL-02 | Phase 14 | Planned |
+| DEL-03 | Phase 14 | Planned |
+| DEL-04 | Phase 14 | Planned |
+| DEL-05 | Phase 14 | Planned |
 
 **Coverage:**
-- v1 requirements: 41 total
-- Mapped to phases: 41
+- v1 requirements: 46 total
+- Mapped to phases: 46
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-28 -- added FC-01/02/03/04/05/06 for phase 13*
+*Last updated: 2026-03-29 -- added DEL-01/02/03/04/05 for phase 14*
