@@ -179,7 +179,7 @@ Plans:
 | 12. SDK Auto-Wiring Research | 1/1 | Complete    | 2026-03-28 |
 | 13. Collection.ForkCount | 2/2 | Complete    | 2026-03-28 |
 | 14. Delete with Limit | 2/2 | Complete    | 2026-03-29 |
-| 15. OpenRouter Embeddings | 2/2 | Complete   | 2026-03-30 |
+| 15. OpenRouter Embeddings | 2/2 | Complete    | 2026-03-30 |
 | 16. Twelve Labs EF | 0/0 | Not started | - |
 | 17. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
 | 18. Embedded contentEF Parity | 0/0 | Not started | - |
