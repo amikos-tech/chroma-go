@@ -94,6 +94,19 @@ func WithAPIKeyFromEnvVar(envVar string) Option {
 	}
 }
 
+// WithModelString sets the model to any non-empty string without validation.
+// Use this for OpenAI-compatible endpoints (Azure, LiteLLM, vLLM, OpenRouter)
+// that accept model names not in the standard OpenAI model list.
+func WithModelString(model string) Option {
+	return func(c *OpenAIClient) error {
+		if model == "" {
+			return errors.New("model cannot be empty")
+		}
+		c.Model = model
+		return nil
+	}
+}
+
 // WithInsecure allows the client to connect to HTTP endpoints without TLS.
 // This should only be used for local development or testing.
 func WithInsecure() Option {
