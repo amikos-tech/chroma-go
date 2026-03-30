@@ -1099,8 +1099,8 @@ func WithEmbeddingsUpdate(embs ...embeddings.Embedding) UpdateOption {
 //	    WithLimit(100),
 //	)
 type CollectionDeleteOp struct {
-	FilterOp   // Where and WhereDocument filters
-	FilterIDOp // ID filter
+	FilterOp          // Where and WhereDocument filters
+	FilterIDOp        // ID filter
 	Limit      *int32 `json:"limit,omitempty"`
 }
 
