@@ -287,10 +287,11 @@ Plans:
   3. Provider preferences struct covers documented OpenRouter fields with extensibility.
   4. Existing OpenAI behavior and tests remain unchanged.
   5. Docs include OpenRouter usage example with `WithBaseURL`.
-**Plans:** 0 plans
+**Plans:** 2 plans [1/2 complete]
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 15 to break down)
+- [x] 15-01-PLAN.md -- Add WithModelString to OpenAI provider and create standalone OpenRouter provider package
+- [ ] 15-02-PLAN.md -- Add unit tests and integration verification for OpenRouter provider
 
 ### Phase 16: Twelve Labs Embedding Function
 **Goal:** Add a new Twelve Labs multimodal embedding provider supporting text, image, and audio embeddings via the Twelve Labs API.
