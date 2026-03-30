@@ -84,6 +84,14 @@
 - [x] **DEL-04**: Embedded path converts `*int32` limit to `*uint32` and passes to `EmbeddedDeleteRecordsRequest.Limit`
 - [x] **DEL-05**: Tests cover option application, validation edge cases, and HTTP serialization round-trip
 
+### OpenRouter Embeddings Compatibility
+
+- [ ] **OR-01**: `CreateEmbeddingRequest` in the OpenRouter package supports `encoding_format`, `input_type`, and `provider` fields
+- [ ] **OR-02**: OpenAI provider's `WithModelString` accepts any non-empty string without validation for use with compatible proxies
+- [ ] **OR-03**: `ProviderPreferences` is a typed struct with all documented OpenRouter fields plus `Extras map[string]any` with custom `MarshalJSON`
+- [ ] **OR-04**: Existing OpenAI behavior and tests remain unchanged
+- [ ] **OR-05**: OpenRouter provider registered as `"openrouter"` in dense registry with full `GetConfig`/`FromConfig` config round-trip
+
 ## v2 Requirements
 
 ### Provider Adoption
@@ -155,12 +163,17 @@
 | DEL-03 | Phase 14 | Complete |
 | DEL-04 | Phase 14 | Complete |
 | DEL-05 | Phase 14 | Planned |
+| OR-01 | Phase 15 | Planned |
+| OR-02 | Phase 15 | Planned |
+| OR-03 | Phase 15 | Planned |
+| OR-04 | Phase 15 | Planned |
+| OR-05 | Phase 15 | Planned |
 
 **Coverage:**
-- v1 requirements: 46 total
-- Mapped to phases: 46
+- v1 requirements: 51 total
+- Mapped to phases: 51
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-29 -- added DEL-01/02/03/04/05 for phase 14*
+*Last updated: 2026-03-30 -- added OR-01/02/03/04/05 for phase 15*
