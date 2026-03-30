@@ -4,6 +4,7 @@ package openai
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -163,6 +164,51 @@ func Test_openai_client(t *testing.T) {
 		require.NotNil(t, resp)
 		require.Empty(t, ef.apiClient.OrgID)
 		require.Equal(t, 1536, resp.Len())
+	})
+
+	t.Run("Test WithModelString accepts arbitrary model", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, _ := io.ReadAll(r.Body)
+			assert.Contains(t, string(body), `"model":"openai/text-embedding-3-small"`)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data": [{"embedding": [1, 2, 3]}]}`))
+		}))
+		defer server.Close()
+		ef, err := NewOpenAIEmbeddingFunction("test-key",
+			WithModelString("openai/text-embedding-3-small"),
+			WithBaseURL(server.URL),
+			WithInsecure(),
+		)
+		require.NoError(t, err)
+		resp, err := ef.EmbedDocuments(context.Background(), []string{"test"})
+		require.NoError(t, err)
+		require.Len(t, resp, 1)
+	})
+
+	t.Run("Test WithModelString rejects empty", func(t *testing.T) {
+		_, err := NewOpenAIEmbeddingFunction("test-key",
+			WithModelString(""),
+			WithInsecure(),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "model cannot be empty")
+	})
+
+	t.Run("Test config round-trip with non-standard model", func(t *testing.T) {
+		t.Setenv("OPENAI_API_KEY", "test-key")
+		ef, err := NewOpenAIEmbeddingFunction("test-key",
+			WithModelString("custom/my-model"),
+			WithBaseURL("https://custom.api.com/v1/"),
+		)
+		require.NoError(t, err)
+		cfg := ef.GetConfig()
+		require.Equal(t, "custom/my-model", cfg["model_name"])
+
+		ef2, err := NewOpenAIEmbeddingFunctionFromConfig(cfg)
+		require.NoError(t, err)
+		cfg2 := ef2.GetConfig()
+		require.Equal(t, "custom/my-model", cfg2["model_name"])
+		require.Equal(t, "https://custom.api.com/v1/", cfg2["api_base"])
 	})
 
 }
