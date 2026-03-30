@@ -408,7 +408,8 @@ func (c *CollectionGetOp) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CollectionGetOp) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
+	type Alias CollectionGetOp
+	return json.Unmarshal(b, (*Alias)(c))
 }
 
 func (c *CollectionGetOp) Resource() Resource {
@@ -524,7 +525,8 @@ func (c *CollectionQueryOp) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CollectionQueryOp) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
+	type Alias CollectionQueryOp
+	return json.Unmarshal(b, (*Alias)(c))
 }
 
 func (c *CollectionQueryOp) Resource() Resource {
@@ -751,7 +753,8 @@ func (c *CollectionAddOp) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CollectionAddOp) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
+	type Alias CollectionAddOp
+	return json.Unmarshal(b, (*Alias)(c))
 }
 
 func (c *CollectionAddOp) Resource() Resource {
@@ -1044,7 +1047,8 @@ func (c *CollectionUpdateOp) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CollectionUpdateOp) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
+	type Alias CollectionUpdateOp
+	return json.Unmarshal(b, (*Alias)(c))
 }
 
 func (c *CollectionUpdateOp) Resource() Resource {
@@ -1092,9 +1096,16 @@ func WithEmbeddingsUpdate(embs ...embeddings.Embedding) UpdateOption {
 //
 //	// Delete by document content
 //	err := collection.Delete(ctx, WithWhereDocument(Contains("DEPRECATED")))
+//
+//	// Delete with limit (requires a where or where_document filter)
+//	err := collection.Delete(ctx,
+//	    WithWhere(EqString("status", "archived")),
+//	    WithLimit(100),
+//	)
 type CollectionDeleteOp struct {
-	FilterOp   // Where and WhereDocument filters
-	FilterIDOp // ID filter
+	FilterOp          // Where and WhereDocument filters
+	FilterIDOp        // ID filter
+	Limit      *int32 `json:"limit,omitempty"`
 }
 
 // NewCollectionDeleteOp creates a new Delete operation with the given options.
@@ -1129,6 +1140,15 @@ func (c *CollectionDeleteOp) PrepareAndValidate() error {
 		}
 	}
 
+	if c.Limit != nil {
+		if *c.Limit <= 0 {
+			return ErrInvalidLimit
+		}
+		if c.Where == nil && c.WhereDocument == nil {
+			return errors.New("limit can only be specified when a where or where_document clause is provided")
+		}
+	}
+
 	return nil
 }
 
@@ -1138,7 +1158,8 @@ func (c *CollectionDeleteOp) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CollectionDeleteOp) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
+	type Alias CollectionDeleteOp
+	return json.Unmarshal(b, (*Alias)(c))
 }
 
 func (c *CollectionDeleteOp) Resource() Resource {

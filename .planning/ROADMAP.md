@@ -27,7 +27,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 11: Fork Double-Close Bug** - Fix EF pointer sharing in Fork() that causes double-close on client.Close(). (issue #454) (completed 2026-03-26)
 - [x] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455) (completed 2026-03-28)
 - [x] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460) (completed 2026-03-28)
-- [ ] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439)
+- [x] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439) [1/2 plans complete] (completed 2026-03-29)
 - [ ] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438)
 - [ ] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190)
 - [ ] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462)
@@ -178,7 +178,7 @@ Plans:
 | 11. Fork Double-Close Bug | 2/2 | Complete    | 2026-03-26 |
 | 12. SDK Auto-Wiring Research | 1/1 | Complete    | 2026-03-28 |
 | 13. Collection.ForkCount | 2/2 | Complete    | 2026-03-28 |
-| 14. Delete with Limit | 0/0 | Not started | - |
+| 14. Delete with Limit | 2/2 | Complete    | 2026-03-29 |
 | 15. OpenRouter Embeddings | 0/0 | Not started | - |
 | 16. Twelve Labs EF | 0/0 | Not started | - |
 | 17. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
@@ -266,14 +266,16 @@ Plans:
 **Goal:** Add limit parameter support to collection delete operations, matching upstream Chroma PRs #6573/#6582.
 **Depends on:** None (independent)
 **Issues**: #439
+**Requirements**: [DEL-01, DEL-02, DEL-03, DEL-04, DEL-05]
 **Success Criteria** (what must be TRUE):
   1. Delete operations accept an optional limit parameter.
   2. HTTP transport sends the limit when specified.
   3. Tests cover delete-with-limit happy path and edge cases.
-**Plans:** 0 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 14 to break down)
+- [x] 14-01-PLAN.md — Add Limit field to CollectionDeleteOp, ApplyToDelete to limitOption, validation, and embedded path wiring
+- [x] 14-02-PLAN.md — Add unit tests for option application, validation, and HTTP serialization
 
 ### Phase 15: OpenRouter Embeddings Compatibility
 **Goal:** Extend the OpenAI embedding function to support OpenRouter-specific fields (encoding_format, input_type, provider preferences) and relax model validation for provider-prefixed IDs.

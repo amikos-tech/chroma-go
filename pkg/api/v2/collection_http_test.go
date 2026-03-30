@@ -437,6 +437,36 @@ func TestCollectionDelete(t *testing.T) {
 			},
 			limits: `{"max_batch_size":100}`,
 		},
+		{
+			name: "with where and limit",
+			serverSideValidation: func(resp string) {
+				var req ChromaCollectionUpdateRequest
+				err := json.Unmarshal([]byte(resp), &req)
+				require.NoError(t, err)
+				require.Equal(t, map[string]any{"status": map[string]any{"$eq": "archived"}}, req.Where)
+				require.Equal(t, 100, req.Limit)
+			},
+			deleteOptions: []CollectionDeleteOption{
+				WithWhere(EqString(K("status"), "archived")),
+				WithLimit(100),
+			},
+			limits: `{"max_batch_size":100}`,
+		},
+		{
+			name: "with where document and limit",
+			serverSideValidation: func(resp string) {
+				var req ChromaCollectionUpdateRequest
+				err := json.Unmarshal([]byte(resp), &req)
+				require.NoError(t, err)
+				require.Equal(t, map[string]any{"$contains": "draft"}, req.WhereDoc)
+				require.Equal(t, 25, req.Limit)
+			},
+			deleteOptions: []CollectionDeleteOption{
+				WithWhereDocument(Contains("draft")),
+				WithLimit(25),
+			},
+			limits: `{"max_batch_size":100}`,
+		},
 	}
 
 	rx1 := regexp.MustCompile(`/api/v2/tenants/[^/]+/databases/[^/]+/collections/[^/]+/delete`)

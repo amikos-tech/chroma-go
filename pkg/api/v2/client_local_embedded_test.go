@@ -106,6 +106,13 @@ type failingUpdateEmbeddedRuntime struct {
 	updateCnt int
 }
 
+type recordingDeleteEmbeddedRuntime struct {
+	*stubEmbeddedRuntime
+
+	lastDeleteRequest localchroma.EmbeddedDeleteRecordsRequest
+	deleteCalls       int
+}
+
 func newScriptedEmbeddedRuntime() *scriptedEmbeddedRuntime {
 	return &scriptedEmbeddedRuntime{
 		stubEmbeddedRuntime: &stubEmbeddedRuntime{},
@@ -143,6 +150,12 @@ func newFailingUpdateEmbeddedRuntime(updateErr error) *failingUpdateEmbeddedRunt
 	}
 }
 
+func newRecordingDeleteEmbeddedRuntime() *recordingDeleteEmbeddedRuntime {
+	return &recordingDeleteEmbeddedRuntime{
+		stubEmbeddedRuntime: &stubEmbeddedRuntime{},
+	}
+}
+
 func (s *countingMemoryEmbeddedRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
 	s.mu.Lock()
 	s.createCollectionCalls++
@@ -171,6 +184,12 @@ func (s *failingUpdateEmbeddedRuntime) UpdateCalls() int {
 	s.updateMu.Lock()
 	defer s.updateMu.Unlock()
 	return s.updateCnt
+}
+
+func (s *recordingDeleteEmbeddedRuntime) DeleteRecords(request localchroma.EmbeddedDeleteRecordsRequest) error {
+	s.lastDeleteRequest = request
+	s.deleteCalls++
+	return nil
 }
 
 func (s *countingMemoryEmbeddedRuntime) callCounts() (createCalls int, getCalls int) {
@@ -1260,6 +1279,26 @@ func TestEmbeddedCollectionQuery_RejectsNResultsOverflow(t *testing.T) {
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "nResults cannot exceed")
+}
+
+func TestEmbeddedCollectionDelete_PassesLimitAndWhereDocument(t *testing.T) {
+	runtime := newRecordingDeleteEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	collection, err := client.CreateCollection(ctx, "delete-limit")
+	require.NoError(t, err)
+
+	err = collection.Delete(
+		ctx,
+		WithWhereDocument(Contains("draft")),
+		WithLimit(2),
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, runtime.deleteCalls)
+	require.NotNil(t, runtime.lastDeleteRequest.Limit)
+	require.Equal(t, uint32(2), *runtime.lastDeleteRequest.Limit)
+	require.Equal(t, map[string]any{"$contains": "draft"}, runtime.lastDeleteRequest.WhereDocument)
 }
 
 func TestAPIClientV2LocalCollectionCacheHelpers_InitializeNilMap(t *testing.T) {
