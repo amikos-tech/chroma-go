@@ -332,7 +332,12 @@ func NewOpenAIEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionConfig
 		opts = append(opts, WithBaseURL(baseURL))
 	}
 	if model, ok := cfg["model_name"].(string); ok && model != "" {
-		opts = append(opts, WithModel(EmbeddingModel(model)))
+		switch EmbeddingModel(model) {
+		case TextEmbeddingAda002, TextEmbedding3Small, TextEmbedding3Large:
+			opts = append(opts, WithModel(EmbeddingModel(model)))
+		default:
+			opts = append(opts, WithModelString(model))
+		}
 	}
 	if dims, ok := embeddings.ConfigInt(cfg, "dimensions"); ok && dims > 0 {
 		opts = append(opts, WithDimensions(dims))
