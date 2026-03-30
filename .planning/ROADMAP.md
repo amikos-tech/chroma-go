@@ -28,7 +28,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 12: SDK Auto-Wiring Research** - Trace contentEmbeddingFunction auto-wiring behavior in official Chroma SDKs. (issue #455) (completed 2026-03-28)
 - [x] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460) (completed 2026-03-28)
 - [x] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439) [1/2 plans complete] (completed 2026-03-29)
-- [ ] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438)
+- [x] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438) (completed 2026-03-30)
 - [ ] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190)
 - [ ] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462)
 - [ ] **Phase 18: Embedded Client contentEmbeddingFunction Parity** - Add contentEmbeddingFunction support to embeddedCollection for feature parity with HTTP client. (issue #472)
@@ -179,7 +179,7 @@ Plans:
 | 12. SDK Auto-Wiring Research | 1/1 | Complete    | 2026-03-28 |
 | 13. Collection.ForkCount | 2/2 | Complete    | 2026-03-28 |
 | 14. Delete with Limit | 2/2 | Complete    | 2026-03-29 |
-| 15. OpenRouter Embeddings | 0/0 | Not started | - |
+| 15. OpenRouter Embeddings | 2/2 | Complete   | 2026-03-30 |
 | 16. Twelve Labs EF | 0/0 | Not started | - |
 | 17. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
 | 18. Embedded contentEF Parity | 0/0 | Not started | - |
@@ -287,11 +287,11 @@ Plans:
   3. Provider preferences struct covers documented OpenRouter fields with extensibility.
   4. Existing OpenAI behavior and tests remain unchanged.
   5. Docs include OpenRouter usage example with `WithBaseURL`.
-**Plans:** 2 plans [1/2 complete]
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 15-01-PLAN.md -- Add WithModelString to OpenAI provider and create standalone OpenRouter provider package
-- [ ] 15-02-PLAN.md -- Add unit tests and integration verification for OpenRouter provider
+- [x] 15-02-PLAN.md -- Add unit tests and integration verification for OpenRouter provider
 
 ### Phase 16: Twelve Labs Embedding Function
 **Goal:** Add a new Twelve Labs multimodal embedding provider supporting text, image, and audio embeddings via the Twelve Labs API.

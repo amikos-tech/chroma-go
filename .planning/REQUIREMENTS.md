@@ -86,11 +86,11 @@
 
 ### OpenRouter Embeddings Compatibility
 
-- [ ] **OR-01**: `CreateEmbeddingRequest` in the OpenRouter package supports `encoding_format`, `input_type`, and `provider` fields
-- [ ] **OR-02**: OpenAI provider's `WithModelString` accepts any non-empty string without validation for use with compatible proxies
-- [ ] **OR-03**: `ProviderPreferences` is a typed struct with all documented OpenRouter fields plus `Extras map[string]any` with custom `MarshalJSON`
-- [ ] **OR-04**: Existing OpenAI behavior and tests remain unchanged
-- [ ] **OR-05**: OpenRouter provider registered as `"openrouter"` in dense registry with full `GetConfig`/`FromConfig` config round-trip
+- [x] **OR-01**: `CreateEmbeddingRequest` in the OpenRouter package supports `encoding_format`, `input_type`, and `provider` fields
+- [x] **OR-02**: OpenAI provider's `WithModelString` accepts any non-empty string without validation for use with compatible proxies
+- [x] **OR-03**: `ProviderPreferences` is a typed struct with all documented OpenRouter fields plus `Extras map[string]any` with custom `MarshalJSON`
+- [x] **OR-04**: Existing OpenAI behavior and tests remain unchanged
+- [x] **OR-05**: OpenRouter provider registered as `"openrouter"` in dense registry with full `GetConfig`/`FromConfig` config round-trip
 
 ## v2 Requirements
 
