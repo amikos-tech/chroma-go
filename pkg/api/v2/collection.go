@@ -408,7 +408,8 @@ func (c *CollectionGetOp) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CollectionGetOp) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
+	type Alias CollectionGetOp
+	return json.Unmarshal(b, (*Alias)(c))
 }
 
 func (c *CollectionGetOp) Resource() Resource {
@@ -524,7 +525,8 @@ func (c *CollectionQueryOp) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CollectionQueryOp) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
+	type Alias CollectionQueryOp
+	return json.Unmarshal(b, (*Alias)(c))
 }
 
 func (c *CollectionQueryOp) Resource() Resource {
@@ -751,7 +753,8 @@ func (c *CollectionAddOp) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CollectionAddOp) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
+	type Alias CollectionAddOp
+	return json.Unmarshal(b, (*Alias)(c))
 }
 
 func (c *CollectionAddOp) Resource() Resource {
@@ -1044,7 +1047,8 @@ func (c *CollectionUpdateOp) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CollectionUpdateOp) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
+	type Alias CollectionUpdateOp
+	return json.Unmarshal(b, (*Alias)(c))
 }
 
 func (c *CollectionUpdateOp) Resource() Resource {
@@ -1154,7 +1158,8 @@ func (c *CollectionDeleteOp) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CollectionDeleteOp) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
+	type Alias CollectionDeleteOp
+	return json.Unmarshal(b, (*Alias)(c))
 }
 
 func (c *CollectionDeleteOp) Resource() Resource {
