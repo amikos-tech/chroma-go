@@ -588,7 +588,7 @@ func (o *limitOption) ApplyToDelete(op *CollectionDeleteOp) error {
 		return ErrInvalidLimit
 	}
 	if o.limit > math.MaxInt32 {
-		return fmt.Errorf("limit cannot exceed %d", math.MaxInt32)
+		return ErrLimitOverflow
 	}
 	limit := int32(o.limit)
 	op.Limit = &limit
@@ -878,6 +878,9 @@ func (o *searchWhereOption) ApplyToSearchRequest(req *SearchRequest) error {
 var (
 	// ErrInvalidLimit is returned when [WithLimit] receives a value <= 0.
 	ErrInvalidLimit = errors.New("limit must be greater than 0")
+
+	// ErrLimitOverflow is returned when [WithLimit] receives a value exceeding math.MaxInt32 for Delete operations.
+	ErrLimitOverflow = fmt.Errorf("limit cannot exceed %d", math.MaxInt32)
 
 	// ErrInvalidOffset is returned when [WithOffset] receives a negative value.
 	ErrInvalidOffset = errors.New("offset must be greater than or equal to 0")

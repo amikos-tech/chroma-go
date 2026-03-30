@@ -638,8 +638,7 @@ func TestDeleteWithLimit(t *testing.T) {
 
 		op := &CollectionDeleteOp{}
 		err := WithLimit(int(uint64(math.MaxInt32) + 1)).ApplyToDelete(op)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "limit cannot exceed")
+		require.ErrorIs(t, err, ErrLimitOverflow)
 	})
 
 	t.Run("PrepareAndValidate rejects limit without filter", func(t *testing.T) {
