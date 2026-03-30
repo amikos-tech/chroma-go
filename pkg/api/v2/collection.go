@@ -1138,7 +1138,7 @@ func (c *CollectionDeleteOp) PrepareAndValidate() error {
 
 	if c.Limit != nil {
 		if *c.Limit <= 0 {
-			return errors.New("limit must be greater than 0")
+			return ErrInvalidLimit
 		}
 		if c.Where == nil && c.WhereDocument == nil {
 			return errors.New("limit can only be specified when a where or where_document clause is provided")

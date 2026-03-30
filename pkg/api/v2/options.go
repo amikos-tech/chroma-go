@@ -3,6 +3,7 @@ package v2
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 /*
@@ -88,7 +89,7 @@ type QueryOption interface {
 }
 
 // DeleteOption configures a [Collection.Delete] operation.
-// Implementations include [WithIDs], [WithWhere], and [WithWhereDocument].
+// Implementations include [WithIDs], [WithWhere], [WithWhereDocument], and [WithLimit].
 // At least one filter option must be provided.
 type DeleteOption interface {
 	ApplyToDelete(*CollectionDeleteOp) error
@@ -516,7 +517,7 @@ func (o *includeOption) ApplyToQuery(op *CollectionQueryOp) error {
 	return nil
 }
 
-// limitOption implements limit for Get and Search operations.
+// limitOption implements limit for Get, Delete, and Search operations.
 // Use [WithLimit] to create this option.
 type limitOption struct {
 	limit int
@@ -585,6 +586,9 @@ func (o *limitOption) ApplyToSearchRequest(req *SearchRequest) error {
 func (o *limitOption) ApplyToDelete(op *CollectionDeleteOp) error {
 	if o.limit <= 0 {
 		return ErrInvalidLimit
+	}
+	if o.limit > math.MaxInt32 {
+		return fmt.Errorf("limit cannot exceed %d", math.MaxInt32)
 	}
 	limit := int32(o.limit)
 	op.Limit = &limit

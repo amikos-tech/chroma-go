@@ -452,6 +452,21 @@ func TestCollectionDelete(t *testing.T) {
 			},
 			limits: `{"max_batch_size":100}`,
 		},
+		{
+			name: "with where document and limit",
+			serverSideValidation: func(resp string) {
+				var req ChromaCollectionUpdateRequest
+				err := json.Unmarshal([]byte(resp), &req)
+				require.NoError(t, err)
+				require.Equal(t, map[string]any{"$contains": "draft"}, req.WhereDoc)
+				require.Equal(t, 25, req.Limit)
+			},
+			deleteOptions: []CollectionDeleteOption{
+				WithWhereDocument(Contains("draft")),
+				WithLimit(25),
+			},
+			limits: `{"max_batch_size":100}`,
+		},
 	}
 
 	rx1 := regexp.MustCompile(`/api/v2/tenants/[^/]+/databases/[^/]+/collections/[^/]+/delete`)
