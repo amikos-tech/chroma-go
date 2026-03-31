@@ -557,6 +557,16 @@ func TestBase64EmbeddingInvalidPayload(t *testing.T) {
 	})
 }
 
+func TestParseAPIErrorTruncatesLargeBody(t *testing.T) {
+	largeBody := make([]byte, 1024)
+	for i := range largeBody {
+		largeBody[i] = 'x'
+	}
+	result := parseAPIError(largeBody)
+	require.LessOrEqual(t, len(result), maxErrorBodyChars+len("...(truncated)"))
+	require.Contains(t, result, "...(truncated)")
+}
+
 func TestRegistryRegistration(t *testing.T) {
 	require.True(t, embeddings.HasDense("openrouter"))
 }

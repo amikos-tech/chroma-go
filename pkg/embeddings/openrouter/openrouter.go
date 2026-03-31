@@ -190,12 +190,18 @@ func (c *Client) CreateEmbedding(ctx context.Context, req *CreateEmbeddingReques
 	return &embResp, nil
 }
 
+const maxErrorBodyChars = 512
+
 func parseAPIError(body []byte) string {
 	var apiErr apiErrorResponse
 	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error.Message != "" {
 		return apiErr.Error.Message
 	}
-	return strings.TrimSpace(string(body))
+	trimmed := strings.TrimSpace(string(body))
+	if len(trimmed) > maxErrorBodyChars {
+		return trimmed[:maxErrorBodyChars] + "...(truncated)"
+	}
+	return trimmed
 }
 
 var _ embeddings.EmbeddingFunction = (*OpenRouterEmbeddingFunction)(nil)
