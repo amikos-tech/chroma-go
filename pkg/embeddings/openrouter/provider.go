@@ -72,6 +72,7 @@ func (p *ProviderPreferences) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Keep this list in sync with typed ProviderPreferences fields so new keys do not leak into Extras.
 func isProviderPreferenceField(key string) bool {
 	switch key {
 	case "allow_fallbacks",

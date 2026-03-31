@@ -294,24 +294,47 @@ func TestEmbedQueryResponseValidation(t *testing.T) {
 }
 
 func TestAPIErrorResponseParsing(t *testing.T) {
-	server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte(`{"error":{"message":"invalid api key"}}`))
+	t.Run("structured json", func(t *testing.T) {
+		server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":{"message":"invalid api key"}}`))
+		})
+		defer server.Close()
+
+		ef, err := NewOpenRouterEmbeddingFunction(
+			WithAPIKey("test-key"),
+			WithModel("test-model"),
+			WithBaseURL(server.URL),
+			WithInsecure(),
+		)
+		require.NoError(t, err)
+
+		_, err = ef.EmbedQuery(context.Background(), "single input")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid api key")
+		require.NotContains(t, err.Error(), `{"error"`)
 	})
-	defer server.Close()
 
-	ef, err := NewOpenRouterEmbeddingFunction(
-		WithAPIKey("test-key"),
-		WithModel("test-model"),
-		WithBaseURL(server.URL),
-		WithInsecure(),
-	)
-	require.NoError(t, err)
+	t.Run("plain text fallback", func(t *testing.T) {
+		server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`rate limit exceeded`))
+		})
+		defer server.Close()
 
-	_, err = ef.EmbedQuery(context.Background(), "single input")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid api key")
-	require.NotContains(t, err.Error(), `{"error"`)
+		ef, err := NewOpenRouterEmbeddingFunction(
+			WithAPIKey("test-key"),
+			WithModel("test-model"),
+			WithBaseURL(server.URL),
+			WithInsecure(),
+		)
+		require.NoError(t, err)
+
+		_, err = ef.EmbedQuery(context.Background(), "single input")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "429 Too Many Requests")
+		require.Contains(t, err.Error(), "rate limit exceeded")
+	})
 }
 
 func TestInputMarshalJSONZeroValue(t *testing.T) {
@@ -348,6 +371,88 @@ func TestNewOpenRouterEmbeddingFunctionFromConfig_InvalidProvider(t *testing.T) 
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "provider")
+}
+
+func TestNewOpenRouterEmbeddingFunctionFromConfig_Validation(t *testing.T) {
+	t.Run("missing api key env var", func(t *testing.T) {
+		_, err := NewOpenRouterEmbeddingFunctionFromConfig(embeddings.EmbeddingFunctionConfig{
+			"model_name": "test-model",
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "api_key_env_var")
+	})
+
+	t.Run("missing model name", func(t *testing.T) {
+		t.Setenv("OPENROUTER_API_KEY", "test-key")
+
+		_, err := NewOpenRouterEmbeddingFunctionFromConfig(embeddings.EmbeddingFunctionConfig{
+			"api_key_env_var": "OPENROUTER_API_KEY",
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Model")
+	})
+}
+
+func TestOptionValidation(t *testing.T) {
+	testCases := []struct {
+		name    string
+		opts    []Option
+		wantErr string
+	}{
+		{
+			name: "empty base url",
+			opts: []Option{
+				WithAPIKey("test-key"),
+				WithModel("test-model"),
+				WithBaseURL(""),
+			},
+			wantErr: "base URL cannot be empty",
+		},
+		{
+			name: "empty api key",
+			opts: []Option{
+				WithAPIKey(""),
+				WithModel("test-model"),
+			},
+			wantErr: "API key cannot be empty",
+		},
+		{
+			name: "invalid dimensions",
+			opts: []Option{
+				WithAPIKey("test-key"),
+				WithModel("test-model"),
+				WithDimensions(0),
+			},
+			wantErr: "dimensions must be greater than 0",
+		},
+		{
+			name: "invalid encoding format",
+			opts: []Option{
+				WithAPIKey("test-key"),
+				WithModel("test-model"),
+				WithEncodingFormat("json"),
+			},
+			wantErr: "encoding_format must be 'float' or 'base64'",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewOpenRouterEmbeddingFunction(tc.opts...)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
+func TestHTTPSRequiredWithoutInsecure(t *testing.T) {
+	_, err := NewOpenRouterEmbeddingFunction(
+		WithAPIKey("test-key"),
+		WithModel("test-model"),
+		WithBaseURL("http://openrouter.local"),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must use HTTPS")
 }
 
 func TestNameReturnsOpenRouter(t *testing.T) {
