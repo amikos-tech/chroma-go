@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,10 +44,7 @@ func loadOpenRouterAPIKey(t *testing.T) {
 	t.Helper()
 	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	if apiKey == "" {
-		err := godotenv.Load("../../../.env")
-		if err != nil {
-			assert.Failf(t, "Error loading .env file", "%s", err)
-		}
+		_ = godotenv.Load("../../../.env")
 		apiKey = os.Getenv("OPENROUTER_API_KEY")
 	}
 	if apiKey == "" {

@@ -23,6 +23,7 @@ Embeddings are vector representations of data that enable similarity search. Chr
 | Cloudflare | `cloudflare` | `github.com/amikos-tech/chroma-go/pkg/embeddings/cloudflare` |
 | Together AI | `together` | `github.com/amikos-tech/chroma-go/pkg/embeddings/together` |
 | Perplexity | `perplexity` | `github.com/amikos-tech/chroma-go/pkg/embeddings/perplexity` |
+| OpenRouter | `openrouter` | `github.com/amikos-tech/chroma-go/pkg/embeddings/openrouter` |
 | Chroma Cloud | `chromacloud` | `github.com/amikos-tech/chroma-go/pkg/embeddings/chromacloud` |
 
 ## Default Embedding Function

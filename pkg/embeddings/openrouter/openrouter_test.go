@@ -4,8 +4,12 @@ package openrouter
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -467,6 +471,90 @@ func TestNameReturnsOpenRouter(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, "openrouter", ef.Name())
+}
+
+func encodeFloat32Base64(vals []float32) string {
+	buf := make([]byte, len(vals)*4)
+	for i, v := range vals {
+		binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(v))
+	}
+	return base64.StdEncoding.EncodeToString(buf)
+}
+
+func TestBase64EmbeddingDecoding(t *testing.T) {
+	expected := []float32{0.1, 0.2, 0.3}
+	b64 := encodeFloat32Base64(expected)
+
+	server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(fmt.Sprintf(
+			`{"object":"list","data":[{"object":"embedding","index":0,"embedding":"%s"}],"model":"test","usage":{"prompt_tokens":1,"total_tokens":1}}`,
+			b64,
+		)))
+	})
+	defer server.Close()
+
+	ef, err := NewOpenRouterEmbeddingFunction(
+		WithAPIKey("test-key"),
+		WithModel("test-model"),
+		WithEncodingFormat("base64"),
+		WithBaseURL(server.URL),
+		WithInsecure(),
+	)
+	require.NoError(t, err)
+
+	emb, err := ef.EmbedQuery(context.Background(), "test")
+	require.NoError(t, err)
+	require.Equal(t, 3, emb.Len())
+	floats := emb.ContentAsFloat32()
+	for i, exp := range expected {
+		require.InDelta(t, exp, floats[i], 1e-6)
+	}
+}
+
+func TestBase64EmbeddingInvalidPayload(t *testing.T) {
+	t.Run("invalid base64", func(t *testing.T) {
+		server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","index":0,"embedding":"not-valid-base64!!!"}],"model":"test","usage":{"prompt_tokens":1,"total_tokens":1}}`))
+		})
+		defer server.Close()
+
+		ef, err := NewOpenRouterEmbeddingFunction(
+			WithAPIKey("test-key"),
+			WithModel("test-model"),
+			WithBaseURL(server.URL),
+			WithInsecure(),
+		)
+		require.NoError(t, err)
+
+		_, err = ef.EmbedQuery(context.Background(), "test")
+		require.Error(t, err)
+	})
+
+	t.Run("wrong byte length", func(t *testing.T) {
+		oddBytes := base64.StdEncoding.EncodeToString([]byte{0x01, 0x02, 0x03})
+		server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(fmt.Sprintf(
+				`{"object":"list","data":[{"object":"embedding","index":0,"embedding":"%s"}],"model":"test","usage":{"prompt_tokens":1,"total_tokens":1}}`,
+				oddBytes,
+			)))
+		})
+		defer server.Close()
+
+		ef, err := NewOpenRouterEmbeddingFunction(
+			WithAPIKey("test-key"),
+			WithModel("test-model"),
+			WithBaseURL(server.URL),
+			WithInsecure(),
+		)
+		require.NoError(t, err)
+
+		_, err = ef.EmbedQuery(context.Background(), "test")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not a multiple of 4")
+	})
 }
 
 func TestRegistryRegistration(t *testing.T) {

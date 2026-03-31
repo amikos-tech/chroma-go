@@ -3,7 +3,10 @@ package openrouter
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -56,7 +59,54 @@ type CreateEmbeddingRequest struct {
 type EmbeddingData struct {
 	Object    string    `json:"object"`
 	Index     int       `json:"index"`
-	Embedding []float32 `json:"embedding"`
+	Embedding []float32 `json:"-"`
+}
+
+func (e *EmbeddingData) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Object    string          `json:"object"`
+		Index     int             `json:"index"`
+		Embedding json.RawMessage `json:"embedding"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	e.Object = raw.Object
+	e.Index = raw.Index
+
+	var floats []float32
+	if err := json.Unmarshal(raw.Embedding, &floats); err == nil {
+		e.Embedding = floats
+		return nil
+	}
+
+	var encoded string
+	if err := json.Unmarshal(raw.Embedding, &encoded); err == nil {
+		decoded, decErr := decodeBase64Float32(encoded)
+		if decErr != nil {
+			return decErr
+		}
+		e.Embedding = decoded
+		return nil
+	}
+
+	return errors.Errorf("unexpected embedding format: %s", string(raw.Embedding))
+}
+
+func decodeBase64Float32(encoded string) ([]float32, error) {
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to decode base64 embedding")
+	}
+	if len(decoded)%4 != 0 {
+		return nil, errors.Errorf("base64 embedding byte length %d is not a multiple of 4", len(decoded))
+	}
+	floats := make([]float32, len(decoded)/4)
+	for i := range floats {
+		bits := binary.LittleEndian.Uint32(decoded[i*4 : (i+1)*4])
+		floats[i] = math.Float32frombits(bits)
+	}
+	return floats, nil
 }
 
 type CreateEmbeddingResponse struct {
