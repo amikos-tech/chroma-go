@@ -69,6 +69,12 @@ type CreateEmbeddingResponse struct {
 	} `json:"usage"`
 }
 
+type apiErrorResponse struct {
+	Error struct {
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
 func NewOpenRouterClient(opts ...Option) (*Client, error) {
 	client := &Client{}
 	for _, opt := range opts {
@@ -124,7 +130,7 @@ func (c *Client) CreateEmbedding(ctx context.Context, req *CreateEmbeddingReques
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected response %v, %v", resp.Status, string(respData))
+		return nil, errors.Errorf("unexpected response %v: %s", resp.Status, parseAPIError(respData))
 	}
 
 	var embResp CreateEmbeddingResponse
@@ -132,6 +138,14 @@ func (c *Client) CreateEmbedding(ctx context.Context, req *CreateEmbeddingReques
 		return nil, errors.Wrap(err, "failed to unmarshal response body")
 	}
 	return &embResp, nil
+}
+
+func parseAPIError(body []byte) string {
+	var apiErr apiErrorResponse
+	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error.Message != "" {
+		return apiErr.Error.Message
+	}
+	return strings.TrimSpace(string(body))
 }
 
 var _ embeddings.EmbeddingFunction = (*OpenRouterEmbeddingFunction)(nil)
@@ -148,46 +162,61 @@ func NewOpenRouterEmbeddingFunction(opts ...Option) (*OpenRouterEmbeddingFunctio
 	return &OpenRouterEmbeddingFunction{apiClient: client}, nil
 }
 
-func (e *OpenRouterEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
-	if len(documents) == 0 {
-		return embeddings.NewEmptyEmbeddings(), nil
-	}
-	resp, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
+func (e *OpenRouterEmbeddingFunction) buildRequest(input *Input) *CreateEmbeddingRequest {
+	return &CreateEmbeddingRequest{
 		Model:          e.apiClient.Model,
-		Input:          &Input{Texts: documents},
+		Input:          input,
 		Dimensions:     e.apiClient.Dimensions,
 		User:           e.apiClient.User,
 		EncodingFormat: e.apiClient.EncodingFormat,
 		InputType:      e.apiClient.InputType,
 		Provider:       e.apiClient.Provider,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to embed documents")
 	}
-	result := make([]embeddings.Embedding, 0, len(resp.Data))
-	for _, d := range resp.Data {
+}
+
+func embeddingsFromResponse(data []EmbeddingData, expected int) ([]embeddings.Embedding, error) {
+	if len(data) != expected {
+		return nil, errors.Errorf("embedding count mismatch: expected %d, got %d", expected, len(data))
+	}
+
+	result := make([]embeddings.Embedding, 0, len(data))
+	for i, d := range data {
+		if len(d.Embedding) == 0 {
+			return nil, errors.Errorf("empty embedding at index %d", i)
+		}
 		result = append(result, embeddings.NewEmbeddingFromFloat32(d.Embedding))
 	}
 	return result, nil
 }
 
+func (e *OpenRouterEmbeddingFunction) EmbedDocuments(ctx context.Context, documents []string) ([]embeddings.Embedding, error) {
+	if len(documents) == 0 {
+		return embeddings.NewEmptyEmbeddings(), nil
+	}
+	resp, err := e.apiClient.CreateEmbedding(ctx, e.buildRequest(&Input{Texts: documents}))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to embed documents")
+	}
+	result, err := embeddingsFromResponse(resp.Data, len(documents))
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid embedding response")
+	}
+	return result, nil
+}
+
 func (e *OpenRouterEmbeddingFunction) EmbedQuery(ctx context.Context, document string) (embeddings.Embedding, error) {
-	resp, err := e.apiClient.CreateEmbedding(ctx, &CreateEmbeddingRequest{
-		Model:          e.apiClient.Model,
-		Input:          &Input{Text: document},
-		Dimensions:     e.apiClient.Dimensions,
-		User:           e.apiClient.User,
-		EncodingFormat: e.apiClient.EncodingFormat,
-		InputType:      e.apiClient.InputType,
-		Provider:       e.apiClient.Provider,
-	})
+	resp, err := e.apiClient.CreateEmbedding(ctx, e.buildRequest(&Input{Text: document}))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed query")
 	}
 	if len(resp.Data) == 0 {
 		return nil, errors.New("no embedding returned from OpenRouter API")
 	}
-	return embeddings.NewEmbeddingFromFloat32(resp.Data[0].Embedding), nil
+	embs, err := embeddingsFromResponse(resp.Data, 1)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid embedding response")
+	}
+	return embs[0], nil
 }
 
 func (e *OpenRouterEmbeddingFunction) Name() string {
@@ -219,12 +248,8 @@ func (e *OpenRouterEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionCo
 		cfg["input_type"] = e.apiClient.InputType
 	}
 	if e.apiClient.Provider != nil {
-		provData, err := json.Marshal(e.apiClient.Provider)
-		if err == nil {
-			var provMap map[string]any
-			if err := json.Unmarshal(provData, &provMap); err == nil {
-				cfg["provider"] = provMap
-			}
+		if provMap := e.apiClient.Provider.ConfigMap(); len(provMap) > 0 {
+			cfg["provider"] = provMap
 		}
 	}
 	if e.apiClient.Insecure {
@@ -266,13 +291,13 @@ func NewOpenRouterEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionCo
 	if inputType, ok := cfg["input_type"].(string); ok && inputType != "" {
 		opts = append(opts, WithInputType(inputType))
 	}
-	if provMap, ok := cfg["provider"].(map[string]any); ok {
-		provData, err := json.Marshal(provMap)
-		if err == nil {
-			var prefs ProviderPreferences
-			if err := json.Unmarshal(provData, &prefs); err == nil {
-				opts = append(opts, WithProviderPreferences(&prefs))
-			}
+	if rawProv, ok := cfg["provider"]; ok {
+		prefs, err := providerPreferencesFromConfig(rawProv)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid provider preferences in config")
+		}
+		if prefs != nil {
+			opts = append(opts, WithProviderPreferences(prefs))
 		}
 	}
 	if insecure, ok := cfg["insecure"].(bool); ok && insecure {
@@ -282,6 +307,28 @@ func NewOpenRouterEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionCo
 		opts = append(opts, WithInsecure())
 	}
 	return NewOpenRouterEmbeddingFunction(opts...)
+}
+
+func providerPreferencesFromConfig(raw any) (*ProviderPreferences, error) {
+	switch v := raw.(type) {
+	case nil:
+		return nil, nil
+	case *ProviderPreferences:
+		return v, nil
+	case ProviderPreferences:
+		prefs := v
+		return &prefs, nil
+	default:
+		provData, err := json.Marshal(v)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to marshal provider preferences")
+		}
+		var prefs ProviderPreferences
+		if err := json.Unmarshal(provData, &prefs); err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal provider preferences")
+		}
+		return &prefs, nil
+	}
 }
 
 func init() {

@@ -107,6 +107,9 @@ func WithInputType(inputType string) Option {
 
 func WithProviderPreferences(prefs *ProviderPreferences) Option {
 	return func(c *Client) error {
+		if prefs == nil {
+			return errors.New("provider preferences cannot be nil")
+		}
 		c.Provider = prefs
 		return nil
 	}

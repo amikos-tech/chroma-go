@@ -40,3 +40,111 @@ func (p ProviderPreferences) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(merged)
 }
+
+func (p *ProviderPreferences) UnmarshalJSON(data []byte) error {
+	type Alias ProviderPreferences
+	var alias Alias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	extras := make(map[string]any)
+	for key, value := range raw {
+		if isProviderPreferenceField(key) {
+			continue
+		}
+		var decoded any
+		if err := json.Unmarshal(value, &decoded); err != nil {
+			return err
+		}
+		extras[key] = decoded
+	}
+
+	*p = ProviderPreferences(alias)
+	if len(extras) > 0 {
+		p.Extras = extras
+	}
+	return nil
+}
+
+func isProviderPreferenceField(key string) bool {
+	switch key {
+	case "allow_fallbacks",
+		"require_parameters",
+		"data_collection",
+		"zdr",
+		"enforce_distillable_text",
+		"order",
+		"only",
+		"ignore",
+		"quantizations",
+		"sort",
+		"max_price",
+		"preferred_min_throughput",
+		"preferred_max_latency":
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *ProviderPreferences) ConfigMap() map[string]any {
+	if p == nil {
+		return nil
+	}
+
+	cfg := make(map[string]any)
+	if p.AllowFallbacks != nil {
+		cfg["allow_fallbacks"] = *p.AllowFallbacks
+	}
+	if p.RequireParameters != nil {
+		cfg["require_parameters"] = *p.RequireParameters
+	}
+	if p.DataCollection != "" {
+		cfg["data_collection"] = p.DataCollection
+	}
+	if p.ZDR != nil {
+		cfg["zdr"] = *p.ZDR
+	}
+	if p.EnforceDistillableText != nil {
+		cfg["enforce_distillable_text"] = *p.EnforceDistillableText
+	}
+	if len(p.Order) > 0 {
+		cfg["order"] = p.Order
+	}
+	if len(p.Only) > 0 {
+		cfg["only"] = p.Only
+	}
+	if len(p.Ignore) > 0 {
+		cfg["ignore"] = p.Ignore
+	}
+	if len(p.Quantizations) > 0 {
+		cfg["quantizations"] = p.Quantizations
+	}
+	if len(p.Sort) > 0 {
+		cfg["sort"] = p.Sort
+	}
+	if len(p.MaxPrice) > 0 {
+		cfg["max_price"] = p.MaxPrice
+	}
+	if p.PreferredMinThroughput != nil {
+		cfg["preferred_min_throughput"] = p.PreferredMinThroughput
+	}
+	if p.PreferredMaxLatency != nil {
+		cfg["preferred_max_latency"] = p.PreferredMaxLatency
+	}
+	for key, value := range p.Extras {
+		if _, exists := cfg[key]; !exists {
+			cfg[key] = value
+		}
+	}
+	if len(cfg) == 0 {
+		return nil
+	}
+	return cfg
+}
