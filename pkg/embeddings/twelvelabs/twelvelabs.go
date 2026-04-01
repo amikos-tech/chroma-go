@@ -43,7 +43,7 @@ type TwelveLabsClient struct {
 
 func applyDefaults(c *TwelveLabsClient) {
 	if c.Client == nil {
-		c.Client = http.DefaultClient
+		c.Client = &http.Client{}
 	}
 	if c.BaseAPI == "" {
 		c.BaseAPI = defaultBaseAPI
@@ -87,7 +87,7 @@ func NewTwelveLabsClient(opts ...Option) (*TwelveLabsClient, error) {
 
 // --- Request / Response types ---
 
-// EmbedV2Request is the request body for POST /v1.3/embed-v2.
+// EmbedV2Request is the JSON request body for the Twelve Labs embed endpoint.
 type EmbedV2Request struct {
 	InputType string      `json:"input_type"`
 	ModelName string      `json:"model_name"`
@@ -222,10 +222,11 @@ func (e *TwelveLabsEmbeddingFunction) EmbedDocuments(ctx context.Context, texts 
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to embed text")
 		}
-		if len(resp.Data) == 0 {
-			return nil, errors.New("no embedding returned from Twelve Labs API")
+		emb, err := embeddingFromResponse(resp)
+		if err != nil {
+			return nil, err
 		}
-		result = append(result, embeddings.NewEmbeddingFromFloat32(float64sToFloat32s(resp.Data[0].Embedding)))
+		result = append(result, emb)
 	}
 	return result, nil
 }
@@ -301,6 +302,16 @@ func float64sToFloat32s(in []float64) []float32 {
 		out[i] = float32(v)
 	}
 	return out
+}
+
+func embeddingFromResponse(resp *EmbedV2Response) (embeddings.Embedding, error) {
+	if resp == nil || len(resp.Data) == 0 {
+		return nil, errors.New("no embedding returned from Twelve Labs API")
+	}
+	if len(resp.Data[0].Embedding) == 0 {
+		return nil, errors.New("empty embedding vector returned from Twelve Labs API")
+	}
+	return embeddings.NewEmbeddingFromFloat32(float64sToFloat32s(resp.Data[0].Embedding)), nil
 }
 
 func init() {

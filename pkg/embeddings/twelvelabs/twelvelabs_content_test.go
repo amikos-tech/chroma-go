@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,6 +48,12 @@ func TestTwelveLabsMapIntent(t *testing.T) {
 
 	t.Run("unsupported neutral intent returns error", func(t *testing.T) {
 		_, err := ef.MapIntent(embeddings.IntentClassification)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not supported")
+	})
+
+	t.Run("unknown provider-native intent returns error", func(t *testing.T) {
+		_, err := ef.MapIntent(embeddings.Intent("queery"))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not supported")
 	})
@@ -183,4 +190,60 @@ func TestTwelveLabsEmbedContentUnsupportedModality(t *testing.T) {
 	})
 	_, err := ef.EmbedContent(context.Background(), content)
 	require.Error(t, err)
+}
+
+func TestResolveBytes(t *testing.T) {
+	t.Run("nil source returns error", func(t *testing.T) {
+		_, err := resolveBytes(nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "source cannot be nil")
+	})
+
+	t.Run("empty bytes source returns error", func(t *testing.T) {
+		_, err := resolveBytes(&embeddings.BinarySource{Kind: embeddings.SourceKindBytes})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bytes source must include non-empty bytes")
+	})
+
+	t.Run("oversized file returns error", func(t *testing.T) {
+		tmp, err := os.CreateTemp(t.TempDir(), "twelvelabs-large-*")
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = tmp.Close() })
+		require.NoError(t, tmp.Truncate(100*1024*1024+1))
+
+		_, err = resolveBytes(&embeddings.BinarySource{
+			Kind:     embeddings.SourceKindFile,
+			FilePath: tmp.Name(),
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "file size exceeds maximum")
+	})
+}
+
+func TestTwelveLabsEmbedContentValidationIncludesProviderContext(t *testing.T) {
+	ef := newTestEF("http://localhost")
+	_, err := ef.EmbedContent(context.Background(), embeddings.NewTextContent(""))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Twelve Labs")
+}
+
+func TestTwelveLabsEmbedContentsValidationIncludesProviderContext(t *testing.T) {
+	ef := newTestEF("http://localhost")
+	_, err := ef.EmbedContents(context.Background(), []embeddings.Content{
+		embeddings.NewTextContent(""),
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Twelve Labs")
+}
+
+func TestTwelveLabsEmbedContentEmptyEmbeddingVector(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, embedV2Response([]float64{}))
+	})
+
+	ef := newTestEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), embeddings.NewTextContent("hello"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty embedding vector")
 }

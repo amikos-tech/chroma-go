@@ -69,6 +69,39 @@ func TestTwelveLabsEmbedDocuments(t *testing.T) {
 	assert.Equal(t, 512, result[0].Len())
 }
 
+func TestTwelveLabsEmbedDocumentsEmptyInput(t *testing.T) {
+	ef := newTestEF("http://localhost")
+	result, err := ef.EmbedDocuments(context.Background(), nil)
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestTwelveLabsEmbedDocumentsResponseValidation(t *testing.T) {
+	t.Run("empty response returns error", func(t *testing.T) {
+		srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"data":[]}`)
+		})
+
+		ef := newTestEF(srv.URL)
+		_, err := ef.EmbedDocuments(context.Background(), []string{"hello world"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no embedding returned")
+	})
+
+	t.Run("empty embedding vector returns error", func(t *testing.T) {
+		srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, embedV2Response([]float64{}))
+		})
+
+		ef := newTestEF(srv.URL)
+		_, err := ef.EmbedDocuments(context.Background(), []string{"hello world"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty embedding vector")
+	})
+}
+
 func TestTwelveLabsEmbedQuery(t *testing.T) {
 	vec := make512DimVector()
 	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +131,13 @@ func TestTwelveLabsAuthHeader(t *testing.T) {
 func TestTwelveLabsName(t *testing.T) {
 	ef := newTestEF("http://localhost")
 	assert.Equal(t, "twelvelabs", ef.Name())
+}
+
+func TestNewTwelveLabsClientDefaultsUseDedicatedHTTPClient(t *testing.T) {
+	client, err := NewTwelveLabsClient(WithAPIKey("test-key"))
+	require.NoError(t, err)
+	require.NotNil(t, client.Client)
+	assert.NotSame(t, http.DefaultClient, client.Client)
 }
 
 func TestTwelveLabsGetConfig(t *testing.T) {

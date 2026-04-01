@@ -12,6 +12,8 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/internal/pathutil"
 )
 
+const maxMediaSourceSize int64 = 100 * 1024 * 1024 // 100 MB
+
 func resolveBytes(source *embeddings.BinarySource) ([]byte, error) {
 	if source == nil {
 		return nil, errors.New("source cannot be nil")
@@ -27,18 +29,36 @@ func resolveBytes(source *embeddings.BinarySource) ([]byte, error) {
 			return nil, errors.Wrap(err, "failed to open file source")
 		}
 		defer f.Close()
-		data, err := io.ReadAll(f)
+		data, err := io.ReadAll(io.LimitReader(f, maxMediaSourceSize+1))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to read file source")
 		}
+		if int64(len(data)) > maxMediaSourceSize {
+			return nil, errors.Errorf("file size exceeds maximum of %d bytes", maxMediaSourceSize)
+		}
 		return data, nil
 	case embeddings.SourceKindBase64:
+		if source.Base64 == "" {
+			return nil, errors.New("base64 source must include non-empty data")
+		}
+		if int64(len(source.Base64))*3/4 > maxMediaSourceSize {
+			return nil, errors.Errorf("base64 payload too large: estimated decoded size exceeds maximum of %d bytes", maxMediaSourceSize)
+		}
 		data, err := base64.StdEncoding.DecodeString(source.Base64)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to decode base64 source")
 		}
+		if int64(len(data)) > maxMediaSourceSize {
+			return nil, errors.Errorf("base64 payload exceeds maximum of %d bytes", maxMediaSourceSize)
+		}
 		return data, nil
 	case embeddings.SourceKindBytes:
+		if len(source.Bytes) == 0 {
+			return nil, errors.New("bytes source must include non-empty bytes")
+		}
+		if int64(len(source.Bytes)) > maxMediaSourceSize {
+			return nil, errors.Errorf("bytes payload size %d exceeds maximum of %d bytes", len(source.Bytes), maxMediaSourceSize)
+		}
 		return source.Bytes, nil
 	case embeddings.SourceKindURL:
 		return nil, errors.New("URL sources are handled via direct passthrough, not byte resolution")
@@ -105,14 +125,13 @@ func buildMediaSource(source *embeddings.BinarySource) (MediaSource, error) {
 
 // EmbedContent embeds a single multimodal Content item.
 func (e *TwelveLabsEmbeddingFunction) EmbedContent(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
-	if err := content.Validate(); err != nil {
+	if err := validateTwelveLabsContent(content, e.Capabilities()); err != nil {
 		return nil, err
 	}
-	caps := e.Capabilities()
-	if err := embeddings.ValidateContentSupport(content, caps); err != nil {
-		return nil, err
-	}
+	return e.embedContentValidated(ctx, content)
+}
 
+func (e *TwelveLabsEmbeddingFunction) embedContentValidated(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
 	req, err := contentToRequest(content, e.resolveModel(ctx), e.apiClient.AudioEmbeddingOption)
 	if err != nil {
 		return nil, err
@@ -121,25 +140,38 @@ func (e *TwelveLabsEmbeddingFunction) EmbedContent(ctx context.Context, content 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to embed content")
 	}
-	if len(resp.Data) == 0 {
-		return nil, errors.New("no embedding returned from Twelve Labs API")
+	return embeddingFromResponse(resp)
+}
+
+func validateTwelveLabsContent(content embeddings.Content, caps embeddings.CapabilityMetadata) error {
+	if err := content.Validate(); err != nil {
+		return errors.Wrap(err, "Twelve Labs content validation failed")
 	}
-	return embeddings.NewEmbeddingFromFloat32(float64sToFloat32s(resp.Data[0].Embedding)), nil
+	if err := embeddings.ValidateContentSupport(content, caps); err != nil {
+		return errors.Wrap(err, "Twelve Labs content validation failed")
+	}
+	return nil
+}
+
+func validateTwelveLabsContents(contents []embeddings.Content, caps embeddings.CapabilityMetadata) error {
+	if err := embeddings.ValidateContents(contents); err != nil {
+		return errors.Wrap(err, "Twelve Labs content validation failed")
+	}
+	if err := embeddings.ValidateContentsSupport(contents, caps); err != nil {
+		return errors.Wrap(err, "Twelve Labs content validation failed")
+	}
+	return nil
 }
 
 // EmbedContents embeds multiple Content items (one API call per item).
 func (e *TwelveLabsEmbeddingFunction) EmbedContents(ctx context.Context, contents []embeddings.Content) ([]embeddings.Embedding, error) {
-	if err := embeddings.ValidateContents(contents); err != nil {
-		return nil, err
-	}
-	caps := e.Capabilities()
-	if err := embeddings.ValidateContentsSupport(contents, caps); err != nil {
+	if err := validateTwelveLabsContents(contents, e.Capabilities()); err != nil {
 		return nil, err
 	}
 
 	result := make([]embeddings.Embedding, 0, len(contents))
 	for i, c := range contents {
-		emb, err := e.EmbedContent(ctx, c)
+		emb, err := e.embedContentValidated(ctx, c)
 		if err != nil {
 			return nil, errors.Wrapf(err, "contents[%d]", i)
 		}
@@ -166,7 +198,7 @@ func (e *TwelveLabsEmbeddingFunction) Capabilities() embeddings.CapabilityMetada
 	}
 }
 
-// MapIntent translates a neutral intent to a Twelve Labs input_type hint.
+// MapIntent translates shared retrieval intents to Twelve Labs query/document hint values.
 func (e *TwelveLabsEmbeddingFunction) MapIntent(intent embeddings.Intent) (string, error) {
 	switch intent {
 	case embeddings.IntentRetrievalQuery:
@@ -174,9 +206,6 @@ func (e *TwelveLabsEmbeddingFunction) MapIntent(intent embeddings.Intent) (strin
 	case embeddings.IntentRetrievalDocument:
 		return "document", nil
 	default:
-		if embeddings.IsNeutralIntent(intent) {
-			return "", errors.Errorf("intent %q is not supported by Twelve Labs; only retrieval_query and retrieval_document are available", intent)
-		}
-		return string(intent), nil
+		return "", errors.Errorf("intent %q is not supported by Twelve Labs; only retrieval_query and retrieval_document are available", intent)
 	}
 }
