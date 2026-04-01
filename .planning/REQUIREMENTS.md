@@ -94,9 +94,9 @@
 
 ### Twelve Labs Embedding Function
 
-- [ ] **TL-01**: `pkg/embeddings/twelvelabs` implements `EmbeddingFunction` and `ContentEmbeddingFunction` interfaces with `CapabilityAware` and `IntentMapper`
-- [ ] **TL-02**: Supports text, image, audio, and video modalities via the Twelve Labs Embed API v2 sync endpoint (`POST /v1.3/embed-v2`)
-- [ ] **TL-03**: Registered as `"twelvelabs"` in both dense and content registries with `GetConfig`/`FromConfig` config round-trip
+- [x] **TL-01**: `pkg/embeddings/twelvelabs` implements `EmbeddingFunction` and `ContentEmbeddingFunction` interfaces with `CapabilityAware` and `IntentMapper`
+- [x] **TL-02**: Supports text, image, audio, and video modalities via the Twelve Labs Embed API v2 sync endpoint (`POST /v1.3/embed-v2`)
+- [x] **TL-03**: Registered as `"twelvelabs"` in both dense and content registries with `GetConfig`/`FromConfig` config round-trip
 - [ ] **TL-04**: Tests cover request construction, auth header (`x-api-key`), modality validation, capability metadata, intent mapping, and config persistence
 - [ ] **TL-05**: Documentation section in embeddings.md and runnable multimodal example under `examples/v2/twelvelabs_multimodal/`
 
@@ -176,9 +176,9 @@
 | OR-03 | Phase 15 | Planned |
 | OR-04 | Phase 15 | Planned |
 | OR-05 | Phase 15 | Planned |
-| TL-01 | Phase 16 | Planned |
-| TL-02 | Phase 16 | Planned |
-| TL-03 | Phase 16 | Planned |
+| TL-01 | Phase 16 | Complete |
+| TL-02 | Phase 16 | Complete |
+| TL-03 | Phase 16 | Complete |
 | TL-04 | Phase 16 | Planned |
 | TL-05 | Phase 16 | Planned |
 
