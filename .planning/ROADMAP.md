@@ -29,7 +29,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 13: Collection.ForkCount** - Add ForkCount endpoint support for upstream /fork_count API. (issue #460) (completed 2026-03-28)
 - [x] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439) [1/2 plans complete] (completed 2026-03-29)
 - [x] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438) (completed 2026-03-30)
-- [ ] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190)
+- [x] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190) (completed 2026-04-01)
 - [ ] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462)
 - [ ] **Phase 18: Embedded Client contentEmbeddingFunction Parity** - Add contentEmbeddingFunction support to embeddedCollection for feature parity with HTTP client. (issue #472)
 
@@ -180,7 +180,7 @@ Plans:
 | 13. Collection.ForkCount | 2/2 | Complete    | 2026-03-28 |
 | 14. Delete with Limit | 2/2 | Complete    | 2026-03-29 |
 | 15. OpenRouter Embeddings | 2/2 | Complete    | 2026-03-30 |
-| 16. Twelve Labs EF | 1/2 | In progress | - |
+| 16. Twelve Labs EF | 2/2 | Complete   | 2026-04-01 |
 | 17. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
 | 18. Embedded contentEF Parity | 0/0 | Not started | - |
 
@@ -303,11 +303,11 @@ Plans:
   3. Registered in factory/registry with config round-trip support.
   4. Tests cover request construction, modality validation, and config persistence.
   5. Docs and examples added for Twelve Labs provider.
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 16-01-PLAN.md -- Implement client struct, text embedding, Content API, config, and dual registration
-- [ ] 16-02-PLAN.md -- Add unit tests for capability derivation, intent mapping, content conversion, and config round-trip
+- [x] 16-02-PLAN.md -- Add unit tests for capability derivation, intent mapping, content conversion, and config round-trip
 
 ### Phase 17: Cloud RRF and GroupBy Test Coverage
 **Goal:** Add end-to-end cloud integration tests that exercise Search API RRF and GroupBy primitives against live Chroma Cloud.

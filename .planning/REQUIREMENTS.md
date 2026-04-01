@@ -97,8 +97,8 @@
 - [x] **TL-01**: `pkg/embeddings/twelvelabs` implements `EmbeddingFunction` and `ContentEmbeddingFunction` interfaces with `CapabilityAware` and `IntentMapper`
 - [x] **TL-02**: Supports text, image, audio, and video modalities via the Twelve Labs Embed API v2 sync endpoint (`POST /v1.3/embed-v2`)
 - [x] **TL-03**: Registered as `"twelvelabs"` in both dense and content registries with `GetConfig`/`FromConfig` config round-trip
-- [ ] **TL-04**: Tests cover request construction, auth header (`x-api-key`), modality validation, capability metadata, intent mapping, and config persistence
-- [ ] **TL-05**: Documentation section in embeddings.md and runnable multimodal example under `examples/v2/twelvelabs_multimodal/`
+- [x] **TL-04**: Tests cover request construction, auth header (`x-api-key`), modality validation, capability metadata, intent mapping, and config persistence
+- [x] **TL-05**: Documentation section in embeddings.md and runnable multimodal example under `examples/v2/twelvelabs_multimodal/`
 
 ## v2 Requirements
 
