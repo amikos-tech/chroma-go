@@ -205,10 +205,22 @@ func (e *TwelveLabsEmbeddingFunction) resolveModel(ctx context.Context) string {
 	return string(e.apiClient.DefaultModel)
 }
 
+func validateTexts(texts []string) error {
+	for i, text := range texts {
+		if text == "" {
+			return errors.Errorf("texts[%d]: text cannot be empty", i)
+		}
+	}
+	return nil
+}
+
 // EmbedDocuments embeds a batch of text documents.
 func (e *TwelveLabsEmbeddingFunction) EmbedDocuments(ctx context.Context, texts []string) ([]embeddings.Embedding, error) {
 	if len(texts) == 0 {
 		return embeddings.NewEmptyEmbeddings(), nil
+	}
+	if err := validateTexts(texts); err != nil {
+		return nil, err
 	}
 	model := e.resolveModel(ctx)
 	result := make([]embeddings.Embedding, 0, len(texts))

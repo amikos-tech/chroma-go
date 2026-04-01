@@ -76,6 +76,22 @@ func TestTwelveLabsEmbedDocumentsEmptyInput(t *testing.T) {
 	assert.Empty(t, result)
 }
 
+func TestTwelveLabsEmbedDocumentsRejectsEmptyText(t *testing.T) {
+	ef := newTestEF("http://localhost")
+	_, err := ef.EmbedDocuments(context.Background(), []string{"hello", ""})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "texts[1]")
+	assert.Contains(t, err.Error(), "text cannot be empty")
+}
+
+func TestTwelveLabsEmbedQueryRejectsEmptyText(t *testing.T) {
+	ef := newTestEF("http://localhost")
+	_, err := ef.EmbedQuery(context.Background(), "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "texts[0]")
+	assert.Contains(t, err.Error(), "text cannot be empty")
+}
+
 func TestTwelveLabsEmbedDocumentsResponseValidation(t *testing.T) {
 	t.Run("empty response returns error", func(t *testing.T) {
 		srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +154,38 @@ func TestNewTwelveLabsClientDefaultsUseDedicatedHTTPClient(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, client.Client)
 	assert.NotSame(t, http.DefaultClient, client.Client)
+}
+
+func TestNewTwelveLabsClientValidation(t *testing.T) {
+	t.Run("fails with empty API key option", func(t *testing.T) {
+		_, err := NewTwelveLabsClient(WithAPIKey(""))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "API key cannot be empty")
+	})
+
+	t.Run("fails with empty model option", func(t *testing.T) {
+		_, err := NewTwelveLabsClient(WithAPIKey("test-key"), WithModel(""))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "model cannot be empty")
+	})
+
+	t.Run("fails with nil HTTP client option", func(t *testing.T) {
+		_, err := NewTwelveLabsClient(WithAPIKey("test-key"), WithHTTPClient(nil))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "HTTP client cannot be nil")
+	})
+
+	t.Run("fails with HTTP base URL without insecure override", func(t *testing.T) {
+		_, err := NewTwelveLabsClient(WithAPIKey("test-key"), WithBaseURL("http://example.com"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "base URL must use HTTPS")
+	})
+
+	t.Run("fails with invalid audio embedding option", func(t *testing.T) {
+		_, err := NewTwelveLabsClient(WithAPIKey("test-key"), WithAudioEmbeddingOption("invalid"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid audio embedding option")
+	})
 }
 
 func TestTwelveLabsGetConfig(t *testing.T) {
