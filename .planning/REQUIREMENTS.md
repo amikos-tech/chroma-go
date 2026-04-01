@@ -92,6 +92,14 @@
 - [x] **OR-04**: Existing OpenAI behavior and tests remain unchanged
 - [x] **OR-05**: OpenRouter provider registered as `"openrouter"` in dense registry with full `GetConfig`/`FromConfig` config round-trip
 
+### Twelve Labs Embedding Function
+
+- [ ] **TL-01**: `pkg/embeddings/twelvelabs` implements `EmbeddingFunction` and `ContentEmbeddingFunction` interfaces with `CapabilityAware` and `IntentMapper`
+- [ ] **TL-02**: Supports text, image, audio, and video modalities via the Twelve Labs Embed API v2 sync endpoint (`POST /v1.3/embed-v2`)
+- [ ] **TL-03**: Registered as `"twelvelabs"` in both dense and content registries with `GetConfig`/`FromConfig` config round-trip
+- [ ] **TL-04**: Tests cover request construction, auth header (`x-api-key`), modality validation, capability metadata, intent mapping, and config persistence
+- [ ] **TL-05**: Documentation section in embeddings.md and runnable multimodal example under `examples/v2/twelvelabs_multimodal/`
+
 ## v2 Requirements
 
 ### Provider Adoption
@@ -168,12 +176,17 @@
 | OR-03 | Phase 15 | Planned |
 | OR-04 | Phase 15 | Planned |
 | OR-05 | Phase 15 | Planned |
+| TL-01 | Phase 16 | Planned |
+| TL-02 | Phase 16 | Planned |
+| TL-03 | Phase 16 | Planned |
+| TL-04 | Phase 16 | Planned |
+| TL-05 | Phase 16 | Planned |
 
 **Coverage:**
-- v1 requirements: 51 total
-- Mapped to phases: 51
+- v1 requirements: 56 total
+- Mapped to phases: 56
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-30 -- added OR-01/02/03/04/05 for phase 15*
+*Last updated: 2026-04-01 -- added TL-01/02/03/04/05 for phase 16*
