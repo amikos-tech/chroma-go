@@ -33,8 +33,8 @@ func run() error {
 	}
 	fmt.Printf("Text embedding dimensions: %d\n", textEmb.Len())
 
-	// Image embedding from URL
-	imgEmb, err := ef.EmbedContent(ctx, embeddings.NewImageURL("https://picsum.photos/id/237/200/300"))
+	// Image embedding from URL (must be a direct link, no redirects)
+	imgEmb, err := ef.EmbedContent(ctx, embeddings.NewImageURL("https://images.unsplash.com/photo-1574158622682-e40e69881006?w=200"))
 	if err != nil {
 		return fmt.Errorf("image embedding failed: %w", err)
 	}

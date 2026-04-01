@@ -123,15 +123,8 @@ func buildMediaSource(source *embeddings.BinarySource) (MediaSource, error) {
 	return MediaSource{Base64String: base64.StdEncoding.EncodeToString(data)}, nil
 }
 
-// EmbedContent embeds a single multimodal Content item.
-func (e *TwelveLabsEmbeddingFunction) EmbedContent(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
-	if err := validateTwelveLabsContent(content, e.Capabilities()); err != nil {
-		return nil, err
-	}
-	return e.embedContentValidated(ctx, content)
-}
-
-func (e *TwelveLabsEmbeddingFunction) embedContentValidated(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
+// embedContent sends a single Content item to the API and returns the embedding.
+func (e *TwelveLabsEmbeddingFunction) embedContent(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
 	req, err := contentToRequest(content, e.resolveModel(ctx), e.apiClient.AudioEmbeddingOption)
 	if err != nil {
 		return nil, err
@@ -143,35 +136,31 @@ func (e *TwelveLabsEmbeddingFunction) embedContentValidated(ctx context.Context,
 	return embeddingFromResponse(resp)
 }
 
-func validateTwelveLabsContent(content embeddings.Content, caps embeddings.CapabilityMetadata) error {
+// EmbedContent embeds a single multimodal Content item.
+func (e *TwelveLabsEmbeddingFunction) EmbedContent(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
+	caps := e.Capabilities()
 	if err := content.Validate(); err != nil {
-		return errors.Wrap(err, "Twelve Labs content validation failed")
+		return nil, errors.Wrap(err, "Twelve Labs content validation failed")
 	}
 	if err := embeddings.ValidateContentSupport(content, caps); err != nil {
-		return errors.Wrap(err, "Twelve Labs content validation failed")
+		return nil, errors.Wrap(err, "Twelve Labs content validation failed")
 	}
-	return nil
-}
-
-func validateTwelveLabsContents(contents []embeddings.Content, caps embeddings.CapabilityMetadata) error {
-	if err := embeddings.ValidateContents(contents); err != nil {
-		return errors.Wrap(err, "Twelve Labs content validation failed")
-	}
-	if err := embeddings.ValidateContentsSupport(contents, caps); err != nil {
-		return errors.Wrap(err, "Twelve Labs content validation failed")
-	}
-	return nil
+	return e.embedContent(ctx, content)
 }
 
 // EmbedContents embeds multiple Content items (one API call per item).
 func (e *TwelveLabsEmbeddingFunction) EmbedContents(ctx context.Context, contents []embeddings.Content) ([]embeddings.Embedding, error) {
-	if err := validateTwelveLabsContents(contents, e.Capabilities()); err != nil {
-		return nil, err
+	caps := e.Capabilities()
+	if err := embeddings.ValidateContents(contents); err != nil {
+		return nil, errors.Wrap(err, "Twelve Labs content validation failed")
+	}
+	if err := embeddings.ValidateContentsSupport(contents, caps); err != nil {
+		return nil, errors.Wrap(err, "Twelve Labs content validation failed")
 	}
 
 	result := make([]embeddings.Embedding, 0, len(contents))
 	for i, c := range contents {
-		emb, err := e.embedContentValidated(ctx, c)
+		emb, err := e.embedContent(ctx, c)
 		if err != nil {
 			return nil, errors.Wrapf(err, "contents[%d]", i)
 		}

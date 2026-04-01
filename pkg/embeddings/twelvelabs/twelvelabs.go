@@ -103,7 +103,7 @@ type TextInput struct {
 
 type MediaSource struct {
 	URL          string `json:"url,omitempty"`
-	Base64String string `json:"base_64_string,omitempty"`
+	Base64String string `json:"base64_string,omitempty"`
 }
 
 type ImageInput struct {
@@ -248,9 +248,6 @@ func (e *TwelveLabsEmbeddingFunction) EmbedQuery(ctx context.Context, text strin
 	embs, err := e.EmbedDocuments(ctx, []string{text})
 	if err != nil {
 		return nil, err
-	}
-	if len(embs) == 0 {
-		return nil, errors.New("no embedding returned from Twelve Labs API")
 	}
 	return embs[0], nil
 }
