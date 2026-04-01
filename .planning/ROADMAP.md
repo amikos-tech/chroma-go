@@ -180,7 +180,7 @@ Plans:
 | 13. Collection.ForkCount | 2/2 | Complete    | 2026-03-28 |
 | 14. Delete with Limit | 2/2 | Complete    | 2026-03-29 |
 | 15. OpenRouter Embeddings | 2/2 | Complete    | 2026-03-30 |
-| 16. Twelve Labs EF | 0/2 | Planned | - |
+| 16. Twelve Labs EF | 1/2 | In progress | - |
 | 17. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
 | 18. Embedded contentEF Parity | 0/0 | Not started | - |
 
@@ -294,21 +294,20 @@ Plans:
 - [x] 15-02-PLAN.md -- Add unit tests and integration verification for OpenRouter provider
 
 ### Phase 16: Twelve Labs Embedding Function
-**Goal:** Add a new Twelve Labs multimodal embedding provider supporting text, image, audio, and video embeddings via the Twelve Labs Embed API v2 sync endpoint.
+**Goal:** Add a new Twelve Labs multimodal embedding provider supporting text, image, and audio embeddings via the Twelve Labs API.
 **Depends on:** Phase 9 (benefits from Content API foundations)
 **Issues**: #190
-**Requirements**: [TL-01, TL-02, TL-03, TL-04, TL-05]
 **Success Criteria** (what must be TRUE):
   1. `pkg/embeddings/twelvelabs` implements dense embedding and Content API interfaces.
-  2. Supports text, image, audio, and video modalities per Twelve Labs API docs.
+  2. Supports text, image, and audio modalities per Twelve Labs API docs.
   3. Registered in factory/registry with config round-trip support.
   4. Tests cover request construction, modality validation, and config persistence.
   5. Docs and examples added for Twelve Labs provider.
 **Plans:** 2 plans
 
 Plans:
-- [ ] 16-01-PLAN.md — Implement TwelveLabsEmbeddingFunction with client, options, Content API, and dual registration
-- [ ] 16-02-PLAN.md — Add httptest unit tests, documentation section, and runnable multimodal example
+- [x] 16-01-PLAN.md -- Implement client struct, text embedding, Content API, config, and dual registration
+- [ ] 16-02-PLAN.md -- Add unit tests for capability derivation, intent mapping, content conversion, and config round-trip
 
 ### Phase 17: Cloud RRF and GroupBy Test Coverage
 **Goal:** Add end-to-end cloud integration tests that exercise Search API RRF and GroupBy primitives against live Chroma Cloud.
