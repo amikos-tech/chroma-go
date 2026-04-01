@@ -198,8 +198,9 @@ func parseAPIError(body []byte) string {
 		return apiErr.Error.Message
 	}
 	trimmed := strings.TrimSpace(string(body))
-	if len(trimmed) > maxErrorBodyChars {
-		return trimmed[:maxErrorBodyChars] + "...(truncated)"
+	runes := []rune(trimmed)
+	if len(runes) > maxErrorBodyChars {
+		return string(runes[:maxErrorBodyChars]) + "...(truncated)"
 	}
 	return trimmed
 }
