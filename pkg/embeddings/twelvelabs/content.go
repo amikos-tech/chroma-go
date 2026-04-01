@@ -4,59 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"io"
-	"net/url"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 	"github.com/amikos-tech/chroma-go/pkg/internal/pathutil"
 )
-
-var extToMIME = map[string]string{
-	".png":  "image/png",
-	".jpg":  "image/jpeg",
-	".jpeg": "image/jpeg",
-	".gif":  "image/gif",
-	".bmp":  "image/bmp",
-	".webp": "image/webp",
-	".mp3":  "audio/mpeg",
-	".wav":  "audio/wav",
-	".flac": "audio/flac",
-	".mp4":  "video/mp4",
-	".mpeg": "video/mpeg",
-	".mov":  "video/quicktime",
-	".webm": "video/webm",
-	".avi":  "video/x-msvideo",
-}
-
-func resolveMIME(source *embeddings.BinarySource) (string, error) {
-	if source == nil {
-		return "", errors.New("source cannot be nil")
-	}
-	if source.MIMEType != "" {
-		return source.MIMEType, nil
-	}
-	if source.FilePath != "" {
-		ext := strings.ToLower(filepath.Ext(source.FilePath))
-		if mime, ok := extToMIME[ext]; ok {
-			return mime, nil
-		}
-	}
-	if source.URL != "" {
-		u, err := url.Parse(source.URL)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to parse source URL for MIME inference")
-		}
-		ext := strings.ToLower(filepath.Ext(u.Path))
-		if mime, ok := extToMIME[ext]; ok {
-			return mime, nil
-		}
-	}
-	return "", errors.New("MIME type is required: set BinarySource.MIMEType or use a file/URL with a known extension")
-}
 
 func resolveBytes(source *embeddings.BinarySource) ([]byte, error) {
 	if source == nil {
