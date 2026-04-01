@@ -290,6 +290,7 @@ Additional support features:
 - ✅ [Baseten Embedding](https://go-client.chromadb.dev/embeddings/#baseten) Support
 - ✅ [Morph Embedding](https://go-client.chromadb.dev/embeddings/#morph) Support
 - ✅ [Perplexity Embedding](https://go-client.chromadb.dev/embeddings/#perplexity) Support
+- ✅ [OpenRouter Embedding](https://go-client.chromadb.dev/embeddings/#openrouter) Support (access 200+ models via unified API)
 
 **Sparse & Specialized Embedding Functions:**
 

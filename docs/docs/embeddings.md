@@ -24,6 +24,7 @@ The following embedding wrappers are available:
 | [Amazon Bedrock](#amazon-bedrock)                                                 | Amazon Bedrock Embeddings (Titan models).<br/> For more info see [Bedrock Docs](https://docs.aws.amazon.com/bedrock/latest/userguide/embeddings.html).      |
 | [Morph](#morph)                                                                   | Morph AI Embeddings.<br/> For more info see [Morph Docs](https://docs.morphllm.com/).                                                                       |
 | [Perplexity](#perplexity)                                                         | Perplexity Embeddings.<br/> For more info see [Perplexity API docs](https://docs.perplexity.ai/api-reference/embeddings-post).                               |
+| [OpenRouter](#openrouter)                                                         | OpenRouter Embeddings (access 200+ models via unified API).<br/> For more info see [OpenRouter Docs](https://openrouter.ai/docs/features/embeddings).        |
 
 **Sparse & Specialized Embedding Functions:**
 
@@ -1156,6 +1157,70 @@ func main() {
 	}
 	fmt.Printf("Embedding response: %v \n", resp)
 }
+```
+
+## OpenRouter
+
+[OpenRouter](https://openrouter.ai/docs/features/embeddings) provides a unified API to access 200+ embedding models from multiple providers (OpenAI, Cohere, Google, etc.) through a single API key and endpoint.
+
+Supported Embedding Function Options:
+
+- `WithAPIKey` - Set the API key directly.
+- `WithEnvAPIKey` - Use the `OPENROUTER_API_KEY` environment variable.
+- `WithAPIKeyFromEnvVar` - Use a custom environment variable for the API key.
+- `WithModel` - Set the model (e.g., `openai/text-embedding-3-small`). **Required.**
+- `WithDimensions` - Set output dimensions (model-dependent).
+- `WithEncodingFormat` - Set encoding format (`float` or `base64`).
+- `WithInputType` - Set input type (e.g., `search_query`, `search_document`).
+- `WithBaseURL` - Set a custom base URL (default: `https://openrouter.ai/api/v1/`).
+- `WithProviderPreferences` - Configure provider routing (order, fallbacks, etc.).
+- `WithInsecure` - Allow HTTP connections (for local development only).
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	openrouter "github.com/amikos-tech/chroma-go/pkg/embeddings/openrouter"
+)
+
+func main() {
+	documents := []string{
+		"Document 1 content here",
+		"Document 2 content here",
+	}
+	// Make sure that you have the `OPENROUTER_API_KEY` set in your environment
+	ef, err := openrouter.NewOpenRouterEmbeddingFunction(
+		openrouter.WithEnvAPIKey(),
+		openrouter.WithModel("openai/text-embedding-3-small"),
+	)
+	if err != nil {
+		fmt.Printf("Error creating OpenRouter embedding function: %s \n", err)
+		return
+	}
+	resp, err := ef.EmbedDocuments(context.Background(), documents)
+	if err != nil {
+		fmt.Printf("Error embedding documents: %s \n", err)
+		return
+	}
+	fmt.Printf("Embedding response: %v \n", resp)
+}
+```
+
+### Provider Preferences
+
+OpenRouter supports routing preferences to control which upstream providers handle your requests:
+
+```go
+ef, err := openrouter.NewOpenRouterEmbeddingFunction(
+	openrouter.WithEnvAPIKey(),
+	openrouter.WithModel("openai/text-embedding-3-small"),
+	openrouter.WithProviderPreferences(&openrouter.ProviderPreferences{
+		Order:          []string{"OpenAI"},
+		AllowFallbacks: boolPtr(true),
+	}),
+)
 ```
 
 ## Chroma Cloud

@@ -71,4 +71,4 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 | Pivot Phase 7 from vLLM/Nemotron to VoyageAI | vLLM lacks NVOmniEmbedModel support; VoyageAI multimodal validates portability with text/image/video | ✓ Good |
 
 ---
-*Last updated: 2026-03-29 — Phase 14 (delete-with-limit) complete: added Limit parameter to Collection.Delete with validation, embedded path wiring, and comprehensive test coverage.*
+*Last updated: 2026-03-30 — Phase 15 (openrouter-embeddings-compatibility) complete: standalone OpenRouter embedding provider with ProviderPreferences, encoding_format, input_type fields; OpenAI WithModelString for proxy endpoints; full test coverage.*
