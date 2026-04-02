@@ -30,7 +30,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 14: Delete with Limit** - Add delete-with-limit support for upstream limit parameter. (issue #439) [1/2 plans complete] (completed 2026-03-29)
 - [x] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438) (completed 2026-03-30)
 - [x] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190) (completed 2026-04-01)
-- [ ] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462)
+- [x] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462) (completed 2026-04-02)
 - [ ] **Phase 18: Embedded Client contentEmbeddingFunction Parity** - Add contentEmbeddingFunction support to embeddedCollection for feature parity with HTTP client. (issue #472)
 
 ## Phase Details
@@ -181,7 +181,7 @@ Plans:
 | 14. Delete with Limit | 2/2 | Complete    | 2026-03-29 |
 | 15. OpenRouter Embeddings | 2/2 | Complete    | 2026-03-30 |
 | 16. Twelve Labs EF | 2/2 | Complete    | 2026-04-01 |
-| 17. Cloud RRF/GroupBy Tests | 0/1 | Planned | - |
+| 17. Cloud RRF/GroupBy Tests | 1/1 | Complete   | 2026-04-02 |
 | 18. Embedded contentEF Parity | 0/0 | Not started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
@@ -318,10 +318,10 @@ Plans:
   2. RRF weighted/custom-k test proves request acceptance and ordering changes.
   3. GroupBy MinK/MaxK tests assert per-group caps and flattened limits.
   4. All tests tagged `cloud` and use existing cloud test infrastructure.
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 17-01-PLAN.md -- Add TestCloudClientSearchRRF and TestCloudClientSearchGroupBy with behavioral assertions
+- [ ] TBD (run /gsd:plan-phase 17 to break down)
 
 ### Phase 18: Embedded Client contentEmbeddingFunction Parity
 **Goal:** Add contentEmbeddingFunction support to embeddedCollection so the embedded client has feature parity with the HTTP client for content embedding lifecycle, auto-wiring, and Fork/Close handling.

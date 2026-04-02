@@ -1453,3 +1453,279 @@ func TestCloudModifyConfiguration(t *testing.T) {
 		assert.Equal(t, float64(64), spannMap["ef_search"])
 	})
 }
+
+func TestCloudClientSearchRRF(t *testing.T) {
+	client := setupCloudClient(t)
+
+	t.Run("RRF smoke with dense and sparse KNN ranks", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_rrf_smoke-" + uuid.New().String()
+
+		sparseEF, err := chromacloudsplade.NewEmbeddingFunction(chromacloudsplade.WithEnvAPIKey())
+		require.NoError(t, err)
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+			WithSparseVectorIndex("sparse_embedding", NewSparseVectorIndexConfig(
+				WithSparseEmbeddingFunction(sparseEF),
+				WithSparseSourceKey("#document"),
+			)),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3", "4", "5"),
+			WithTexts(
+				"quantum computing advances in 2024",
+				"classical music theory and harmony",
+				"quantum mechanics and particle physics",
+				"cooking recipes for beginners",
+				"quantum entanglement research papers",
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		denseKnn, err := NewKnnRank(KnnQueryText("quantum physics"), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+		sparseKnn, err := NewKnnRank(KnnQueryText("quantum physics"), WithKnnKey(K("sparse_embedding")), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithRrfRank(WithRrfRanks(denseKnn.WithWeight(1.0), sparseKnn.WithWeight(1.0))),
+				NewPage(Limit(5)),
+				WithSelect(KID, KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		sr, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+		require.NotEmpty(t, sr.Scores)
+		require.Equal(t, len(sr.IDs[0]), len(sr.Scores[0]), "scores slice length should match IDs slice length")
+
+		quantumIDs := map[DocumentID]bool{"1": true, "3": true, "5": true}
+		require.True(t, quantumIDs[sr.IDs[0][0]], "first result should be a quantum doc, got %s", sr.IDs[0][0])
+	})
+
+	t.Run("RRF with custom k and different weights changes ordering", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_rrf_weights-" + uuid.New().String()
+
+		sparseEF, err := chromacloudsplade.NewEmbeddingFunction(chromacloudsplade.WithEnvAPIKey())
+		require.NoError(t, err)
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+			WithSparseVectorIndex("sparse_embedding", NewSparseVectorIndexConfig(
+				WithSparseEmbeddingFunction(sparseEF),
+				WithSparseSourceKey("#document"),
+			)),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3", "4", "5"),
+			WithTexts(
+				"quantum computing advances in 2024",
+				"classical music theory and harmony",
+				"quantum mechanics and particle physics",
+				"cooking recipes for beginners",
+				"quantum entanglement research papers",
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		// Search A: equal weights, default k
+		denseKnnA, err := NewKnnRank(KnnQueryText("quantum physics"), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+		sparseKnnA, err := NewKnnRank(KnnQueryText("quantum physics"), WithKnnKey(K("sparse_embedding")), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+
+		resultsA, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithRrfRank(WithRrfRanks(denseKnnA.WithWeight(1.0), sparseKnnA.WithWeight(1.0)), WithRrfK(60)),
+				NewPage(Limit(5)),
+				WithSelect(KID, KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, resultsA)
+
+		srA, ok := resultsA.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, srA.IDs)
+
+		// Search B: heavy dense weight, low sparse weight, custom k
+		denseKnnB, err := NewKnnRank(KnnQueryText("quantum physics"), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+		sparseKnnB, err := NewKnnRank(KnnQueryText("quantum physics"), WithKnnKey(K("sparse_embedding")), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+
+		resultsB, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithRrfRank(WithRrfRanks(denseKnnB.WithWeight(5.0), sparseKnnB.WithWeight(0.1)), WithRrfK(10)),
+				NewPage(Limit(5)),
+				WithSelect(KID, KDocument, KScore),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, resultsB)
+
+		srB, ok := resultsB.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, srB.IDs)
+
+		t.Logf("Search A IDs: %v, Scores: %v", srA.IDs[0], srA.Scores[0])
+		t.Logf("Search B IDs: %v, Scores: %v", srB.IDs[0], srB.Scores[0])
+		assert.NotEqual(t, srA.Scores, srB.Scores, "different RRF configurations should produce different fusion scores")
+	})
+}
+
+func TestCloudClientSearchGroupBy(t *testing.T) {
+	client := setupCloudClient(t)
+
+	t.Run("GroupBy with MinK caps results per group", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_groupby_mink-" + uuid.New().String()
+
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3", "4", "5", "6", "7", "8", "9"),
+			WithTexts(
+				"machine learning basics",
+				"deep learning tutorial",
+				"neural network guide",
+				"python web framework",
+				"javascript frontend library",
+				"react component design",
+				"quantum computing intro",
+				"quantum algorithms explained",
+				"quantum error correction",
+			),
+			WithMetadatas(
+				NewDocumentMetadata(NewStringAttribute("category", "AI")),
+				NewDocumentMetadata(NewStringAttribute("category", "AI")),
+				NewDocumentMetadata(NewStringAttribute("category", "AI")),
+				NewDocumentMetadata(NewStringAttribute("category", "web")),
+				NewDocumentMetadata(NewStringAttribute("category", "web")),
+				NewDocumentMetadata(NewStringAttribute("category", "web")),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum")),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum")),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum")),
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("technology"), WithKnnLimit(50)),
+				WithGroupBy(NewGroupBy(NewMinK(2, KScore), K("category"))),
+				NewPage(Limit(20)),
+				WithSelect(KID, KDocument, KScore, KMetadata),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		sr, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+
+		categoryCounts := map[string]int{}
+		for _, group := range sr.RowGroups() {
+			for _, row := range group {
+				cat, ok := row.Metadata.GetString("category")
+				require.True(t, ok)
+				categoryCounts[cat]++
+			}
+		}
+
+		require.GreaterOrEqual(t, len(categoryCounts), 2, "should have at least 2 different categories")
+		for cat, count := range categoryCounts {
+			assert.LessOrEqual(t, count, 2, "MinK(2) should cap category %q to at most 2 results, got %d", cat, count)
+		}
+	})
+
+	t.Run("GroupBy with MaxK selects top k per group", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_groupby_maxk-" + uuid.New().String()
+
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3", "4", "5", "6", "7", "8", "9"),
+			WithTexts(
+				"machine learning basics",
+				"deep learning tutorial",
+				"neural network guide",
+				"python web framework",
+				"javascript frontend library",
+				"react component design",
+				"quantum computing intro",
+				"quantum algorithms explained",
+				"quantum error correction",
+			),
+			WithMetadatas(
+				NewDocumentMetadata(NewStringAttribute("category", "AI"), NewIntAttribute("priority", 10)),
+				NewDocumentMetadata(NewStringAttribute("category", "AI"), NewIntAttribute("priority", 20)),
+				NewDocumentMetadata(NewStringAttribute("category", "AI"), NewIntAttribute("priority", 30)),
+				NewDocumentMetadata(NewStringAttribute("category", "web"), NewIntAttribute("priority", 15)),
+				NewDocumentMetadata(NewStringAttribute("category", "web"), NewIntAttribute("priority", 25)),
+				NewDocumentMetadata(NewStringAttribute("category", "web"), NewIntAttribute("priority", 35)),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum"), NewIntAttribute("priority", 5)),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum"), NewIntAttribute("priority", 50)),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum"), NewIntAttribute("priority", 100)),
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("technology"), WithKnnLimit(50)),
+				WithGroupBy(NewGroupBy(NewMaxK(2, KScore), K("category"))),
+				NewPage(Limit(20)),
+				WithSelect(KID, KDocument, KScore, KMetadata),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		sr, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+
+		categoryCounts := map[string]int{}
+		for _, group := range sr.RowGroups() {
+			for _, row := range group {
+				cat, ok := row.Metadata.GetString("category")
+				require.True(t, ok)
+				categoryCounts[cat]++
+			}
+		}
+
+		require.GreaterOrEqual(t, len(categoryCounts), 2, "should have at least 2 different categories")
+		for cat, count := range categoryCounts {
+			assert.LessOrEqual(t, count, 2, "MaxK(2) should cap category %q to at most 2 results, got %d", cat, count)
+		}
+	})
+}
