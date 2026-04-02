@@ -138,7 +138,6 @@ type EmbedV2ErrorResponse struct {
 var _ embeddings.EmbeddingFunction = (*TwelveLabsEmbeddingFunction)(nil)
 var _ embeddings.ContentEmbeddingFunction = (*TwelveLabsEmbeddingFunction)(nil)
 var _ embeddings.CapabilityAware = (*TwelveLabsEmbeddingFunction)(nil)
-var _ embeddings.IntentMapper = (*TwelveLabsEmbeddingFunction)(nil)
 
 // TwelveLabsEmbeddingFunction provides embeddings via the Twelve Labs Embed API v2.
 type TwelveLabsEmbeddingFunction struct {
@@ -316,6 +315,9 @@ func float64sToFloat32s(in []float64) []float32 {
 func embeddingFromResponse(resp *EmbedV2Response) (embeddings.Embedding, error) {
 	if resp == nil || len(resp.Data) == 0 {
 		return nil, errors.New("no embedding returned from Twelve Labs API")
+	}
+	if len(resp.Data) > 1 {
+		return nil, errors.Errorf("expected 1 embedding from Twelve Labs API, got %d", len(resp.Data))
 	}
 	if len(resp.Data[0].Embedding) == 0 {
 		return nil, errors.New("empty embedding vector returned from Twelve Labs API")

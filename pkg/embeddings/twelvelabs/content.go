@@ -170,6 +170,8 @@ func (e *TwelveLabsEmbeddingFunction) EmbedContents(ctx context.Context, content
 }
 
 // Capabilities returns the provider capability metadata.
+// The Twelve Labs embed-v2 API does not support intent differentiation;
+// Marengo operates in a unified embedding space.
 func (e *TwelveLabsEmbeddingFunction) Capabilities() embeddings.CapabilityMetadata {
 	return embeddings.CapabilityMetadata{
 		Modalities: []embeddings.Modality{
@@ -178,23 +180,7 @@ func (e *TwelveLabsEmbeddingFunction) Capabilities() embeddings.CapabilityMetada
 			embeddings.ModalityAudio,
 			embeddings.ModalityVideo,
 		},
-		Intents: []embeddings.Intent{
-			embeddings.IntentRetrievalQuery,
-			embeddings.IntentRetrievalDocument,
-		},
 		SupportsBatch:     false,
 		SupportsMixedPart: false,
-	}
-}
-
-// MapIntent translates shared retrieval intents to Twelve Labs query/document hint values.
-func (e *TwelveLabsEmbeddingFunction) MapIntent(intent embeddings.Intent) (string, error) {
-	switch intent {
-	case embeddings.IntentRetrievalQuery:
-		return "query", nil
-	case embeddings.IntentRetrievalDocument:
-		return "document", nil
-	default:
-		return "", errors.Errorf("intent %q is not supported by Twelve Labs; only retrieval_query and retrieval_document are available", intent)
 	}
 }

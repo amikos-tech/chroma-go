@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,37 +27,13 @@ func TestTwelveLabsCapabilities(t *testing.T) {
 	assert.Contains(t, caps.Modalities, embeddings.ModalityVideo)
 	assert.False(t, caps.SupportsBatch)
 	assert.False(t, caps.SupportsMixedPart)
-	assert.Len(t, caps.Intents, 2)
-	assert.Contains(t, caps.Intents, embeddings.IntentRetrievalQuery)
-	assert.Contains(t, caps.Intents, embeddings.IntentRetrievalDocument)
+	assert.Empty(t, caps.Intents)
 }
 
-func TestTwelveLabsMapIntent(t *testing.T) {
+func TestTwelveLabsDoesNotImplementIntentMapper(t *testing.T) {
 	ef := newTestEF("http://localhost")
-
-	t.Run("retrieval_query maps to query", func(t *testing.T) {
-		result, err := ef.MapIntent(embeddings.IntentRetrievalQuery)
-		require.NoError(t, err)
-		assert.Equal(t, "query", result)
-	})
-
-	t.Run("retrieval_document maps to document", func(t *testing.T) {
-		result, err := ef.MapIntent(embeddings.IntentRetrievalDocument)
-		require.NoError(t, err)
-		assert.Equal(t, "document", result)
-	})
-
-	t.Run("unsupported neutral intent returns error", func(t *testing.T) {
-		_, err := ef.MapIntent(embeddings.IntentClassification)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not supported")
-	})
-
-	t.Run("unknown provider-native intent returns error", func(t *testing.T) {
-		_, err := ef.MapIntent(embeddings.Intent("queery"))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not supported")
-	})
+	_, ok := interface{}(ef).(embeddings.IntentMapper)
+	assert.False(t, ok)
 }
 
 func TestTwelveLabsEmbedContentText(t *testing.T) {
@@ -165,11 +142,11 @@ func TestTwelveLabsEmbedContentMixedPartRejects(t *testing.T) {
 }
 
 func TestTwelveLabsEmbedContents(t *testing.T) {
-	callCount := 0
+	var callCount atomic.Int32
 	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
-		callCount++
+		n := callCount.Add(1)
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, embedV2Response([]float64{float64(callCount), 2, 3}))
+		fmt.Fprint(w, embedV2Response([]float64{float64(n), 2, 3}))
 	})
 
 	ef := newTestEF(srv.URL)
@@ -180,7 +157,7 @@ func TestTwelveLabsEmbedContents(t *testing.T) {
 	results, err := ef.EmbedContents(context.Background(), contents)
 	require.NoError(t, err)
 	assert.Len(t, results, 2)
-	assert.Equal(t, 2, callCount)
+	assert.Equal(t, int32(2), callCount.Load())
 }
 
 func TestTwelveLabsEmbedContentUnsupportedModality(t *testing.T) {
