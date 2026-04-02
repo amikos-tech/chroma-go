@@ -182,7 +182,7 @@ Plans:
 | 15. OpenRouter Embeddings | 2/2 | Complete    | 2026-03-30 |
 | 16. Twelve Labs EF | 2/2 | Complete    | 2026-04-01 |
 | 17. Cloud RRF/GroupBy Tests | 1/1 | Complete    | 2026-04-02 |
-| 18. Embedded contentEF Parity | 0/0 | Not started | - |
+| 18. Embedded contentEF Parity | 0/2 | Planned | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
 
@@ -334,7 +334,8 @@ Plans:
   4. `embeddedCollection.Fork()` propagates contentEF with close-once wrapping.
   5. Embedded `GetCollection()` respects `WithContentEmbeddingFunctionGet` option.
   6. Tests cover lifecycle, Fork, Close, and auto-wiring for content EF on embedded path.
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 18 to break down)
+- [ ] 18-01-PLAN.md — Add contentEF fields, state management, buildEmbeddedCollection wiring, GetCollection auto-wiring, Close() sharing detection
+- [ ] 18-02-PLAN.md — Add Close() sharing detection tests and GetCollection contentEF tests
