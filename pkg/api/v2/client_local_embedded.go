@@ -515,12 +515,45 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 		return nil, errors.Wrap(err, "error getting collection")
 	}
 
-	if req.embeddingFunction != nil {
+	configuration := NewCollectionConfigurationFromMap(model.ConfigurationJSON)
+
+	contentEF := req.contentEmbeddingFunction
+	ef := req.embeddingFunction
+
+	// Only auto-wire when no explicit EF was provided AND state doesn't already
+	// hold one from a prior CreateCollection or GetCollection call.
+	client.collectionStateMu.RLock()
+	existingState := client.collectionState[model.ID]
+	client.collectionStateMu.RUnlock()
+
+	if contentEF == nil && (existingState == nil || existingState.contentEmbeddingFunction == nil) {
+		autoWiredContentEF, _ := BuildContentEFFromConfig(configuration)
+		contentEF = autoWiredContentEF
+	}
+
+	if ef == nil && (existingState == nil || existingState.embeddingFunction == nil) {
+		if unwrapper, ok := contentEF.(embeddingspkg.EmbeddingFunctionUnwrapper); ok {
+			ef = unwrapper.UnwrapEmbeddingFunction()
+		} else if denseFromContent, ok := contentEF.(embeddingspkg.EmbeddingFunction); ok {
+			ef = denseFromContent
+		}
+		if ef == nil {
+			autoWiredEF, _ := BuildEmbeddingFunctionFromConfig(configuration)
+			ef = autoWiredEF
+		}
+	}
+
+	if ef != nil || contentEF != nil {
 		client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
-			state.embeddingFunction = req.embeddingFunction
+			if ef != nil {
+				state.embeddingFunction = ef
+			}
+			if contentEF != nil {
+				state.contentEmbeddingFunction = contentEF
+			}
 		})
 	}
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, req.embeddingFunction, nil, true)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, ef, contentEF, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -1413,18 +1446,36 @@ func (c *embeddedCollection) Close() error {
 	if !c.ownsEF.Load() {
 		return nil
 	}
-	ef := c.embeddingFunctionSnapshot()
+	c.mu.RLock()
+	ef := c.embeddingFunction
+	contentEF := c.contentEmbeddingFunction
+	c.mu.RUnlock()
 	c.closeOnce.Do(func() {
-		defer func() {
-			if r := recover(); r != nil {
-				c.closeErr = reportClosePanic(r)
-			}
-		}()
-		if ef != nil {
-			if closer, ok := ef.(io.Closer); ok {
-				c.closeErr = closer.Close()
+		var errs []error
+		if contentEF != nil {
+			if closer, ok := contentEF.(io.Closer); ok {
+				if err := safeCloseEF(closer); err != nil {
+					errs = append(errs, err)
+				}
 			}
 		}
+		if ef != nil {
+			shared := false
+			denseEF := unwrapCloseOnceEF(ef)
+			if unwrapper, ok := contentEF.(embeddingspkg.EmbeddingFunctionUnwrapper); ok {
+				shared = unwrapper.UnwrapEmbeddingFunction() == denseEF
+			} else if efFromContent, ok := contentEF.(embeddingspkg.EmbeddingFunction); ok {
+				shared = efFromContent == denseEF
+			}
+			if !shared {
+				if closer, ok := ef.(io.Closer); ok {
+					if err := safeCloseEF(closer); err != nil {
+						errs = append(errs, err)
+					}
+				}
+			}
+		}
+		c.closeErr = stderrors.Join(errs...)
 	})
 	return c.closeErr
 }
