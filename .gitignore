@@ -43,3 +43,10 @@ artifacts/
 # Local runtime dependency fetch scratch dirs
 .tmp-runtime-deps/
 .tmp-runtime-deps-progress/
+
+# Compiled example binaries
+fork_count
+twelvelabs_multimodal
+
+# Claude Code agent worktrees
+.claude/worktrees/

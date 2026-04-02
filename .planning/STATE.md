@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: Ready to plan
-stopped_at: Completed 15-02-PLAN.md
-last_updated: "2026-03-30T18:42:28.836Z"
+status: "Phase 16 shipped — PR #480"
+stopped_at: Completed 16-02-PLAN.md
+last_updated: "2026-04-01T12:36:00.417Z"
 progress:
   total_phases: 18
-  completed_phases: 15
-  total_plans: 33
-  completed_plans: 33
+  completed_phases: 16
+  total_plans: 35
+  completed_plans: 35
 ---
 
 # Project State
@@ -23,7 +23,7 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 
 ## Current Position
 
-Phase: 16
+Phase: 17
 Plan: Not started
 
 ## Performance Metrics
@@ -76,6 +76,8 @@ Plan: Not started
 | Phase 14 P02 | 2min | 2 tasks | 2 files |
 | Phase 15 P01 | 2min | 2 tasks | 5 files |
 | Phase 15 P02 | 2min | 2 tasks | 2 files |
+| Phase 16 P01 | 3min | 2 tasks | 3 files |
+| Phase 16 P02 | 3min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -131,6 +133,10 @@ Recent decisions affecting current work:
 - [Phase 13]: Use run() pattern in fork_count example to satisfy gocritic exitAfterDefer lint rule
 - [Phase 15]: Follow Together provider pattern for standalone OpenRouter package - no dependency on openai package
 - [Phase 15]: WithModelString bypasses validation for proxy-compatible model names while WithModel retains strict validation
+- [Phase 16]: x-api-key auth header instead of Bearer token per Twelve Labs API convention
+- [Phase 16]: One API call per Content item - no batch support (SupportsBatch: false)
+- [Phase 16]: Remove unused resolveMIME/extToMIME dead code from content.go to pass lint
+- [Phase 16]: Use struct literal construction for hermetic tests matching Gemini/Voyage pattern
 
 ### Roadmap Evolution
 
@@ -163,6 +169,6 @@ None.
 
 ## Session
 
-**Last Date:** 2026-03-30T18:37:14Z
-**Stopped At:** Completed 15-02-PLAN.md
+**Last Date:** 2026-04-01T09:15:21.355Z
+**Stopped At:** Completed 16-02-PLAN.md
 **Resume File:** None

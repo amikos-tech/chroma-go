@@ -25,6 +25,7 @@ The following embedding wrappers are available:
 | [Morph](#morph)                                                                   | Morph AI Embeddings.<br/> For more info see [Morph Docs](https://docs.morphllm.com/).                                                                       |
 | [Perplexity](#perplexity)                                                         | Perplexity Embeddings.<br/> For more info see [Perplexity API docs](https://docs.perplexity.ai/api-reference/embeddings-post).                               |
 | [OpenRouter](#openrouter)                                                         | OpenRouter Embeddings (access 200+ models via unified API).<br/> For more info see [OpenRouter Docs](https://openrouter.ai/docs/features/embeddings).        |
+| [Twelve Labs](#twelve-labs)                                                       | Twelve Labs Multimodal Embeddings (text, image, audio, video).<br/> For more info see [Twelve Labs Docs](https://docs.twelvelabs.io/reference/create-embed). |
 
 **Sparse & Specialized Embedding Functions:**
 
@@ -1222,6 +1223,75 @@ ef, err := openrouter.NewOpenRouterEmbeddingFunction(
 	}),
 )
 ```
+
+## Twelve Labs
+
+[Twelve Labs](https://twelvelabs.io/) provides multimodal embedding models that support text, image, audio, and video content. The default model is `marengo3.0` which produces 512-dimensional embeddings.
+
+### Installation
+
+```bash
+go get github.com/amikos-tech/chroma-go/pkg/embeddings/twelvelabs
+```
+
+### Basic Usage (Text)
+
+```go
+import (
+    twelvelabs "github.com/amikos-tech/chroma-go/pkg/embeddings/twelvelabs"
+)
+
+ef, err := twelvelabs.NewTwelveLabsEmbeddingFunction(
+    twelvelabs.WithEnvAPIKey(), // reads TWELVE_LABS_API_KEY
+)
+
+// Use with collection
+col, err := client.CreateCollection(ctx, "my-collection",
+    chroma.WithEmbeddingFunctionCreate(ef),
+)
+```
+
+### Multimodal (Content API)
+
+```go
+import "github.com/amikos-tech/chroma-go/pkg/embeddings"
+
+// Text content
+textEmb, err := ef.EmbedContent(ctx, embeddings.NewTextContent("hello world"))
+
+// Image from URL
+imgEmb, err := ef.EmbedContent(ctx, embeddings.NewImageURL("https://example.com/photo.png"))
+
+// Audio from URL
+audioEmb, err := ef.EmbedContent(ctx, embeddings.NewAudioURL("https://example.com/clip.mp3"))
+
+// Video from URL
+videoEmb, err := ef.EmbedContent(ctx, embeddings.NewVideoURL("https://example.com/clip.mp4"))
+```
+
+### Audio Embedding Options
+
+For audio content, you can configure the embedding strategy:
+
+```go
+ef, err := twelvelabs.NewTwelveLabsEmbeddingFunction(
+    twelvelabs.WithEnvAPIKey(),
+    twelvelabs.WithAudioEmbeddingOption("fused"), // "audio", "transcription", or "fused"
+)
+```
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `WithModel(model)` | Set embedding model | `marengo3.0` |
+| `WithAPIKey(key)` | Set API key directly | - |
+| `WithEnvAPIKey()` | Read key from `TWELVE_LABS_API_KEY` | - |
+| `WithAPIKeyFromEnvVar(name)` | Read key from custom env var | - |
+| `WithBaseURL(url)` | Override API base URL | `https://api.twelvelabs.io/v1.3/embed-v2` |
+| `WithHTTPClient(client)` | Use custom HTTP client | dedicated `http.Client` |
+| `WithInsecure()` | Allow HTTP (non-TLS) connections | `false` |
+| `WithAudioEmbeddingOption(opt)` | Audio embedding strategy | `"audio"` |
 
 ## Chroma Cloud
 
