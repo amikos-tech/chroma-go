@@ -181,7 +181,7 @@ Plans:
 | 14. Delete with Limit | 2/2 | Complete    | 2026-03-29 |
 | 15. OpenRouter Embeddings | 2/2 | Complete    | 2026-03-30 |
 | 16. Twelve Labs EF | 2/2 | Complete    | 2026-04-01 |
-| 17. Cloud RRF/GroupBy Tests | 0/0 | Not started | - |
+| 17. Cloud RRF/GroupBy Tests | 0/1 | Planned | - |
 | 18. Embedded contentEF Parity | 0/0 | Not started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
@@ -318,10 +318,10 @@ Plans:
   2. RRF weighted/custom-k test proves request acceptance and ordering changes.
   3. GroupBy MinK/MaxK tests assert per-group caps and flattened limits.
   4. All tests tagged `cloud` and use existing cloud test infrastructure.
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 17 to break down)
+- [ ] 17-01-PLAN.md -- Add TestCloudClientSearchRRF and TestCloudClientSearchGroupBy with behavioral assertions
 
 ### Phase 18: Embedded Client contentEmbeddingFunction Parity
 **Goal:** Add contentEmbeddingFunction support to embeddedCollection so the embedded client has feature parity with the HTTP client for content embedding lifecycle, auto-wiring, and Fork/Close handling.
