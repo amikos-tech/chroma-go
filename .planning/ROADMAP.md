@@ -31,7 +31,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438) (completed 2026-03-30)
 - [x] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190) (completed 2026-04-01)
 - [x] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462) (completed 2026-04-02)
-- [ ] **Phase 18: Embedded Client contentEmbeddingFunction Parity** - Add contentEmbeddingFunction support to embeddedCollection for feature parity with HTTP client. (issue #472)
+- [x] **Phase 18: Embedded Client contentEmbeddingFunction Parity** - Add contentEmbeddingFunction support to embeddedCollection for feature parity with HTTP client. (issue #472) (completed 2026-04-02)
 
 ## Phase Details
 
@@ -182,7 +182,7 @@ Plans:
 | 15. OpenRouter Embeddings | 2/2 | Complete    | 2026-03-30 |
 | 16. Twelve Labs EF | 2/2 | Complete    | 2026-04-01 |
 | 17. Cloud RRF/GroupBy Tests | 1/1 | Complete    | 2026-04-02 |
-| 18. Embedded contentEF Parity | 1/2 | In Progress|  |
+| 18. Embedded contentEF Parity | 2/2 | Complete   | 2026-04-02 |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
 
@@ -334,8 +334,8 @@ Plans:
   4. `embeddedCollection.Fork()` propagates contentEF with close-once wrapping.
   5. Embedded `GetCollection()` respects `WithContentEmbeddingFunctionGet` option.
   6. Tests cover lifecycle, Fork, Close, and auto-wiring for content EF on embedded path.
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 18-01-PLAN.md — Add contentEF fields, state management, buildEmbeddedCollection wiring, GetCollection auto-wiring, Close() sharing detection
-- [ ] 18-02-PLAN.md — Add Close() sharing detection tests and GetCollection contentEF tests
+- [x] 18-02-PLAN.md — Add Close() sharing detection tests and GetCollection contentEF tests
