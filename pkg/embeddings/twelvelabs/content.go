@@ -76,6 +76,9 @@ func contentToRequest(content embeddings.Content, model string, audioOpt string)
 
 	switch part.Modality {
 	case embeddings.ModalityText:
+		if part.Text == "" {
+			return nil, errors.New("text part must have non-empty text")
+		}
 		req.InputType = "text"
 		req.Text = &TextInput{InputText: part.Text}
 

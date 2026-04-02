@@ -248,6 +248,9 @@ func (e *TwelveLabsEmbeddingFunction) EmbedQuery(ctx context.Context, text strin
 	if err != nil {
 		return nil, err
 	}
+	if len(embs) == 0 {
+		return nil, errors.New("no embedding returned for query")
+	}
 	return embs[0], nil
 }
 

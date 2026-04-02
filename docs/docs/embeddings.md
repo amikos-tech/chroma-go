@@ -1289,7 +1289,7 @@ ef, err := twelvelabs.NewTwelveLabsEmbeddingFunction(
 | `WithEnvAPIKey()` | Read key from `TWELVE_LABS_API_KEY` | - |
 | `WithAPIKeyFromEnvVar(name)` | Read key from custom env var | - |
 | `WithBaseURL(url)` | Override API base URL | `https://api.twelvelabs.io/v1.3/embed-v2` |
-| `WithHTTPClient(client)` | Use custom HTTP client | `http.DefaultClient` |
+| `WithHTTPClient(client)` | Use custom HTTP client | dedicated `http.Client` |
 | `WithInsecure()` | Allow HTTP (non-TLS) connections | `false` |
 | `WithAudioEmbeddingOption(opt)` | Audio embedding strategy | `"audio"` |
 
