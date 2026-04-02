@@ -1593,3 +1593,139 @@ func TestCloudClientSearchRRF(t *testing.T) {
 		assert.NotEqual(t, srA.Scores, srB.Scores, "different RRF configurations should produce different fusion scores")
 	})
 }
+
+func TestCloudClientSearchGroupBy(t *testing.T) {
+	client := setupCloudClient(t)
+
+	t.Run("GroupBy with MinK caps results per group", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_groupby_mink-" + uuid.New().String()
+
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3", "4", "5", "6", "7", "8", "9"),
+			WithTexts(
+				"machine learning basics",
+				"deep learning tutorial",
+				"neural network guide",
+				"python web framework",
+				"javascript frontend library",
+				"react component design",
+				"quantum computing intro",
+				"quantum algorithms explained",
+				"quantum error correction",
+			),
+			WithMetadatas(
+				NewDocumentMetadata(NewStringAttribute("category", "AI")),
+				NewDocumentMetadata(NewStringAttribute("category", "AI")),
+				NewDocumentMetadata(NewStringAttribute("category", "AI")),
+				NewDocumentMetadata(NewStringAttribute("category", "web")),
+				NewDocumentMetadata(NewStringAttribute("category", "web")),
+				NewDocumentMetadata(NewStringAttribute("category", "web")),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum")),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum")),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum")),
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("technology"), WithKnnLimit(50)),
+				WithGroupBy(NewGroupBy(NewMinK(2, KScore), K("category"))),
+				NewPage(Limit(20)),
+				WithSelect(KID, KDocument, KScore, KMetadata),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		sr, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+
+		categoryCounts := map[string]int{}
+		for _, group := range sr.RowGroups() {
+			for _, row := range group {
+				cat, ok := row.Metadata.GetString("category")
+				require.True(t, ok)
+				categoryCounts[cat]++
+			}
+		}
+
+		require.GreaterOrEqual(t, len(categoryCounts), 2, "should have at least 2 different categories")
+		for cat, count := range categoryCounts {
+			assert.LessOrEqual(t, count, 2, "MinK(2) should cap category %q to at most 2 results, got %d", cat, count)
+		}
+	})
+
+	t.Run("GroupBy with MaxK selects top k per group", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_groupby_maxk-" + uuid.New().String()
+
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+		require.NotNil(t, collection)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3", "4", "5", "6", "7", "8", "9"),
+			WithTexts(
+				"machine learning basics",
+				"deep learning tutorial",
+				"neural network guide",
+				"python web framework",
+				"javascript frontend library",
+				"react component design",
+				"quantum computing intro",
+				"quantum algorithms explained",
+				"quantum error correction",
+			),
+			WithMetadatas(
+				NewDocumentMetadata(NewStringAttribute("category", "AI"), NewIntAttribute("priority", 10)),
+				NewDocumentMetadata(NewStringAttribute("category", "AI"), NewIntAttribute("priority", 20)),
+				NewDocumentMetadata(NewStringAttribute("category", "AI"), NewIntAttribute("priority", 30)),
+				NewDocumentMetadata(NewStringAttribute("category", "web"), NewIntAttribute("priority", 15)),
+				NewDocumentMetadata(NewStringAttribute("category", "web"), NewIntAttribute("priority", 25)),
+				NewDocumentMetadata(NewStringAttribute("category", "web"), NewIntAttribute("priority", 35)),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum"), NewIntAttribute("priority", 5)),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum"), NewIntAttribute("priority", 50)),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum"), NewIntAttribute("priority", 100)),
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("technology"), WithKnnLimit(50)),
+				WithGroupBy(NewGroupBy(NewMaxK(2, KScore), K("category"))),
+				NewPage(Limit(20)),
+				WithSelect(KID, KDocument, KScore, KMetadata),
+			),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, results)
+
+		sr, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+
+		categoryCounts := map[string]int{}
+		for _, group := range sr.RowGroups() {
+			for _, row := range group {
+				cat, ok := row.Metadata.GetString("category")
+				require.True(t, ok)
+				categoryCounts[cat]++
+			}
+		}
+
+		require.GreaterOrEqual(t, len(categoryCounts), 2, "should have at least 2 different categories")
+		for cat, count := range categoryCounts {
+			assert.LessOrEqual(t, count, 2, "MaxK(2) should cap category %q to at most 2 results, got %d", cat, count)
+		}
+	})
+}
