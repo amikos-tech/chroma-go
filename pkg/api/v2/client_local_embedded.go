@@ -521,11 +521,16 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 
 	// Only auto-wire when no explicit EF was provided AND state doesn't already
 	// hold one from a prior CreateCollection or GetCollection call.
+	// Copy the flags under the lock to avoid racing with upsertCollectionState.
+	var hasContentEF, hasEF bool
 	client.collectionStateMu.RLock()
-	existingState := client.collectionState[model.ID]
+	if s := client.collectionState[model.ID]; s != nil {
+		hasContentEF = s.contentEmbeddingFunction != nil
+		hasEF = s.embeddingFunction != nil
+	}
 	client.collectionStateMu.RUnlock()
 
-	if contentEF == nil && (existingState == nil || existingState.contentEmbeddingFunction == nil) {
+	if contentEF == nil && !hasContentEF {
 		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
 		if buildErr != nil {
 			logAutoWireBuildErrorToStderr(model.Name, "content embedding function", buildErr)
@@ -533,7 +538,7 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 		contentEF = autoWiredContentEF
 	}
 
-	if ef == nil && (existingState == nil || existingState.embeddingFunction == nil) {
+	if ef == nil && !hasEF {
 		if unwrapper, ok := contentEF.(embeddingspkg.EmbeddingFunctionUnwrapper); ok {
 			ef = unwrapper.UnwrapEmbeddingFunction()
 		} else if denseFromContent, ok := contentEF.(embeddingspkg.EmbeddingFunction); ok {
