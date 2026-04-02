@@ -1925,3 +1925,46 @@ func TestAnyToFloat32Slice_ReturnsCopyForFloat32Slice(t *testing.T) {
 	input[0] = 99
 	require.Equal(t, []float32{1, 2, 3}, got)
 }
+
+func TestEmbeddedGetCollection_WithExplicitContentEF(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	denseEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	_, err := client.CreateCollection(ctx, "test-cef", WithEmbeddingFunctionCreate(denseEF))
+	require.NoError(t, err)
+
+	contentEF := &mockCloseableContentEF{}
+	got, err := client.GetCollection(ctx, "test-cef", WithContentEmbeddingFunctionGet(contentEF))
+	require.NoError(t, err)
+
+	ec, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+
+	ec.mu.RLock()
+	gotContentEF := ec.contentEmbeddingFunction
+	ec.mu.RUnlock()
+	require.NotNil(t, gotContentEF, "contentEF must be wired into the embedded collection")
+}
+
+func TestEmbeddedGetCollection_AutoWiresContentEFFromDenseEF(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	denseEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	_, err := client.CreateCollection(ctx, "test-auto", WithEmbeddingFunctionCreate(denseEF))
+	require.NoError(t, err)
+
+	got, err := client.GetCollection(ctx, "test-auto", WithEmbeddingFunctionGet(denseEF))
+	require.NoError(t, err)
+
+	ec, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+
+	ec.mu.RLock()
+	gotDenseEF := ec.embeddingFunction
+	ec.mu.RUnlock()
+	require.NotNil(t, gotDenseEF, "denseEF must be wired into the embedded collection")
+}
