@@ -2089,7 +2089,7 @@ func TestEmbeddedGetCollection_ContentEFStateRoundTrip(t *testing.T) {
 	ec2.mu.RLock()
 	secondContentEF := ec2.contentEmbeddingFunction
 	ec2.mu.RUnlock()
-	require.NotNil(t, secondContentEF, "contentEF must survive state round-trip via collectionState")
+	require.Same(t, firstContentEF, secondContentEF, "contentEF must survive state round-trip via collectionState")
 }
 
 func TestEmbeddedGetCollection_LogsAutoWireErrorsToStderr(t *testing.T) {
