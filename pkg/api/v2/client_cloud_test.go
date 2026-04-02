@@ -4,6 +4,7 @@ package v2
 
 import (
 	"context"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -1592,6 +1593,118 @@ func TestCloudClientSearchRRF(t *testing.T) {
 		t.Logf("Search B IDs: %v, Scores: %v", srB.IDs[0], srB.Scores[0])
 		assert.NotEqual(t, srA.Scores, srB.Scores, "different RRF configurations should produce different fusion scores")
 	})
+
+	t.Run("RRF with single KNN rank succeeds", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_rrf_single_rank-" + uuid.New().String()
+
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("quantum physics", "classical music", "quantum entanglement"),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		denseKnn, err := NewKnnRank(KnnQueryText("quantum"), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithRrfRank(WithRrfRanks(denseKnn.WithWeight(1.0))),
+				NewPage(Limit(3)),
+				WithSelect(KID, KScore),
+			),
+		)
+		require.NoError(t, err)
+
+		sr, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+		require.NotEmpty(t, sr.Scores)
+	})
+
+	t.Run("RRF with zero weight on one rank isolates other", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_rrf_zero_weight-" + uuid.New().String()
+
+		sparseEF, err := chromacloudsplade.NewEmbeddingFunction(chromacloudsplade.WithEnvAPIKey())
+		require.NoError(t, err)
+
+		schema, err := NewSchema(
+			WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+			WithSparseVectorIndex("sparse_embedding", NewSparseVectorIndexConfig(
+				WithSparseEmbeddingFunction(sparseEF),
+				WithSparseSourceKey("#document"),
+			)),
+		)
+		require.NoError(t, err)
+
+		collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+		require.NoError(t, err)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3"),
+			WithTexts("quantum physics", "classical music", "quantum entanglement"),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		denseKnn, err := NewKnnRank(KnnQueryText("quantum"), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+		sparseKnn, err := NewKnnRank(KnnQueryText("quantum"), WithKnnKey(K("sparse_embedding")), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+
+		// Zero weight on sparse should make results depend only on dense
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithRrfRank(WithRrfRanks(denseKnn.WithWeight(1.0), sparseKnn.WithWeight(0.0))),
+				NewPage(Limit(3)),
+				WithSelect(KID, KScore),
+			),
+		)
+		require.NoError(t, err)
+
+		sr, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+		require.NotEmpty(t, sr.Scores)
+	})
+
+	t.Run("RRF rejects negative weight", func(t *testing.T) {
+		denseKnn, err := NewKnnRank(KnnQueryText("test"), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+
+		_, err = NewRrfRank(WithRrfRanks(denseKnn.WithWeight(-1.0)))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "negative weight")
+	})
+
+	t.Run("RRF rejects k of zero", func(t *testing.T) {
+		denseKnn, err := NewKnnRank(KnnQueryText("test"), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+
+		_, err = NewRrfRank(WithRrfRanks(denseKnn.WithWeight(1.0)), WithRrfK(0))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "k must be >= 1")
+	})
+
+	t.Run("RRF rejects NaN weight", func(t *testing.T) {
+		denseKnn, err := NewKnnRank(KnnQueryText("test"), WithKnnReturnRank(), WithKnnLimit(10))
+		require.NoError(t, err)
+
+		_, err = NewRrfRank(WithRrfRanks(denseKnn.WithWeight(math.NaN())))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "NaN and Inf are not allowed")
+	})
+
+	t.Run("RRF rejects no ranks", func(t *testing.T) {
+		_, err := NewRrfRank()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "requires at least one rank")
+	})
 }
 
 func TestCloudClientSearchGroupBy(t *testing.T) {
@@ -1727,5 +1840,84 @@ func TestCloudClientSearchGroupBy(t *testing.T) {
 		for cat, count := range categoryCounts {
 			assert.LessOrEqual(t, count, 2, "MaxK(2) should cap category %q to at most 2 results, got %d", cat, count)
 		}
+	})
+
+	t.Run("GroupBy with k=1 returns at most 1 per group", func(t *testing.T) {
+		ctx := context.Background()
+		collectionName := "test_groupby_k1-" + uuid.New().String()
+
+		collection, err := client.CreateCollection(ctx, collectionName)
+		require.NoError(t, err)
+
+		err = collection.Add(ctx,
+			WithIDs("1", "2", "3", "4", "5", "6"),
+			WithTexts(
+				"machine learning basics",
+				"deep learning tutorial",
+				"python web framework",
+				"javascript frontend library",
+				"quantum computing intro",
+				"quantum algorithms explained",
+			),
+			WithMetadatas(
+				NewDocumentMetadata(NewStringAttribute("category", "AI")),
+				NewDocumentMetadata(NewStringAttribute("category", "AI")),
+				NewDocumentMetadata(NewStringAttribute("category", "web")),
+				NewDocumentMetadata(NewStringAttribute("category", "web")),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum")),
+				NewDocumentMetadata(NewStringAttribute("category", "quantum")),
+			),
+		)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+
+		results, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithKnnRank(KnnQueryText("technology"), WithKnnLimit(50)),
+				WithGroupBy(NewGroupBy(NewMinK(1, KScore), K("category"))),
+				NewPage(Limit(20)),
+				WithSelect(KID, KDocument, KScore, KMetadata),
+			),
+		)
+		require.NoError(t, err)
+
+		sr, ok := results.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, sr.IDs)
+
+		categoryCounts := map[string]int{}
+		for _, group := range sr.RowGroups() {
+			for _, row := range group {
+				cat, ok := row.Metadata.GetString("category")
+				require.True(t, ok)
+				categoryCounts[cat]++
+			}
+		}
+
+		require.GreaterOrEqual(t, len(categoryCounts), 2, "should have at least 2 different categories")
+		for cat, count := range categoryCounts {
+			assert.LessOrEqual(t, count, 1, "MinK(1) should cap category %q to at most 1 result, got %d", cat, count)
+		}
+	})
+
+	t.Run("GroupBy rejects k of zero", func(t *testing.T) {
+		groupBy := NewGroupBy(NewMinK(0, KScore), K("category"))
+		err := groupBy.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "k must be >= 1")
+	})
+
+	t.Run("GroupBy rejects nil aggregate", func(t *testing.T) {
+		groupBy := NewGroupBy(nil, K("category"))
+		err := groupBy.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "aggregate is required")
+	})
+
+	t.Run("GroupBy rejects no keys", func(t *testing.T) {
+		groupBy := NewGroupBy(NewMinK(2, KScore))
+		err := groupBy.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "at least one key is required")
 	})
 }
