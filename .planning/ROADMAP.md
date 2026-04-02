@@ -181,7 +181,7 @@ Plans:
 | 14. Delete with Limit | 2/2 | Complete    | 2026-03-29 |
 | 15. OpenRouter Embeddings | 2/2 | Complete    | 2026-03-30 |
 | 16. Twelve Labs EF | 2/2 | Complete    | 2026-04-01 |
-| 17. Cloud RRF/GroupBy Tests | 1/1 | Complete   | 2026-04-02 |
+| 17. Cloud RRF/GroupBy Tests | 1/1 | Complete    | 2026-04-02 |
 | 18. Embedded contentEF Parity | 0/0 | Not started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
@@ -321,7 +321,7 @@ Plans:
 **Plans:** 1/1 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 17 to break down)
+- [x] TBD (run /gsd:plan-phase 17 to break down) (completed 2026-04-02)
 
 ### Phase 18: Embedded Client contentEmbeddingFunction Parity
 **Goal:** Add contentEmbeddingFunction support to embeddedCollection so the embedded client has feature parity with the HTTP client for content embedding lifecycle, auto-wiring, and Fork/Close handling.
