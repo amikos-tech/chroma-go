@@ -1516,7 +1516,7 @@ func TestCloudClientSearchRRF(t *testing.T) {
 		require.True(t, quantumIDs[sr.IDs[0][0]], "first result should be a quantum doc, got %s", sr.IDs[0][0])
 	})
 
-	t.Run("RRF with custom k and different weights changes ordering", func(t *testing.T) {
+	t.Run("RRF with custom k and different weights changes fusion scores", func(t *testing.T) {
 		ctx := context.Background()
 		collectionName := "test_rrf_weights-" + uuid.New().String()
 
@@ -1588,10 +1588,11 @@ func TestCloudClientSearchRRF(t *testing.T) {
 		srB, ok := resultsB.(*SearchResultImpl)
 		require.True(t, ok)
 		require.NotEmpty(t, srB.IDs)
+		require.NotEmpty(t, srB.Scores)
 
 		t.Logf("Search A IDs: %v, Scores: %v", srA.IDs[0], srA.Scores[0])
 		t.Logf("Search B IDs: %v, Scores: %v", srB.IDs[0], srB.Scores[0])
-		assert.NotEqual(t, srA.Scores, srB.Scores, "different RRF configurations should produce different fusion scores")
+		require.NotEqual(t, srA.Scores, srB.Scores, "different RRF configurations should produce different fusion scores")
 	})
 
 	t.Run("RRF with single KNN rank succeeds", func(t *testing.T) {
@@ -1626,7 +1627,7 @@ func TestCloudClientSearchRRF(t *testing.T) {
 		require.NotEmpty(t, sr.Scores)
 	})
 
-	t.Run("RRF with zero weight on one rank isolates other", func(t *testing.T) {
+	t.Run("RRF with zero weight uses default weight behavior", func(t *testing.T) {
 		ctx := context.Background()
 		collectionName := "test_rrf_zero_weight-" + uuid.New().String()
 
@@ -1657,8 +1658,8 @@ func TestCloudClientSearchRRF(t *testing.T) {
 		sparseKnn, err := NewKnnRank(KnnQueryText("quantum"), WithKnnKey(K("sparse_embedding")), WithKnnReturnRank(), WithKnnLimit(10))
 		require.NoError(t, err)
 
-		// Zero weight on sparse should make results depend only on dense
-		results, err := collection.Search(ctx,
+		// Zero weight currently falls back to the default weight (1.0) during RRF marshaling.
+		resultsZero, err := collection.Search(ctx,
 			NewSearchRequest(
 				WithRrfRank(WithRrfRanks(denseKnn.WithWeight(1.0), sparseKnn.WithWeight(0.0))),
 				NewPage(Limit(3)),
@@ -1667,10 +1668,27 @@ func TestCloudClientSearchRRF(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		sr, ok := results.(*SearchResultImpl)
+		resultsDefault, err := collection.Search(ctx,
+			NewSearchRequest(
+				WithRrfRank(WithRrfRanks(denseKnn.WithWeight(1.0), sparseKnn.WithWeight(1.0))),
+				NewPage(Limit(3)),
+				WithSelect(KID, KScore),
+			),
+		)
+		require.NoError(t, err)
+
+		srZero, ok := resultsZero.(*SearchResultImpl)
 		require.True(t, ok)
-		require.NotEmpty(t, sr.IDs)
-		require.NotEmpty(t, sr.Scores)
+		require.NotEmpty(t, srZero.IDs)
+		require.NotEmpty(t, srZero.Scores)
+
+		srDefault, ok := resultsDefault.(*SearchResultImpl)
+		require.True(t, ok)
+		require.NotEmpty(t, srDefault.IDs)
+		require.NotEmpty(t, srDefault.Scores)
+
+		require.Equal(t, srDefault.IDs, srZero.IDs, "weight 0.0 should currently behave like the default weight")
+		require.Equal(t, srDefault.Scores, srZero.Scores, "weight 0.0 should currently behave like the default weight")
 	})
 
 	t.Run("RRF rejects negative weight", func(t *testing.T) {
@@ -1770,7 +1788,7 @@ func TestCloudClientSearchGroupBy(t *testing.T) {
 			}
 		}
 
-		require.GreaterOrEqual(t, len(categoryCounts), 2, "should have at least 2 different categories")
+		require.Equal(t, 3, len(categoryCounts), "GroupBy should return all three categories")
 		for cat, count := range categoryCounts {
 			assert.LessOrEqual(t, count, 2, "MinK(2) should cap category %q to at most 2 results, got %d", cat, count)
 		}
@@ -1836,7 +1854,7 @@ func TestCloudClientSearchGroupBy(t *testing.T) {
 			}
 		}
 
-		require.GreaterOrEqual(t, len(categoryCounts), 2, "should have at least 2 different categories")
+		require.Equal(t, 3, len(categoryCounts), "GroupBy should return all three categories")
 		for cat, count := range categoryCounts {
 			assert.LessOrEqual(t, count, 2, "MaxK(2) should cap category %q to at most 2 results, got %d", cat, count)
 		}
@@ -1894,7 +1912,7 @@ func TestCloudClientSearchGroupBy(t *testing.T) {
 			}
 		}
 
-		require.GreaterOrEqual(t, len(categoryCounts), 2, "should have at least 2 different categories")
+		require.Equal(t, 3, len(categoryCounts), "GroupBy should return all three categories")
 		for cat, count := range categoryCounts {
 			assert.LessOrEqual(t, count, 1, "MinK(1) should cap category %q to at most 1 result, got %d", cat, count)
 		}
