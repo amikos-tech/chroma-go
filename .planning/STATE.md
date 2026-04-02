@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: Ready to execute
-stopped_at: Completed 18-02-PLAN.md
-last_updated: "2026-04-02T11:23:38.819Z"
+status: Milestone complete
+stopped_at: Phase 18 context gathered
+last_updated: "2026-04-02T11:29:35.003Z"
 progress:
   total_phases: 18
   completed_phases: 18
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 12 — sdk-auto-wiring-research
+**Current focus:** Phase 18 — embedded-client-contentembeddingfunction-parity
 
 ## Current Position
 
 Phase: 18
-Plan: 2 of 2 complete
+Plan: Not started
 
 ## Performance Metrics
 
@@ -79,8 +79,6 @@ Plan: 2 of 2 complete
 | Phase 16 P01 | 3min | 2 tasks | 3 files |
 | Phase 16 P02 | 3min | 2 tasks | 5 files |
 | Phase 17 P01 | 3min | 2 tasks | 1 files |
-| Phase 18 P01 | 10min | 2 tasks | 1 files |
-| Phase 18 P02 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -141,9 +139,6 @@ Recent decisions affecting current work:
 - [Phase 16]: Remove unused resolveMIME/extToMIME dead code from content.go to pass lint
 - [Phase 16]: Use struct literal construction for hermetic tests matching Gemini/Voyage pattern
 - [Phase 17]: Follow existing cloud test patterns for RRF and GroupBy tests - no deviations required
-- [Phase 18]: Check existing state before auto-wiring to preserve prior EF pointer identity across GetCollection calls
-- [Phase 18]: Silent error discard for auto-wiring failures matching embedded client's minimal logging approach
-- [Phase 18]: Use direct struct construction for embedded Close() sharing detection tests, matching existing patterns
 
 ### Roadmap Evolution
 
@@ -176,6 +171,6 @@ None.
 
 ## Session
 
-**Last Date:** 2026-04-02T11:23:38.797Z
-**Stopped At:** Completed 18-02-PLAN.md
-**Resume File:** None
+**Last Date:** 2026-04-02T10:21:35.706Z
+**Stopped At:** Phase 18 context gathered
+**Resume File:** .planning/phases/18-embedded-client-contentembeddingfunction-parity/18-CONTEXT.md

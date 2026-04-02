@@ -182,7 +182,7 @@ Plans:
 | 15. OpenRouter Embeddings | 2/2 | Complete    | 2026-03-30 |
 | 16. Twelve Labs EF | 2/2 | Complete    | 2026-04-01 |
 | 17. Cloud RRF/GroupBy Tests | 1/1 | Complete    | 2026-04-02 |
-| 18. Embedded contentEF Parity | 2/2 | Complete   | 2026-04-02 |
+| 18. Embedded contentEF Parity | 2/2 | Complete    | 2026-04-02 |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
 
