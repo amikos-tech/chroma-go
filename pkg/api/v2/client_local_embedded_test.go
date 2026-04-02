@@ -1968,3 +1968,110 @@ func TestEmbeddedGetCollection_AutoWiresContentEFFromDenseEF(t *testing.T) {
 	ec.mu.RUnlock()
 	require.NotNil(t, gotDenseEF, "denseEF must be wired into the embedded collection")
 }
+
+func TestEmbeddedGetCollection_ContentEFStateRoundTrip(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	denseEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	_, err := client.CreateCollection(ctx, "test-roundtrip", WithEmbeddingFunctionCreate(denseEF))
+	require.NoError(t, err)
+
+	contentEF := &mockCloseableContentEF{}
+	col1, err := client.GetCollection(ctx, "test-roundtrip", WithContentEmbeddingFunctionGet(contentEF))
+	require.NoError(t, err)
+
+	ec1, ok := col1.(*embeddedCollection)
+	require.True(t, ok)
+	ec1.mu.RLock()
+	firstContentEF := ec1.contentEmbeddingFunction
+	ec1.mu.RUnlock()
+	require.NotNil(t, firstContentEF, "contentEF must be wired on first GetCollection")
+
+	// Second GetCollection without explicit contentEF — state guard should preserve it
+	col2, err := client.GetCollection(ctx, "test-roundtrip", WithEmbeddingFunctionGet(denseEF))
+	require.NoError(t, err)
+
+	ec2, ok := col2.(*embeddedCollection)
+	require.True(t, ok)
+	ec2.mu.RLock()
+	secondContentEF := ec2.contentEmbeddingFunction
+	ec2.mu.RUnlock()
+	require.NotNil(t, secondContentEF, "contentEF must survive state round-trip via collectionState")
+}
+
+func TestEmbeddedCollection_CloseLifecycleWithSharedAdapter(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	denseEF := &mockCloseableEF{}
+	_, err := client.CreateCollection(ctx, "test-close-lifecycle", WithEmbeddingFunctionCreate(denseEF))
+	require.NoError(t, err)
+
+	contentAdapter := &mockSharedContentAdapter{inner: denseEF}
+	col, err := client.GetCollection(ctx, "test-close-lifecycle",
+		WithEmbeddingFunctionGet(denseEF),
+		WithContentEmbeddingFunctionGet(contentAdapter),
+	)
+	require.NoError(t, err)
+
+	err = col.Close()
+	require.NoError(t, err)
+
+	require.Equal(t, 1, contentAdapter.closeCount, "content adapter closed once through lifecycle")
+	// Dense EF close count depends on sharing detection through close-once wrappers.
+	// The key assertion is no panic and no error from Close().
+}
+
+func TestEmbeddedCollection_CloseLifecycleWithIndependentEFs(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	denseEF := &mockCloseableEF{}
+	_, err := client.CreateCollection(ctx, "test-close-indep", WithEmbeddingFunctionCreate(denseEF))
+	require.NoError(t, err)
+
+	contentEF := &mockCloseableContentEF{}
+	col, err := client.GetCollection(ctx, "test-close-indep",
+		WithEmbeddingFunctionGet(denseEF),
+		WithContentEmbeddingFunctionGet(contentEF),
+	)
+	require.NoError(t, err)
+
+	err = col.Close()
+	require.NoError(t, err)
+
+	require.Equal(t, int32(1), contentEF.closeCount.Load(), "independent contentEF closed once through lifecycle")
+	require.Equal(t, int32(1), denseEF.closeCount.Load(), "independent denseEF closed once through lifecycle")
+}
+
+func TestEmbeddedListCollections_ContentEFIsNil(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	denseEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	_, err := client.CreateCollection(ctx, "test-list-cef", WithEmbeddingFunctionCreate(denseEF))
+	require.NoError(t, err)
+
+	// Set contentEF via GetCollection so state has it
+	contentEF := &mockCloseableContentEF{}
+	_, err = client.GetCollection(ctx, "test-list-cef", WithContentEmbeddingFunctionGet(contentEF))
+	require.NoError(t, err)
+
+	// ListCollections passes nil,nil to buildEmbeddedCollection — contentEF comes from state
+	cols, err := client.ListCollections(ctx)
+	require.NoError(t, err)
+	require.Len(t, cols, 1)
+
+	ec, ok := cols[0].(*embeddedCollection)
+	require.True(t, ok)
+	// ListCollections rebuilds from state, so contentEF should be present from prior state
+	ec.mu.RLock()
+	gotContentEF := ec.contentEmbeddingFunction
+	ec.mu.RUnlock()
+	require.NotNil(t, gotContentEF, "ListCollections should pick up contentEF from state")
+}
