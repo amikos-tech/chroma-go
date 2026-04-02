@@ -659,6 +659,36 @@ func newEmbeddedClientForRuntime(t *testing.T, runtime localEmbeddedRuntime) *em
 	}
 }
 
+func seedEmbeddedCollectionForTest(t *testing.T, runtime *memoryEmbeddedRuntime, name string, configuration *CollectionConfigurationImpl) string {
+	t.Helper()
+
+	var configurationMap map[string]any
+	var err error
+	if configuration != nil {
+		configurationMap, err = marshalToMap(configuration)
+		require.NoError(t, err)
+	}
+
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+
+	runtime.nextCollectionID++
+	collectionID := fmt.Sprintf("seed-col-%d", runtime.nextCollectionID)
+	key := collectionRuntimeKey(DefaultTenant, DefaultDatabase, name)
+	runtime.collections[key] = localchroma.EmbeddedCollection{
+		ID:                collectionID,
+		Name:              name,
+		Tenant:            DefaultTenant,
+		Database:          DefaultDatabase,
+		ConfigurationJSON: cloneMetadataMap(configurationMap),
+	}
+	runtime.collectionByID[collectionID] = key
+	runtime.records[collectionID] = map[string]memoryEmbeddedRecord{}
+	runtime.recordOrder[collectionID] = []string{}
+
+	return collectionID
+}
+
 func (s *scriptedEmbeddedRuntime) Heartbeat() (uint64, error) {
 	s.heartbeatCalls++
 	if s.heartbeatErr != nil {
@@ -1948,6 +1978,31 @@ func TestEmbeddedGetCollection_WithExplicitContentEF(t *testing.T) {
 	require.NotNil(t, gotContentEF, "contentEF must be wired into the embedded collection")
 }
 
+func TestEmbeddedGetCollection_DerivesDenseEFFromDualContentEF(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	ctx := context.Background()
+
+	writer := newEmbeddedClientForRuntime(t, runtime)
+	_, err := writer.CreateCollection(ctx, "test-dual-content")
+	require.NoError(t, err)
+
+	client := newEmbeddedClientForRuntime(t, runtime)
+	contentEF := &mockDualEF{}
+	got, err := client.GetCollection(ctx, "test-dual-content", WithContentEmbeddingFunctionGet(contentEF))
+	require.NoError(t, err)
+
+	ec, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+
+	ec.mu.RLock()
+	gotDenseEF := ec.embeddingFunction
+	gotContentEF := ec.contentEmbeddingFunction
+	ec.mu.RUnlock()
+
+	require.Same(t, contentEF, gotDenseEF, "dense EF should be derived from a dual-interface content EF")
+	require.Same(t, contentEF, gotContentEF, "explicit dual-interface content EF should be preserved")
+}
+
 func TestEmbeddedGetCollection_AutoWiresContentEFFromDenseEF(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
@@ -1967,6 +2022,42 @@ func TestEmbeddedGetCollection_AutoWiresContentEFFromDenseEF(t *testing.T) {
 	gotDenseEF := ec.embeddingFunction
 	ec.mu.RUnlock()
 	require.NotNil(t, gotDenseEF, "denseEF must be wired into the embedded collection")
+}
+
+func TestEmbeddedGetCollection_AutoWiresFromConfigurationOnly(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	ctx := context.Background()
+
+	configuration := NewCollectionConfiguration()
+	configuration.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type: "known",
+		Name: "consistent_hash",
+		Config: map[string]any{
+			"dim": float64(128),
+		},
+	})
+
+	seedEmbeddedCollectionForTest(t, runtime, "test-config-only", configuration)
+
+	client := newEmbeddedClientForRuntime(t, runtime)
+	got, err := client.GetCollection(ctx, "test-config-only")
+	require.NoError(t, err)
+
+	ec, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+
+	ec.mu.RLock()
+	gotDenseEF := ec.embeddingFunction
+	gotContentEF := ec.contentEmbeddingFunction
+	ec.mu.RUnlock()
+
+	require.NotNil(t, gotContentEF, "content EF should be auto-wired from collection configuration")
+	require.NotNil(t, gotDenseEF, "dense EF should be auto-wired from collection configuration")
+	require.Equal(t, "consistent_hash", gotDenseEF.Name())
+
+	unwrapper, ok := gotContentEF.(embeddingspkg.EmbeddingFunctionUnwrapper)
+	require.True(t, ok, "config-built content EF should unwrap to the dense EF")
+	require.Same(t, gotDenseEF, unwrapper.UnwrapEmbeddingFunction())
 }
 
 func TestEmbeddedGetCollection_ContentEFStateRoundTrip(t *testing.T) {
@@ -2001,6 +2092,60 @@ func TestEmbeddedGetCollection_ContentEFStateRoundTrip(t *testing.T) {
 	require.NotNil(t, secondContentEF, "contentEF must survive state round-trip via collectionState")
 }
 
+func TestEmbeddedGetCollection_LogsAutoWireErrorsToStderr(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	ctx := context.Background()
+
+	t.Setenv("OPENAI_API_KEY", "")
+	configuration := NewCollectionConfiguration()
+	configuration.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type: "known",
+		Name: "openai",
+		Config: map[string]any{
+			"api_key_env_var": "OPENAI_API_KEY",
+			"model_name":      "text-embedding-3-small",
+		},
+	})
+
+	seedEmbeddedCollectionForTest(t, runtime, "test-autowire-log", configuration)
+
+	client := newEmbeddedClientForRuntime(t, runtime)
+	output := captureStderr(t, func() {
+		got, getErr := client.GetCollection(ctx, "test-autowire-log")
+		require.NoError(t, getErr)
+		require.NotNil(t, got)
+	})
+
+	require.Contains(t, output, "failed to auto-wire content embedding function")
+	require.Contains(t, output, "failed to auto-wire embedding function")
+	require.Contains(t, output, "OPENAI_API_KEY")
+}
+
+func TestEmbeddedGetCollection_PreservesExistingDenseEFWhenOnlyContentEFChanges(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	initialDenseEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	_, err := client.CreateCollection(ctx, "test-dense-guard", WithEmbeddingFunctionCreate(initialDenseEF))
+	require.NoError(t, err)
+
+	contentEF := &mockDualEF{}
+	got, err := client.GetCollection(ctx, "test-dense-guard", WithContentEmbeddingFunctionGet(contentEF))
+	require.NoError(t, err)
+
+	ec, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+
+	ec.mu.RLock()
+	gotDenseEF := ec.embeddingFunction
+	gotContentEF := ec.contentEmbeddingFunction
+	ec.mu.RUnlock()
+
+	require.Same(t, initialDenseEF, gotDenseEF, "existing dense EF should survive when only content EF is provided")
+	require.Same(t, contentEF, gotContentEF, "new content EF should still be stored")
+}
+
 func TestEmbeddedCollection_CloseLifecycleWithSharedAdapter(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
@@ -2021,8 +2166,7 @@ func TestEmbeddedCollection_CloseLifecycleWithSharedAdapter(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 1, contentAdapter.closeCount, "content adapter closed once through lifecycle")
-	// Dense EF close count depends on sharing detection through close-once wrappers.
-	// The key assertion is no panic and no error from Close().
+	require.Equal(t, int32(1), denseEF.closeCount.Load(), "shared dense EF should only be closed through the content adapter")
 }
 
 func TestEmbeddedCollection_CloseLifecycleWithIndependentEFs(t *testing.T) {

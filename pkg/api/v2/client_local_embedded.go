@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	stderrors "errors"
-	"io"
 	"math"
 	"reflect"
 	"strings"
@@ -527,7 +526,10 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 	client.collectionStateMu.RUnlock()
 
 	if contentEF == nil && (existingState == nil || existingState.contentEmbeddingFunction == nil) {
-		autoWiredContentEF, _ := BuildContentEFFromConfig(configuration)
+		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
+		if buildErr != nil {
+			logAutoWireBuildErrorToStderr(model.Name, "content embedding function", buildErr)
+		}
 		contentEF = autoWiredContentEF
 	}
 
@@ -538,7 +540,10 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 			ef = denseFromContent
 		}
 		if ef == nil {
-			autoWiredEF, _ := BuildEmbeddingFunctionFromConfig(configuration)
+			autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
+			if buildErr != nil {
+				logAutoWireBuildErrorToStderr(model.Name, "embedding function", buildErr)
+			}
 			ef = autoWiredEF
 		}
 	}
@@ -1451,31 +1456,7 @@ func (c *embeddedCollection) Close() error {
 	contentEF := c.contentEmbeddingFunction
 	c.mu.RUnlock()
 	c.closeOnce.Do(func() {
-		var errs []error
-		if contentEF != nil {
-			if closer, ok := contentEF.(io.Closer); ok {
-				if err := safeCloseEF(closer); err != nil {
-					errs = append(errs, err)
-				}
-			}
-		}
-		if ef != nil {
-			shared := false
-			denseEF := unwrapCloseOnceEF(ef)
-			if unwrapper, ok := contentEF.(embeddingspkg.EmbeddingFunctionUnwrapper); ok {
-				shared = unwrapper.UnwrapEmbeddingFunction() == denseEF
-			} else if efFromContent, ok := contentEF.(embeddingspkg.EmbeddingFunction); ok {
-				shared = efFromContent == denseEF
-			}
-			if !shared {
-				if closer, ok := ef.(io.Closer); ok {
-					if err := safeCloseEF(closer); err != nil {
-						errs = append(errs, err)
-					}
-				}
-			}
-		}
-		c.closeErr = stderrors.Join(errs...)
+		c.closeErr = closeEmbeddingFunctions(ef, contentEF)
 	})
 	return c.closeErr
 }
