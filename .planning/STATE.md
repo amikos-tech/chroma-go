@@ -6,7 +6,7 @@ status: "Phase 18 shipped — PR #487"
 stopped_at: Phase 18 context gathered
 last_updated: "2026-04-02T13:14:08.001Z"
 progress:
-  total_phases: 18
+  total_phases: 20
   completed_phases: 18
   total_plans: 38
   completed_plans: 38
@@ -148,6 +148,8 @@ Recent decisions affecting current work:
 - Added Phase 7: Originally vLLM/Nemotron, pivoted to Voyage Multimodal Adoption (vLLM lacks NVOmniEmbedModel support).
 - Added Phase 8: Document Gemini and Nemotron multimodal embedding functions.
 - Added Phase 9: Convenience Constructors and Documentation Polish — reduce Content API verbosity with shorthand constructors.
+- Added Phase 19: Embedded Client EF Lifecycle Hardening — fix TOCTOU race, state/delete/close cleanup, close-once wrapping, auto-wire guards, structured logger (#484, #485, #488, #489).
+- Added Phase 20: GetOrCreateCollection contentEF Support — add contentEmbeddingFunction to create/getOrCreate paths (#486).
 
 ### Pending Todos
 
