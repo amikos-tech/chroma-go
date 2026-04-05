@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: "Phase 17 shipped — PR #483"
-stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-04-02T09:42:28.701Z"
+status: "Phase 18 shipped — PR #487"
+stopped_at: Phase 18 context gathered
+last_updated: "2026-04-02T13:14:08.001Z"
 progress:
-  total_phases: 18
-  completed_phases: 17
-  total_plans: 36
-  completed_plans: 36
+  total_phases: 20
+  completed_phases: 18
+  total_plans: 38
+  completed_plans: 38
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 12 — sdk-auto-wiring-research
+**Current focus:** Phase 18 — embedded-client-contentembeddingfunction-parity
 
 ## Current Position
 
@@ -148,6 +148,8 @@ Recent decisions affecting current work:
 - Added Phase 7: Originally vLLM/Nemotron, pivoted to Voyage Multimodal Adoption (vLLM lacks NVOmniEmbedModel support).
 - Added Phase 8: Document Gemini and Nemotron multimodal embedding functions.
 - Added Phase 9: Convenience Constructors and Documentation Polish — reduce Content API verbosity with shorthand constructors.
+- Added Phase 19: Embedded Client EF Lifecycle Hardening — fix TOCTOU race, state/delete/close cleanup, close-once wrapping, auto-wire guards, structured logger (#484, #485, #488, #489).
+- Added Phase 20: GetOrCreateCollection contentEF Support — add contentEmbeddingFunction to create/getOrCreate paths (#486).
 
 ### Pending Todos
 
@@ -171,6 +173,6 @@ None.
 
 ## Session
 
-**Last Date:** 2026-04-02T07:38:41Z
-**Stopped At:** Completed 17-01-PLAN.md
-**Resume File:** None
+**Last Date:** 2026-04-02T10:21:35.706Z
+**Stopped At:** Phase 18 context gathered
+**Resume File:** .planning/phases/18-embedded-client-contentembeddingfunction-parity/18-CONTEXT.md

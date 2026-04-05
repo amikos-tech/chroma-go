@@ -319,3 +319,93 @@ func TestCollectionImpl_Close_ContentPanicStillClosesDenseEF(t *testing.T) {
 	assert.Contains(t, output, "content close exploded", "panic must be reported to stderr")
 	assert.Equal(t, int32(1), denseEF.closeCount.Load(), "dense EF must still be closed after content EF panic")
 }
+
+func TestEmbeddedCollection_Close_SkipsSharedDenseCloseViaUnwrapper(t *testing.T) {
+	denseEF := &mockCloseableEF{}
+	contentAdapter := &mockSharedContentAdapter{inner: denseEF}
+	owner := &embeddedCollection{
+		embeddingFunction:        denseEF,
+		contentEmbeddingFunction: contentAdapter,
+	}
+	owner.ownsEF.Store(true)
+
+	err := owner.Close()
+	require.NoError(t, err)
+	assert.Equal(t, 1, contentAdapter.closeCount, "content adapter must be closed exactly once")
+	assert.Equal(t, int32(1), denseEF.closeCount.Load(), "shared dense EF must not be double-closed")
+}
+
+func TestEmbeddedCollection_Close_SkipsSharedDenseCloseViaDualInterfaceEF(t *testing.T) {
+	dual := &mockDualEF{}
+	owner := &embeddedCollection{
+		embeddingFunction:        dual,
+		contentEmbeddingFunction: dual,
+	}
+	owner.ownsEF.Store(true)
+
+	err := owner.Close()
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), dual.closeCount.Load(), "shared dual-interface EF must only be closed once")
+}
+
+func TestEmbeddedCollection_Close_DualError(t *testing.T) {
+	denseErr := io.ErrClosedPipe
+	contentErr := assert.AnError
+	owner := &embeddedCollection{
+		embeddingFunction:        &mockFailingCloseEF{closeErr: denseErr},
+		contentEmbeddingFunction: &mockFailingCloseContentEF{closeErr: contentErr},
+	}
+	owner.ownsEF.Store(true)
+
+	err := owner.Close()
+	require.Error(t, err)
+	assert.ErrorIs(t, err, contentErr)
+	assert.ErrorIs(t, err, denseErr)
+}
+
+func TestEmbeddedCollection_Close_ClosesIndependentContentAndDenseEFs(t *testing.T) {
+	denseEF := &mockCloseableEF{}
+	contentEF := &mockCloseableContentEF{}
+	owner := &embeddedCollection{
+		embeddingFunction:        denseEF,
+		contentEmbeddingFunction: contentEF,
+	}
+	owner.ownsEF.Store(true)
+
+	err := owner.Close()
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), contentEF.closeCount.Load(), "independent content EF must be closed")
+	assert.Equal(t, int32(1), denseEF.closeCount.Load(), "independent dense EF must be closed")
+}
+
+func TestEmbeddedCollection_Close_NonCloseableContentEFStillClosesDenseEF(t *testing.T) {
+	denseEF := &mockCloseableEF{}
+	nonCloseable := &mockNonCloseableContentEF{}
+	owner := &embeddedCollection{
+		embeddingFunction:        denseEF,
+		contentEmbeddingFunction: nonCloseable,
+	}
+	owner.ownsEF.Store(true)
+
+	err := owner.Close()
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), denseEF.closeCount.Load(), "dense EF must still be closed when content EF is not closeable")
+}
+
+func TestEmbeddedCollection_Close_ContentPanicStillClosesDenseEF(t *testing.T) {
+	denseEF := &mockCloseableEF{}
+	owner := &embeddedCollection{
+		embeddingFunction:        denseEF,
+		contentEmbeddingFunction: &mockPanickingCloseContentEF{},
+	}
+	owner.ownsEF.Store(true)
+
+	output := captureStderr(t, func() {
+		err := owner.Close()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "panic during EF close")
+	})
+
+	assert.Contains(t, output, "content close exploded", "panic must be reported to stderr")
+	assert.Equal(t, int32(1), denseEF.closeCount.Load(), "dense EF must still be closed after content EF panic")
+}

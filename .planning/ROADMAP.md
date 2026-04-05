@@ -6,7 +6,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 
 ## Milestones
 
-- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-18 (current planning milestone)
+- 🚧 **v0.4.1 Provider-Neutral Multimodal Foundations** - Phases 1-20 (current planning milestone)
 
 ## v0.4.1 Provider-Neutral Multimodal Foundations
 
@@ -31,7 +31,7 @@ This roadmap initializes GSD planning for the current brownfield milestone focus
 - [x] **Phase 15: OpenRouter Embeddings Compatibility** - Add first-class OpenRouter support via provider preferences and encoding_format. (issue #438) (completed 2026-03-30)
 - [x] **Phase 16: Twelve Labs Embedding Function** - Add Twelve Labs multimodal embedding provider. (issue #190) (completed 2026-04-01)
 - [x] **Phase 17: Cloud RRF and GroupBy Test Coverage** - Add cloud integration tests for Search API RRF and GroupBy primitives. (issue #462) (completed 2026-04-02)
-- [ ] **Phase 18: Embedded Client contentEmbeddingFunction Parity** - Add contentEmbeddingFunction support to embeddedCollection for feature parity with HTTP client. (issue #472)
+- [x] **Phase 18: Embedded Client contentEmbeddingFunction Parity** - Add contentEmbeddingFunction support to embeddedCollection for feature parity with HTTP client. (issue #472) (completed 2026-04-02)
 
 ## Phase Details
 
@@ -182,7 +182,9 @@ Plans:
 | 15. OpenRouter Embeddings | 2/2 | Complete    | 2026-03-30 |
 | 16. Twelve Labs EF | 2/2 | Complete    | 2026-04-01 |
 | 17. Cloud RRF/GroupBy Tests | 1/1 | Complete    | 2026-04-02 |
-| 18. Embedded contentEF Parity | 0/0 | Not started | - |
+| 18. Embedded contentEF Parity | 2/2 | Complete    | 2026-04-02 |
+| 19. EF Lifecycle Hardening | 0/0 | Not Started | - |
+| 20. GetOrCreateCollection contentEF | 0/0 | Not Started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
 
@@ -334,7 +336,44 @@ Plans:
   4. `embeddedCollection.Fork()` propagates contentEF with close-once wrapping.
   5. Embedded `GetCollection()` respects `WithContentEmbeddingFunctionGet` option.
   6. Tests cover lifecycle, Fork, Close, and auto-wiring for content EF on embedded path.
+**Plans:** 2/2 plans complete
+
+Plans:
+- [x] 18-01-PLAN.md — Add contentEF fields, state management, buildEmbeddedCollection wiring, GetCollection auto-wiring, Close() sharing detection
+- [x] 18-02-PLAN.md — Add Close() sharing detection tests and GetCollection contentEF tests
+
+### Phase 19: Embedded Client EF Lifecycle Hardening
+
+**Goal:** Fix all embedded client EF robustness gaps: TOCTOU race in GetCollection auto-wiring, state map cleanup on delete and close, close-once wrapping in buildEmbeddedCollection, symmetric unwrapping in isDenseEFSharedWithContent, guard auto-wired EF assignment against build errors, and add structured logger for observability parity.
+**Depends on:** Phase 18
+**Issues**: #484, #485, #488, #489
+**Success Criteria** (what must be TRUE):
+  1. GetCollection auto-wiring uses check-and-set under write lock to prevent TOCTOU race.
+  2. `deleteCollectionState` closes EFs before removing the map entry.
+  3. `embeddedLocalClient.Close()` iterates `collectionState` to close any remaining EFs.
+  4. `localDeleteCollectionFromCache` handles `*embeddedCollection` type for EF cleanup on delete.
+  5. `buildEmbeddedCollection` wraps EFs in close-once wrappers matching the HTTP client pattern.
+  6. `isDenseEFSharedWithContent` unwraps both dense and content EFs symmetrically.
+  7. Auto-wired EFs are only assigned when the build error is nil.
+  8. Embedded client has an optional structured logger for auto-wire and close errors.
+  9. Tests cover all fixed paths with no regressions.
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 18 to break down)
+- [ ] TBD (run /gsd:plan-phase 19 to break down)
+
+### Phase 20: GetOrCreateCollection contentEF Support
+
+**Goal:** Add contentEmbeddingFunction support to GetOrCreateCollection by extending CreateCollectionOp with a contentEF field, adding WithContentEmbeddingFunctionCreate option, and forwarding contentEF to GetCollection in both HTTP and embedded client paths.
+**Depends on:** Phase 19
+**Issues**: #486
+**Success Criteria** (what must be TRUE):
+  1. `CreateCollectionOp` includes a `contentEmbeddingFunction` field.
+  2. `WithContentEmbeddingFunctionCreate` option is available for CreateCollection and GetOrCreateCollection.
+  3. `GetOrCreateCollection` forwards contentEF to `GetCollection` via `WithContentEmbeddingFunctionGet`.
+  4. Both HTTP and embedded client paths handle the new option.
+  5. Tests cover GetOrCreateCollection with explicit contentEF.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 20 to break down)

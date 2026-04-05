@@ -71,4 +71,4 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 | Pivot Phase 7 from vLLM/Nemotron to VoyageAI | vLLM lacks NVOmniEmbedModel support; VoyageAI multimodal validates portability with text/image/video | ✓ Good |
 
 ---
-*Last updated: 2026-04-02 — Phase 17 (cloud-rrf-and-groupby-test-coverage) complete: cloud integration tests for Search API RRF (dense+sparse fusion with behavioral assertions) and GroupBy (MinK/MaxK per-group capping via RowGroups); phases 16 (Twelve Labs EF) and 17 completed since last update.*
+*Last updated: 2026-04-02 — Phase 18 (embedded-client-contentembeddingfunction-parity) complete: contentEmbeddingFunction wired into embedded client with struct fields, state snapshots, GetCollection auto-wiring, and Close() sharing detection mirroring HTTP client. This is the last phase of v0.4.1 milestone.*

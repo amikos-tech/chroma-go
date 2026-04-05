@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	stderrors "errors"
-	"io"
 	"math"
 	"reflect"
 	"strings"
@@ -19,11 +18,12 @@ import (
 )
 
 type embeddedCollectionState struct {
-	embeddingFunction embeddingspkg.EmbeddingFunction
-	metadata          CollectionMetadata
-	configuration     CollectionConfiguration
-	schema            *Schema
-	dimension         int
+	embeddingFunction        embeddingspkg.EmbeddingFunction
+	contentEmbeddingFunction embeddingspkg.ContentEmbeddingFunction
+	metadata                 CollectionMetadata
+	configuration            CollectionConfiguration
+	schema                   *Schema
+	dimension                int
 }
 
 type localClientState interface {
@@ -400,7 +400,7 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		overrideEF = nil
 	}
 
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, true)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, nil, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -514,12 +514,56 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 		return nil, errors.Wrap(err, "error getting collection")
 	}
 
-	if req.embeddingFunction != nil {
+	configuration := NewCollectionConfigurationFromMap(model.ConfigurationJSON)
+
+	contentEF := req.contentEmbeddingFunction
+	ef := req.embeddingFunction
+
+	// Only auto-wire when no explicit EF was provided AND state doesn't already
+	// hold one from a prior CreateCollection or GetCollection call.
+	// Copy the flags under the lock to avoid racing with upsertCollectionState.
+	var hasContentEF, hasEF bool
+	client.collectionStateMu.RLock()
+	if s := client.collectionState[model.ID]; s != nil {
+		hasContentEF = s.contentEmbeddingFunction != nil
+		hasEF = s.embeddingFunction != nil
+	}
+	client.collectionStateMu.RUnlock()
+
+	if contentEF == nil && !hasContentEF {
+		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
+		if buildErr != nil {
+			logAutoWireBuildErrorToStderr(model.Name, "content embedding function", buildErr)
+		}
+		contentEF = autoWiredContentEF
+	}
+
+	if ef == nil && !hasEF {
+		if unwrapper, ok := contentEF.(embeddingspkg.EmbeddingFunctionUnwrapper); ok {
+			ef = unwrapper.UnwrapEmbeddingFunction()
+		} else if denseFromContent, ok := contentEF.(embeddingspkg.EmbeddingFunction); ok {
+			ef = denseFromContent
+		}
+		if ef == nil {
+			autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
+			if buildErr != nil {
+				logAutoWireBuildErrorToStderr(model.Name, "embedding function", buildErr)
+			}
+			ef = autoWiredEF
+		}
+	}
+
+	if ef != nil || contentEF != nil {
 		client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
-			state.embeddingFunction = req.embeddingFunction
+			if ef != nil {
+				state.embeddingFunction = ef
+			}
+			if contentEF != nil {
+				state.contentEmbeddingFunction = contentEF
+			}
 		})
 	}
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, req.embeddingFunction, true)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, ef, contentEF, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -592,7 +636,7 @@ func (client *embeddedLocalClient) ListCollections(ctx context.Context, opts ...
 
 	collections := make([]Collection, 0, len(models))
 	for _, model := range models {
-		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil, true)
+		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil, nil, true)
 		if buildErr != nil {
 			return nil, errors.Wrapf(buildErr, "error building listed collection %s", model.ID)
 		}
@@ -663,11 +707,12 @@ func (client *embeddedLocalClient) upsertCollectionState(collectionID string, up
 	}
 
 	return embeddedCollectionState{
-		embeddingFunction: state.embeddingFunction,
-		metadata:          state.metadata,
-		configuration:     state.configuration,
-		schema:            state.schema,
-		dimension:         state.dimension,
+		embeddingFunction:        state.embeddingFunction,
+		contentEmbeddingFunction: state.contentEmbeddingFunction,
+		metadata:                 state.metadata,
+		configuration:            state.configuration,
+		schema:                   state.schema,
+		dimension:                state.dimension,
 	}
 }
 
@@ -694,7 +739,7 @@ func (client *embeddedLocalClient) collectionDimension(collectionID string, fall
 	return state.dimension
 }
 
-func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction, ownsEF bool) (*embeddedCollection, error) {
+func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction, overrideContentEF embeddingspkg.ContentEmbeddingFunction, ownsEF bool) (*embeddedCollection, error) {
 	tenantName := model.Tenant
 	databaseName := model.Database
 
@@ -743,6 +788,9 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		if overrideEF != nil {
 			state.embeddingFunction = overrideEF
 		}
+		if overrideContentEF != nil {
+			state.contentEmbeddingFunction = overrideContentEF
+		}
 		if metadata != nil {
 			state.metadata = metadata
 		}
@@ -757,16 +805,17 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 	tenant := NewTenant(tenantName)
 	database := NewDatabase(databaseName, tenant)
 	collection := &embeddedCollection{
-		name:              model.Name,
-		id:                model.ID,
-		tenant:            tenant,
-		database:          database,
-		metadata:          snapshot.metadata,
-		configuration:     snapshot.configuration,
-		schema:            snapshot.schema,
-		dimension:         snapshot.dimension,
-		embeddingFunction: snapshot.embeddingFunction,
-		client:            client,
+		name:                     model.Name,
+		id:                       model.ID,
+		tenant:                   tenant,
+		database:                 database,
+		metadata:                 snapshot.metadata,
+		configuration:            snapshot.configuration,
+		schema:                   snapshot.schema,
+		dimension:                snapshot.dimension,
+		embeddingFunction:        snapshot.embeddingFunction,
+		contentEmbeddingFunction: snapshot.contentEmbeddingFunction,
+		client:                   client,
 	}
 	collection.ownsEF.Store(ownsEF)
 	client.state.localAddCollectionToCache(collection)
@@ -785,11 +834,12 @@ type embeddedCollection struct {
 	schema        *Schema
 	dimension     int
 
-	embeddingFunction embeddingspkg.EmbeddingFunction
-	client            *embeddedLocalClient
-	ownsEF            atomic.Bool
-	closeOnce         sync.Once
-	closeErr          error
+	embeddingFunction        embeddingspkg.EmbeddingFunction
+	contentEmbeddingFunction embeddingspkg.ContentEmbeddingFunction
+	client                   *embeddedLocalClient
+	ownsEF                   atomic.Bool
+	closeOnce                sync.Once
+	closeErr                 error
 }
 
 func (c *embeddedCollection) Name() string {
@@ -1406,18 +1456,12 @@ func (c *embeddedCollection) Close() error {
 	if !c.ownsEF.Load() {
 		return nil
 	}
-	ef := c.embeddingFunctionSnapshot()
+	c.mu.RLock()
+	ef := c.embeddingFunction
+	contentEF := c.contentEmbeddingFunction
+	c.mu.RUnlock()
 	c.closeOnce.Do(func() {
-		defer func() {
-			if r := recover(); r != nil {
-				c.closeErr = reportClosePanic(r)
-			}
-		}()
-		if ef != nil {
-			if closer, ok := ef.(io.Closer); ok {
-				c.closeErr = closer.Close()
-			}
-		}
+		c.closeErr = closeEmbeddingFunctions(ef, contentEF)
 	})
 	return c.closeErr
 }
