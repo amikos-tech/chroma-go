@@ -183,7 +183,7 @@ Plans:
 | 16. Twelve Labs EF | 2/2 | Complete    | 2026-04-01 |
 | 17. Cloud RRF/GroupBy Tests | 1/1 | Complete    | 2026-04-02 |
 | 18. Embedded contentEF Parity | 2/2 | Complete    | 2026-04-02 |
-| 19. EF Lifecycle Hardening | 0/0 | Not Started | - |
+| 19. EF Lifecycle Hardening | 0/2 | Not Started | - |
 | 20. GetOrCreateCollection contentEF | 0/0 | Not Started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
@@ -347,6 +347,7 @@ Plans:
 **Goal:** Fix all embedded client EF robustness gaps: TOCTOU race in GetCollection auto-wiring, state map cleanup on delete and close, close-once wrapping in buildEmbeddedCollection, symmetric unwrapping in isDenseEFSharedWithContent, guard auto-wired EF assignment against build errors, and add structured logger for observability parity.
 **Depends on:** Phase 18
 **Issues**: #484, #485, #488, #489
+**Requirements**: [SC-01, SC-02, SC-03, SC-04, SC-05, SC-06, SC-07, SC-08, SC-09]
 **Success Criteria** (what must be TRUE):
   1. GetCollection auto-wiring uses check-and-set under write lock to prevent TOCTOU race.
   2. `deleteCollectionState` closes EFs before removing the map entry.
@@ -357,10 +358,11 @@ Plans:
   7. Auto-wired EFs are only assigned when the build error is nil.
   8. Embedded client has an optional structured logger for auto-wire and close errors.
   9. Tests cover all fixed paths with no regressions.
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 19 to break down)
+- [ ] 19-01-PLAN.md — Fix TOCTOU race, close-once wrapping, symmetric unwrap, build error guard, delete/close cleanup, and tests
+- [ ] 19-02-PLAN.md — Add WithPersistentLogger option and wire structured logger into embedded client
 
 ### Phase 20: GetOrCreateCollection contentEF Support
 
