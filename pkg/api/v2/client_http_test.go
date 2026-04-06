@@ -566,6 +566,95 @@ func TestListCollections_ParsesSpannQuantizeFromSchemaResponse(t *testing.T) {
 	require.Equal(t, SpannQuantizationFourBitRabitQWithUSearch, embeddingVT.FloatList.VectorIndex.Config.Spann.Quantize)
 }
 
+func TestGetCollection_BuildErrorGuard(t *testing.T) {
+	configuration := NewCollectionConfiguration()
+	configuration.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type:   "known",
+		Name:   "nonexistent_provider_xyz",
+		Config: map[string]any{},
+	})
+	configurationMap, err := marshalToMap(configuration)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v2/tenants/default_tenant/databases/default_database/collections/test" &&
+			r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			require.NoError(t, json.NewEncoder(w).Encode(&CollectionModel{
+				ID:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+				Name:              "test",
+				Tenant:            DefaultTenant,
+				Database:          DefaultDatabase,
+				ConfigurationJSON: configurationMap,
+			}))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, client.Close())
+	}()
+
+	collection, err := client.GetCollection(context.Background(), "test")
+	require.NoError(t, err)
+
+	impl, ok := collection.(*CollectionImpl)
+	require.True(t, ok)
+	require.Nil(t, impl.embeddingFunction, "EF must stay nil when auto-wire build fails")
+	require.Nil(t, impl.contentEmbeddingFunction, "content EF must stay nil when auto-wire build fails")
+}
+
+func TestListCollections_BuildErrorGuard(t *testing.T) {
+	configuration := NewCollectionConfiguration()
+	configuration.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type:   "known",
+		Name:   "nonexistent_provider_xyz",
+		Config: map[string]any{},
+	})
+	configurationMap, err := marshalToMap(configuration)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v2/tenants/default_tenant/databases/default_database/collections" &&
+			r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			require.NoError(t, json.NewEncoder(w).Encode([]CollectionModel{
+				{
+					ID:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+					Name:              "test",
+					Tenant:            DefaultTenant,
+					Database:          DefaultDatabase,
+					ConfigurationJSON: configurationMap,
+				},
+			}))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, client.Close())
+	}()
+
+	collections, err := client.ListCollections(context.Background())
+	require.NoError(t, err)
+	require.Len(t, collections, 1)
+
+	impl, ok := collections[0].(*CollectionImpl)
+	require.True(t, ok)
+	require.Nil(t, impl.embeddingFunction, "EF must stay nil when auto-wire build fails")
+	require.Nil(t, impl.contentEmbeddingFunction, "content EF must stay nil when auto-wire build fails")
+}
+
 func TestCreateCollection(t *testing.T) {
 	var tests = []struct {
 		name                        string

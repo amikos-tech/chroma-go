@@ -531,6 +531,9 @@ func WithPersistentClientOption(option ClientOption) PersistentClientOption {
 // client so that localDeleteCollectionFromCache errors are also captured.
 func WithPersistentLogger(l logger.Logger) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
+		if l == nil {
+			return errors.New("persistent logger cannot be nil")
+		}
 		cfg.logger = l
 		cfg.clientOptions = append(cfg.clientOptions, WithLogger(l))
 		return nil

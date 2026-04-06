@@ -2307,6 +2307,26 @@ func TestEmbeddedLocalClient_Close_CleansUpCollectionState(t *testing.T) {
 	client.collectionStateMu.RUnlock()
 }
 
+func TestEmbeddedLocalClient_Close_LogsCloseErrors(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	log := &capturingLogger{}
+
+	client := newEmbeddedClientForRuntime(t, runtime)
+	client.logger = log
+
+	mockEF := &mockFailingCloseEF{closeErr: errors.New("mock close failure")}
+	client.collectionStateMu.Lock()
+	client.collectionState["test-id"] = &embeddedCollectionState{
+		embeddingFunction: wrapEFCloseOnce(mockEF),
+	}
+	client.collectionStateMu.Unlock()
+
+	err := client.Close()
+	require.Error(t, err)
+	require.GreaterOrEqual(t, log.errorCount, 1, "logger must receive at least one Error call")
+	require.Contains(t, log.lastMsg, "failed to close EF during client shutdown")
+}
+
 func TestEmbeddedBuildCollection_CloseOnceWrapping(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
@@ -2371,6 +2391,33 @@ func TestEmbeddedGetCollection_BuildErrorGuard(t *testing.T) {
 	ec2.mu.RLock()
 	require.NotNil(t, ec2.embeddingFunction, "explicit EF must be set on subsequent GetCollection")
 	ec2.mu.RUnlock()
+}
+
+func TestEmbeddedCreateCollection_StoresWrappedEFInState(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	mockEF := &mockCloseableEF{}
+
+	collection, err := client.CreateCollection(ctx, "create-wrap-test", WithEmbeddingFunctionCreate(mockEF))
+	require.NoError(t, err)
+
+	embedded, ok := collection.(*embeddedCollection)
+	require.True(t, ok)
+
+	client.collectionStateMu.RLock()
+	state := client.collectionState[embedded.ID()]
+	require.NotNil(t, state, "state entry must exist after CreateCollection")
+	_, wrapped := state.embeddingFunction.(*closeOnceEF)
+	require.True(t, wrapped, "state embeddingFunction must be stored as *closeOnceEF")
+	client.collectionStateMu.RUnlock()
+
+	client.deleteCollectionState(embedded.ID())
+
+	err = embedded.Close()
+	require.NoError(t, err)
+	require.Equal(t, int32(1), mockEF.closeCount.Load(), "CreateCollection state and collection must share one close-once wrapper")
 }
 
 func TestEmbeddedDeleteAndCloseShareWrapper(t *testing.T) {
@@ -2442,9 +2489,8 @@ func TestEmbeddedDeleteAndCloseRace(t *testing.T) {
 	close(ready)
 	wg.Wait()
 
-	// Close-once wrappers ensure at most one physical close
-	require.LessOrEqual(t, mockEF.closeCount.Load(), int32(2), "close-once wrapper limits physical close")
-	require.LessOrEqual(t, mockContentEF.closeCount.Load(), int32(2), "close-once wrapper limits physical close")
+	require.Equal(t, int32(1), mockEF.closeCount.Load(), "shared wrapper sync.Once must close dense EF exactly once")
+	require.Equal(t, int32(1), mockContentEF.closeCount.Load(), "shared wrapper sync.Once must close content EF exactly once")
 }
 
 func TestEmbeddedListCollections_ContentEFIsNil(t *testing.T) {
@@ -2558,4 +2604,12 @@ func TestWithPersistentLogger_PropagatesToStateClient(t *testing.T) {
 	base, baseErr := newBaseAPIClient(cfg.clientOptions...)
 	require.NoError(t, baseErr)
 	require.Equal(t, log, base.logger, "state client logger must be the same capturingLogger")
+}
+
+func TestWithPersistentLogger_RejectsNil(t *testing.T) {
+	cfg := defaultLocalClientConfig()
+
+	err := WithPersistentLogger(nil)(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "persistent logger cannot be nil")
 }

@@ -388,8 +388,9 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 
 	overrideEF := req.embeddingFunction
 	if isNewCreation {
+		overrideEF = wrapEFCloseOnce(req.embeddingFunction)
 		client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
-			state.embeddingFunction = req.embeddingFunction
+			state.embeddingFunction = overrideEF
 			if req.Metadata != nil {
 				state.metadata = req.Metadata
 			}
