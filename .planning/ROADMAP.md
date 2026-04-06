@@ -183,7 +183,7 @@ Plans:
 | 16. Twelve Labs EF | 2/2 | Complete    | 2026-04-01 |
 | 17. Cloud RRF/GroupBy Tests | 1/1 | Complete    | 2026-04-02 |
 | 18. Embedded contentEF Parity | 2/2 | Complete    | 2026-04-02 |
-| 19. EF Lifecycle Hardening | 0/0 | Not Started | - |
+| 19. EF Lifecycle Hardening | 2/2 | Complete    | 2026-04-06 |
 | 20. GetOrCreateCollection contentEF | 0/0 | Not Started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
@@ -357,10 +357,10 @@ Plans:
   7. Auto-wired EFs are only assigned when the build error is nil.
   8. Embedded client has an optional structured logger for auto-wire and close errors.
   9. Tests cover all fixed paths with no regressions.
-**Plans:** 0 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 19 to break down)
+- [x] TBD (run /gsd:plan-phase 19 to break down) (completed 2026-04-06)
 
 ### Phase 20: GetOrCreateCollection contentEF Support
 
