@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -1374,6 +1375,21 @@ func TestEmbeddedLocalClientCRUD_CollectionsLifecycle(t *testing.T) {
 	require.Equal(t, 0, count)
 }
 
+func TestEmbeddedLocalClientDeleteCollection_PropagatesStateCloseError(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	failingEF := &mockFailingCloseEF{closeErr: errors.New("delete cleanup failure")}
+	_, err := client.CreateCollection(ctx, "delete-close-error", WithEmbeddingFunctionCreate(failingEF))
+	require.NoError(t, err)
+
+	err = client.DeleteCollection(ctx, "delete-close-error")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "delete cleanup failure")
+	require.Equal(t, int32(1), failingEF.closeCount.Load(), "DeleteCollection must still physically close the EF once")
+}
+
 func TestEmbeddedLocalClientCreateCollection_PersistsMetadataConfigurationAndSchemaAcrossClients(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	writer := newEmbeddedClientForRuntime(t, runtime)
@@ -2327,6 +2343,26 @@ func TestEmbeddedLocalClient_Close_LogsCloseErrors(t *testing.T) {
 	require.Contains(t, log.lastMsg, "failed to close EF during client shutdown")
 }
 
+func TestEmbeddedLocalClient_Close_IsSafeToCallTwice(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	mockEF := &mockCloseableEF{}
+	mockContentEF := &mockCloseableContentEF{}
+
+	client.collectionStateMu.Lock()
+	client.collectionState["test-id"] = &embeddedCollectionState{
+		embeddingFunction:        wrapEFCloseOnce(mockEF),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(mockContentEF),
+	}
+	client.collectionStateMu.Unlock()
+
+	require.NoError(t, client.Close())
+	require.NoError(t, client.Close())
+	require.Equal(t, int32(1), mockEF.closeCount.Load(), "dense EF must still be closed exactly once after repeated Close")
+	require.Equal(t, int32(1), mockContentEF.closeCount.Load(), "content EF must still be closed exactly once after repeated Close")
+}
+
 func TestEmbeddedBuildCollection_CloseOnceWrapping(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
@@ -2391,6 +2427,69 @@ func TestEmbeddedGetCollection_BuildErrorGuard(t *testing.T) {
 	ec2.mu.RLock()
 	require.NotNil(t, ec2.embeddingFunction, "explicit EF must be set on subsequent GetCollection")
 	ec2.mu.RUnlock()
+}
+
+func TestEmbeddedGetCollection_AutoWireRecoveryAfterInitialBuildFailure(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	ctx := context.Background()
+
+	origValue, hadOrig := os.LookupEnv("OPENAI_API_KEY")
+	require.NoError(t, os.Unsetenv("OPENAI_API_KEY"))
+	defer func() {
+		if hadOrig {
+			require.NoError(t, os.Setenv("OPENAI_API_KEY", origValue))
+			return
+		}
+		require.NoError(t, os.Unsetenv("OPENAI_API_KEY"))
+	}()
+
+	configuration := NewCollectionConfiguration()
+	configuration.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type: "known",
+		Name: "openai",
+		Config: map[string]any{
+			"api_key_env_var": "OPENAI_API_KEY",
+			"model_name":      "text-embedding-3-small",
+		},
+	})
+	colID := seedEmbeddedCollectionForTest(t, runtime, "autowire-recovery", configuration)
+
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	got, err := client.GetCollection(ctx, "autowire-recovery")
+	require.NoError(t, err)
+
+	ec, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	ec.mu.RLock()
+	require.Nil(t, ec.embeddingFunction, "dense EF must stay nil after initial build failure")
+	require.Nil(t, ec.contentEmbeddingFunction, "content EF must stay nil after initial build failure")
+	ec.mu.RUnlock()
+
+	client.collectionStateMu.RLock()
+	state := client.collectionState[colID]
+	require.NotNil(t, state, "state entry must exist after failed auto-wire")
+	require.Nil(t, state.embeddingFunction, "state dense EF must stay nil after failed auto-wire")
+	require.Nil(t, state.contentEmbeddingFunction, "state content EF must stay nil after failed auto-wire")
+	client.collectionStateMu.RUnlock()
+
+	require.NoError(t, os.Setenv("OPENAI_API_KEY", "test-api-key-123"))
+
+	got2, err := client.GetCollection(ctx, "autowire-recovery")
+	require.NoError(t, err)
+
+	ec2, ok := got2.(*embeddedCollection)
+	require.True(t, ok)
+	ec2.mu.RLock()
+	require.NotNil(t, ec2.embeddingFunction, "dense EF must auto-wire on retry after config becomes valid")
+	require.NotNil(t, ec2.contentEmbeddingFunction, "content EF must auto-wire on retry after config becomes valid")
+	ec2.mu.RUnlock()
+
+	client.collectionStateMu.RLock()
+	state = client.collectionState[colID]
+	require.NotNil(t, state.embeddingFunction, "state dense EF must be populated after successful retry")
+	require.NotNil(t, state.contentEmbeddingFunction, "state content EF must be populated after successful retry")
+	client.collectionStateMu.RUnlock()
 }
 
 func TestEmbeddedCreateCollection_StoresWrappedEFInState(t *testing.T) {

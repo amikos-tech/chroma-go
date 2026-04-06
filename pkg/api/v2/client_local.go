@@ -529,6 +529,7 @@ func WithPersistentClientOption(option ClientOption) PersistentClientOption {
 // Auto-wire and close errors route through the logger instead of stderr.
 // The logger propagates to both the embedded client and the internal state
 // client so that localDeleteCollectionFromCache errors are also captured.
+// Panic recovery in reportClosePanic still writes directly to stderr.
 func WithPersistentLogger(l logger.Logger) PersistentClientOption {
 	return func(cfg *localClientConfig) error {
 		if l == nil {

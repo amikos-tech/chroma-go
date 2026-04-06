@@ -490,10 +490,14 @@ func (client *embeddedLocalClient) DeleteCollection(ctx context.Context, name st
 	if err != nil {
 		return errors.Wrapf(err, "error deleting collection %s", name)
 	}
+	var cleanupErr error
 	if targetCollectionID != "" {
-		client.deleteCollectionState(targetCollectionID)
+		cleanupErr = client.deleteCollectionState(targetCollectionID)
 	}
 	client.state.localDeleteCollectionFromCache(name)
+	if cleanupErr != nil {
+		return errors.Wrapf(cleanupErr, "error cleaning up deleted collection %s state", name)
+	}
 	return nil
 }
 
@@ -526,7 +530,8 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 
 	// Auto-wire under a single write lock to prevent TOCTOU races: check-nil +
 	// build-EF + assign runs atomically. The lock does NOT span
-	// buildEmbeddedCollection (which internally calls upsertCollectionState).
+	// buildEmbeddedCollection because that path re-enters upsertCollectionState,
+	// and Go mutexes are not re-entrant.
 	client.collectionStateMu.Lock()
 	s := client.collectionState[model.ID]
 	if s == nil {
@@ -537,13 +542,7 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 	if contentEF == nil && s.contentEmbeddingFunction == nil {
 		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
 		if buildErr != nil {
-			if client.logger != nil {
-				client.logger.Warn("failed to auto-wire content embedding function",
-					logger.String("collection", model.Name),
-					logger.ErrorField("error", buildErr))
-			} else {
-				logAutoWireBuildErrorToStderr(model.Name, "content embedding function", buildErr)
-			}
+			client.logAutoWireError(model.Name, "content embedding function", buildErr)
 		} else {
 			contentEF = autoWiredContentEF
 		}
@@ -558,13 +557,7 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 		if ef == nil {
 			autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
 			if buildErr != nil {
-				if client.logger != nil {
-					client.logger.Warn("failed to auto-wire embedding function",
-						logger.String("collection", model.Name),
-						logger.ErrorField("error", buildErr))
-				} else {
-					logAutoWireBuildErrorToStderr(model.Name, "embedding function", buildErr)
-				}
+				client.logAutoWireError(model.Name, "embedding function", buildErr)
 			} else {
 				ef = autoWiredEF
 			}
@@ -573,6 +566,8 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 
 	// Store close-once WRAPPED EFs in state so all close paths share
 	// the same sync.Once wrapper (canonical wrapper location).
+	// buildEmbeddedCollection re-wraps idempotently when constructing the
+	// collection snapshot.
 	if contentEF != nil {
 		s.contentEmbeddingFunction = wrapContentEFCloseOnce(contentEF)
 	}
@@ -678,13 +673,7 @@ func (client *embeddedLocalClient) Close() error {
 
 	for id, s := range states {
 		if err := closeEmbeddingFunctions(s.embeddingFunction, s.contentEmbeddingFunction); err != nil {
-			if client.logger != nil {
-				client.logger.Error("failed to close EF during client shutdown",
-					logger.String("collection", id),
-					logger.ErrorField("error", err))
-			} else {
-				logCollectionCleanupCloseErrorToStderr(id, err)
-			}
+			client.logCloseError("failed to close EF during client shutdown", id, err)
 			errs = append(errs, err)
 		}
 	}
@@ -719,25 +708,42 @@ func (client *embeddedLocalClient) renameCollectionInCache(oldName string, colle
 	client.state.localRenameCollectionInCache(oldName, collection)
 }
 
-func (client *embeddedLocalClient) deleteCollectionState(collectionID string) {
+func (client *embeddedLocalClient) logAutoWireError(collection, target string, err error) {
+	if client.logger != nil {
+		client.logger.Warn("failed to auto-wire "+target,
+			logger.String("collection", collection),
+			logger.ErrorField("error", err))
+	} else {
+		logAutoWireBuildErrorToStderr(collection, target, err)
+	}
+}
+
+func (client *embeddedLocalClient) logCloseError(msg, collection string, err error) {
+	if client.logger != nil {
+		client.logger.Error(msg,
+			logger.String("collection", collection),
+			logger.ErrorField("error", err))
+	} else {
+		logCollectionCleanupCloseErrorToStderr(collection, err)
+	}
+}
+
+func (client *embeddedLocalClient) deleteCollectionState(collectionID string) error {
 	if collectionID == "" {
-		return
+		return nil
 	}
 	client.collectionStateMu.Lock()
 	state := client.collectionState[collectionID]
 	delete(client.collectionState, collectionID)
 	client.collectionStateMu.Unlock()
+	// Close outside the lock so EF teardown does not block unrelated state updates.
 	if state != nil {
 		if err := closeEmbeddingFunctions(state.embeddingFunction, state.contentEmbeddingFunction); err != nil {
-			if client.logger != nil {
-				client.logger.Error("failed to close EF during collection state cleanup",
-					logger.String("collection", collectionID),
-					logger.ErrorField("error", err))
-			} else {
-				logCollectionCleanupCloseErrorToStderr(collectionID, err)
-			}
+			client.logCloseError("failed to close EF during collection state cleanup", collectionID, err)
+			return err
 		}
 	}
+	return nil
 }
 
 func (client *embeddedLocalClient) upsertCollectionState(collectionID string, update func(state *embeddedCollectionState)) embeddedCollectionState {

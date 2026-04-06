@@ -812,8 +812,7 @@ func (client *APIClientV2) localDeleteCollectionFromCache(name string) {
 			if !transferred {
 				toClose = deleted
 			}
-		}
-		if ec, ok := deleted.(*embeddedCollection); ok && ec.ownsEF.Load() {
+		} else if ec, ok := deleted.(*embeddedCollection); ok && ec.ownsEF.Load() {
 			toClose = deleted
 		}
 	}
