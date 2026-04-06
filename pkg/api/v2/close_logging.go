@@ -39,7 +39,7 @@ func isDenseEFSharedWithContent(denseEF embeddings.EmbeddingFunction, contentEF 
 		return unwrapper.UnwrapEmbeddingFunction() == unwrapped
 	}
 	if efFromContent, ok := contentEF.(embeddings.EmbeddingFunction); ok {
-		return efFromContent == unwrapped
+		return unwrapCloseOnceEF(efFromContent) == unwrapped
 	}
 	return false
 }

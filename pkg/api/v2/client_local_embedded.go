@@ -519,26 +519,26 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 	contentEF := req.contentEmbeddingFunction
 	ef := req.embeddingFunction
 
-	// Only auto-wire when no explicit EF was provided AND state doesn't already
-	// hold one from a prior CreateCollection or GetCollection call.
-	// Copy the flags under the lock to avoid racing with upsertCollectionState.
-	var hasContentEF, hasEF bool
-	client.collectionStateMu.RLock()
-	if s := client.collectionState[model.ID]; s != nil {
-		hasContentEF = s.contentEmbeddingFunction != nil
-		hasEF = s.embeddingFunction != nil
+	// Auto-wire under a single write lock to prevent TOCTOU races: check-nil +
+	// build-EF + assign runs atomically. The lock does NOT span
+	// buildEmbeddedCollection (which internally calls upsertCollectionState).
+	client.collectionStateMu.Lock()
+	s := client.collectionState[model.ID]
+	if s == nil {
+		s = &embeddedCollectionState{}
+		client.collectionState[model.ID] = s
 	}
-	client.collectionStateMu.RUnlock()
 
-	if contentEF == nil && !hasContentEF {
+	if contentEF == nil && s.contentEmbeddingFunction == nil {
 		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
 		if buildErr != nil {
 			logAutoWireBuildErrorToStderr(model.Name, "content embedding function", buildErr)
+		} else {
+			contentEF = autoWiredContentEF
 		}
-		contentEF = autoWiredContentEF
 	}
 
-	if ef == nil && !hasEF {
+	if ef == nil && s.embeddingFunction == nil {
 		if unwrapper, ok := contentEF.(embeddingspkg.EmbeddingFunctionUnwrapper); ok {
 			ef = unwrapper.UnwrapEmbeddingFunction()
 		} else if denseFromContent, ok := contentEF.(embeddingspkg.EmbeddingFunction); ok {
@@ -548,22 +548,24 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 			autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
 			if buildErr != nil {
 				logAutoWireBuildErrorToStderr(model.Name, "embedding function", buildErr)
+			} else {
+				ef = autoWiredEF
 			}
-			ef = autoWiredEF
 		}
 	}
 
-	if ef != nil || contentEF != nil {
-		client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
-			if ef != nil {
-				state.embeddingFunction = ef
-			}
-			if contentEF != nil {
-				state.contentEmbeddingFunction = contentEF
-			}
-		})
+	// Store close-once WRAPPED EFs in state so all close paths share
+	// the same sync.Once wrapper (canonical wrapper location).
+	if contentEF != nil {
+		s.contentEmbeddingFunction = wrapContentEFCloseOnce(contentEF)
 	}
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, ef, contentEF, true)
+	if ef != nil {
+		s.embeddingFunction = wrapEFCloseOnce(ef)
+	}
+	snapshot := *s
+	client.collectionStateMu.Unlock()
+
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, snapshot.embeddingFunction, snapshot.contentEmbeddingFunction, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -648,6 +650,22 @@ func (client *embeddedLocalClient) ListCollections(ctx context.Context, opts ...
 func (client *embeddedLocalClient) Close() error {
 	var errs []error
 
+	// Copy state under lock, clear map, release lock, then close outside.
+	client.collectionStateMu.Lock()
+	states := make(map[string]*embeddedCollectionState, len(client.collectionState))
+	for k, v := range client.collectionState {
+		states[k] = v
+	}
+	client.collectionState = map[string]*embeddedCollectionState{}
+	client.collectionStateMu.Unlock()
+
+	for id, s := range states {
+		if err := closeEmbeddingFunctions(s.embeddingFunction, s.contentEmbeddingFunction); err != nil {
+			logCollectionCleanupCloseErrorToStderr(id, err)
+			errs = append(errs, err)
+		}
+	}
+
 	if client.state != nil {
 		if err := client.state.Close(); err != nil {
 			errs = append(errs, err)
@@ -683,8 +701,14 @@ func (client *embeddedLocalClient) deleteCollectionState(collectionID string) {
 		return
 	}
 	client.collectionStateMu.Lock()
-	defer client.collectionStateMu.Unlock()
+	state := client.collectionState[collectionID]
 	delete(client.collectionState, collectionID)
+	client.collectionStateMu.Unlock()
+	if state != nil {
+		if err := closeEmbeddingFunctions(state.embeddingFunction, state.contentEmbeddingFunction); err != nil {
+			logCollectionCleanupCloseErrorToStderr(collectionID, err)
+		}
+	}
 }
 
 func (client *embeddedLocalClient) upsertCollectionState(collectionID string, update func(state *embeddedCollectionState)) embeddedCollectionState {
@@ -813,8 +837,8 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		configuration:            snapshot.configuration,
 		schema:                   snapshot.schema,
 		dimension:                snapshot.dimension,
-		embeddingFunction:        snapshot.embeddingFunction,
-		contentEmbeddingFunction: snapshot.contentEmbeddingFunction,
+		embeddingFunction:        wrapEFCloseOnce(snapshot.embeddingFunction),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(snapshot.contentEmbeddingFunction),
 		client:                   client,
 	}
 	collection.ownsEF.Store(ownsEF)

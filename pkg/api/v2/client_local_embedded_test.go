@@ -1513,7 +1513,7 @@ func TestEmbeddedLocalClientGetOrCreateCollection_ExistingWithoutEFPreservesLoca
 
 	gotCollection, ok := got.(*embeddedCollection)
 	require.True(t, ok)
-	require.Same(t, initialEF, gotCollection.embeddingFunctionSnapshot())
+	require.Same(t, initialEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
 
 	createCalls, getCalls := runtime.callCounts()
 	require.Equal(t, 1, createCalls)
@@ -1538,13 +1538,13 @@ func TestEmbeddedLocalClientGetOrCreateCollection_ExistingWithEFUpdatesLocalStat
 	require.NoError(t, err)
 	gotCollection, ok := got.(*embeddedCollection)
 	require.True(t, ok)
-	require.Same(t, overrideEF, gotCollection.embeddingFunctionSnapshot())
+	require.Same(t, overrideEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
 
 	again, err := client.GetCollection(ctx, "idempotent-existing-override")
 	require.NoError(t, err)
 	againEmbedded, ok := again.(*embeddedCollection)
 	require.True(t, ok)
-	require.Same(t, overrideEF, againEmbedded.embeddingFunctionSnapshot())
+	require.Same(t, overrideEF, unwrapCloseOnceEF(againEmbedded.embeddingFunctionSnapshot()))
 
 	createCalls, getCalls := runtime.callCounts()
 	require.Equal(t, 1, createCalls)
@@ -1568,7 +1568,7 @@ func TestEmbeddedLocalClientGetOrCreateCollection_CreatesWhenMissing(t *testing.
 
 	gotCollection, ok := got.(*embeddedCollection)
 	require.True(t, ok)
-	require.Same(t, ef, gotCollection.embeddingFunctionSnapshot())
+	require.Same(t, ef, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
 
 	createCalls, getCalls := runtime.callCounts()
 	require.Equal(t, 1, createCalls)
@@ -1604,7 +1604,7 @@ func TestEmbeddedLocalClientCreateCollection_IfNotExistsExistingDoesNotOverrideS
 
 	gotCollection, ok := got.(*embeddedCollection)
 	require.True(t, ok)
-	require.Same(t, initialEF, gotCollection.embeddingFunctionSnapshot())
+	require.Same(t, initialEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
 	source, ok := gotCollection.Metadata().GetString("source")
 	require.True(t, ok)
 	require.Equal(t, "initial", source)
@@ -1999,8 +1999,8 @@ func TestEmbeddedGetCollection_DerivesDenseEFFromDualContentEF(t *testing.T) {
 	gotContentEF := ec.contentEmbeddingFunction
 	ec.mu.RUnlock()
 
-	require.Same(t, contentEF, gotDenseEF, "dense EF should be derived from a dual-interface content EF")
-	require.Same(t, contentEF, gotContentEF, "explicit dual-interface content EF should be preserved")
+	require.Same(t, contentEF, unwrapCloseOnceEF(gotDenseEF), "dense EF should be derived from a dual-interface content EF")
+	require.Same(t, contentEF, unwrapCloseOnceContentEF(gotContentEF), "explicit dual-interface content EF should be preserved")
 }
 
 func TestEmbeddedGetCollection_AutoWiresContentEFFromDenseEF(t *testing.T) {
@@ -2057,7 +2057,7 @@ func TestEmbeddedGetCollection_AutoWiresFromConfigurationOnly(t *testing.T) {
 
 	unwrapper, ok := gotContentEF.(embeddingspkg.EmbeddingFunctionUnwrapper)
 	require.True(t, ok, "config-built content EF should unwrap to the dense EF")
-	require.Same(t, gotDenseEF, unwrapper.UnwrapEmbeddingFunction())
+	require.Same(t, unwrapCloseOnceEF(gotDenseEF), unwrapper.UnwrapEmbeddingFunction())
 }
 
 func TestEmbeddedGetCollection_ContentEFStateRoundTrip(t *testing.T) {
@@ -2142,8 +2142,8 @@ func TestEmbeddedGetCollection_PreservesExistingDenseEFWhenOnlyContentEFChanges(
 	gotContentEF := ec.contentEmbeddingFunction
 	ec.mu.RUnlock()
 
-	require.Same(t, initialDenseEF, gotDenseEF, "existing dense EF should survive when only content EF is provided")
-	require.Same(t, contentEF, gotContentEF, "new content EF should still be stored")
+	require.Same(t, initialDenseEF, unwrapCloseOnceEF(gotDenseEF), "existing dense EF should survive when only content EF is provided")
+	require.Same(t, contentEF, unwrapCloseOnceContentEF(gotContentEF), "new content EF should still be stored")
 }
 
 func TestEmbeddedCollection_CloseLifecycleWithSharedAdapter(t *testing.T) {

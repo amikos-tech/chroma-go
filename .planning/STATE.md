@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: Ready to execute
-stopped_at: Phase 19 context gathered
-last_updated: "2026-04-06T09:29:27.365Z"
+status: "Phase 18 shipped — PR #487"
+stopped_at: Phase 18 context gathered
+last_updated: "2026-04-02T13:14:08.001Z"
 progress:
   total_phases: 20
   completed_phases: 18
-  total_plans: 40
+  total_plans: 38
   completed_plans: 38
-  percent: 95
 ---
 
 # Project State
@@ -174,6 +173,6 @@ None.
 
 ## Session
 
-**Last Date:** 2026-04-06T06:56:41.151Z
-**Stopped At:** Phase 19 context gathered
-**Resume File:** .planning/phases/19-embedded-client-ef-lifecycle-hardening/19-CONTEXT.md
+**Last Date:** 2026-04-02T10:21:35.706Z
+**Stopped At:** Phase 18 context gathered
+**Resume File:** .planning/phases/18-embedded-client-contentembeddingfunction-parity/18-CONTEXT.md
