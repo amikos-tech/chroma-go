@@ -392,12 +392,11 @@ func isDenseEFSharedWithContent(denseEF embeddings.EmbeddingFunction, contentEF 
 
 **All claims verified or cited; no user confirmation needed for the 3 items above (they are LOW risk architecture observations, not design decisions).**
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **HTTP client auto-wire error guard scope**
+1. RESOLVED: **HTTP client auto-wire error guard scope** — Apply guard to all HTTP auto-wire callsites including ListCollections at `client_http.go:533`. Plan 01 Fix 8 implements this.
    - What we know: Issue #485 explicitly says "Apply to both embedded and HTTP client auto-wire paths for consistency."
-   - What's unclear: Whether GetOrCreateCollection's auto-wire path at `client_http.go:533` should also get the error guard.
-   - Recommendation: Apply to all auto-wire callsites for consistency. The CONTEXT.md decisions are specifically about the embedded client, but applying the same defensive pattern to HTTP is a trivial one-line change per site and matches the issue request.
+   - Resolution: Plan 01 adds error guards to GetCollection (2 sites), GetOrCreateCollection (1 site), and ListCollections (1 site) in the HTTP client, matching the embedded client pattern.
 
 ## Environment Availability
 
