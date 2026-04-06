@@ -2474,3 +2474,88 @@ func TestEmbeddedListCollections_ContentEFIsNil(t *testing.T) {
 	ec.mu.RUnlock()
 	require.NotNil(t, gotContentEF, "ListCollections should pick up contentEF from state")
 }
+
+func TestEmbeddedClient_LoggerReceivesErrors(t *testing.T) {
+	t.Run("auto-wire errors route to logger at Warn level", func(t *testing.T) {
+		const providerName = "failing_logger_test_provider"
+		require.NoError(t, embeddingspkg.RegisterContent(providerName,
+			func(_ embeddingspkg.EmbeddingFunctionConfig) (embeddingspkg.ContentEmbeddingFunction, error) {
+				return nil, errors.New("intentional factory failure for logger test")
+			}))
+
+		runtime := newMemoryEmbeddedRuntime()
+		log := &capturingLogger{}
+
+		configuration := NewCollectionConfiguration()
+		configuration.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+			Type:   "known",
+			Name:   providerName,
+			Config: map[string]any{},
+		})
+		seedEmbeddedCollectionForTest(t, runtime, "logger-warn-test", configuration)
+
+		client := newEmbeddedClientForRuntime(t, runtime)
+		client.logger = log
+
+		_, err := client.GetCollection(context.Background(), "logger-warn-test")
+		require.NoError(t, err)
+
+		require.GreaterOrEqual(t, log.warnCount, 1, "logger must receive at least one Warn call")
+		require.Contains(t, log.lastMsg, "failed to auto-wire")
+	})
+
+	t.Run("close errors route to logger at Error level", func(t *testing.T) {
+		runtime := newMemoryEmbeddedRuntime()
+		log := &capturingLogger{}
+
+		client := newEmbeddedClientForRuntime(t, runtime)
+		client.logger = log
+
+		mockEF := &mockFailingCloseEF{closeErr: errors.New("mock close failure")}
+		wrappedEF := wrapEFCloseOnce(mockEF)
+
+		client.collectionStateMu.Lock()
+		client.collectionState["test-id"] = &embeddedCollectionState{embeddingFunction: wrappedEF}
+		client.collectionStateMu.Unlock()
+
+		client.deleteCollectionState("test-id")
+
+		require.GreaterOrEqual(t, log.errorCount, 1, "logger must receive at least one Error call")
+		require.Contains(t, log.lastMsg, "failed to close EF")
+	})
+}
+
+func TestEmbeddedClient_NoLoggerFallsBackToStderr(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	// logger is nil by default -- do NOT set it.
+
+	mockEF := &mockFailingCloseEF{closeErr: errors.New("stderr test error")}
+	wrappedEF := wrapEFCloseOnce(mockEF)
+
+	client.collectionStateMu.Lock()
+	client.collectionState["stderr-test"] = &embeddedCollectionState{embeddingFunction: wrappedEF}
+	client.collectionStateMu.Unlock()
+
+	output := captureStderr(t, func() {
+		client.deleteCollectionState("stderr-test")
+	})
+
+	require.Contains(t, output, "chroma-go: failed to close EF")
+}
+
+func TestWithPersistentLogger_PropagatesToStateClient(t *testing.T) {
+	log := &capturingLogger{}
+
+	cfg := defaultLocalClientConfig()
+	err := WithPersistentLogger(log)(cfg)
+	require.NoError(t, err)
+
+	require.Equal(t, log, cfg.logger, "embedded client logger must be set")
+	require.GreaterOrEqual(t, len(cfg.clientOptions), 1, "WithLogger must be appended to clientOptions")
+
+	// Verify the appended ClientOption actually sets the logger on a BaseAPIClient.
+	base, baseErr := newBaseAPIClient(cfg.clientOptions...)
+	require.NoError(t, baseErr)
+	require.Equal(t, log, base.logger, "state client logger must be the same capturingLogger")
+}
