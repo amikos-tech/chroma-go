@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	localchroma "github.com/amikos-tech/chroma-go-local"
+	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 // PersistentRuntimeMode controls how [NewPersistentClient] hosts Chroma locally.
@@ -110,6 +111,8 @@ type localClientConfig struct {
 	allowReset    bool
 
 	clientOptions []ClientOption
+
+	logger logger.Logger
 }
 
 func defaultLocalClientConfig() *localClientConfig {
@@ -518,6 +521,18 @@ func WithPersistentClientOption(option ClientOption) PersistentClientOption {
 			return errors.New("local client option cannot be nil")
 		}
 		cfg.clientOptions = append(cfg.clientOptions, option)
+		return nil
+	}
+}
+
+// WithPersistentLogger sets a structured logger for the persistent client.
+// Auto-wire and close errors route through the logger instead of stderr.
+// The logger propagates to both the embedded client and the internal state
+// client so that localDeleteCollectionFromCache errors are also captured.
+func WithPersistentLogger(l logger.Logger) PersistentClientOption {
+	return func(cfg *localClientConfig) error {
+		cfg.logger = l
+		cfg.clientOptions = append(cfg.clientOptions, WithLogger(l))
 		return nil
 	}
 }

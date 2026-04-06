@@ -15,6 +15,7 @@ import (
 
 	localchroma "github.com/amikos-tech/chroma-go-local"
 	embeddingspkg "github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 type embeddedCollectionState struct {
@@ -45,6 +46,8 @@ type embeddedLocalClient struct {
 
 	collectionStateMu sync.RWMutex
 	collectionState   map[string]*embeddedCollectionState
+
+	logger logger.Logger
 }
 
 func newEmbeddedLocalClient(cfg *localClientConfig, embedded localEmbeddedRuntime) (Client, error) {
@@ -69,6 +72,7 @@ func newEmbeddedLocalClient(cfg *localClientConfig, embedded localEmbeddedRuntim
 		state:           stateClient,
 		embedded:        embedded,
 		collectionState: map[string]*embeddedCollectionState{},
+		logger:          cfg.logger,
 	}, nil
 }
 
@@ -532,7 +536,13 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 	if contentEF == nil && s.contentEmbeddingFunction == nil {
 		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
 		if buildErr != nil {
-			logAutoWireBuildErrorToStderr(model.Name, "content embedding function", buildErr)
+			if client.logger != nil {
+				client.logger.Warn("failed to auto-wire content embedding function",
+					logger.String("collection", model.Name),
+					logger.ErrorField("error", buildErr))
+			} else {
+				logAutoWireBuildErrorToStderr(model.Name, "content embedding function", buildErr)
+			}
 		} else {
 			contentEF = autoWiredContentEF
 		}
@@ -547,7 +557,13 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 		if ef == nil {
 			autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
 			if buildErr != nil {
-				logAutoWireBuildErrorToStderr(model.Name, "embedding function", buildErr)
+				if client.logger != nil {
+					client.logger.Warn("failed to auto-wire embedding function",
+						logger.String("collection", model.Name),
+						logger.ErrorField("error", buildErr))
+				} else {
+					logAutoWireBuildErrorToStderr(model.Name, "embedding function", buildErr)
+				}
 			} else {
 				ef = autoWiredEF
 			}
@@ -661,7 +677,13 @@ func (client *embeddedLocalClient) Close() error {
 
 	for id, s := range states {
 		if err := closeEmbeddingFunctions(s.embeddingFunction, s.contentEmbeddingFunction); err != nil {
-			logCollectionCleanupCloseErrorToStderr(id, err)
+			if client.logger != nil {
+				client.logger.Error("failed to close EF during client shutdown",
+					logger.String("collection", id),
+					logger.ErrorField("error", err))
+			} else {
+				logCollectionCleanupCloseErrorToStderr(id, err)
+			}
 			errs = append(errs, err)
 		}
 	}
@@ -706,7 +728,13 @@ func (client *embeddedLocalClient) deleteCollectionState(collectionID string) {
 	client.collectionStateMu.Unlock()
 	if state != nil {
 		if err := closeEmbeddingFunctions(state.embeddingFunction, state.contentEmbeddingFunction); err != nil {
-			logCollectionCleanupCloseErrorToStderr(collectionID, err)
+			if client.logger != nil {
+				client.logger.Error("failed to close EF during collection state cleanup",
+					logger.String("collection", collectionID),
+					logger.ErrorField("error", err))
+			} else {
+				logCollectionCleanupCloseErrorToStderr(collectionID, err)
+			}
 		}
 	}
 }
