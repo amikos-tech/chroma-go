@@ -2192,6 +2192,261 @@ func TestEmbeddedCollection_CloseLifecycleWithIndependentEFs(t *testing.T) {
 	require.Equal(t, int32(1), denseEF.closeCount.Load(), "independent denseEF closed once through lifecycle")
 }
 
+func TestEmbeddedGetCollection_ConcurrentAutoWire(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	ctx := context.Background()
+
+	providerName := fmt.Sprintf("concurrent-test-ef-%d", time.Now().UnixNano())
+	var buildCount atomic.Int32
+	err := embeddingspkg.RegisterDense(providerName, func(_ embeddingspkg.EmbeddingFunctionConfig) (embeddingspkg.EmbeddingFunction, error) {
+		buildCount.Add(1)
+		return &mockCloseableEF{}, nil
+	})
+	require.NoError(t, err)
+
+	configuration := NewCollectionConfiguration()
+	configuration.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type:   "known",
+		Name:   providerName,
+		Config: map[string]any{},
+	})
+	seedEmbeddedCollectionForTest(t, runtime, "concurrent-autowire", configuration)
+
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	const goroutines = 10
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	ready := make(chan struct{})
+	results := make([]Collection, goroutines)
+	errs := make([]error, goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			<-ready
+			results[idx], errs[idx] = client.GetCollection(ctx, "concurrent-autowire")
+		}(i)
+	}
+	close(ready)
+	wg.Wait()
+
+	for i := 0; i < goroutines; i++ {
+		require.NoError(t, errs[i], "goroutine %d must not error", i)
+		ec, ok := results[i].(*embeddedCollection)
+		require.True(t, ok)
+		ec.mu.RLock()
+		require.NotNil(t, ec.embeddingFunction, "goroutine %d must have non-nil dense EF", i)
+		ec.mu.RUnlock()
+	}
+
+	require.Equal(t, int32(1), buildCount.Load(), "factory must be invoked exactly once (write lock prevents duplicate auto-wire)")
+
+	client.collectionStateMu.RLock()
+	require.Equal(t, 1, len(client.collectionState), "exactly one state entry for the collection")
+	client.collectionStateMu.RUnlock()
+}
+
+func TestEmbeddedDeleteCollectionState_ClosesEFs(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	mockEF := &mockCloseableEF{}
+	mockContentEF := &mockCloseableContentEF{}
+	wrappedEF := wrapEFCloseOnce(mockEF)
+	wrappedContentEF := wrapContentEFCloseOnce(mockContentEF)
+
+	client.collectionStateMu.Lock()
+	client.collectionState["test-id"] = &embeddedCollectionState{
+		embeddingFunction:        wrappedEF,
+		contentEmbeddingFunction: wrappedContentEF,
+	}
+	client.collectionStateMu.Unlock()
+
+	client.deleteCollectionState("test-id")
+
+	require.Equal(t, int32(1), mockEF.closeCount.Load(), "dense EF must be closed exactly once")
+	require.Equal(t, int32(1), mockContentEF.closeCount.Load(), "content EF must be closed exactly once")
+
+	client.collectionStateMu.RLock()
+	require.Nil(t, client.collectionState["test-id"], "map entry must be removed")
+	client.collectionStateMu.RUnlock()
+}
+
+func TestEmbeddedLocalClient_Close_CleansUpCollectionState(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	mockEF1 := &mockCloseableEF{}
+	mockContentEF1 := &mockCloseableContentEF{}
+	mockEF2 := &mockCloseableEF{}
+	mockContentEF2 := &mockFailingCloseContentEF{closeErr: errors.New("mock close failure")}
+
+	client.collectionStateMu.Lock()
+	client.collectionState["col-1"] = &embeddedCollectionState{
+		embeddingFunction:        wrapEFCloseOnce(mockEF1),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(mockContentEF1),
+	}
+	client.collectionState["col-2"] = &embeddedCollectionState{
+		embeddingFunction:        wrapEFCloseOnce(mockEF2),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(mockContentEF2),
+	}
+	client.collectionStateMu.Unlock()
+
+	err := client.Close()
+	require.Error(t, err, "Close must propagate aggregated errors")
+	require.Contains(t, err.Error(), "mock close failure")
+
+	require.Equal(t, int32(1), mockEF1.closeCount.Load(), "EF1 must be closed")
+	require.Equal(t, int32(1), mockContentEF1.closeCount.Load(), "content EF1 must be closed")
+	require.Equal(t, int32(1), mockEF2.closeCount.Load(), "EF2 must be closed even after EF1 error")
+	require.Equal(t, int32(1), mockContentEF2.closeCount.Load(), "content EF2 must be closed")
+
+	client.collectionStateMu.RLock()
+	require.Equal(t, 0, len(client.collectionState), "state map must be cleared")
+	client.collectionStateMu.RUnlock()
+}
+
+func TestEmbeddedBuildCollection_CloseOnceWrapping(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	colID := seedEmbeddedCollectionForTest(t, runtime, "wrap-test", nil)
+
+	rawEF := &mockCloseableEF{}
+	rawContentEF := &mockCloseableContentEF{}
+
+	runtime.mu.Lock()
+	key := collectionRuntimeKey(DefaultTenant, DefaultDatabase, "wrap-test")
+	model := runtime.collections[key]
+	runtime.mu.Unlock()
+
+	collection, err := client.buildEmbeddedCollection(model, nil, rawEF, rawContentEF, true)
+	require.NoError(t, err)
+	_ = colID
+
+	_, ok := collection.embeddingFunction.(*closeOnceEF)
+	require.True(t, ok, "embeddingFunction must be wrapped in *closeOnceEF")
+
+	_, ok = collection.contentEmbeddingFunction.(*closeOnceContentEF)
+	require.True(t, ok, "contentEmbeddingFunction must be wrapped in *closeOnceContentEF")
+}
+
+func TestEmbeddedGetCollection_BuildErrorGuard(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	ctx := context.Background()
+
+	configuration := NewCollectionConfiguration()
+	configuration.SetEmbeddingFunctionInfo(&EmbeddingFunctionInfo{
+		Type:   "known",
+		Name:   "nonexistent_provider_xyz",
+		Config: map[string]any{},
+	})
+	colID := seedEmbeddedCollectionForTest(t, runtime, "error-guard", configuration)
+
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	got, err := client.GetCollection(ctx, "error-guard")
+	require.NoError(t, err)
+
+	ec, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	ec.mu.RLock()
+	require.Nil(t, ec.embeddingFunction, "EF must be nil when build fails")
+	require.Nil(t, ec.contentEmbeddingFunction, "content EF must be nil when build fails")
+	ec.mu.RUnlock()
+
+	client.collectionStateMu.RLock()
+	state := client.collectionState[colID]
+	require.NotNil(t, state, "state entry must exist")
+	require.Nil(t, state.embeddingFunction, "state EF must be nil (not poisoned)")
+	require.Nil(t, state.contentEmbeddingFunction, "state content EF must be nil (not poisoned)")
+	client.collectionStateMu.RUnlock()
+
+	explicitEF := &mockCloseableEF{}
+	got2, err := client.GetCollection(ctx, "error-guard", WithEmbeddingFunctionGet(explicitEF))
+	require.NoError(t, err)
+
+	ec2, ok := got2.(*embeddedCollection)
+	require.True(t, ok)
+	ec2.mu.RLock()
+	require.NotNil(t, ec2.embeddingFunction, "explicit EF must be set on subsequent GetCollection")
+	ec2.mu.RUnlock()
+}
+
+func TestEmbeddedDeleteAndCloseShareWrapper(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	mockEF := &mockCloseableEF{}
+	mockContentEF := &mockCloseableContentEF{}
+	wrappedEF := wrapEFCloseOnce(mockEF)
+	wrappedContentEF := wrapContentEFCloseOnce(mockContentEF)
+
+	client.collectionStateMu.Lock()
+	client.collectionState["test-id"] = &embeddedCollectionState{
+		embeddingFunction:        wrappedEF,
+		contentEmbeddingFunction: wrappedContentEF,
+	}
+	client.collectionStateMu.Unlock()
+
+	// Build an embeddedCollection holding the SAME wrapped EFs
+	collection := &embeddedCollection{
+		embeddingFunction:        wrappedEF,
+		contentEmbeddingFunction: wrappedContentEF,
+	}
+	collection.ownsEF.Store(true)
+
+	// Close via state path
+	client.deleteCollectionState("test-id")
+
+	// Close via collection path -- sync.Once prevents double-close
+	err := collection.Close()
+	require.NoError(t, err)
+
+	require.Equal(t, int32(1), mockEF.closeCount.Load(), "shared wrapper sync.Once must prevent double-close of dense EF")
+	require.Equal(t, int32(1), mockContentEF.closeCount.Load(), "shared wrapper sync.Once must prevent double-close of content EF")
+}
+
+func TestEmbeddedDeleteAndCloseRace(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	mockEF := &mockCloseableEF{}
+	mockContentEF := &mockCloseableContentEF{}
+	wrappedEF := wrapEFCloseOnce(mockEF)
+	wrappedContentEF := wrapContentEFCloseOnce(mockContentEF)
+
+	client.collectionStateMu.Lock()
+	client.collectionState["race-id"] = &embeddedCollectionState{
+		embeddingFunction:        wrappedEF,
+		contentEmbeddingFunction: wrappedContentEF,
+	}
+	client.collectionStateMu.Unlock()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	ready := make(chan struct{})
+
+	go func() {
+		defer wg.Done()
+		<-ready
+		client.deleteCollectionState("race-id")
+	}()
+
+	go func() {
+		defer wg.Done()
+		<-ready
+		_ = client.Close()
+	}()
+
+	close(ready)
+	wg.Wait()
+
+	// Close-once wrappers ensure at most one physical close
+	require.LessOrEqual(t, mockEF.closeCount.Load(), int32(2), "close-once wrapper limits physical close")
+	require.LessOrEqual(t, mockContentEF.closeCount.Load(), int32(2), "close-once wrapper limits physical close")
+}
+
 func TestEmbeddedListCollections_ContentEFIsNil(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
