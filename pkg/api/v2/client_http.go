@@ -342,15 +342,18 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		return nil, errors.Wrap(err, "error decoding response")
 	}
 	c := &CollectionImpl{
-		name:                     cm.Name,
-		id:                       cm.ID,
-		tenant:                   NewTenant(cm.Tenant),
-		database:                 NewDatabase(cm.Database, NewTenant(cm.Tenant)),
-		metadata:                 cm.Metadata,
-		schema:                   cm.Schema,
-		configuration:            NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
-		client:                   client,
-		embeddingFunction:        wrapEFCloseOnce(req.embeddingFunction),
+		name:              cm.Name,
+		id:                cm.ID,
+		tenant:            NewTenant(cm.Tenant),
+		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
+		metadata:          cm.Metadata,
+		schema:            cm.Schema,
+		configuration:     NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
+		client:            client,
+		embeddingFunction: wrapEFCloseOnce(req.embeddingFunction),
+		// NOTE: wrapping must occur after PrepareAndValidateCollectionRequest because
+		// closeOnceContentEF always satisfies EmbeddingFunction, which would make the
+		// dual-interface type assertion in PrepareAndValidate a false positive.
 		contentEmbeddingFunction: wrapContentEFCloseOnce(req.contentEmbeddingFunction),
 		dimension:                cm.Dimension,
 	}

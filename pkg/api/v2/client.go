@@ -302,6 +302,7 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 	// Persist contentEF config after denseEF so contentEF takes precedence
 	// when it also implements EmbeddingFunction (e.g. overrides default ORT).
 	// Content-only EFs that don't implement EmbeddingFunction skip persistence silently.
+	// NOTE: this block depends on the disableEFConfigStorage early return above.
 	if op.contentEmbeddingFunction != nil {
 		if op.Schema != nil {
 			if denseEF, ok := op.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {

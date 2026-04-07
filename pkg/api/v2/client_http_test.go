@@ -1545,7 +1545,7 @@ func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testi
 		require.NotNil(t, efInfo, "EF info must not be nil")
 	})
 
-	t.Run("content-only contentEF skips config persistence", func(t *testing.T) {
+	t.Run("content-only contentEF leaves denseEF config intact", func(t *testing.T) {
 		contentOnlyEF := &mockCloseableContentEF{}
 		op, err := NewCreateCollectionOp("test-content-only",
 			WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
@@ -1558,6 +1558,45 @@ func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testi
 		efInfo, ok := op.Configuration.GetEmbeddingFunctionInfo()
 		require.True(t, ok, "EF info must be present from denseEF")
 		require.NotNil(t, efInfo)
+	})
+}
+
+func TestPrepareAndValidateCollectionRequest_ContentEFSchemaPath(t *testing.T) {
+	t.Run("dual-interface contentEF overrides schema EF", func(t *testing.T) {
+		schema, err := NewSchemaWithDefaults()
+		require.NoError(t, err)
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-schema-dual",
+			WithSchemaCreate(schema),
+			WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+			WithContentEmbeddingFunctionCreate(dualEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		// contentEF (dual-interface) should have overridden the denseEF in schema
+		got := op.Schema.GetEmbeddingFunction()
+		require.NotNil(t, got, "schema must have EF set")
+		require.Equal(t, dualEF.Name(), got.Name(), "schema EF must be the dual contentEF")
+	})
+
+	t.Run("content-only contentEF leaves schema denseEF intact", func(t *testing.T) {
+		schema, err := NewSchemaWithDefaults()
+		require.NoError(t, err)
+		denseEF := embeddings.NewConsistentHashEmbeddingFunction()
+		contentOnlyEF := &mockCloseableContentEF{}
+		op, err := NewCreateCollectionOp("test-schema-content-only",
+			WithSchemaCreate(schema),
+			WithEmbeddingFunctionCreate(denseEF),
+			WithContentEmbeddingFunctionCreate(contentOnlyEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		// content-only EF cannot override schema; original denseEF stays
+		got := op.Schema.GetEmbeddingFunction()
+		require.NotNil(t, got, "schema must have EF set from denseEF")
+		require.Equal(t, denseEF.Name(), got.Name(), "schema EF must be the original denseEF")
 	})
 }
 

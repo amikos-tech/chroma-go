@@ -390,6 +390,7 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 	overrideContentEF := req.contentEmbeddingFunction
 	if isNewCreation {
 		overrideEF = wrapEFCloseOnce(req.embeddingFunction)
+		// NOTE: wrapping must occur after PrepareAndValidateCollectionRequest (see client_http.go).
 		overrideContentEF = wrapContentEFCloseOnce(req.contentEmbeddingFunction)
 		client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
 			state.embeddingFunction = overrideEF
