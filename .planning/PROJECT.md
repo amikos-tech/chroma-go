@@ -71,4 +71,4 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 | Pivot Phase 7 from vLLM/Nemotron to VoyageAI | vLLM lacks NVOmniEmbedModel support; VoyageAI multimodal validates portability with text/image/video | ✓ Good |
 
 ---
-*Last updated: 2026-04-06 — Phase 19 (embedded-client-ef-lifecycle-hardening) complete: TOCTOU race fix in GetCollection auto-wiring, close-once wrapping, state map cleanup on delete/close, symmetric unwrapping, build error guards, and structured logger (WithPersistentLogger) for observability parity with HTTP client.*
+*Last updated: 2026-04-07 — Phase 20 (getorcreatecollection-contentef-support) complete: contentEmbeddingFunction support added to CreateCollection and GetOrCreateCollection across HTTP and embedded paths, with config persistence, close-once wrapping, and 9 new tests (issue #486).*
