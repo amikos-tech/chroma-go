@@ -300,12 +300,9 @@ func TestEmbeddedGetOrCreateCollection_ContentEF_ForwardedToGetCollection(t *tes
 |---|-------|---------|---------------|
 | A1 | `Schema.SetContentEmbeddingFunction` method exists | Architecture Patterns (Pattern 2) | If it doesn't exist, config persistence must go through Configuration only. Compile error would surface immediately. LOW risk. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does Schema have SetContentEmbeddingFunction?**
-   - What we know: `CollectionConfigurationImpl` has `SetContentEmbeddingFunction` (verified at configuration.go:247-258). Schema has `SetEmbeddingFunction` (verified at client.go:292).
-   - What's unclear: Whether Schema also has `SetContentEmbeddingFunction` or if it needs to be added.
-   - Recommendation: Check at implementation time. If Schema lacks it, use the same delegation pattern: call `SetEmbeddingFunction` when contentEF implements `EmbeddingFunction`. Or simply persist through Configuration when contentEF is provided alongside a Schema.
+1. **Does Schema have SetContentEmbeddingFunction?** — RESOLVED: Schema does NOT have `SetContentEmbeddingFunction`. Only `CollectionConfigurationImpl` does. For the Schema path, type-assert contentEF to `embeddings.EmbeddingFunction` and call `Schema.SetEmbeddingFunction`. This mirrors the delegation pattern used by `CollectionConfigurationImpl.SetContentEmbeddingFunction` internally.
 
 ## Sources
 
