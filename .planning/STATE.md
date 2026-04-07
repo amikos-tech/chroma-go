@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: Ready to plan
-stopped_at: Phase 19 context gathered
-last_updated: "2026-04-06T10:09:45.551Z"
+status: Executing Phase 20
+stopped_at: Phase 20 context gathered
+last_updated: "2026-04-07T15:39:16.775Z"
 progress:
   total_phases: 20
   completed_phases: 19
-  total_plans: 40
+  total_plans: 42
   completed_plans: 40
-  percent: 100
+  percent: 95
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 19 — embedded-client-ef-lifecycle-hardening
+**Current focus:** Phase 20 — getorcreatecollection-contentef-support
 
 ## Current Position
 
-Phase: 20
-Plan: Not started
+Phase: 20 (getorcreatecollection-contentef-support) — EXECUTING
+Plan: 1 of 2
 
 ## Performance Metrics
 
@@ -175,6 +175,6 @@ None.
 
 ## Session
 
-**Last Date:** 2026-04-06T06:56:41.151Z
-**Stopped At:** Phase 19 context gathered
-**Resume File:** .planning/phases/19-embedded-client-ef-lifecycle-hardening/19-CONTEXT.md
+**Last Date:** 2026-04-07T10:56:17.170Z
+**Stopped At:** Phase 20 context gathered
+**Resume File:** .planning/phases/20-getorcreatecollection-contentef-support/20-CONTEXT.md
