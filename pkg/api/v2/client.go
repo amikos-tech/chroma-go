@@ -242,14 +242,15 @@ func NewGetCollectionOp(opts ...GetCollectionOption) (*GetCollectionOp, error) {
 type CreateCollectionOption func(*CreateCollectionOp) error
 
 type CreateCollectionOp struct {
-	Name                   string                       `json:"name"`
-	CreateIfNotExists      bool                         `json:"get_or_create,omitempty"`
-	embeddingFunction      embeddings.EmbeddingFunction `json:"-"`
-	Metadata               CollectionMetadata           `json:"metadata,omitempty"`
-	Configuration          *CollectionConfigurationImpl `json:"configuration,omitempty"`
-	Schema                 *Schema                      `json:"schema,omitempty"`
-	Database               Database                     `json:"-"`
-	disableEFConfigStorage bool                         `json:"-"`
+	Name                     string                              `json:"name"`
+	CreateIfNotExists        bool                                `json:"get_or_create,omitempty"`
+	embeddingFunction        embeddings.EmbeddingFunction        `json:"-"`
+	contentEmbeddingFunction embeddings.ContentEmbeddingFunction `json:"-"`
+	Metadata                 CollectionMetadata                  `json:"metadata,omitempty"`
+	Configuration            *CollectionConfigurationImpl        `json:"configuration,omitempty"`
+	Schema                   *Schema                             `json:"schema,omitempty"`
+	Database                 Database                            `json:"-"`
+	disableEFConfigStorage   bool                                `json:"-"`
 }
 
 func NewCreateCollectionOp(name string, opts ...CreateCollectionOption) (*CreateCollectionOp, error) {
@@ -296,6 +297,22 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 			op.Configuration = NewCollectionConfiguration()
 		}
 		op.Configuration.SetEmbeddingFunction(op.embeddingFunction)
+	}
+
+	// Persist contentEF config after denseEF so contentEF takes precedence
+	// when it also implements EmbeddingFunction (e.g. overrides default ORT).
+	// Content-only EFs that don't implement EmbeddingFunction skip persistence silently.
+	if op.contentEmbeddingFunction != nil {
+		if op.Schema != nil {
+			if denseEF, ok := op.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {
+				op.Schema.SetEmbeddingFunction(denseEF)
+			}
+		} else {
+			if op.Configuration == nil {
+				op.Configuration = NewCollectionConfiguration()
+			}
+			op.Configuration.SetContentEmbeddingFunction(op.contentEmbeddingFunction)
+		}
 	}
 	return nil
 }
@@ -469,6 +486,16 @@ func WithEmbeddingFunctionCreate(embeddingFunction embeddings.EmbeddingFunction)
 			return errors.New("embeddingFunction cannot be nil")
 		}
 		op.embeddingFunction = embeddingFunction
+		return nil
+	}
+}
+
+func WithContentEmbeddingFunctionCreate(ef embeddings.ContentEmbeddingFunction) CreateCollectionOption {
+	return func(op *CreateCollectionOp) error {
+		if ef == nil {
+			return errors.New("content embedding function cannot be nil")
+		}
+		op.contentEmbeddingFunction = ef
 		return nil
 	}
 }

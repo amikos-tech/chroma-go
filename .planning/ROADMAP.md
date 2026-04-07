@@ -184,7 +184,7 @@ Plans:
 | 17. Cloud RRF/GroupBy Tests | 1/1 | Complete    | 2026-04-02 |
 | 18. Embedded contentEF Parity | 2/2 | Complete    | 2026-04-02 |
 | 19. EF Lifecycle Hardening | 2/2 | Complete    | 2026-04-06 |
-| 20. GetOrCreateCollection contentEF | 0/2 | In Progress | - |
+| 20. GetOrCreateCollection contentEF | 0/0 | Not Started | - |
 
 ### Phase 9: Convenience Constructors and Documentation Polish
 
@@ -373,8 +373,7 @@ Plans:
   3. `GetOrCreateCollection` forwards contentEF to `GetCollection` via `WithContentEmbeddingFunctionGet`.
   4. Both HTTP and embedded client paths handle the new option.
   5. Tests cover GetOrCreateCollection with explicit contentEF.
-**Plans:** 2 plans
+**Plans:** 0 plans
 
 Plans:
-- [ ] 20-01-PLAN.md — Add contentEF field, option, config persistence, and wire through HTTP + embedded paths
-- [ ] 20-02-PLAN.md — Add test coverage for contentEF in HTTP and embedded CreateCollection/GetOrCreateCollection
+- [ ] TBD (run /gsd:plan-phase 20 to break down)
