@@ -2847,3 +2847,100 @@ func TestWithPersistentLogger_RejectsNil(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "persistent logger cannot be nil")
 }
+
+func TestEmbeddedCreateCollection_ContentEF_NewCollection(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	contentEF := &mockCloseableContentEF{}
+	col, err := client.CreateCollection(ctx, "test-content-ef",
+		WithEmbeddingFunctionCreate(embeddingspkg.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(contentEF),
+	)
+	require.NoError(t, err)
+
+	ec := col.(*embeddedCollection)
+	ec.mu.RLock()
+	gotContentEF := ec.contentEmbeddingFunction
+	ec.mu.RUnlock()
+	require.NotNil(t, gotContentEF, "contentEmbeddingFunction must be set on new embedded collection")
+}
+
+func TestEmbeddedCreateCollection_ContentEF_ExistingCollection(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	originalContentEF := &mockCloseableContentEF{}
+	_, err := client.CreateCollection(ctx, "test-col",
+		WithEmbeddingFunctionCreate(embeddingspkg.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(originalContentEF),
+	)
+	require.NoError(t, err)
+
+	newContentEF := &mockCloseableContentEF{}
+	col2, err := client.CreateCollection(ctx, "test-col",
+		WithEmbeddingFunctionCreate(embeddingspkg.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(newContentEF),
+		WithIfNotExistsCreate(),
+	)
+	require.NoError(t, err)
+
+	ec := col2.(*embeddedCollection)
+	ec.mu.RLock()
+	gotContentEF := ec.contentEmbeddingFunction
+	ec.mu.RUnlock()
+	require.NotNil(t, gotContentEF, "contentEF should come from state for existing collection")
+	require.Same(t, originalContentEF, unwrapCloseOnceContentEF(gotContentEF),
+		"existing collection must preserve original contentEF, not use the new one")
+}
+
+func TestEmbeddedGetOrCreateCollection_ContentEF_ForwardedToGetCollection(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	_, err := client.CreateCollection(ctx, "test-col",
+		WithEmbeddingFunctionCreate(embeddingspkg.NewConsistentHashEmbeddingFunction()),
+	)
+	require.NoError(t, err)
+
+	contentEF := &mockCloseableContentEF{}
+	got, err := client.GetOrCreateCollection(ctx, "test-col",
+		WithEmbeddingFunctionCreate(embeddingspkg.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(contentEF),
+	)
+	require.NoError(t, err)
+
+	ec := got.(*embeddedCollection)
+	ec.mu.RLock()
+	gotContentEF := ec.contentEmbeddingFunction
+	ec.mu.RUnlock()
+	require.NotNil(t, gotContentEF, "contentEF must be forwarded to existing collection via GetCollection")
+}
+
+func TestEmbeddedGetOrCreateCollection_ContentEF_VerifyViaSubsequentGetCollection(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	contentEF := &mockCloseableContentEF{}
+	_, err := client.CreateCollection(ctx, "test-col",
+		WithEmbeddingFunctionCreate(embeddingspkg.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(contentEF),
+	)
+	require.NoError(t, err)
+
+	got, err := client.GetCollection(ctx, "test-col",
+		WithEmbeddingFunctionGet(embeddingspkg.NewConsistentHashEmbeddingFunction()),
+	)
+	require.NoError(t, err)
+
+	ec := got.(*embeddedCollection)
+	ec.mu.RLock()
+	gotContentEF := ec.contentEmbeddingFunction
+	ec.mu.RUnlock()
+	require.NotNil(t, gotContentEF, "contentEF should be available from embedded state even without explicit option")
+	require.Same(t, contentEF, unwrapCloseOnceContentEF(gotContentEF), "should be the same contentEF stored in state")
+}
