@@ -405,7 +405,7 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		overrideEF = nil
 	}
 
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, nil, true)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, nil, true, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -577,10 +577,37 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 	snapshot := *s
 	client.collectionStateMu.Unlock()
 
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, snapshot.embeddingFunction, snapshot.contentEmbeddingFunction, true)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, snapshot.embeddingFunction, snapshot.contentEmbeddingFunction, true, false)
 	if err != nil {
+		_ = client.deleteCollectionState(model.ID)
 		return nil, errors.Wrap(err, "error building collection")
 	}
+	verifiedModel, verifyErr := client.embedded.GetCollection(localchroma.EmbeddedGetCollectionRequest{
+		Name:         req.name,
+		TenantID:     req.Database.Tenant().Name(),
+		DatabaseName: req.Database.Name(),
+	})
+	if verifyErr != nil || verifiedModel == nil || verifiedModel.ID != model.ID {
+		// Clean up auto-wired EFs. In a narrow race window a concurrent
+		// GetCollection that already cached its result may share these same
+		// close-once wrappers; its next embed call would see errEFClosed.
+		// A proper fix requires reference counting — accepted as known limitation.
+		var errs []error
+		if cleanupErr := client.deleteCollectionState(model.ID); cleanupErr != nil {
+			errs = append(errs, cleanupErr)
+		}
+		switch {
+		case verifyErr != nil:
+			errs = append(errs, errors.Wrapf(verifyErr, "collection %q (ID %s) revalidation failed", req.name, model.ID))
+		case verifiedModel == nil:
+			// Defensive: should not happen if runtime follows the (nil, error) contract.
+			errs = append(errs, errors.Errorf("collection %q (ID %s) deleted during retrieval", req.name, model.ID))
+		default:
+			errs = append(errs, errors.Errorf("collection %q changed during retrieval (expected ID %s, got %s)", req.name, model.ID, verifiedModel.ID))
+		}
+		return nil, stderrors.Join(errs...)
+	}
+	client.state.localAddCollectionToCache(collection)
 	return collection, nil
 }
 
@@ -650,7 +677,7 @@ func (client *embeddedLocalClient) ListCollections(ctx context.Context, opts ...
 
 	collections := make([]Collection, 0, len(models))
 	for _, model := range models {
-		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil, nil, true)
+		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil, nil, true, true)
 		if buildErr != nil {
 			return nil, errors.Wrapf(buildErr, "error building listed collection %s", model.ID)
 		}
@@ -724,7 +751,7 @@ func (client *embeddedLocalClient) logCloseError(msg, collection string, err err
 			logger.String("collection", collection),
 			logger.ErrorField("error", err))
 	} else {
-		logCollectionCleanupCloseErrorToStderr(collection, err)
+		logCloseErrorToStderr(msg, collection, err)
 	}
 }
 
@@ -798,7 +825,7 @@ func (client *embeddedLocalClient) collectionDimension(collectionID string, fall
 	return state.dimension
 }
 
-func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction, overrideContentEF embeddingspkg.ContentEmbeddingFunction, ownsEF bool) (*embeddedCollection, error) {
+func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction, overrideContentEF embeddingspkg.ContentEmbeddingFunction, ownsEF bool, cache bool) (*embeddedCollection, error) {
 	tenantName := model.Tenant
 	databaseName := model.Database
 
@@ -877,7 +904,9 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		client:                   client,
 	}
 	collection.ownsEF.Store(ownsEF)
-	client.state.localAddCollectionToCache(collection)
+	if cache {
+		client.state.localAddCollectionToCache(collection)
+	}
 	return collection, nil
 }
 

@@ -99,6 +99,14 @@ type countingMemoryEmbeddedRuntime struct {
 	getCollectionCalls    int
 }
 
+type blockingGetMemoryEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+
+	firstSnapshotTaken chan struct{}
+	unblockFirstGet    chan struct{}
+	getCalls           atomic.Int32
+}
+
 type failingUpdateEmbeddedRuntime struct {
 	*memoryEmbeddedRuntime
 
@@ -144,6 +152,14 @@ func newCountingMemoryEmbeddedRuntime() *countingMemoryEmbeddedRuntime {
 	}
 }
 
+func newBlockingGetMemoryEmbeddedRuntime() *blockingGetMemoryEmbeddedRuntime {
+	return &blockingGetMemoryEmbeddedRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+		firstSnapshotTaken:    make(chan struct{}),
+		unblockFirstGet:       make(chan struct{}),
+	}
+}
+
 func newFailingUpdateEmbeddedRuntime(updateErr error) *failingUpdateEmbeddedRuntime {
 	return &failingUpdateEmbeddedRuntime{
 		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
@@ -169,6 +185,18 @@ func (s *countingMemoryEmbeddedRuntime) GetCollection(request localchroma.Embedd
 	s.getCollectionCalls++
 	s.mu.Unlock()
 	return s.memoryEmbeddedRuntime.GetCollection(request)
+}
+
+func (s *blockingGetMemoryEmbeddedRuntime) GetCollection(request localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	col, err := s.memoryEmbeddedRuntime.GetCollection(request)
+	if err != nil {
+		return nil, err
+	}
+	if s.getCalls.Add(1) == 1 {
+		close(s.firstSnapshotTaken)
+		<-s.unblockFirstGet
+	}
+	return col, nil
 }
 
 func (s *failingUpdateEmbeddedRuntime) UpdateCollection(request localchroma.EmbeddedUpdateCollectionRequest) error {
@@ -1533,7 +1561,7 @@ func TestEmbeddedLocalClientGetOrCreateCollection_ExistingWithoutEFPreservesLoca
 
 	createCalls, getCalls := runtime.callCounts()
 	require.Equal(t, 1, createCalls)
-	require.Equal(t, 1, getCalls)
+	require.Equal(t, 2, getCalls, "GetCollection revalidates the collection ID before publishing to cache")
 }
 
 func TestEmbeddedLocalClientGetOrCreateCollection_ExistingWithEFUpdatesLocalState(t *testing.T) {
@@ -1564,7 +1592,7 @@ func TestEmbeddedLocalClientGetOrCreateCollection_ExistingWithEFUpdatesLocalStat
 
 	createCalls, getCalls := runtime.callCounts()
 	require.Equal(t, 1, createCalls)
-	require.Equal(t, 2, getCalls)
+	require.Equal(t, 4, getCalls, "each GetCollection call performs an ID revalidation round-trip")
 }
 
 func TestEmbeddedLocalClientGetOrCreateCollection_CreatesWhenMissing(t *testing.T) {
@@ -2363,6 +2391,26 @@ func TestEmbeddedLocalClient_Close_IsSafeToCallTwice(t *testing.T) {
 	require.Equal(t, int32(1), mockContentEF.closeCount.Load(), "content EF must still be closed exactly once after repeated Close")
 }
 
+func TestEmbeddedLocalClient_Close_NoLoggerFallsBackToStderrWithShutdownContext(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+
+	mockEF := &mockFailingCloseEF{closeErr: errors.New("shutdown stderr test error")}
+	client.collectionStateMu.Lock()
+	client.collectionState["shutdown-test"] = &embeddedCollectionState{
+		embeddingFunction: wrapEFCloseOnce(mockEF),
+	}
+	client.collectionStateMu.Unlock()
+
+	output := captureStderr(t, func() {
+		err := client.Close()
+		require.Error(t, err)
+	})
+
+	require.Contains(t, output, "failed to close EF during client shutdown")
+	require.NotContains(t, output, "collection cache cleanup")
+}
+
 func TestEmbeddedBuildCollection_CloseOnceWrapping(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
@@ -2376,7 +2424,7 @@ func TestEmbeddedBuildCollection_CloseOnceWrapping(t *testing.T) {
 	model := runtime.collections[key]
 	runtime.mu.Unlock()
 
-	collection, err := client.buildEmbeddedCollection(model, nil, rawEF, rawContentEF, true)
+	collection, err := client.buildEmbeddedCollection(model, nil, rawEF, rawContentEF, true, true)
 	require.NoError(t, err)
 	_ = colID
 
@@ -2490,6 +2538,92 @@ func TestEmbeddedGetCollection_AutoWireRecoveryAfterInitialBuildFailure(t *testi
 	require.NotNil(t, state.embeddingFunction, "state dense EF must be populated after successful retry")
 	require.NotNil(t, state.contentEmbeddingFunction, "state content EF must be populated after successful retry")
 	client.collectionStateMu.RUnlock()
+}
+
+func TestEmbeddedGetCollection_RaceWithDeleteCollectionDoesNotResurrectState(t *testing.T) {
+	runtime := newBlockingGetMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	created, err := client.CreateCollection(ctx, "race-delete-get")
+	require.NoError(t, err)
+
+	type getResult struct {
+		collection Collection
+		err        error
+	}
+	resultCh := make(chan getResult, 1)
+
+	go func() {
+		col, getErr := client.GetCollection(ctx, "race-delete-get")
+		resultCh <- getResult{collection: col, err: getErr}
+	}()
+
+	<-runtime.firstSnapshotTaken
+
+	err = client.DeleteCollection(ctx, "race-delete-get")
+	require.NoError(t, err)
+
+	close(runtime.unblockFirstGet)
+	result := <-resultCh
+
+	require.Error(t, result.err)
+	require.Nil(t, result.collection)
+
+	client.collectionStateMu.RLock()
+	_, hasState := client.collectionState[created.ID()]
+	client.collectionStateMu.RUnlock()
+	require.False(t, hasState, "concurrent GetCollection must not resurrect deleted collection state")
+	require.Nil(t, client.cachedCollectionByName("race-delete-get"), "concurrent GetCollection must not resurrect deleted collection cache entry")
+
+	_, err = client.GetCollection(ctx, "race-delete-get")
+	require.Error(t, err)
+}
+
+func TestEmbeddedGetCollection_RaceWithDeleteAndRecreateDoesNotReturnStaleCollection(t *testing.T) {
+	runtime := newBlockingGetMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	original, err := client.CreateCollection(ctx, "race-delete-recreate")
+	require.NoError(t, err)
+
+	type getResult struct {
+		collection Collection
+		err        error
+	}
+	resultCh := make(chan getResult, 1)
+
+	go func() {
+		col, getErr := client.GetCollection(ctx, "race-delete-recreate")
+		resultCh <- getResult{collection: col, err: getErr}
+	}()
+
+	<-runtime.firstSnapshotTaken
+
+	err = client.DeleteCollection(ctx, "race-delete-recreate")
+	require.NoError(t, err)
+
+	recreated, err := client.CreateCollection(ctx, "race-delete-recreate")
+	require.NoError(t, err)
+	require.NotEqual(t, original.ID(), recreated.ID(), "recreated collection must have a new ID")
+
+	close(runtime.unblockFirstGet)
+	result := <-resultCh
+
+	require.Error(t, result.err)
+	require.Nil(t, result.collection)
+
+	client.collectionStateMu.RLock()
+	_, hasOriginalState := client.collectionState[original.ID()]
+	_, hasRecreatedState := client.collectionState[recreated.ID()]
+	client.collectionStateMu.RUnlock()
+	require.False(t, hasOriginalState, "stale collection state must be cleaned up")
+	require.True(t, hasRecreatedState, "replacement collection state must remain intact")
+
+	cached := client.cachedCollectionByName("race-delete-recreate")
+	require.NotNil(t, cached, "replacement collection must remain cached")
+	require.Equal(t, recreated.ID(), cached.ID(), "cache must point at the replacement collection")
 }
 
 func TestEmbeddedCreateCollection_StoresWrappedEFInState(t *testing.T) {
@@ -2686,7 +2820,8 @@ func TestEmbeddedClient_NoLoggerFallsBackToStderr(t *testing.T) {
 		client.deleteCollectionState("stderr-test")
 	})
 
-	require.Contains(t, output, "chroma-go: failed to close EF")
+	require.Contains(t, output, "failed to close EF during collection state cleanup")
+	require.NotContains(t, output, "collection cache cleanup")
 }
 
 func TestWithPersistentLogger_PropagatesToStateClient(t *testing.T) {
