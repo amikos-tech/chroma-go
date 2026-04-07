@@ -15,6 +15,7 @@ import (
 
 	localchroma "github.com/amikos-tech/chroma-go-local"
 	embeddingspkg "github.com/amikos-tech/chroma-go/pkg/embeddings"
+	"github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 type embeddedCollectionState struct {
@@ -45,6 +46,8 @@ type embeddedLocalClient struct {
 
 	collectionStateMu sync.RWMutex
 	collectionState   map[string]*embeddedCollectionState
+
+	logger logger.Logger
 }
 
 func newEmbeddedLocalClient(cfg *localClientConfig, embedded localEmbeddedRuntime) (Client, error) {
@@ -69,6 +72,7 @@ func newEmbeddedLocalClient(cfg *localClientConfig, embedded localEmbeddedRuntim
 		state:           stateClient,
 		embedded:        embedded,
 		collectionState: map[string]*embeddedCollectionState{},
+		logger:          cfg.logger,
 	}, nil
 }
 
@@ -384,8 +388,9 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 
 	overrideEF := req.embeddingFunction
 	if isNewCreation {
+		overrideEF = wrapEFCloseOnce(req.embeddingFunction)
 		client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
-			state.embeddingFunction = req.embeddingFunction
+			state.embeddingFunction = overrideEF
 			if req.Metadata != nil {
 				state.metadata = req.Metadata
 			}
@@ -400,7 +405,7 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		overrideEF = nil
 	}
 
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, nil, true)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, nil, true, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -485,10 +490,14 @@ func (client *embeddedLocalClient) DeleteCollection(ctx context.Context, name st
 	if err != nil {
 		return errors.Wrapf(err, "error deleting collection %s", name)
 	}
+	var cleanupErr error
 	if targetCollectionID != "" {
-		client.deleteCollectionState(targetCollectionID)
+		cleanupErr = client.deleteCollectionState(targetCollectionID)
 	}
 	client.state.localDeleteCollectionFromCache(name)
+	if cleanupErr != nil {
+		return errors.Wrapf(cleanupErr, "error cleaning up deleted collection %s state", name)
+	}
 	return nil
 }
 
@@ -519,26 +528,27 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 	contentEF := req.contentEmbeddingFunction
 	ef := req.embeddingFunction
 
-	// Only auto-wire when no explicit EF was provided AND state doesn't already
-	// hold one from a prior CreateCollection or GetCollection call.
-	// Copy the flags under the lock to avoid racing with upsertCollectionState.
-	var hasContentEF, hasEF bool
-	client.collectionStateMu.RLock()
-	if s := client.collectionState[model.ID]; s != nil {
-		hasContentEF = s.contentEmbeddingFunction != nil
-		hasEF = s.embeddingFunction != nil
+	// Auto-wire under a single write lock to prevent TOCTOU races: check-nil +
+	// build-EF + assign runs atomically. The lock does NOT span
+	// buildEmbeddedCollection because that path re-enters upsertCollectionState,
+	// and Go mutexes are not re-entrant.
+	client.collectionStateMu.Lock()
+	s := client.collectionState[model.ID]
+	if s == nil {
+		s = &embeddedCollectionState{}
+		client.collectionState[model.ID] = s
 	}
-	client.collectionStateMu.RUnlock()
 
-	if contentEF == nil && !hasContentEF {
+	if contentEF == nil && s.contentEmbeddingFunction == nil {
 		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
 		if buildErr != nil {
-			logAutoWireBuildErrorToStderr(model.Name, "content embedding function", buildErr)
+			client.logAutoWireError(model.Name, "content embedding function", buildErr)
+		} else {
+			contentEF = autoWiredContentEF
 		}
-		contentEF = autoWiredContentEF
 	}
 
-	if ef == nil && !hasEF {
+	if ef == nil && s.embeddingFunction == nil {
 		if unwrapper, ok := contentEF.(embeddingspkg.EmbeddingFunctionUnwrapper); ok {
 			ef = unwrapper.UnwrapEmbeddingFunction()
 		} else if denseFromContent, ok := contentEF.(embeddingspkg.EmbeddingFunction); ok {
@@ -547,26 +557,57 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 		if ef == nil {
 			autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
 			if buildErr != nil {
-				logAutoWireBuildErrorToStderr(model.Name, "embedding function", buildErr)
+				client.logAutoWireError(model.Name, "embedding function", buildErr)
+			} else {
+				ef = autoWiredEF
 			}
-			ef = autoWiredEF
 		}
 	}
 
-	if ef != nil || contentEF != nil {
-		client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
-			if ef != nil {
-				state.embeddingFunction = ef
-			}
-			if contentEF != nil {
-				state.contentEmbeddingFunction = contentEF
-			}
-		})
+	// Store close-once WRAPPED EFs in state so all close paths share
+	// the same sync.Once wrapper (canonical wrapper location).
+	// buildEmbeddedCollection re-wraps idempotently when constructing the
+	// collection snapshot.
+	if contentEF != nil {
+		s.contentEmbeddingFunction = wrapContentEFCloseOnce(contentEF)
 	}
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, ef, contentEF, true)
+	if ef != nil {
+		s.embeddingFunction = wrapEFCloseOnce(ef)
+	}
+	snapshot := *s
+	client.collectionStateMu.Unlock()
+
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, snapshot.embeddingFunction, snapshot.contentEmbeddingFunction, true, false)
 	if err != nil {
+		_ = client.deleteCollectionState(model.ID)
 		return nil, errors.Wrap(err, "error building collection")
 	}
+	verifiedModel, verifyErr := client.embedded.GetCollection(localchroma.EmbeddedGetCollectionRequest{
+		Name:         req.name,
+		TenantID:     req.Database.Tenant().Name(),
+		DatabaseName: req.Database.Name(),
+	})
+	if verifyErr != nil || verifiedModel == nil || verifiedModel.ID != model.ID {
+		// Clean up auto-wired EFs. In a narrow race window a concurrent
+		// GetCollection that already cached its result may share these same
+		// close-once wrappers; its next embed call would see errEFClosed.
+		// A proper fix requires reference counting — accepted as known limitation.
+		var errs []error
+		if cleanupErr := client.deleteCollectionState(model.ID); cleanupErr != nil {
+			errs = append(errs, cleanupErr)
+		}
+		switch {
+		case verifyErr != nil:
+			errs = append(errs, errors.Wrapf(verifyErr, "collection %q (ID %s) revalidation failed", req.name, model.ID))
+		case verifiedModel == nil:
+			// Defensive: should not happen if runtime follows the (nil, error) contract.
+			errs = append(errs, errors.Errorf("collection %q (ID %s) deleted during retrieval", req.name, model.ID))
+		default:
+			errs = append(errs, errors.Errorf("collection %q changed during retrieval (expected ID %s, got %s)", req.name, model.ID, verifiedModel.ID))
+		}
+		return nil, stderrors.Join(errs...)
+	}
+	client.state.localAddCollectionToCache(collection)
 	return collection, nil
 }
 
@@ -636,7 +677,7 @@ func (client *embeddedLocalClient) ListCollections(ctx context.Context, opts ...
 
 	collections := make([]Collection, 0, len(models))
 	for _, model := range models {
-		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil, nil, true)
+		collection, buildErr := client.buildEmbeddedCollection(model, req.Database, nil, nil, true, true)
 		if buildErr != nil {
 			return nil, errors.Wrapf(buildErr, "error building listed collection %s", model.ID)
 		}
@@ -647,6 +688,22 @@ func (client *embeddedLocalClient) ListCollections(ctx context.Context, opts ...
 
 func (client *embeddedLocalClient) Close() error {
 	var errs []error
+
+	// Copy state under lock, clear map, release lock, then close outside.
+	client.collectionStateMu.Lock()
+	states := make(map[string]*embeddedCollectionState, len(client.collectionState))
+	for k, v := range client.collectionState {
+		states[k] = v
+	}
+	client.collectionState = map[string]*embeddedCollectionState{}
+	client.collectionStateMu.Unlock()
+
+	for id, s := range states {
+		if err := closeEmbeddingFunctions(s.embeddingFunction, s.contentEmbeddingFunction); err != nil {
+			client.logCloseError("failed to close EF during client shutdown", id, err)
+			errs = append(errs, err)
+		}
+	}
 
 	if client.state != nil {
 		if err := client.state.Close(); err != nil {
@@ -678,13 +735,42 @@ func (client *embeddedLocalClient) renameCollectionInCache(oldName string, colle
 	client.state.localRenameCollectionInCache(oldName, collection)
 }
 
-func (client *embeddedLocalClient) deleteCollectionState(collectionID string) {
+func (client *embeddedLocalClient) logAutoWireError(collection, target string, err error) {
+	if client.logger != nil {
+		client.logger.Warn("failed to auto-wire "+target,
+			logger.String("collection", collection),
+			logger.ErrorField("error", err))
+	} else {
+		logAutoWireBuildErrorToStderr(collection, target, err)
+	}
+}
+
+func (client *embeddedLocalClient) logCloseError(msg, collection string, err error) {
+	if client.logger != nil {
+		client.logger.Error(msg,
+			logger.String("collection", collection),
+			logger.ErrorField("error", err))
+	} else {
+		logCloseErrorToStderr(msg, collection, err)
+	}
+}
+
+func (client *embeddedLocalClient) deleteCollectionState(collectionID string) error {
 	if collectionID == "" {
-		return
+		return nil
 	}
 	client.collectionStateMu.Lock()
-	defer client.collectionStateMu.Unlock()
+	state := client.collectionState[collectionID]
 	delete(client.collectionState, collectionID)
+	client.collectionStateMu.Unlock()
+	// Close outside the lock so EF teardown does not block unrelated state updates.
+	if state != nil {
+		if err := closeEmbeddingFunctions(state.embeddingFunction, state.contentEmbeddingFunction); err != nil {
+			client.logCloseError("failed to close EF during collection state cleanup", collectionID, err)
+			return err
+		}
+	}
+	return nil
 }
 
 func (client *embeddedLocalClient) upsertCollectionState(collectionID string, update func(state *embeddedCollectionState)) embeddedCollectionState {
@@ -739,7 +825,7 @@ func (client *embeddedLocalClient) collectionDimension(collectionID string, fall
 	return state.dimension
 }
 
-func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction, overrideContentEF embeddingspkg.ContentEmbeddingFunction, ownsEF bool) (*embeddedCollection, error) {
+func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.EmbeddedCollection, fallbackDB Database, overrideEF embeddingspkg.EmbeddingFunction, overrideContentEF embeddingspkg.ContentEmbeddingFunction, ownsEF bool, cache bool) (*embeddedCollection, error) {
 	tenantName := model.Tenant
 	databaseName := model.Database
 
@@ -813,12 +899,14 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 		configuration:            snapshot.configuration,
 		schema:                   snapshot.schema,
 		dimension:                snapshot.dimension,
-		embeddingFunction:        snapshot.embeddingFunction,
-		contentEmbeddingFunction: snapshot.contentEmbeddingFunction,
+		embeddingFunction:        wrapEFCloseOnce(snapshot.embeddingFunction),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(snapshot.contentEmbeddingFunction),
 		client:                   client,
 	}
 	collection.ownsEF.Store(ownsEF)
-	client.state.localAddCollectionToCache(collection)
+	if cache {
+		client.state.localAddCollectionToCache(collection)
+	}
 	return collection, nil
 }
 

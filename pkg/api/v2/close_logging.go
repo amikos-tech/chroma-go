@@ -39,7 +39,7 @@ func isDenseEFSharedWithContent(denseEF embeddings.EmbeddingFunction, contentEF 
 		return unwrapper.UnwrapEmbeddingFunction() == unwrapped
 	}
 	if efFromContent, ok := contentEF.(embeddings.EmbeddingFunction); ok {
-		return efFromContent == unwrapped
+		return unwrapCloseOnceEF(efFromContent) == unwrapped
 	}
 	return false
 }
@@ -65,16 +65,21 @@ func closeEmbeddingFunctions(denseEF embeddings.EmbeddingFunction, contentEF emb
 	return stderrors.Join(errs...)
 }
 
-func logCollectionCleanupCloseErrorToStderr(name string, err error) {
+func logCloseErrorToStderr(msg, name string, err error) {
 	if err == nil {
 		return
 	}
 	_, _ = fmt.Fprintf(
 		os.Stderr,
-		"chroma-go: failed to close EF during collection cache cleanup: collection=%s error=%v\n",
+		"chroma-go: %s: collection=%s error=%v\n",
+		msg,
 		name,
 		err,
 	)
+}
+
+func logCollectionCleanupCloseErrorToStderr(name string, err error) {
+	logCloseErrorToStderr("failed to close EF during collection cache cleanup", name, err)
 }
 
 func logAutoWireBuildErrorToStderr(collectionName, target string, err error) {

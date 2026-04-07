@@ -44,6 +44,8 @@ func (m *mockSharedContentAdapter) UnwrapEmbeddingFunction() embeddings.Embeddin
 }
 
 type capturingLogger struct {
+	mu sync.Mutex
+
 	warnCount  int
 	errorCount int
 	lastMsg    string
@@ -55,11 +57,15 @@ func (l *capturingLogger) Debug(string, ...logger.Field) {}
 func (l *capturingLogger) Info(string, ...logger.Field)  {}
 
 func (l *capturingLogger) Warn(msg string, _ ...logger.Field) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.warnCount++
 	l.lastMsg = msg
 }
 
 func (l *capturingLogger) Error(msg string, _ ...logger.Field) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.errorCount++
 	l.lastMsg = msg
 }
@@ -101,6 +107,28 @@ func captureStderr(t *testing.T, fn func()) string {
 	output := <-outputCh
 	require.NoError(t, r.Close())
 	return output
+}
+
+func TestCapturingLogger_ConcurrentAccess(t *testing.T) {
+	log := &capturingLogger{}
+
+	const goroutines = 64
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		go func(index int) {
+			defer wg.Done()
+			if index%2 == 0 {
+				log.Warn("warn")
+				return
+			}
+			log.Error("error")
+		}(i)
+	}
+
+	wg.Wait()
+	assert.Equal(t, goroutines, log.warnCount+log.errorCount)
 }
 
 func TestCloseOnceEF_ClosePanicLogsToStderr(t *testing.T) {
@@ -408,4 +436,78 @@ func TestEmbeddedCollection_Close_ContentPanicStillClosesDenseEF(t *testing.T) {
 
 	assert.Contains(t, output, "content close exploded", "panic must be reported to stderr")
 	assert.Equal(t, int32(1), denseEF.closeCount.Load(), "dense EF must still be closed after content EF panic")
+}
+
+func TestIsDenseEFSharedWithContent_SymmetricUnwrap(t *testing.T) {
+	base := &mockCloseableEF{}
+	adapter := &mockSharedContentAdapter{inner: base}
+
+	// Both wrapped in close-once
+	wrappedDense := wrapEFCloseOnce(base)
+	wrappedContent := wrapContentEFCloseOnce(adapter)
+
+	assert.True(t, isDenseEFSharedWithContent(wrappedDense, wrappedContent),
+		"wrapped shared EFs must be detected as shared via symmetric unwrapping")
+
+	// Different base EFs wrapped
+	otherBase := &mockCloseableEF{}
+	wrappedOtherDense := wrapEFCloseOnce(otherBase)
+	assert.False(t, isDenseEFSharedWithContent(wrappedOtherDense, wrappedContent),
+		"different underlying EFs must not be detected as shared")
+
+	// Unwrapped EFs (backward compatibility)
+	assert.True(t, isDenseEFSharedWithContent(base, adapter),
+		"unwrapped shared EFs must still be detected as shared")
+
+	otherBase2 := &mockCloseableEF{}
+	assert.False(t, isDenseEFSharedWithContent(otherBase2, adapter),
+		"unwrapped different EFs must not be detected as shared")
+}
+
+func TestDeleteCollectionFromCache_EmbeddedCollection(t *testing.T) {
+	mockEF := &mockCloseableEF{}
+	mockContentEF := &mockCloseableContentEF{}
+
+	ec := &embeddedCollection{
+		name:                     "embedded-test",
+		embeddingFunction:        wrapEFCloseOnce(mockEF),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(mockContentEF),
+	}
+	ec.ownsEF.Store(true)
+
+	client := &APIClientV2{
+		collectionCache: map[string]Collection{
+			"embedded-test": ec,
+		},
+	}
+
+	client.localDeleteCollectionFromCache("embedded-test")
+
+	require.Equal(t, int32(1), mockEF.closeCount.Load(), "dense EF must be closed")
+	require.Equal(t, int32(1), mockContentEF.closeCount.Load(), "content EF must be closed")
+	require.Nil(t, client.collectionCache["embedded-test"], "cache entry must be removed")
+}
+
+func TestDeleteCollectionFromCache_EmbeddedCollectionNonOwner(t *testing.T) {
+	mockEF := &mockCloseableEF{}
+	mockContentEF := &mockCloseableContentEF{}
+
+	ec := &embeddedCollection{
+		name:                     "embedded-test",
+		embeddingFunction:        wrapEFCloseOnce(mockEF),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(mockContentEF),
+	}
+	// ownsEF defaults to false for non-owner forks.
+
+	client := &APIClientV2{
+		collectionCache: map[string]Collection{
+			"embedded-test": ec,
+		},
+	}
+
+	client.localDeleteCollectionFromCache("embedded-test")
+
+	require.Equal(t, int32(0), mockEF.closeCount.Load(), "dense EF must not be closed for non-owner embedded collection")
+	require.Equal(t, int32(0), mockContentEF.closeCount.Load(), "content EF must not be closed for non-owner embedded collection")
+	require.Nil(t, client.collectionCache["embedded-test"], "cache entry must be removed")
 }

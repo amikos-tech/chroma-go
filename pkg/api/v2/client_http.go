@@ -426,8 +426,9 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 		autoWiredContentEF, buildErr := BuildContentEFFromConfig(configuration)
 		if buildErr != nil {
 			client.logger.Warn("failed to auto-wire content embedding function", logger.ErrorField("error", buildErr))
+		} else {
+			contentEF = autoWiredContentEF
 		}
-		contentEF = autoWiredContentEF
 	}
 	// Auto-wire dense EF: try unwrapping from content adapter first, then build from config
 	ef := req.embeddingFunction
@@ -441,8 +442,9 @@ func (client *APIClientV2) GetCollection(ctx context.Context, name string, opts 
 			autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
 			if buildErr != nil {
 				client.logger.Warn("failed to auto-wire embedding function", logger.ErrorField("error", buildErr))
+			} else {
+				ef = autoWiredEF
 			}
-			ef = autoWiredEF
 		}
 	}
 	c := &CollectionImpl{
@@ -530,11 +532,14 @@ func (client *APIClientV2) ListCollections(ctx context.Context, opts ...ListColl
 		for _, cm := range cols {
 			configuration := NewCollectionConfigurationFromMap(cm.ConfigurationJSON)
 			// Auto-wire EF from configuration
-			ef, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
+			autoWiredEF, buildErr := BuildEmbeddingFunctionFromConfig(configuration)
+			var ef embeddings.EmbeddingFunction
 			if buildErr != nil {
 				client.logger.Warn("failed to auto-wire embedding function for collection",
 					logger.String("collection", cm.Name),
 					logger.ErrorField("error", buildErr))
+			} else {
+				ef = autoWiredEF
 			}
 			c := &CollectionImpl{
 				name:              cm.Name,
@@ -807,6 +812,8 @@ func (client *APIClientV2) localDeleteCollectionFromCache(name string) {
 			if !transferred {
 				toClose = deleted
 			}
+		} else if ec, ok := deleted.(*embeddedCollection); ok && ec.ownsEF.Load() {
+			toClose = deleted
 		}
 	}
 	client.collectionMu.Unlock()
