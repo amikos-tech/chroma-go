@@ -270,7 +270,8 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 	if op.Name == "" {
 		return errors.New("collection name cannot be empty")
 	}
-	if op.embeddingFunction == nil {
+	defaultedDenseEF := op.embeddingFunction == nil
+	if defaultedDenseEF {
 		// Keep the returned close function out of here: collection constructors own the
 		// embedding function lifecycle and will close it via collection.Close().
 		// The EF object is retained in op.embeddingFunction, so its Close() method
@@ -304,11 +305,22 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 	// Content-only EFs that don't implement EmbeddingFunction skip persistence silently.
 	// NOTE: this block depends on the disableEFConfigStorage early return above.
 	if op.contentEmbeddingFunction != nil {
-		if op.Schema != nil {
-			if denseEF, ok := op.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {
+		if denseEF, ok := op.contentEmbeddingFunction.(embeddings.EmbeddingFunction); ok {
+			if op.Schema != nil {
 				op.Schema.SetEmbeddingFunction(denseEF)
+			} else {
+				if op.Configuration == nil {
+					op.Configuration = NewCollectionConfiguration()
+				}
+				op.Configuration.SetContentEmbeddingFunction(op.contentEmbeddingFunction)
 			}
-		} else {
+			// Promote dual contentEF to the runtime dense EF when no explicit
+			// denseEF was provided, so the returned collection uses the same EF
+			// that was persisted to config (avoids mixed-model embeddings).
+			if defaultedDenseEF {
+				op.embeddingFunction = denseEF
+			}
+		} else if op.Schema == nil {
 			if op.Configuration == nil {
 				op.Configuration = NewCollectionConfiguration()
 			}

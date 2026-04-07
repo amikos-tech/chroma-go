@@ -1559,6 +1559,45 @@ func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testi
 		require.True(t, ok, "EF info must be present from denseEF")
 		require.NotNil(t, efInfo)
 	})
+
+	t.Run("dual contentEF promoted to runtime denseEF when no explicit denseEF", func(t *testing.T) {
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-promote",
+			WithContentEmbeddingFunctionCreate(dualEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.Equal(t, dualEF.Name(), op.embeddingFunction.(embeddings.EmbeddingFunction).Name(),
+			"runtime denseEF must be the dual contentEF, not default ORT")
+	})
+
+	t.Run("dual contentEF does not replace explicit denseEF at runtime", func(t *testing.T) {
+		explicitEF := embeddings.NewConsistentHashEmbeddingFunction()
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-no-promote",
+			WithEmbeddingFunctionCreate(explicitEF),
+			WithContentEmbeddingFunctionCreate(dualEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.Equal(t, explicitEF.Name(), op.embeddingFunction.(embeddings.EmbeddingFunction).Name(),
+			"runtime denseEF must remain the user-provided EF")
+	})
+
+	t.Run("wrapped content-only EF does not persist empty config", func(t *testing.T) {
+		contentOnlyEF := &mockCloseableContentEF{}
+		wrapped := wrapContentEFCloseOnce(contentOnlyEF)
+		// closeOnceContentEF always satisfies EmbeddingFunction; if wrapping happened
+		// before PrepareAndValidate, the type assertion would be a false positive.
+		_, isDense := wrapped.(embeddings.EmbeddingFunction)
+		require.True(t, isDense, "wrapped content-only EF must satisfy EmbeddingFunction interface")
+		// Verify the wrapper returns empty metadata for the non-dual inner EF.
+		denseView := wrapped.(embeddings.EmbeddingFunction)
+		require.Empty(t, denseView.Name(), "wrapper Name() must be empty for content-only inner EF")
+		require.Empty(t, denseView.GetConfig(), "wrapper GetConfig() must be empty for content-only inner EF")
+	})
 }
 
 func TestPrepareAndValidateCollectionRequest_ContentEFSchemaPath(t *testing.T) {
@@ -1597,6 +1636,24 @@ func TestPrepareAndValidateCollectionRequest_ContentEFSchemaPath(t *testing.T) {
 		got := op.Schema.GetEmbeddingFunction()
 		require.NotNil(t, got, "schema must have EF set from denseEF")
 		require.Equal(t, denseEF.Name(), got.Name(), "schema EF must be the original denseEF")
+	})
+
+	t.Run("dual contentEF promoted to runtime denseEF with schema and no explicit denseEF", func(t *testing.T) {
+		schema, err := NewSchemaWithDefaults()
+		require.NoError(t, err)
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-schema-promote",
+			WithSchemaCreate(schema),
+			WithContentEmbeddingFunctionCreate(dualEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.Equal(t, dualEF.Name(), op.embeddingFunction.(embeddings.EmbeddingFunction).Name(),
+			"runtime denseEF must be the dual contentEF, not default ORT")
+		got := op.Schema.GetEmbeddingFunction()
+		require.NotNil(t, got, "schema must have EF set")
+		require.Equal(t, dualEF.Name(), got.Name(), "schema EF must be the dual contentEF")
 	})
 }
 
