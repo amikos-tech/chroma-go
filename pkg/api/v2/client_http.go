@@ -342,16 +342,17 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		return nil, errors.Wrap(err, "error decoding response")
 	}
 	c := &CollectionImpl{
-		name:              cm.Name,
-		id:                cm.ID,
-		tenant:            NewTenant(cm.Tenant),
-		database:          NewDatabase(cm.Database, NewTenant(cm.Tenant)),
-		metadata:          cm.Metadata,
-		schema:            cm.Schema,
-		configuration:     NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
-		client:            client,
-		embeddingFunction: wrapEFCloseOnce(req.embeddingFunction),
-		dimension:         cm.Dimension,
+		name:                     cm.Name,
+		id:                       cm.ID,
+		tenant:                   NewTenant(cm.Tenant),
+		database:                 NewDatabase(cm.Database, NewTenant(cm.Tenant)),
+		metadata:                 cm.Metadata,
+		schema:                   cm.Schema,
+		configuration:            NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
+		client:                   client,
+		embeddingFunction:        wrapEFCloseOnce(req.embeddingFunction),
+		contentEmbeddingFunction: wrapContentEFCloseOnce(req.contentEmbeddingFunction),
+		dimension:                cm.Dimension,
 	}
 	c.ownsEF.Store(true)
 	client.addCollectionToCache(c)
