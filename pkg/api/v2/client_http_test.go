@@ -1470,3 +1470,126 @@ func TestClientSetup(t *testing.T) {
 		require.Same(t, customTransport, apiClient.httpTransport)
 	})
 }
+
+func TestCreateCollectionWithContentEF(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		cm := CollectionModel{
+			ID:       "test-id-001",
+			Name:     "test-content-ef",
+			Tenant:   "default_tenant",
+			Database: "default_database",
+		}
+		_ = json.NewEncoder(w).Encode(&cm)
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+
+	contentEF := &mockCloseableContentEF{}
+	col, err := client.CreateCollection(context.Background(), "test-content-ef",
+		WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(contentEF),
+	)
+	require.NoError(t, err)
+	impl := col.(*CollectionImpl)
+	require.NotNil(t, impl.contentEmbeddingFunction, "contentEmbeddingFunction must be set on CollectionImpl")
+}
+
+func TestGetOrCreateCollectionWithContentEF(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		cm := CollectionModel{
+			ID:       "test-id-002",
+			Name:     "test-getorcreate-ef",
+			Tenant:   "default_tenant",
+			Database: "default_database",
+		}
+		_ = json.NewEncoder(w).Encode(&cm)
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+
+	contentEF := &mockCloseableContentEF{}
+	col, err := client.GetOrCreateCollection(context.Background(), "test-getorcreate-ef",
+		WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(contentEF),
+	)
+	require.NoError(t, err)
+	impl := col.(*CollectionImpl)
+	require.NotNil(t, impl.contentEmbeddingFunction, "contentEmbeddingFunction must be set via GetOrCreateCollection")
+}
+
+func TestWithContentEmbeddingFunctionCreateNil(t *testing.T) {
+	_, err := NewCreateCollectionOp("test", WithContentEmbeddingFunctionCreate(nil))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "content embedding function cannot be nil")
+}
+
+func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testing.T) {
+	t.Run("dual-interface contentEF persists config", func(t *testing.T) {
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-dual",
+			WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+			WithContentEmbeddingFunctionCreate(dualEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.NotNil(t, op.Configuration, "Configuration must be set")
+		efInfo, ok := op.Configuration.GetEmbeddingFunctionInfo()
+		require.True(t, ok, "EF info must be present in config")
+		require.NotNil(t, efInfo, "EF info must not be nil")
+	})
+
+	t.Run("content-only contentEF skips config persistence", func(t *testing.T) {
+		contentOnlyEF := &mockCloseableContentEF{}
+		op, err := NewCreateCollectionOp("test-content-only",
+			WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+			WithContentEmbeddingFunctionCreate(contentOnlyEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.NotNil(t, op.Configuration, "Configuration must be set from denseEF")
+		efInfo, ok := op.Configuration.GetEmbeddingFunctionInfo()
+		require.True(t, ok, "EF info must be present from denseEF")
+		require.NotNil(t, efInfo)
+	})
+}
+
+func TestCreateCollectionWithContentEF_CloseLifecycle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		cm := CollectionModel{
+			ID:       "test-id-close",
+			Name:     "test-close-ef",
+			Tenant:   "default_tenant",
+			Database: "default_database",
+		}
+		_ = json.NewEncoder(w).Encode(&cm)
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+
+	contentEF := &mockCloseableContentEF{}
+	col, err := client.CreateCollection(context.Background(), "test-close-ef",
+		WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(contentEF),
+	)
+	require.NoError(t, err)
+	impl := col.(*CollectionImpl)
+
+	err = impl.Close()
+	require.NoError(t, err)
+	require.Equal(t, int32(1), contentEF.closeCount.Load(), "contentEF must be closed exactly once")
+
+	err = impl.Close()
+	require.NoError(t, err)
+	require.Equal(t, int32(1), contentEF.closeCount.Load(), "contentEF must not be closed again")
+}
