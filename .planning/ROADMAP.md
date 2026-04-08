@@ -3,3 +3,151 @@
 ## Milestones
 
 - ✅ **v0.4.1 Provider-Neutral Multimodal Foundations** — Phases 1-20 (shipped 2026-04-08)
+- 🚧 **v0.4.2 Bug Fixes and Robustness** — Phases 21-28 (in progress)
+
+## Phases
+
+<details>
+<summary>v0.4.1 Provider-Neutral Multimodal Foundations (Phases 1-20) - SHIPPED 2026-04-08</summary>
+
+See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
+
+</details>
+
+### v0.4.2 Bug Fixes and Robustness (In Progress)
+
+**Milestone Goal:** Fix API bugs, harden embedded client lifecycle, and clean up error handling across embedding providers.
+
+**Phase Numbering:**
+- Integer phases (21, 22, ...): Planned milestone work
+- Decimal phases (21.1, 21.2): Urgent insertions (marked with INSERTED)
+
+- [ ] **Phase 21: RrfRank Arithmetic Fix** - RrfRank arithmetic methods compute correct results instead of silently returning self
+- [ ] **Phase 22: WithGroupBy Validation** - WithGroupBy(nil) returns an error instead of silently skipping grouping
+- [ ] **Phase 23: ORT EF Leak Fix** - Default ORT EF is properly closed when CreateCollection finds an existing collection
+- [ ] **Phase 24: GetOrCreateCollection EF Safety** - GetOrCreateCollection does not pass closed EFs to CreateCollection fallback
+- [ ] **Phase 25: Error Body Truncation** - Embedding provider error messages truncate raw HTTP bodies to safe display lengths
+- [ ] **Phase 26: Twelve Labs Async Embedding** - Twelve Labs provider handles async task responses for long-running media
+- [ ] **Phase 27: Download Stack Consolidation** - default_ef download code uses shared downloadutil instead of its own HTTP implementation
+- [ ] **Phase 28: Morph Test Fix** - Morph EF integration test handles upstream 404 gracefully
+
+## Phase Details
+
+### Phase 21: RrfRank Arithmetic Fix
+**Goal**: RrfRank arithmetic operations produce correct composite rank expressions
+**Depends on**: Nothing (independent bug fix)
+**Requirements**: RANK-01, RANK-02
+**Success Criteria** (what must be TRUE):
+  1. Calling Multiply, Sub, Add, Div, or Negate on an RrfRank returns a new rank value reflecting the computation, not the original receiver
+  2. The computed rank values marshal to valid JSON that Chroma accepts
+  3. Tests confirm each arithmetic method produces distinct output from its input
+**Plans**: TBD
+
+Plans:
+- [ ] 21-01: TBD
+
+### Phase 22: WithGroupBy Validation
+**Goal**: WithGroupBy rejects nil input with a clear error
+**Depends on**: Nothing (independent bug fix)
+**Requirements**: GRP-01
+**Success Criteria** (what must be TRUE):
+  1. Passing nil to WithGroupBy returns a validation error before the request is sent
+  2. Non-nil WithGroupBy calls continue to work as before
+**Plans**: TBD
+
+Plans:
+- [ ] 22-01: TBD
+
+### Phase 23: ORT EF Leak Fix
+**Goal**: Default ORT embedding function is properly cleaned up when CreateCollection encounters an existing collection
+**Depends on**: Nothing (independent bug fix)
+**Requirements**: EFL-01
+**Success Criteria** (what must be TRUE):
+  1. When CreateCollection finds an existing collection, any default ORT EF created by PrepareAndValidateCollectionRequest is closed
+  2. No ORT runtime resources remain open after CreateCollection returns in the existing-collection path
+**Plans**: TBD
+
+Plans:
+- [ ] 23-01: TBD
+
+### Phase 24: GetOrCreateCollection EF Safety
+**Goal**: GetOrCreateCollection never passes a closed EF to CreateCollection fallback
+**Depends on**: Phase 23
+**Requirements**: EFL-02, EFL-03
+**Success Criteria** (what must be TRUE):
+  1. When GetCollection fails and GetOrCreateCollection falls back to CreateCollection, the EF passed is still open and usable
+  2. Concurrent GetOrCreateCollection calls under `-race` do not trigger data races or double-close panics
+  3. Tests demonstrate the EF lifecycle under concurrent access
+**Plans**: TBD
+
+Plans:
+- [ ] 24-01: TBD
+
+### Phase 25: Error Body Truncation
+**Goal**: Embedding provider errors display safe-length messages instead of arbitrarily large raw HTTP bodies
+**Depends on**: Nothing (independent cleanup)
+**Requirements**: ERR-01, ERR-02
+**Success Criteria** (what must be TRUE):
+  1. A shared SanitizeErrorBody utility exists that truncates bodies exceeding a safe display length and appends a `[truncated]` suffix
+  2. All embedding providers use SanitizeErrorBody when constructing error messages from HTTP responses
+  3. Error messages from providers with large error bodies are readable (not multi-KB dumps)
+**Plans**: TBD
+
+Plans:
+- [ ] 25-01: TBD
+
+### Phase 26: Twelve Labs Async Embedding
+**Goal**: Twelve Labs provider handles async task responses for long-running audio and video embeddings
+**Depends on**: Phase 25 (error truncation should be in place before new provider work)
+**Requirements**: TLA-01, TLA-02, TLA-03, TLA-04
+**Success Criteria** (what must be TRUE):
+  1. When the sync endpoint returns an async task response, the provider detects it and enters a polling loop
+  2. Polling respects the caller's context.Context for cancellation and timeout
+  3. Terminal states (ready, failed) are handled with appropriate result delivery or error messages
+  4. Tests cover async task creation, polling to completion, polling to failure, and context cancellation
+**Plans**: TBD
+
+Plans:
+- [ ] 26-01: TBD
+
+### Phase 27: Download Stack Consolidation
+**Goal**: default_ef download code uses the shared downloadutil package instead of its own HTTP download implementation
+**Depends on**: Nothing (independent refactor)
+**Requirements**: DL-01, DL-02
+**Success Criteria** (what must be TRUE):
+  1. `default_ef/download_utils.go` delegates to `downloadutil.DownloadFile` instead of implementing its own HTTP download
+  2. All existing download tests pass unchanged after the consolidation
+**Plans**: TBD
+
+Plans:
+- [ ] 27-01: TBD
+
+### Phase 28: Morph Test Fix
+**Goal**: Morph EF integration test handles upstream 404 gracefully
+**Depends on**: Nothing (independent test fix)
+**Requirements**: MORPH-01
+**Success Criteria** (what must be TRUE):
+  1. The Morph EF integration test does not fail due to upstream 404 errors (either skips with a message or uses an updated URL)
+  2. When Morph upstream is available, the test exercises the embedding function end-to-end
+**Plans**: TBD
+
+Plans:
+- [ ] 28-01: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 21 -> 22 -> 23 -> 24 -> ... -> 28.
+Phases 21, 22, 25, 27, 28 are independent and may execute in any order relative to each other.
+Phase 24 depends on Phase 23. Phase 26 depends on Phase 25.
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 21. RrfRank Arithmetic Fix | v0.4.2 | 0/0 | Not started | - |
+| 22. WithGroupBy Validation | v0.4.2 | 0/0 | Not started | - |
+| 23. ORT EF Leak Fix | v0.4.2 | 0/0 | Not started | - |
+| 24. GetOrCreateCollection EF Safety | v0.4.2 | 0/0 | Not started | - |
+| 25. Error Body Truncation | v0.4.2 | 0/0 | Not started | - |
+| 26. Twelve Labs Async Embedding | v0.4.2 | 0/0 | Not started | - |
+| 27. Download Stack Consolidation | v0.4.2 | 0/0 | Not started | - |
+| 28. Morph Test Fix | v0.4.2 | 0/0 | Not started | - |

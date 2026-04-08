@@ -59,27 +59,27 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RANK-01 | - | Pending |
-| RANK-02 | - | Pending |
-| GRP-01 | - | Pending |
-| EFL-01 | - | Pending |
-| EFL-02 | - | Pending |
-| EFL-03 | - | Pending |
-| ERR-01 | - | Pending |
-| ERR-02 | - | Pending |
-| TLA-01 | - | Pending |
-| TLA-02 | - | Pending |
-| TLA-03 | - | Pending |
-| TLA-04 | - | Pending |
-| DL-01 | - | Pending |
-| DL-02 | - | Pending |
-| MORPH-01 | - | Pending |
+| RANK-01 | Phase 21 | Pending |
+| RANK-02 | Phase 21 | Pending |
+| GRP-01 | Phase 22 | Pending |
+| EFL-01 | Phase 23 | Pending |
+| EFL-02 | Phase 24 | Pending |
+| EFL-03 | Phase 24 | Pending |
+| ERR-01 | Phase 25 | Pending |
+| ERR-02 | Phase 25 | Pending |
+| TLA-01 | Phase 26 | Pending |
+| TLA-02 | Phase 26 | Pending |
+| TLA-03 | Phase 26 | Pending |
+| TLA-04 | Phase 26 | Pending |
+| DL-01 | Phase 27 | Pending |
+| DL-02 | Phase 27 | Pending |
+| MORPH-01 | Phase 28 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-08 after initial definition*
+*Last updated: 2026-04-08 after roadmap creation*
