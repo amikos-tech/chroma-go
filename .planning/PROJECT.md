@@ -30,9 +30,30 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 - ✓ Code cleanups: shared pathutil, context.Context fix, registry test cleanup — v0.4.1
 - ✓ SDK auto-wiring behavior documented across Python, JS, Rust, Go — v0.4.1
 
+## Current Milestone: v0.4.2 Bug Fixes and Robustness
+
+**Goal:** Fix API bugs, harden embedded client lifecycle, and clean up error handling across embedding providers.
+
+**Target features:**
+- Fix RrfRank arithmetic silent no-ops (#481)
+- Fix WithGroupBy(nil) silently skipping grouping (#482)
+- Fix embedded GetOrCreateCollection passing closed EFs (#493)
+- Fix default ORT EF leak in embedded CreateCollection (#494)
+- Fix Morph EF integration test (#465)
+- Truncate raw error bodies in embedding providers (#478)
+- Refactor release download stack (#412)
+- Add Twelve Labs async embedding support (#479)
+
 ### Active
 
-(None — planning next milestone)
+- RrfRank arithmetic methods silently return self without computing — #481
+- WithGroupBy(nil) accepted as no-op instead of error — #482
+- Embedded GetOrCreateCollection passes closed EFs to CreateCollection fallback — #493
+- Default ORT EF leaked when CreateCollection finds existing collection — #494
+- Morph EF integration test broken by upstream 404 — #465
+- Raw error bodies can be arbitrarily large in provider error messages — #478
+- Release download stack has excessive duplication across providers — #412
+- Twelve Labs lacks async embedding for long audio/video — #479
 
 ### Out of Scope
 
@@ -68,5 +89,22 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 | Add Twelve Labs as third multimodal provider (Phase 16) | Validates contract portability across text/image/audio/video with a non-Google/non-Voyage provider | ✓ Good |
 | Close-once EF wrappers for Fork double-close fix | Defense-in-depth alongside ownsEF flag; prevents panics even if ownership logic is bypassed | ✓ Good |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-04-08 after v0.4.1 milestone*
+*Last updated: 2026-04-08 — milestone v0.4.2 started*
