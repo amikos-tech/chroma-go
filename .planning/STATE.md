@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4.1
 milestone_name: Provider-Neutral Multimodal Foundations
-status: Ready to plan
-stopped_at: Phase 19 context gathered
-last_updated: "2026-04-06T10:09:45.551Z"
+status: Milestone complete
+stopped_at: Phase 20 context gathered
+last_updated: "2026-04-07T16:41:30.195Z"
 progress:
   total_phases: 20
-  completed_phases: 19
-  total_plans: 40
-  completed_plans: 40
+  completed_phases: 20
+  total_plans: 42
+  completed_plans: 42
   percent: 100
 ---
 
@@ -20,7 +20,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 19 — embedded-client-ef-lifecycle-hardening
+**Current focus:** Phase 20 — getorcreatecollection-contentef-support
 
 ## Current Position
 
@@ -31,7 +31,7 @@ Plan: Not started
 
 **Velocity:**
 
-- Total plans completed: 12
+- Total plans completed: 14
 - Average duration: 5 min
 - Total execution time: 51 min
 
@@ -43,6 +43,7 @@ Plan: Not started
 | Phase 02 | 3 | 17 min | 6 min |
 | Phase 03 | 3 | 11 min | 4 min |
 | 19 | 2 | - | - |
+| 20 | 2 | - | - |
 
 **Recent Trend:**
 
@@ -175,6 +176,6 @@ None.
 
 ## Session
 
-**Last Date:** 2026-04-06T06:56:41.151Z
-**Stopped At:** Phase 19 context gathered
-**Resume File:** .planning/phases/19-embedded-client-ef-lifecycle-hardening/19-CONTEXT.md
+**Last Date:** 2026-04-07T10:56:17.170Z
+**Stopped At:** Phase 20 context gathered
+**Resume File:** .planning/phases/20-getorcreatecollection-contentef-support/20-CONTEXT.md

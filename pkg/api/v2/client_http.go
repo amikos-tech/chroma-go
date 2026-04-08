@@ -351,7 +351,11 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		configuration:     NewCollectionConfigurationFromMap(cm.ConfigurationJSON),
 		client:            client,
 		embeddingFunction: wrapEFCloseOnce(req.embeddingFunction),
-		dimension:         cm.Dimension,
+		// NOTE: wrapping must occur after PrepareAndValidateCollectionRequest because
+		// closeOnceContentEF always satisfies EmbeddingFunction, which would make the
+		// dual-interface type assertion in PrepareAndValidate a false positive.
+		contentEmbeddingFunction: wrapContentEFCloseOnce(req.contentEmbeddingFunction),
+		dimension:                cm.Dimension,
 	}
 	c.ownsEF.Store(true)
 	client.addCollectionToCache(c)

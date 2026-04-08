@@ -1470,3 +1470,225 @@ func TestClientSetup(t *testing.T) {
 		require.Same(t, customTransport, apiClient.httpTransport)
 	})
 }
+
+func TestCreateCollectionWithContentEF(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		cm := CollectionModel{
+			ID:       "test-id-001",
+			Name:     "test-content-ef",
+			Tenant:   "default_tenant",
+			Database: "default_database",
+		}
+		_ = json.NewEncoder(w).Encode(&cm)
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+	defer func() { _ = client.Close() }()
+
+	contentEF := &mockCloseableContentEF{}
+	col, err := client.CreateCollection(context.Background(), "test-content-ef",
+		WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(contentEF),
+	)
+	require.NoError(t, err)
+	impl := col.(*CollectionImpl)
+	require.NotNil(t, impl.contentEmbeddingFunction, "contentEmbeddingFunction must be set on CollectionImpl")
+}
+
+func TestGetOrCreateCollectionWithContentEF(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		cm := CollectionModel{
+			ID:       "test-id-002",
+			Name:     "test-getorcreate-ef",
+			Tenant:   "default_tenant",
+			Database: "default_database",
+		}
+		_ = json.NewEncoder(w).Encode(&cm)
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+	defer func() { _ = client.Close() }()
+
+	contentEF := &mockCloseableContentEF{}
+	col, err := client.GetOrCreateCollection(context.Background(), "test-getorcreate-ef",
+		WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(contentEF),
+	)
+	require.NoError(t, err)
+	impl := col.(*CollectionImpl)
+	require.NotNil(t, impl.contentEmbeddingFunction, "contentEmbeddingFunction must be set via GetOrCreateCollection")
+}
+
+func TestWithContentEmbeddingFunctionCreateNil(t *testing.T) {
+	_, err := NewCreateCollectionOp("test", WithContentEmbeddingFunctionCreate(nil))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "content embedding function cannot be nil")
+}
+
+func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testing.T) {
+	t.Run("dual-interface contentEF persists config", func(t *testing.T) {
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-dual",
+			WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+			WithContentEmbeddingFunctionCreate(dualEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.NotNil(t, op.Configuration, "Configuration must be set")
+		efInfo, ok := op.Configuration.GetEmbeddingFunctionInfo()
+		require.True(t, ok, "EF info must be present in config")
+		require.NotNil(t, efInfo, "EF info must not be nil")
+	})
+
+	t.Run("content-only contentEF leaves denseEF config intact", func(t *testing.T) {
+		contentOnlyEF := &mockCloseableContentEF{}
+		op, err := NewCreateCollectionOp("test-content-only",
+			WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+			WithContentEmbeddingFunctionCreate(contentOnlyEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.NotNil(t, op.Configuration, "Configuration must be set from denseEF")
+		efInfo, ok := op.Configuration.GetEmbeddingFunctionInfo()
+		require.True(t, ok, "EF info must be present from denseEF")
+		require.NotNil(t, efInfo)
+	})
+
+	t.Run("dual contentEF promoted to runtime denseEF when no explicit denseEF", func(t *testing.T) {
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-promote",
+			WithContentEmbeddingFunctionCreate(dualEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.Equal(t, dualEF.Name(), op.embeddingFunction.(embeddings.EmbeddingFunction).Name(),
+			"runtime denseEF must be the dual contentEF, not default ORT")
+	})
+
+	t.Run("dual contentEF does not replace explicit denseEF at runtime", func(t *testing.T) {
+		explicitEF := embeddings.NewConsistentHashEmbeddingFunction()
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-no-promote",
+			WithEmbeddingFunctionCreate(explicitEF),
+			WithContentEmbeddingFunctionCreate(dualEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.Equal(t, explicitEF.Name(), op.embeddingFunction.(embeddings.EmbeddingFunction).Name(),
+			"runtime denseEF must remain the user-provided EF")
+	})
+
+	t.Run("wrapped content-only EF does not persist empty config", func(t *testing.T) {
+		contentOnlyEF := &mockCloseableContentEF{}
+		wrapped := wrapContentEFCloseOnce(contentOnlyEF)
+		// closeOnceContentEF always satisfies EmbeddingFunction; if wrapping happened
+		// before PrepareAndValidate, the type assertion would be a false positive.
+		_, isDense := wrapped.(embeddings.EmbeddingFunction)
+		require.True(t, isDense, "wrapped content-only EF must satisfy EmbeddingFunction interface")
+		// Verify the wrapper returns empty metadata for the non-dual inner EF.
+		denseView := wrapped.(embeddings.EmbeddingFunction)
+		require.Empty(t, denseView.Name(), "wrapper Name() must be empty for content-only inner EF")
+		require.Empty(t, denseView.GetConfig(), "wrapper GetConfig() must be empty for content-only inner EF")
+	})
+}
+
+func TestPrepareAndValidateCollectionRequest_ContentEFSchemaPath(t *testing.T) {
+	t.Run("dual-interface contentEF overrides schema EF", func(t *testing.T) {
+		schema, err := NewSchemaWithDefaults()
+		require.NoError(t, err)
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-schema-dual",
+			WithSchemaCreate(schema),
+			WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+			WithContentEmbeddingFunctionCreate(dualEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		// contentEF (dual-interface) should have overridden the denseEF in schema
+		got := op.Schema.GetEmbeddingFunction()
+		require.NotNil(t, got, "schema must have EF set")
+		require.Equal(t, dualEF.Name(), got.Name(), "schema EF must be the dual contentEF")
+	})
+
+	t.Run("content-only contentEF leaves schema denseEF intact", func(t *testing.T) {
+		schema, err := NewSchemaWithDefaults()
+		require.NoError(t, err)
+		denseEF := embeddings.NewConsistentHashEmbeddingFunction()
+		contentOnlyEF := &mockCloseableContentEF{}
+		op, err := NewCreateCollectionOp("test-schema-content-only",
+			WithSchemaCreate(schema),
+			WithEmbeddingFunctionCreate(denseEF),
+			WithContentEmbeddingFunctionCreate(contentOnlyEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		// content-only EF cannot override schema; original denseEF stays
+		got := op.Schema.GetEmbeddingFunction()
+		require.NotNil(t, got, "schema must have EF set from denseEF")
+		require.Equal(t, denseEF.Name(), got.Name(), "schema EF must be the original denseEF")
+	})
+
+	t.Run("dual contentEF promoted to runtime denseEF with schema and no explicit denseEF", func(t *testing.T) {
+		schema, err := NewSchemaWithDefaults()
+		require.NoError(t, err)
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-schema-promote",
+			WithSchemaCreate(schema),
+			WithContentEmbeddingFunctionCreate(dualEF),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.Equal(t, dualEF.Name(), op.embeddingFunction.(embeddings.EmbeddingFunction).Name(),
+			"runtime denseEF must be the dual contentEF, not default ORT")
+		got := op.Schema.GetEmbeddingFunction()
+		require.NotNil(t, got, "schema must have EF set")
+		require.Equal(t, dualEF.Name(), got.Name(), "schema EF must be the dual contentEF")
+	})
+}
+
+func TestCreateCollectionWithContentEF_CloseLifecycle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		cm := CollectionModel{
+			ID:       "test-id-close",
+			Name:     "test-close-ef",
+			Tenant:   "default_tenant",
+			Database: "default_database",
+		}
+		_ = json.NewEncoder(w).Encode(&cm)
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL))
+	require.NoError(t, err)
+	defer func() { _ = client.Close() }()
+
+	contentEF := &mockCloseableContentEF{}
+	col, err := client.CreateCollection(context.Background(), "test-close-ef",
+		WithEmbeddingFunctionCreate(embeddings.NewConsistentHashEmbeddingFunction()),
+		WithContentEmbeddingFunctionCreate(contentEF),
+	)
+	require.NoError(t, err)
+	impl := col.(*CollectionImpl)
+
+	err = impl.Close()
+	require.NoError(t, err)
+	require.Equal(t, int32(1), contentEF.closeCount.Load(), "contentEF must be closed exactly once")
+
+	err = impl.Close()
+	require.NoError(t, err)
+	require.Equal(t, int32(1), contentEF.closeCount.Load(), "contentEF must not be closed again")
+}

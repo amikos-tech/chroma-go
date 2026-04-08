@@ -387,10 +387,14 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 	}
 
 	overrideEF := req.embeddingFunction
+	overrideContentEF := req.contentEmbeddingFunction
 	if isNewCreation {
 		overrideEF = wrapEFCloseOnce(req.embeddingFunction)
+		// NOTE: wrapping must occur after PrepareAndValidateCollectionRequest (see client_http.go).
+		overrideContentEF = wrapContentEFCloseOnce(req.contentEmbeddingFunction)
 		client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
 			state.embeddingFunction = overrideEF
+			state.contentEmbeddingFunction = overrideContentEF
 			if req.Metadata != nil {
 				state.metadata = req.Metadata
 			}
@@ -403,9 +407,10 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		})
 	} else {
 		overrideEF = nil
+		overrideContentEF = nil
 	}
 
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, nil, true, true)
+	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, overrideContentEF, true, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "error building collection")
 	}
@@ -434,6 +439,9 @@ func (client *embeddedLocalClient) GetOrCreateCollection(ctx context.Context, na
 	getOptions := []GetCollectionOption{WithDatabaseGet(req.Database)}
 	if req.embeddingFunction != nil {
 		getOptions = append(getOptions, WithEmbeddingFunctionGet(req.embeddingFunction))
+	}
+	if req.contentEmbeddingFunction != nil {
+		getOptions = append(getOptions, WithContentEmbeddingFunctionGet(req.contentEmbeddingFunction))
 	}
 	collection, getErr := client.GetCollection(ctx, req.Name, getOptions...)
 	if getErr == nil {
