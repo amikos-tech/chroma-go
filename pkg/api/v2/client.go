@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -318,6 +319,9 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 			// denseEF was provided, so the returned collection uses the same EF
 			// that was persisted to config (avoids mixed-model embeddings).
 			if defaultedDenseEF {
+				if closer, ok := op.embeddingFunction.(io.Closer); ok {
+					_ = closer.Close()
+				}
 				op.embeddingFunction = denseEF
 			}
 		} else if op.Schema == nil {

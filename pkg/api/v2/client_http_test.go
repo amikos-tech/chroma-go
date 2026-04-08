@@ -1486,6 +1486,7 @@ func TestCreateCollectionWithContentEF(t *testing.T) {
 
 	client, err := NewHTTPClient(WithBaseURL(server.URL))
 	require.NoError(t, err)
+	defer func() { _ = client.Close() }()
 
 	contentEF := &mockCloseableContentEF{}
 	col, err := client.CreateCollection(context.Background(), "test-content-ef",
@@ -1512,6 +1513,7 @@ func TestGetOrCreateCollectionWithContentEF(t *testing.T) {
 
 	client, err := NewHTTPClient(WithBaseURL(server.URL))
 	require.NoError(t, err)
+	defer func() { _ = client.Close() }()
 
 	contentEF := &mockCloseableContentEF{}
 	col, err := client.GetOrCreateCollection(context.Background(), "test-getorcreate-ef",
@@ -1672,6 +1674,7 @@ func TestCreateCollectionWithContentEF_CloseLifecycle(t *testing.T) {
 
 	client, err := NewHTTPClient(WithBaseURL(server.URL))
 	require.NoError(t, err)
+	defer func() { _ = client.Close() }()
 
 	contentEF := &mockCloseableContentEF{}
 	col, err := client.CreateCollection(context.Background(), "test-close-ef",
