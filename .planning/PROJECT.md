@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Chroma Go is a Go SDK for Chroma that supports remote HTTP, Chroma Cloud, and embedded local runtime usage, plus pluggable dense, sparse, multimodal embedding functions and rerankers. This planning workspace is being initialized around the current brownfield milestone: provider-neutral multimodal embedding foundations that expand the shared contract without breaking existing text-only or image-only consumers.
+Chroma Go is a Go SDK for Chroma that supports remote HTTP, Chroma Cloud, and embedded local runtime usage, plus pluggable dense, sparse, and multimodal embedding functions and rerankers. The SDK provides a shared Content API for provider-neutral multimodal embeddings with Gemini, VoyageAI, and Twelve Labs adoptions, convenience constructors, and full embedded client parity.
 
 ## Core Value
 
@@ -17,31 +17,27 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 - ✓ Users can use multiple dense and sparse embedding providers with env-var-backed config reconstruction — existing
 - ✓ Users can use at least one multimodal provider (Roboflow) for shared text and image embeddings — existing
 - ✓ Users can use reranking providers, docs, examples, and build-tagged tests across the V2 API — existing
-- ✓ Registry and config-persistence flows can rebuild richer multimodal functions from stored configuration without regressing auto-wiring — Validated in Phase 3: Registry and Config Integration
-- ✓ Providers can advertise intent support, translate neutral intents to native strings, and reject unsupported modality/intent/dimension combinations before provider I/O — Validated in Phase 4: Provider Mapping and Explicit Failures
-- ✓ Convenience constructors reduce Content API verbosity for common modality+source combinations — Validated in Phase 9: Convenience Constructors and Documentation Polish
+- ✓ Provider-neutral multimodal Content API with ordered mixed-part requests, neutral intents, and per-request options — v0.4.1
+- ✓ Provider capability metadata and backward-compatible adapters for legacy callers — v0.4.1
+- ✓ Content registry with fallback chain, config persistence, and collection auto-wiring — v0.4.1
+- ✓ Intent mapping with explicit failure for unsupported modality/intent combinations — v0.4.1
+- ✓ Convenience constructors reducing Content API verbosity — v0.4.1
+- ✓ Gemini, VoyageAI, and Twelve Labs multimodal provider adoptions — v0.4.1
+- ✓ OpenRouter standalone provider with ProviderPreferences routing — v0.4.1
+- ✓ Fork double-close bug fixed with close-once EF wrappers — v0.4.1
+- ✓ Delete-with-limit, Collection.ForkCount, embedded contentEF parity — v0.4.1
+- ✓ Cloud integration tests for Search API RRF and GroupBy — v0.4.1
+- ✓ Code cleanups: shared pathutil, context.Context fix, registry test cleanup — v0.4.1
+- ✓ SDK auto-wiring behavior documented across Python, JS, Rust, Go — v0.4.1
 
 ### Active
-- Duplicated path safety utilities consolidated, *context.Context anti-pattern fixed, registry test cleanup added — Phase 10 (issues #456, #461, #466)
-- ✓ Fork() double-close bug fixed for shared EF pointers — Validated in Phase 11 (issue #454)
-- SDK auto-wiring behavior traced and documented against official Chroma SDKs — Phase 12 (issue #455)
-- Collection.ForkCount provides Go parity with upstream /fork_count endpoint — Phase 13 (issue #460)
-- Delete operations support optional limit parameter matching upstream — Phase 14 (issue #439)
-- OpenAI embedding function supports OpenRouter provider preferences and encoding_format — Phase 15 (issue #438)
-- Twelve Labs multimodal embedding provider added — Phase 16 (issue #190)
-- Cloud integration tests cover Search API RRF and GroupBy primitives end-to-end — Phase 17 (issue #462)
 
-### Recently Validated
-
-- ✓ Add a provider-neutral multimodal input model that supports mixed-part requests across text, image, audio, video, and PDF — Validated in Phases 1-2
-- ✓ Add provider-neutral intent semantics and per-request multimodal options without breaking current text-only and image-only flows — Validated in Phases 3-4
-- ✓ Public docs explain portable intent usage, escape hatches, and compatibility; tests cover validation, adapters, registry round-trips, and unsupported-combination failures — Validated in Phase 5: Documentation and Verification
+(None — planning next milestone)
 
 ### Out of Scope
 
-- Shipping every provider on the new multimodal contract in this milestone — Gemini, VoyageAI, and Twelve Labs are in scope; remaining providers adopt later
-- Replacing or removing existing `EmbeddingFunction` and image-only multimodal APIs — backwards compatibility is an explicit acceptance criterion
-- Changing collection/query semantics outside the embedding abstraction boundary — keep the milestone scoped to shared embedding foundations
+- Replacing or removing existing `EmbeddingFunction` and image-only multimodal APIs — backwards compatibility is maintained
+- Changing collection/query semantics outside the embedding abstraction boundary
 
 ## Context
 
@@ -64,11 +60,13 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Treat issue `#442` as the active initialization scope for GSD planning | The user explicitly named this work before requesting project initialization | — Pending |
+| Treat issue `#442` as the active initialization scope for GSD planning | The user explicitly named this work before requesting project initialization | ✓ Good |
 | Use the existing codebase map as brownfield context instead of re-running codebase mapping | `.planning/codebase/` already captures architecture, concerns, structure, and testing | ✓ Good |
 | Rebrand milestone from `v0.5` to `v0.4.1` | All changes since v0.4.0 are purely additive with no public API breakage — patch bump is correct semver | ✓ Good |
 | Add Gemini multimodal as Phase 6 (issue #443) | First concrete provider adoption validates the shared contract end-to-end | ✓ Good |
 | Pivot Phase 7 from vLLM/Nemotron to VoyageAI | vLLM lacks NVOmniEmbedModel support; VoyageAI multimodal validates portability with text/image/video | ✓ Good |
+| Add Twelve Labs as third multimodal provider (Phase 16) | Validates contract portability across text/image/audio/video with a non-Google/non-Voyage provider | ✓ Good |
+| Close-once EF wrappers for Fork double-close fix | Defense-in-depth alongside ownsEF flag; prevents panics even if ownership logic is bypassed | ✓ Good |
 
 ---
-*Last updated: 2026-04-07 — Phase 20 (getorcreatecollection-contentef-support) complete: contentEmbeddingFunction support added to CreateCollection and GetOrCreateCollection across HTTP and embedded paths, with config persistence, close-once wrapping, and 9 new tests (issue #486).*
+*Last updated: 2026-04-08 after v0.4.1 milestone*
