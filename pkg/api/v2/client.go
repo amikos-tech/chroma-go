@@ -320,7 +320,9 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 			// that was persisted to config (avoids mixed-model embeddings).
 			if defaultedDenseEF {
 				if closer, ok := op.embeddingFunction.(io.Closer); ok {
-					_ = closer.Close()
+					if err := closer.Close(); err != nil {
+						return errors.Wrap(err, "error closing default embedding function during contentEF promotion")
+					}
 				}
 				op.embeddingFunction = denseEF
 			}
