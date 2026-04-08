@@ -41,10 +41,10 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
   1. Calling Multiply, Sub, Add, Div, or Negate on an RrfRank returns a new rank value reflecting the computation, not the original receiver
   2. The computed rank values marshal to valid JSON that Chroma accepts
   3. Tests confirm each arithmetic method produces distinct output from its input
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 21-01: TBD
+- [ ] 21-01-PLAN.md — Fix RrfRank arithmetic methods and add test coverage
 
 ### Phase 22: WithGroupBy Validation
 **Goal**: WithGroupBy rejects nil input with a clear error
@@ -143,7 +143,7 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 21. RrfRank Arithmetic Fix | v0.4.2 | 0/0 | Not started | - |
+| 21. RrfRank Arithmetic Fix | v0.4.2 | 0/1 | Planning | - |
 | 22. WithGroupBy Validation | v0.4.2 | 0/0 | Not started | - |
 | 23. ORT EF Leak Fix | v0.4.2 | 0/0 | Not started | - |
 | 24. GetOrCreateCollection EF Safety | v0.4.2 | 0/0 | Not started | - |
