@@ -1810,6 +1810,15 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 	require.NotEmpty(t, baselineSR.Scores[0], "baseline: inner Scores slice must not be empty")
 	t.Logf("baseline: IDs=%v Scores=%v", baselineSR.IDs, baselineSR.Scores)
 
+	// Corpus assumption: every baseline fused score must be non-positive on this
+	// 5-doc seed (see corpus-limitation block below). Front-load the check so a
+	// corpus regression surfaces as one clear failure here instead of three
+	// cascading failures downstream (Negate / Abs / Min_0 all depend on it).
+	for i, s := range baselineSR.Scores[0] {
+		require.LessOrEqualf(t, s, 0.0,
+			"baseline: fused score at index %d is %v, expected non-positive — corpus assumption violated", i, s)
+	}
+
 	type bucket string
 	const (
 		bucketSafe       bucket = "safe"
@@ -1913,6 +1922,12 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 				}
 				require.NotEqual(t, baselineSR.Scores, sr.Scores,
 					"method %s: arithmetic wrapping must produce a measurable score change from baseline", tt.name)
+				// Safe-bucket operands are all positive constants, so each transform
+				// (Add(+1)/Sub(+1)/Multiply(+2)/Div(+2)) is strictly monotonic
+				// increasing → ID order must match baseline. A divergence here would
+				// point at a non-monotonic server-side path, not a client bug.
+				require.Equal(t, baselineSR.IDs, sr.IDs,
+					"method %s: monotonic transform with positive operand must preserve ID order", tt.name)
 				t.Logf("safe %s: IDs=%v Scores=%v", tt.name, sr.IDs, sr.Scores)
 
 			case bucketSemflip, bucketDegenerate:
