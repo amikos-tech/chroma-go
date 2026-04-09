@@ -20,6 +20,13 @@ func mustNewKnnRank(t *testing.T, query KnnQueryOption, knnOptions ...KnnOption)
 	return knn
 }
 
+func mustNewRrfRank(t *testing.T, opts ...RrfOption) *RrfRank {
+	t.Helper()
+	rrf, err := NewRrfRank(opts...)
+	require.NoError(t, err)
+	return rrf
+}
+
 func TestValRank(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -480,6 +487,137 @@ func TestRrfRank(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "overflowed")
 	})
+}
+
+func TestRrfRankArithmetic(t *testing.T) {
+	knn := mustNewKnnRank(t, KnnQueryText("test"), WithKnnReturnRank())
+	rrf := mustNewRrfRank(t, WithRrfRanks(knn.WithWeight(1.0)), WithRrfK(60))
+
+	rrfJSON, err := rrf.MarshalJSON()
+	require.NoError(t, err)
+	rrfStr := string(rrfJSON)
+
+	tests := []struct {
+		name     string
+		apply    func(r *RrfRank) Rank
+		expected string
+	}{
+		{
+			name:     "Multiply",
+			apply:    func(r *RrfRank) Rank { return r.Multiply(FloatOperand(2.0)) },
+			expected: `{"$mul":[` + rrfStr + `,{"$val":2}]}`,
+		},
+		{
+			name:     "Sub",
+			apply:    func(r *RrfRank) Rank { return r.Sub(FloatOperand(1.0)) },
+			expected: `{"$sub":{"left":` + rrfStr + `,"right":{"$val":1}}}`,
+		},
+		{
+			name:     "Add",
+			apply:    func(r *RrfRank) Rank { return r.Add(FloatOperand(3.0)) },
+			expected: `{"$sum":[` + rrfStr + `,{"$val":3}]}`,
+		},
+		{
+			name:     "Div",
+			apply:    func(r *RrfRank) Rank { return r.Div(FloatOperand(2.0)) },
+			expected: `{"$div":{"left":` + rrfStr + `,"right":{"$val":2}}}`,
+		},
+		{
+			name:     "Negate",
+			apply:    func(r *RrfRank) Rank { return r.Negate() },
+			expected: `{"$mul":[{"$val":-1},` + rrfStr + `]}`,
+		},
+		{
+			name:     "Abs",
+			apply:    func(r *RrfRank) Rank { return r.Abs() },
+			expected: `{"$abs":` + rrfStr + `}`,
+		},
+		{
+			name:     "Exp",
+			apply:    func(r *RrfRank) Rank { return r.Exp() },
+			expected: `{"$exp":` + rrfStr + `}`,
+		},
+		{
+			name:     "Log",
+			apply:    func(r *RrfRank) Rank { return r.Log() },
+			expected: `{"$log":` + rrfStr + `}`,
+		},
+		{
+			name:     "Max",
+			apply:    func(r *RrfRank) Rank { return r.Max(FloatOperand(0.0)) },
+			expected: `{"$max":[` + rrfStr + `,{"$val":0}]}`,
+		},
+		{
+			name:     "Min",
+			apply:    func(r *RrfRank) Rank { return r.Min(FloatOperand(1.0)) },
+			expected: `{"$min":[` + rrfStr + `,{"$val":1}]}`,
+		},
+		{
+			name:     "Add_IntOperand",
+			apply:    func(r *RrfRank) Rank { return r.Add(IntOperand(7)) },
+			expected: `{"$sum":[` + rrfStr + `,{"$val":7}]}`,
+		},
+		{
+			name:     "Multiply_RankOperand",
+			apply:    func(r *RrfRank) Rank { return r.Multiply(Val(5).Abs()) },
+			expected: `{"$mul":[` + rrfStr + `,{"$abs":{"$val":5}}]}`,
+		},
+		{
+			name: "chained Add then Log",
+			apply: func(r *RrfRank) Rank {
+				return r.Add(FloatOperand(1)).Log()
+			},
+			expected: `{"$log":{"$sum":[` + rrfStr + `,{"$val":1}]}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalJSON, err := rrf.MarshalJSON()
+			require.NoError(t, err)
+
+			result := tt.apply(rrf)
+
+			resultJSON, err := result.MarshalJSON()
+			require.NoError(t, err)
+			require.JSONEq(t, tt.expected, string(resultJSON))
+
+			// Receiver must be unchanged
+			afterJSON, err := rrf.MarshalJSON()
+			require.NoError(t, err)
+			require.Equal(t, string(originalJSON), string(afterJSON), "receiver was mutated")
+		})
+	}
+
+	t.Run("wrappers remain independent across sequential calls", func(t *testing.T) {
+		a := rrf.Add(FloatOperand(1))
+		b := rrf.Multiply(FloatOperand(2))
+		c := rrf.Log()
+
+		bJSON, err := b.MarshalJSON()
+		require.NoError(t, err)
+		cJSON, err := c.MarshalJSON()
+		require.NoError(t, err)
+		aJSON, err := a.MarshalJSON()
+		require.NoError(t, err)
+
+		require.JSONEq(t, `{"$sum":[`+rrfStr+`,{"$val":1}]}`, string(aJSON))
+		require.JSONEq(t, `{"$mul":[`+rrfStr+`,{"$val":2}]}`, string(bJSON))
+		require.JSONEq(t, `{"$log":`+rrfStr+`}`, string(cJSON))
+	})
+}
+
+// Regression test: LogRank.Log() must build a nested log expression.
+// log(log(x)) != log(x), so returning the receiver silently drops the outer Log.
+func TestLogRankLogComposition(t *testing.T) {
+	inner := Val(10.0).Log()
+	nested := inner.Log()
+
+	require.False(t, nested == inner, "LogRank.Log() must return a new Rank, not the receiver")
+
+	nestedJSON, err := nested.MarshalJSON()
+	require.NoError(t, err)
+	require.JSONEq(t, `{"$log":{"$log":{"$val":10}}}`, string(nestedJSON))
 }
 
 func TestRankWithWeight(t *testing.T) {

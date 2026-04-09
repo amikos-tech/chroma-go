@@ -1725,6 +1725,330 @@ func TestCloudClientSearchRRF(t *testing.T) {
 	})
 }
 
+func TestCloudClientSearchRRFArithmetic(t *testing.T) {
+	client := setupCloudClient(t)
+
+	ctx := context.Background()
+	collectionName := "test_rrf_arithmetic-" + uuid.New().String()
+
+	// Register cleanup before CreateCollection so partial-create panics still fire.
+	// Use a detached context so delete survives parent-ctx cancellation.
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if derr := client.DeleteCollection(cleanupCtx, collectionName); derr != nil {
+			t.Logf("cleanup: delete %s: %v", collectionName, derr)
+		}
+	})
+
+	sparseEF, err := chromacloudsplade.NewEmbeddingFunction(chromacloudsplade.WithEnvAPIKey())
+	require.NoError(t, err)
+
+	schema, err := NewSchema(
+		WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+		WithSparseVectorIndex("sparse_embedding", NewSparseVectorIndexConfig(
+			WithSparseEmbeddingFunction(sparseEF),
+			WithSparseSourceKey("#document"),
+		)),
+	)
+	require.NoError(t, err)
+
+	collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+	require.NoError(t, err)
+	require.NotNil(t, collection)
+
+	err = collection.Add(ctx,
+		WithIDs("1", "2", "3", "4", "5"),
+		WithTexts(
+			"quantum computing advances in 2024",
+			"classical music theory and harmony",
+			"quantum mechanics and particle physics",
+			"cooking recipes for beginners",
+			"quantum entanglement research papers",
+		),
+	)
+	require.NoError(t, err)
+
+	// Indexing readiness gate: bounded poll on collection.Count instead of a fixed
+	// sleep. Faster on healthy days, resilient on slow ones.
+	require.Eventually(t, func() bool {
+		n, cerr := collection.Count(ctx)
+		return cerr == nil && n == 5
+	}, 10*time.Second, 500*time.Millisecond, "collection indexing did not reach 5 docs within 10s")
+
+	denseKnn, err := NewKnnRank(KnnQueryText("quantum physics"), WithKnnReturnRank(), WithKnnLimit(10))
+	require.NoError(t, err)
+	sparseKnn, err := NewKnnRank(KnnQueryText("quantum physics"), WithKnnKey(K("sparse_embedding")), WithKnnReturnRank(), WithKnnLimit(10))
+	require.NoError(t, err)
+
+	rrf, err := NewRrfRank(
+		WithRrfRanks(denseKnn.WithWeight(1.0), sparseKnn.WithWeight(1.0)),
+		WithRrfK(60),
+	)
+	require.NoError(t, err)
+
+	// Baseline: plain RRF via the generic WithRank option.
+	// NOTE: We deliberately use WithRank(rrf), NOT WithRrfRank(...). WithRrfRank is a
+	// BUILDER that only accepts RrfOption — it cannot wrap pre-built ranks. Arithmetic
+	// methods on *RrfRank return Rank (concrete *MulRank, *SubRank, ...), so WithRank is
+	// the only option that accepts both the baseline *RrfRank and arithmetic results.
+	baseline, err := collection.Search(ctx,
+		NewSearchRequest(
+			WithRank(rrf),
+			NewPage(Limit(5)),
+			WithSelect(KID, KDocument, KScore),
+		),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, baseline)
+
+	baselineSR, ok := baseline.(*SearchResultImpl)
+	require.True(t, ok)
+	require.NotEmpty(t, baselineSR.IDs, "baseline: outer IDs slice must not be empty")
+	require.NotEmpty(t, baselineSR.Scores, "baseline: outer Scores slice must not be empty")
+	require.NotEmpty(t, baselineSR.IDs[0], "baseline: inner IDs slice must not be empty")
+	require.NotEmpty(t, baselineSR.Scores[0], "baseline: inner Scores slice must not be empty")
+	t.Logf("baseline: IDs=%v Scores=%v", baselineSR.IDs, baselineSR.Scores)
+
+	// Corpus assumption: every baseline fused score must be non-positive on this
+	// 5-doc seed (see corpus-limitation block below). Front-load the check so a
+	// corpus regression surfaces as one clear failure here instead of three
+	// cascading failures downstream (Negate / Abs / Min_0 all depend on it).
+	for i, s := range baselineSR.Scores[0] {
+		require.LessOrEqualf(t, s, 0.0,
+			"baseline: fused score at index %d is %v, expected non-positive — corpus assumption violated", i, s)
+	}
+
+	type bucket string
+	const (
+		bucketSafe       bucket = "safe"
+		bucketSemflip    bucket = "semflip"
+		bucketDegenerate bucket = "degenerate"
+	)
+
+	rows := []struct {
+		name   string
+		bucket bucket
+		apply  func(r *RrfRank) Rank
+	}{
+		{name: "Add", bucket: bucketSafe, apply: func(r *RrfRank) Rank { return r.Add(FloatOperand(1.0)) }},
+		{name: "Sub", bucket: bucketSafe, apply: func(r *RrfRank) Rank { return r.Sub(FloatOperand(1.0)) }},
+		{name: "Multiply", bucket: bucketSafe, apply: func(r *RrfRank) Rank { return r.Multiply(FloatOperand(2.0)) }},
+		{name: "Div", bucket: bucketSafe, apply: func(r *RrfRank) Rank { return r.Div(FloatOperand(2.0)) }},
+		{name: "Negate", bucket: bucketSemflip, apply: func(r *RrfRank) Rank { return r.Negate() }},
+		{name: "Abs", bucket: bucketSemflip, apply: func(r *RrfRank) Rank { return r.Abs() }},
+		{name: "Exp", bucket: bucketSemflip, apply: func(r *RrfRank) Rank { return r.Exp() }},
+		{name: "Log", bucket: bucketDegenerate, apply: func(r *RrfRank) Rank { return r.Log() }},
+		{name: "Max_0", bucket: bucketDegenerate, apply: func(r *RrfRank) Rank { return r.Max(FloatOperand(0.0)) }},
+		{name: "Min_0", bucket: bucketDegenerate, apply: func(r *RrfRank) Rank { return r.Min(FloatOperand(0.0)) }},
+	}
+
+	// Corpus limitation: the 5-doc seed produces an all-negative baseline RRF score
+	// vector. Because RrfRank.MarshalJSON auto-negates the fusion score, the expression
+	// tree operates on `-rrf_sum` which is always non-positive here. Consequences:
+	//   - Negate and Abs are empirically equivalent: both flip the order with
+	//     identical scores (|baseline|). abs(x) == -x for x <= 0.
+	//   - Max(0) collapses all scores to zero (max(x, 0) == 0 for x <= 0), producing
+	//     an all-tied result set that falls back to default insertion order.
+	//   - Log returns an inner-empty Scores slice (log of non-positive is undefined),
+	//     with IDs falling back to default insertion order.
+	//   - Min(0) is a mathematical identity (min(x, 0) == x for x <= 0), making it
+	//     indistinguishable from the baseline RRF run.
+	// This corpus is intentionally pinned as a regression baseline. A richer corpus
+	// that produces at least one positive fused score would let Min(0)/Max(0)/Log/Abs
+	// exercise non-identity branches meaningfully — tracked separately.
+	for _, tt := range rows {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture variables populated after Search and register a deferred logger
+			// BEFORE the Search so the observation line always reaches the user
+			// regardless of err / nil result / type-assertion-failure state.
+			var (
+				srIDs     [][]DocumentID
+				srScores  [][]float64
+				searchErr error
+			)
+			if tt.bucket == bucketSemflip || tt.bucket == bucketDegenerate {
+				defer func() {
+					t.Logf("%s %s: err=%v IDs=%v Scores=%v",
+						tt.bucket, tt.name, searchErr, srIDs, srScores)
+				}()
+			}
+
+			arith := tt.apply(rrf)
+			results, err := collection.Search(ctx,
+				NewSearchRequest(
+					WithRank(arith),
+					NewPage(Limit(5)),
+					WithSelect(KID, KDocument, KScore),
+				),
+			)
+			searchErr = err
+
+			// Capture slices for the defer closure BEFORE any require.* that might
+			// halt the subtest. If results is nil or wrong type, leave them nil —
+			// the defer still prints a useful observation.
+			if results != nil {
+				if sr, srOk := results.(*SearchResultImpl); srOk {
+					srIDs = sr.IDs
+					srScores = sr.Scores
+				}
+			}
+
+			switch tt.bucket {
+			case bucketSafe:
+				require.NoError(t, err, "method %s: search must not return an error", tt.name)
+				require.NotNil(t, results, "method %s: results must not be nil", tt.name)
+
+				sr, ok := results.(*SearchResultImpl)
+				require.True(t, ok, "method %s: result must be *SearchResultImpl", tt.name)
+
+				// Shape guardrails before the differential assertion: catch empty
+				// slices, NaN/Inf, cardinality mismatches that a raw NotEqual misses.
+				require.NotEmpty(t, sr.IDs, "method %s: IDs must not be empty", tt.name)
+				require.NotEmpty(t, sr.Scores, "method %s: Scores must not be empty", tt.name)
+				require.Len(t, sr.IDs, len(baselineSR.IDs),
+					"method %s: query count must match baseline", tt.name)
+				require.NotEmpty(t, sr.IDs[0],
+					"method %s: inner IDs slice must not be empty", tt.name)
+				require.NotEmpty(t, sr.Scores[0],
+					"method %s: inner Scores slice must not be empty", tt.name)
+				require.Len(t, sr.Scores[0], len(baselineSR.Scores[0]),
+					"method %s: result cardinality must match baseline", tt.name)
+				for _, s := range sr.Scores[0] {
+					require.False(t, math.IsNaN(s),
+						"method %s: score contains NaN: %v", tt.name, sr.Scores[0])
+					require.False(t, math.IsInf(s, 0),
+						"method %s: score contains Inf: %v", tt.name, sr.Scores[0])
+				}
+				require.NotEqual(t, baselineSR.Scores, sr.Scores,
+					"method %s: arithmetic wrapping must produce a measurable score change from baseline", tt.name)
+				// Safe-bucket operands are all positive constants, so each transform
+				// (Add(+1)/Sub(+1)/Multiply(+2)/Div(+2)) is strictly monotonic
+				// increasing → ID order must match baseline. A divergence here would
+				// point at a non-monotonic server-side path, not a client bug.
+				require.Equal(t, baselineSR.IDs, sr.IDs,
+					"method %s: monotonic transform with positive operand must preserve ID order", tt.name)
+				t.Logf("safe %s: IDs=%v Scores=%v", tt.name, sr.IDs, sr.Scores)
+
+			case bucketSemflip, bucketDegenerate:
+				switch tt.name {
+				case "Negate":
+					// Negate inverts "lower is better" on an all-negative baseline —
+					// expect an order flip.
+					require.NoError(t, err, "Negate: search must succeed")
+					require.NotNil(t, results, "Negate: results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Negate: result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Negate: outer IDs must not be empty")
+					require.NotEmpty(t, sr.Scores, "Negate: outer Scores must not be empty")
+					require.Len(t, sr.IDs, len(baselineSR.IDs), "Negate: query count must match baseline")
+					require.NotEmpty(t, sr.IDs[0], "Negate: inner IDs must not be empty")
+					require.Len(t, sr.IDs[0], len(baselineSR.IDs[0]), "Negate: result cardinality must match baseline")
+					require.NotEqual(t, baselineSR.IDs, sr.IDs,
+						"Negate: expected order flip relative to baseline (Negate inverts lower-is-better)")
+
+				case "Abs":
+					// Abs is equivalent to Negate on this all-negative corpus
+					// (abs(x) == -x for x <= 0) — see the corpus-limitation block above.
+					// Expect an order flip.
+					require.NoError(t, err, "Abs: search must succeed")
+					require.NotNil(t, results, "Abs: results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Abs: result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Abs: outer IDs must not be empty")
+					require.NotEmpty(t, sr.Scores, "Abs: outer Scores must not be empty")
+					require.Len(t, sr.IDs, len(baselineSR.IDs), "Abs: query count must match baseline")
+					require.NotEmpty(t, sr.IDs[0], "Abs: inner IDs must not be empty")
+					require.Len(t, sr.IDs[0], len(baselineSR.IDs[0]), "Abs: result cardinality must match baseline")
+					require.NotEqual(t, baselineSR.IDs, sr.IDs,
+						"Abs: expected order flip relative to baseline (abs(x)=-x for x<=0 on all-negative corpus)")
+
+				case "Exp":
+					// Exp is a strictly monotonic increasing transform: preserves
+					// ID order, changes scores.
+					require.NoError(t, err, "Exp: search must succeed")
+					require.NotNil(t, results, "Exp: results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Exp: result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Exp: outer IDs must not be empty")
+					require.NotEmpty(t, sr.Scores, "Exp: outer Scores must not be empty")
+					require.Len(t, sr.IDs, len(baselineSR.IDs), "Exp: query count must match baseline")
+					require.NotEmpty(t, sr.IDs[0], "Exp: inner IDs must not be empty")
+					require.NotEmpty(t, sr.Scores[0], "Exp: inner Scores must not be empty")
+					require.Equal(t, baselineSR.IDs, sr.IDs,
+						"Exp: IDs must match baseline (monotonic transform preserves order)")
+					require.NotEqual(t, baselineSR.Scores, sr.Scores,
+						"Exp: Scores must differ from baseline (monotonic transform changes values)")
+
+				case "Log":
+					// Server bug: applying Log to non-positive fused scores silently
+					// falls back to insertion order with an empty inner Scores slice
+					// instead of returning a structured error. Pinned as a regression
+					// baseline — tracked separately in the issue tracker.
+					require.NoError(t, err, "Log: no error returned (server silently degenerates)")
+					require.NotNil(t, results, "Log: results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Log: result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Log: outer IDs must not be empty")
+					require.Len(t, sr.IDs, 1, "Log: outer IDs must have exactly one query entry")
+					require.Len(t, sr.IDs[0], 5, "Log: inner IDs must have all 5 docs in insertion order")
+					require.Equal(t, []DocumentID{"1", "2", "3", "4", "5"}, sr.IDs[0],
+						"Log: IDs must fall back to default insertion order when server silently degenerates")
+					require.NotEmpty(t, sr.Scores, "Log: outer Scores must not be empty")
+					require.Len(t, sr.Scores, 1, "Log: outer Scores must have exactly one query entry")
+					require.Empty(t, sr.Scores[0],
+						"Log: inner Scores must be empty (degenerate — server dropped scores for log of non-positive)")
+
+				case "Max_0":
+					// Max(0) on an all-negative corpus collapses every score to exactly 0
+					// (max(x, 0) == 0 for x <= 0), producing an all-tied result set that
+					// falls back to default insertion order. The client could reject this
+					// construction at build time — tracked separately as an enhancement.
+					require.NoError(t, err, "Max(0): search must succeed")
+					require.NotNil(t, results, "Max(0): results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Max(0): result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Max(0): outer IDs must not be empty")
+					require.NotEmpty(t, sr.Scores, "Max(0): outer Scores must not be empty")
+					require.Len(t, sr.IDs, 1, "Max(0): outer IDs must have exactly one query entry")
+					require.Len(t, sr.IDs[0], 5, "Max(0): inner IDs must have all 5 docs")
+					require.Equal(t, []DocumentID{"1", "2", "3", "4", "5"}, sr.IDs[0],
+						"Max(0): IDs must fall back to default insertion order when all scores tied at 0")
+					require.Len(t, sr.Scores, 1, "Max(0): outer Scores must have exactly one query entry")
+					require.Len(t, sr.Scores[0], 5, "Max(0): inner Scores must have 5 entries")
+					for i, s := range sr.Scores[0] {
+						require.Equal(t, float64(0), s,
+							"Max(0): expected zero score at index %d, got %v (max(-rrf_sum, 0) collapses to 0 for -rrf_sum<=0)", i, s)
+					}
+
+				case "Min_0":
+					// Min(0) is a mathematical identity on an all-negative baseline
+					// (min(x, 0) == x for x <= 0). This is correct, not a bug.
+					// The Scores assertion relies on bit-exact float equality: the
+					// server uses f32::min which per IEEE 754 passes x through
+					// unchanged when x <= 0. A future server switch to an arithmetic
+					// formulation could drift by 1 ULP and flake this assertion.
+					// A richer corpus is needed to meaningfully exercise clamping —
+					// see the corpus-limitation block above.
+					require.NoError(t, err, "Min(0): search must succeed")
+					require.NotNil(t, results, "Min(0): results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Min(0): result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Min(0): outer IDs must not be empty")
+					require.NotEmpty(t, sr.Scores, "Min(0): outer Scores must not be empty")
+					require.Equal(t, baselineSR.IDs, sr.IDs,
+						"Min(0): IDs must match baseline (min(x,0)=x for x<=0 is an identity on all-negative corpus)")
+					require.Equal(t, baselineSR.Scores, sr.Scores,
+						"Min(0): Scores must match baseline (min(x,0)=x for x<=0 is an identity on all-negative corpus)")
+
+				default:
+					t.Fatalf("unexpected method name %q in semflip/degenerate bucket", tt.name)
+				}
+			}
+		})
+	}
+}
+
 func TestCloudClientSearchGroupBy(t *testing.T) {
 	client := setupCloudClient(t)
 

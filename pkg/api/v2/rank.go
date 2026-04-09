@@ -604,7 +604,7 @@ func (l *LogRank) Exp() Rank {
 }
 
 func (l *LogRank) Log() Rank {
-	return l
+	return &LogRank{rank: l}
 }
 
 func (l *LogRank) Max(operand Operand) Rank {
@@ -1060,6 +1060,31 @@ func WithRrfNormalize() RrfOption {
 //	    ),
 //	    WithRrfK(60),
 //	)
+//
+// Do not mutate a *RrfRank — including the contents of its Ranks slice (e.g.
+// rrf.Ranks[i].Weight = ...) — after it has been used in an arithmetic
+// composition (Add, Sub, Multiply, etc.) or embedded in another expression:
+// composed expressions hold a pointer to this struct and will observe later
+// writes at marshal time, silently changing a previously-built query.
+//
+// Arithmetic methods compose with Chroma's final rank score, which follows a
+// lower-is-better convention: RrfRank.MarshalJSON negates the raw reciprocal
+// rank sum so that a smaller (more negative) score means a better match. As a
+// result, the operand to composition is always non-positive on non-empty
+// corpora, and the following transforms misbehave on that input:
+//   - Log degenerates silently: log of a non-positive value is NaN, and the
+//     server drops NaN rows, leaving an empty inner Scores slice and IDs
+//     in insertion order.
+//   - Max(Val(0)) collapses every score to 0 (max(x, 0) == 0 for x <= 0),
+//     producing an all-tied result that falls back to insertion order.
+//   - Abs flips the ordering on RRF's non-positive output (abs(x) == -x
+//     for x <= 0, reversing the sign).
+//   - Negate inverts result ordering the same way Abs does on this input
+//     (-x >= 0 for x <= 0), so the best match moves to the bottom of the
+//     result set. Mathematically well-defined, but the observable effect
+//     is indistinguishable from a footgun.
+//
+// Add/Sub/Multiply/Div with positive constants behave as expected.
 type RrfRank struct {
 	Ranks     []RankWithWeight
 	K         int
@@ -1126,45 +1151,44 @@ func (r *RrfRank) Validate() error {
 
 func (r *RrfRank) IsOperand() {}
 
-// no-op
 func (r *RrfRank) Multiply(operand Operand) Rank {
-	return r
+	return &MulRank{ranks: []Rank{r, operandToRank(operand)}}
 }
 
 func (r *RrfRank) Sub(operand Operand) Rank {
-	return r
+	return &SubRank{left: r, right: operandToRank(operand)}
 }
 
 func (r *RrfRank) Add(operand Operand) Rank {
-	return r
+	return &SumRank{ranks: []Rank{r, operandToRank(operand)}}
 }
 
 func (r *RrfRank) Div(operand Operand) Rank {
-	return r
+	return &DivRank{left: r, right: operandToRank(operand)}
 }
 
 func (r *RrfRank) Negate() Rank {
-	return r
+	return &MulRank{ranks: []Rank{Val(-1), r}}
 }
 
 func (r *RrfRank) Abs() Rank {
-	return r
+	return &AbsRank{rank: r}
 }
 
 func (r *RrfRank) Exp() Rank {
-	return r
+	return &ExpRank{rank: r}
 }
 
 func (r *RrfRank) Log() Rank {
-	return r
+	return &LogRank{rank: r}
 }
 
 func (r *RrfRank) Max(operand Operand) Rank {
-	return r
+	return &MaxRank{ranks: []Rank{r, operandToRank(operand)}}
 }
 
 func (r *RrfRank) Min(operand Operand) Rank {
-	return r
+	return &MinRank{ranks: []Rank{r, operandToRank(operand)}}
 }
 
 func (r *RrfRank) MarshalJSON() ([]byte, error) {
@@ -1225,9 +1249,9 @@ func (r *RrfRank) UnmarshalJSON(_ []byte) error {
 
 // operandToRank converts an Operand to a Rank.
 // Supported operand types: Rank, IntOperand, FloatOperand.
-// For nil or unknown types, returns Val(0) to maintain fluid API chaining.
-// Note: Only the public operand types (IntOperand, FloatOperand) and Rank implementations
-// are expected; unknown types indicate a programming error.
+// Nil is silently substituted with Val(0) for fluid API chaining. Unknown
+// types return *UnknownRank which errors at MarshalJSON time, surfacing
+// programming errors instead of producing incorrect results.
 func operandToRank(operand Operand) Rank {
 	if operand == nil {
 		return Val(0)
@@ -1240,8 +1264,6 @@ func operandToRank(operand Operand) Rank {
 	case FloatOperand:
 		return Val(float64(v))
 	default:
-		// Unknown operand type - return zero to maintain chaining.
-		// This should not happen with proper API usage.
 		return &UnknownRank{}
 	}
 }

@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: Ready to plan
-stopped_at: Roadmap created with 8 phases (21-28)
-last_updated: "2026-04-08T18:00:00.000Z"
+status: executing
+stopped_at: Phase 21.1 context gathered
+last_updated: "2026-04-09T14:32:02.308Z"
+last_activity: 2026-04-09
 progress:
-  total_phases: 8
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 9
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -20,21 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 21 - RrfRank Arithmetic Fix
+**Current focus:** Phase 21.1 — rrf-cloud-integration-test-coverage-including-arithmetic-com
 
 ## Current Position
 
-Phase: 21 of 28 (RrfRank Arithmetic Fix)
-Plan: --
-Status: Ready to plan
-Last activity: 2026-04-08 -- Roadmap created for v0.4.2 (8 phases, 15 requirements)
+Phase: 22
+Plan: Not started
+Status: Executing Phase 21.1
+Last activity: 2026-04-09
 
 Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
+
+- Total plans completed: 3
 - Average duration: --
 - Total execution time: 0 hours
 
@@ -44,11 +46,15 @@ Progress: [░░░░░░░░░░] 0%
 
 Decisions are logged in PROJECT.md Key Decisions table.
 
+### Roadmap Evolution
+
+- Phase 21.1 inserted after Phase 21: RRF cloud integration test coverage including arithmetic compositions (URGENT) — post-fix cloud coverage gap for Phase 21 arithmetic methods
+
 ### Blockers/Concerns
 
 - Phase 28 (Morph): upstream URL may be permanently moved -- need to verify before coding
 
 ## Session
 
-**Last Date:** 2026-04-08
-**Stopped At:** Roadmap created, ready to plan Phase 21
+**Last Date:** 2026-04-09T11:41:08.829Z
+**Stopped At:** Phase 21.1 context gathered

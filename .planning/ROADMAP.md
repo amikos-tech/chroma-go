@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v0.4.1 Provider-Neutral Multimodal Foundations** — Phases 1-20 (shipped 2026-04-08)
-- 🚧 **v0.4.2 Bug Fixes and Robustness** — Phases 21-28 (in progress)
+- 🚧 **v0.4.2 Bug Fixes and Robustness** — Phases 21-29 (in progress)
 
 ## Phases
 
@@ -22,7 +22,7 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 - Integer phases (21, 22, ...): Planned milestone work
 - Decimal phases (21.1, 21.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 21: RrfRank Arithmetic Fix** - RrfRank arithmetic methods compute correct results instead of silently returning self
+- [x] **Phase 21: RrfRank Arithmetic Fix** - RrfRank arithmetic methods compute correct results instead of silently returning self (completed 2026-04-09)
 - [ ] **Phase 22: WithGroupBy Validation** - WithGroupBy(nil) returns an error instead of silently skipping grouping
 - [ ] **Phase 23: ORT EF Leak Fix** - Default ORT EF is properly closed when CreateCollection finds an existing collection
 - [ ] **Phase 24: GetOrCreateCollection EF Safety** - GetOrCreateCollection does not pass closed EFs to CreateCollection fallback
@@ -30,6 +30,7 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 - [ ] **Phase 26: Twelve Labs Async Embedding** - Twelve Labs provider handles async task responses for long-running media
 - [ ] **Phase 27: Download Stack Consolidation** - default_ef download code uses shared downloadutil instead of its own HTTP implementation
 - [ ] **Phase 28: Morph Test Fix** - Morph EF integration test handles upstream 404 gracefully
+- [ ] **Phase 29: Rank Expression Composition Robustness** - Reject silent footguns in rank composition (nil operands, degenerate RRF compositions)
 
 ## Phase Details
 
@@ -41,10 +42,26 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
   1. Calling Multiply, Sub, Add, Div, or Negate on an RrfRank returns a new rank value reflecting the computation, not the original receiver
   2. The computed rank values marshal to valid JSON that Chroma accepts
   3. Tests confirm each arithmetic method produces distinct output from its input
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 21-01: TBD
+- [x] 21-01-PLAN.md — Fix RrfRank arithmetic methods and add test coverage
+
+### Phase 21.1: RRF cloud integration test coverage including arithmetic compositions (INSERTED)
+
+**Goal:** Add Chroma Cloud integration test coverage for all 10 RrfRank arithmetic methods (Add, Sub, Multiply, Div, Negate, Abs, Exp, Log, Max, Min) end-to-end against a real Chroma Cloud instance, closing the cloud-test-bar gap left by Phase 21 (which shipped structural unit tests only).
+**Requirements**: D-01..D-22 (CONTEXT.md decision IDs — phase has no REQ-IDs because it's an inserted urgent-work phase)
+**Depends on:** Phase 21
+**Success Criteria** (what must be TRUE):
+  1. `TestCloudClientSearchRRFArithmetic` exists in `pkg/api/v2/client_cloud_test.go` exercising all 10 methods in a single table-driven function under build tag `basicv2 && cloud`
+  2. Safe-bucket methods (Add, Sub, Multiply, Div) assert strict differential against an RRF baseline
+  3. Semflip + degenerate methods (Negate, Abs, Exp, Log, Max(0), Min(0)) have empirically pinned assertions reflecting actual server behavior
+  4. `make test-cloud -run TestCloudClientSearchRRFArithmetic` passes against a real Chroma Cloud instance (D-21, user-run gate per D-22)
+**Plans**: 2 plans
+
+Plans:
+- [x] 21.1-01-PLAN.md — Pass 1 scaffolding: TestCloudClientSearchRRFArithmetic with all 10 rows, safe-bucket strict differential, semflip+degenerate observe-only
+- [x] 21.1-02-PLAN.md — Pass 2 empirical tightening: per-row pinned assertions from user observations + [BUG] issues + D-21 user-run gate
 
 ### Phase 22: WithGroupBy Validation
 **Goal**: WithGroupBy rejects nil input with a clear error
@@ -134,16 +151,33 @@ Plans:
 Plans:
 - [ ] 28-01: TBD
 
+### Phase 29: Rank Expression Composition Robustness
+**Goal**: Rank expression composition fails loud on programmer errors and rejects mathematically meaningless RRF compositions before sending to the server
+**Depends on**: Phase 21 (arithmetic methods must build expression trees before they can be validated)
+**Requirements**: COMP-01, COMP-02, COMP-03
+**Issues**: amikos-tech/chroma-go#499, amikos-tech/chroma-go#500, amikos-tech/chroma-go#501
+**Success Criteria** (what must be TRUE):
+  1. Passing nil to any `*Rank.Add/Sub/Multiply/Div/Max/Min` produces a rank whose `MarshalJSON` reports a clear error instead of silently substituting `Val(0)` (#499)
+  2. `RrfRank.Log()` and `RrfRank.Max(Val(0))` reject the composition at build time with a descriptive error instead of producing a degenerate query (#501)
+  3. Client detects and reports result-shape mismatch (empty inner `Scores` with populated inner `IDs`) from `Search` responses so callers see silent server-side degeneration (#500)
+  4. `TestCloudClientSearchRRFArithmetic` is updated to assert the new client-side errors on degenerate rows instead of pinning the current fallback behavior
+**Plans**: TBD
+
+Plans:
+- [ ] 29-01: TBD — Fix `operandToRank` nil handling (#499)
+- [ ] 29-02: TBD — Client-side rejection of degenerate RRF compositions (#501)
+- [ ] 29-03: TBD — Result-shape validation in `Search` response handling (#500)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 21 -> 22 -> 23 -> 24 -> ... -> 28.
+Phases execute in numeric order: 21 -> 22 -> 23 -> 24 -> ... -> 29.
 Phases 21, 22, 25, 27, 28 are independent and may execute in any order relative to each other.
-Phase 24 depends on Phase 23. Phase 26 depends on Phase 25.
+Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on Phase 21.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 21. RrfRank Arithmetic Fix | v0.4.2 | 0/0 | Not started | - |
+| 21. RrfRank Arithmetic Fix | v0.4.2 | 1/1 | Complete    | 2026-04-09 |
 | 22. WithGroupBy Validation | v0.4.2 | 0/0 | Not started | - |
 | 23. ORT EF Leak Fix | v0.4.2 | 0/0 | Not started | - |
 | 24. GetOrCreateCollection EF Safety | v0.4.2 | 0/0 | Not started | - |
@@ -151,3 +185,4 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25.
 | 26. Twelve Labs Async Embedding | v0.4.2 | 0/0 | Not started | - |
 | 27. Download Stack Consolidation | v0.4.2 | 0/0 | Not started | - |
 | 28. Morph Test Fix | v0.4.2 | 0/0 | Not started | - |
+| 29. Rank Expression Composition Robustness | v0.4.2 | 0/3 | Not started | - |

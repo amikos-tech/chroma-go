@@ -29,6 +29,7 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 - ✓ Cloud integration tests for Search API RRF and GroupBy — v0.4.1
 - ✓ Code cleanups: shared pathutil, context.Context fix, registry test cleanup — v0.4.1
 - ✓ SDK auto-wiring behavior documented across Python, JS, Rust, Go — v0.4.1
+- ✓ RrfRank arithmetic methods build correct expression trees instead of silent no-ops — v0.4.2 Phase 21
 
 ## Current Milestone: v0.4.2 Bug Fixes and Robustness
 
@@ -45,8 +46,6 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 - Add Twelve Labs async embedding support (#479)
 
 ### Active
-
-- RrfRank arithmetic methods silently return self without computing — #481
 - WithGroupBy(nil) accepted as no-op instead of error — #482
 - Embedded GetOrCreateCollection passes closed EFs to CreateCollection fallback — #493
 - Default ORT EF leaked when CreateCollection finds existing collection — #494
@@ -107,4 +106,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-08 — milestone v0.4.2 started*
+*Last updated: 2026-04-09 — Phase 21 (RrfRank arithmetic fix) complete*
