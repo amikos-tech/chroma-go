@@ -48,13 +48,19 @@ Plans:
 
 ### Phase 21.1: RRF cloud integration test coverage including arithmetic compositions (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** Add Chroma Cloud integration test coverage for all 10 RrfRank arithmetic methods (Add, Sub, Multiply, Div, Negate, Abs, Exp, Log, Max, Min) end-to-end against a real Chroma Cloud instance, closing the cloud-test-bar gap left by Phase 21 (which shipped structural unit tests only).
+**Requirements**: D-01..D-22 (CONTEXT.md decision IDs — phase has no REQ-IDs because it's an inserted urgent-work phase)
 **Depends on:** Phase 21
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
+  1. `TestCloudClientSearchRRFArithmetic` exists in `pkg/api/v2/client_cloud_test.go` exercising all 10 methods in a single table-driven function under build tag `basicv2 && cloud`
+  2. Safe-bucket methods (Add, Sub, Multiply, Div) assert strict differential against an RRF baseline
+  3. Semflip + degenerate methods (Negate, Abs, Exp, Log, Max(0), Min(0)) have empirically pinned assertions reflecting actual server behavior
+  4. `make test-cloud -run TestCloudClientSearchRRFArithmetic` passes against a real Chroma Cloud instance (D-21, user-run gate per D-22)
+**Plans**: 2 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 21.1 to break down)
+- [ ] 21.1-01-PLAN.md — Pass 1 scaffolding: TestCloudClientSearchRRFArithmetic with all 10 rows, safe-bucket strict differential, semflip+degenerate observe-only
+- [ ] 21.1-02-PLAN.md — Pass 2 empirical tightening: per-row pinned assertions from user observations + [BUG] issues + D-21 user-run gate
 
 ### Phase 22: WithGroupBy Validation
 **Goal**: WithGroupBy rejects nil input with a clear error
