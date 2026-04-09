@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: executing
-stopped_at: Phase 21 context gathered
-last_updated: "2026-04-09T08:16:11.618Z"
+status: "Phase 21 shipped — PR #496"
+stopped_at: Phase 21.1 context gathered
+last_updated: "2026-04-09T11:41:08.832Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 9
@@ -56,5 +56,5 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ## Session
 
-**Last Date:** 2026-04-08T16:02:08.926Z
-**Stopped At:** Phase 21 context gathered
+**Last Date:** 2026-04-09T11:41:08.829Z
+**Stopped At:** Phase 21.1 context gathered
