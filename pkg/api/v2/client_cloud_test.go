@@ -1725,6 +1725,202 @@ func TestCloudClientSearchRRF(t *testing.T) {
 	})
 }
 
+func TestCloudClientSearchRRFArithmetic(t *testing.T) {
+	client := setupCloudClient(t)
+
+	ctx := context.Background()
+	collectionName := "test_rrf_arithmetic-" + uuid.New().String()
+
+	// M5: Register cleanup BEFORE CreateCollection so partial-create panics still fire.
+	// M4: Use a fresh background context with timeout so delete survives parent-ctx cancellation.
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_ = client.DeleteCollection(cleanupCtx, collectionName)
+	})
+
+	sparseEF, err := chromacloudsplade.NewEmbeddingFunction(chromacloudsplade.WithEnvAPIKey())
+	require.NoError(t, err)
+
+	schema, err := NewSchema(
+		WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))),
+		WithSparseVectorIndex("sparse_embedding", NewSparseVectorIndexConfig(
+			WithSparseEmbeddingFunction(sparseEF),
+			WithSparseSourceKey("#document"),
+		)),
+	)
+	require.NoError(t, err)
+
+	collection, err := client.CreateCollection(ctx, collectionName, WithSchemaCreate(schema))
+	require.NoError(t, err)
+	require.NotNil(t, collection)
+
+	err = collection.Add(ctx,
+		WithIDs("1", "2", "3", "4", "5"),
+		WithTexts(
+			"quantum computing advances in 2024",
+			"classical music theory and harmony",
+			"quantum mechanics and particle physics",
+			"cooking recipes for beginners",
+			"quantum entanglement research papers",
+		),
+	)
+	require.NoError(t, err)
+
+	// N1: Indexing readiness gate — bounded poll on Collection.Count (pkg/api/v2/collection.go:141)
+	// instead of a fixed time.Sleep. Faster on healthy days, resilient on slow ones.
+	require.Eventually(t, func() bool {
+		n, cerr := collection.Count(ctx)
+		return cerr == nil && n == 5
+	}, 10*time.Second, 500*time.Millisecond, "collection indexing did not reach 5 docs within 10s")
+
+	denseKnn, err := NewKnnRank(KnnQueryText("quantum physics"), WithKnnReturnRank(), WithKnnLimit(10))
+	require.NoError(t, err)
+	sparseKnn, err := NewKnnRank(KnnQueryText("quantum physics"), WithKnnKey(K("sparse_embedding")), WithKnnReturnRank(), WithKnnLimit(10))
+	require.NoError(t, err)
+
+	rrf, err := NewRrfRank(
+		WithRrfRanks(denseKnn.WithWeight(1.0), sparseKnn.WithWeight(1.0)),
+		WithRrfK(60),
+	)
+	require.NoError(t, err)
+
+	// Baseline: plain RRF via the generic WithRank option.
+	// NOTE: We deliberately use WithRank(rrf), NOT WithRrfRank(...). WithRrfRank is a
+	// BUILDER that only accepts RrfOption — it cannot wrap pre-built ranks. Arithmetic
+	// methods on *RrfRank return Rank (concrete *MulRank, *SubRank, ...), so WithRank is
+	// the only option that accepts both the baseline *RrfRank and arithmetic results.
+	baseline, err := collection.Search(ctx,
+		NewSearchRequest(
+			WithRank(rrf),
+			NewPage(Limit(5)),
+			WithSelect(KID, KDocument, KScore),
+		),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, baseline)
+
+	baselineSR, ok := baseline.(*SearchResultImpl)
+	require.True(t, ok)
+	require.NotEmpty(t, baselineSR.IDs, "baseline: outer IDs slice must not be empty")
+	require.NotEmpty(t, baselineSR.Scores, "baseline: outer Scores slice must not be empty")
+	require.NotEmpty(t, baselineSR.IDs[0], "baseline: inner IDs slice must not be empty")
+	require.NotEmpty(t, baselineSR.Scores[0], "baseline: inner Scores slice must not be empty")
+	t.Logf("baseline: IDs=%v Scores=%v", baselineSR.IDs, baselineSR.Scores)
+
+	type bucket string
+	const (
+		bucketSafe       bucket = "safe"
+		bucketSemflip    bucket = "semflip"
+		bucketDegenerate bucket = "degenerate"
+	)
+
+	rows := []struct {
+		name   string
+		bucket bucket
+		apply  func(r *RrfRank) Rank
+	}{
+		{name: "Add", bucket: bucketSafe, apply: func(r *RrfRank) Rank { return r.Add(FloatOperand(1.0)) }},
+		{name: "Sub", bucket: bucketSafe, apply: func(r *RrfRank) Rank { return r.Sub(FloatOperand(1.0)) }},
+		{name: "Multiply", bucket: bucketSafe, apply: func(r *RrfRank) Rank { return r.Multiply(FloatOperand(2.0)) }},
+		{name: "Div", bucket: bucketSafe, apply: func(r *RrfRank) Rank { return r.Div(FloatOperand(2.0)) }},
+		{name: "Negate", bucket: bucketSemflip, apply: func(r *RrfRank) Rank { return r.Negate() }},
+		{name: "Abs", bucket: bucketSemflip, apply: func(r *RrfRank) Rank { return r.Abs() }},
+		{name: "Exp", bucket: bucketSemflip, apply: func(r *RrfRank) Rank { return r.Exp() }},
+		{name: "Log", bucket: bucketDegenerate, apply: func(r *RrfRank) Rank { return r.Log() }},
+		{name: "Max_0", bucket: bucketDegenerate, apply: func(r *RrfRank) Rank { return r.Max(FloatOperand(0.0)) }},
+		{name: "Min_0", bucket: bucketDegenerate, apply: func(r *RrfRank) Rank { return r.Min(FloatOperand(0.0)) }},
+	}
+
+	for _, tt := range rows {
+		t.Run(tt.name, func(t *testing.T) {
+			// H1 fix (Pattern A — defer): capture variables that will be populated
+			// by the body after the Search call succeeds, and register a deferred
+			// logger BEFORE the Search so the `pass1 ...` observation line ALWAYS
+			// reaches the user regardless of err/nil/type-assertion-failure state.
+			// This is the exact observation Plan 02 Task 0 depends on for the
+			// risky semflip/degenerate rows.
+			var (
+				srIDs     [][]DocumentID
+				srScores  [][]float64
+				searchErr error
+			)
+			if tt.bucket == bucketSemflip || tt.bucket == bucketDegenerate {
+				defer func() {
+					t.Logf("pass1 %s %s: err=%v IDs=%v Scores=%v",
+						tt.bucket, tt.name, searchErr, srIDs, srScores)
+				}()
+			}
+
+			arith := tt.apply(rrf)
+			results, err := collection.Search(ctx,
+				NewSearchRequest(
+					WithRank(arith),
+					NewPage(Limit(5)),
+					WithSelect(KID, KDocument, KScore),
+				),
+			)
+			searchErr = err
+
+			// Capture slices for the defer closure BEFORE any require.* that might
+			// halt the subtest. If results is nil or wrong type, leave the captured
+			// slices as nil — the defer prints `IDs=[] Scores=[]` which is still
+			// a useful observation (it tells the user the server returned nothing).
+			if results != nil {
+				if sr, srOk := results.(*SearchResultImpl); srOk {
+					srIDs = sr.IDs
+					srScores = sr.Scores
+				}
+			}
+
+			switch tt.bucket {
+			case bucketSafe:
+				// Safe bucket: strict assertions. require.NoError and require.NotNil
+				// are fine here because safe methods are expected to succeed — any
+				// failure is a real regression.
+				require.NoError(t, err, "method %s: search must not return an error", tt.name)
+				require.NotNil(t, results, "method %s: results must not be nil", tt.name)
+
+				sr, ok := results.(*SearchResultImpl)
+				require.True(t, ok, "method %s: result must be *SearchResultImpl", tt.name)
+
+				// M3: shape guardrails BEFORE the differential assertion.
+				// These catch easy regressions (empty slices, NaN/Inf, cardinality mismatch)
+				// that a raw NotEqual would not.
+				require.NotEmpty(t, sr.IDs, "method %s: IDs must not be empty", tt.name)
+				require.NotEmpty(t, sr.Scores, "method %s: Scores must not be empty", tt.name)
+				require.Len(t, sr.IDs, len(baselineSR.IDs),
+					"method %s: query count must match baseline", tt.name)
+				require.NotEmpty(t, sr.IDs[0],
+					"method %s: inner IDs slice must not be empty", tt.name)
+				require.NotEmpty(t, sr.Scores[0],
+					"method %s: inner Scores slice must not be empty", tt.name)
+				require.Len(t, sr.Scores[0], len(baselineSR.Scores[0]),
+					"method %s: result cardinality must match baseline", tt.name)
+				for _, s := range sr.Scores[0] {
+					require.False(t, math.IsNaN(s),
+						"method %s: score contains NaN: %v", tt.name, sr.Scores[0])
+					require.False(t, math.IsInf(s, 0),
+						"method %s: score contains Inf: %v", tt.name, sr.Scores[0])
+				}
+				require.NotEqual(t, baselineSR.Scores, sr.Scores,
+					"method %s: arithmetic wrapping must produce a measurable score change from baseline", tt.name)
+				t.Logf("pass1 safe %s: IDs=%v Scores=%v", tt.name, sr.IDs, sr.Scores)
+
+			case bucketSemflip, bucketDegenerate:
+				// H1 fix: observe-only, NO require.NoError / require.NotNil calls
+				// for these rows. The deferred logger above emits the pass1 line
+				// unconditionally. Pass 2 (Plan 02) will tighten these assertions
+				// after the user reports empirical behavior per D-13.
+				//
+				// Intentionally empty: the defer does the observation.
+			}
+		})
+	}
+
+	t.Log("pass 1 scaffolding complete — run `go test -tags=\"basicv2 cloud\" -v -run TestCloudClientSearchRRFArithmetic ./pkg/api/v2/...` and report per-row observations so Plan 02 (Pass 2) can tighten semflip/degenerate assertions")
+}
+
 func TestCloudClientSearchGroupBy(t *testing.T) {
 	client := setupCloudClient(t)
 
