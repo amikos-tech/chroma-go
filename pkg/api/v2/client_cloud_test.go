@@ -2024,6 +2024,10 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 				case "Min_0":
 					// Min(0) is a mathematical identity on an all-negative baseline
 					// (min(x, 0) == x for x <= 0). This is correct, not a bug.
+					// The Scores assertion relies on bit-exact float equality: the
+					// server uses f32::min which per IEEE 754 passes x through
+					// unchanged when x <= 0. A future server switch to an arithmetic
+					// formulation could drift by 1 ULP and flake this assertion.
 					// A richer corpus is needed to meaningfully exercise clamping —
 					// see the corpus-limitation block above.
 					require.NoError(t, err, "Min(0): search must succeed")

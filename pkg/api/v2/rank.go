@@ -1072,9 +1072,13 @@ func WithRrfNormalize() RrfOption {
 // rank sum so that a smaller (more negative) score means a better match. As a
 // result, the operand to composition is always non-positive on non-empty
 // corpora, and transforms that assume a positive input will degenerate:
-//   - Log produces NaN (log of a non-positive value).
-//   - Max(Val(0)) collapses every score to 0 (max(x, 0) == 0 for x <= 0).
-//   - Abs flips the ordering (abs(x) == -x for x <= 0, reversing the sign).
+//   - Log degenerates silently: log of a non-positive value is NaN, and the
+//     server drops NaN rows, leaving an empty inner Scores slice and IDs
+//     in insertion order.
+//   - Max(Val(0)) collapses every score to 0 (max(x, 0) == 0 for x <= 0),
+//     producing an all-tied result that falls back to insertion order.
+//   - Abs flips the ordering on RRF's non-positive output (abs(x) == -x
+//     for x <= 0, reversing the sign).
 //
 // Add/Sub/Multiply/Div with positive constants, and Negate, behave as expected.
 type RrfRank struct {
@@ -1256,8 +1260,6 @@ func operandToRank(operand Operand) Rank {
 	case FloatOperand:
 		return Val(float64(v))
 	default:
-		// Unknown operand type - return zero to maintain chaining.
-		// This should not happen with proper API usage.
 		return &UnknownRank{}
 	}
 }
