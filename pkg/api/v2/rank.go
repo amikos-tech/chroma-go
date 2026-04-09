@@ -1067,9 +1067,16 @@ func WithRrfNormalize() RrfOption {
 // composed expressions hold a pointer to this struct and will observe later
 // writes at marshal time, silently changing a previously-built query.
 //
-// Arithmetic methods (Add, Sub, Multiply, Div, Negate, Abs, Exp, Log, Max, Min)
-// operate on the final higher-is-better rank score produced by this RrfRank,
-// not on the raw reciprocal rank fusion sum.
+// Arithmetic methods compose with Chroma's final rank score, which follows a
+// lower-is-better convention: RrfRank.MarshalJSON negates the raw reciprocal
+// rank sum so that a smaller (more negative) score means a better match. As a
+// result, the operand to composition is always non-positive on non-empty
+// corpora, and transforms that assume a positive input will degenerate:
+//   - Log produces NaN (log of a non-positive value).
+//   - Max(Val(0)) collapses every score to 0 (max(x, 0) == 0 for x <= 0).
+//   - Abs flips the ordering (abs(x) == -x for x <= 0, reversing the sign).
+//
+// Add/Sub/Multiply/Div with positive constants, and Negate, behave as expected.
 type RrfRank struct {
 	Ranks     []RankWithWeight
 	K         int
@@ -1234,9 +1241,9 @@ func (r *RrfRank) UnmarshalJSON(_ []byte) error {
 
 // operandToRank converts an Operand to a Rank.
 // Supported operand types: Rank, IntOperand, FloatOperand.
-// For nil or unknown types, returns Val(0) to maintain fluid API chaining.
-// Note: Only the public operand types (IntOperand, FloatOperand) and Rank implementations
-// are expected; unknown types indicate a programming error.
+// Nil is silently substituted with Val(0) for fluid API chaining. Unknown
+// types return *UnknownRank which errors at MarshalJSON time, surfacing
+// programming errors instead of producing incorrect results.
 func operandToRank(operand Operand) Rank {
 	if operand == nil {
 		return Val(0)
