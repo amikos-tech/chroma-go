@@ -22,7 +22,7 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 - Integer phases (21, 22, ...): Planned milestone work
 - Decimal phases (21.1, 21.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 21: RrfRank Arithmetic Fix** - RrfRank arithmetic methods compute correct results instead of silently returning self
+- [x] **Phase 21: RrfRank Arithmetic Fix** - RrfRank arithmetic methods compute correct results instead of silently returning self (completed 2026-04-09)
 - [ ] **Phase 22: WithGroupBy Validation** - WithGroupBy(nil) returns an error instead of silently skipping grouping
 - [ ] **Phase 23: ORT EF Leak Fix** - Default ORT EF is properly closed when CreateCollection finds an existing collection
 - [ ] **Phase 24: GetOrCreateCollection EF Safety** - GetOrCreateCollection does not pass closed EFs to CreateCollection fallback
@@ -44,7 +44,7 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 **Plans**: 1 plan
 
 Plans:
-- [ ] 21-01-PLAN.md — Fix RrfRank arithmetic methods and add test coverage
+- [x] 21-01-PLAN.md — Fix RrfRank arithmetic methods and add test coverage
 
 ### Phase 22: WithGroupBy Validation
 **Goal**: WithGroupBy rejects nil input with a clear error
@@ -143,7 +143,7 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 21. RrfRank Arithmetic Fix | v0.4.2 | 0/1 | Planning | - |
+| 21. RrfRank Arithmetic Fix | v0.4.2 | 1/1 | Complete    | 2026-04-09 |
 | 22. WithGroupBy Validation | v0.4.2 | 0/0 | Not started | - |
 | 23. ORT EF Leak Fix | v0.4.2 | 0/0 | Not started | - |
 | 24. GetOrCreateCollection EF Safety | v0.4.2 | 0/0 | Not started | - |
