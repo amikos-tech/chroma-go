@@ -4,10 +4,10 @@ milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
 status: executing
 stopped_at: Phase 21 context gathered
-last_updated: "2026-04-09T06:33:57.080Z"
+last_updated: "2026-04-09T08:16:11.618Z"
 last_activity: 2026-04-09
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 1
   total_plans: 1
   completed_plans: 1
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 
 Phase: 22
 Plan: Not started
-Status: Executing Phase 21
+Status: Phase 21 shipped — PR #496
 Last activity: 2026-04-09
 
 Progress: [░░░░░░░░░░] 0%
