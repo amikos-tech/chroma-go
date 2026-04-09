@@ -1126,45 +1126,44 @@ func (r *RrfRank) Validate() error {
 
 func (r *RrfRank) IsOperand() {}
 
-// no-op
 func (r *RrfRank) Multiply(operand Operand) Rank {
-	return r
+	return &MulRank{ranks: []Rank{r, operandToRank(operand)}}
 }
 
 func (r *RrfRank) Sub(operand Operand) Rank {
-	return r
+	return &SubRank{left: r, right: operandToRank(operand)}
 }
 
 func (r *RrfRank) Add(operand Operand) Rank {
-	return r
+	return &SumRank{ranks: []Rank{r, operandToRank(operand)}}
 }
 
 func (r *RrfRank) Div(operand Operand) Rank {
-	return r
+	return &DivRank{left: r, right: operandToRank(operand)}
 }
 
 func (r *RrfRank) Negate() Rank {
-	return r
+	return &MulRank{ranks: []Rank{Val(-1), r}}
 }
 
 func (r *RrfRank) Abs() Rank {
-	return r
+	return &AbsRank{rank: r}
 }
 
 func (r *RrfRank) Exp() Rank {
-	return r
+	return &ExpRank{rank: r}
 }
 
 func (r *RrfRank) Log() Rank {
-	return r
+	return &LogRank{rank: r}
 }
 
 func (r *RrfRank) Max(operand Operand) Rank {
-	return r
+	return &MaxRank{ranks: []Rank{r, operandToRank(operand)}}
 }
 
 func (r *RrfRank) Min(operand Operand) Rank {
-	return r
+	return &MinRank{ranks: []Rank{r, operandToRank(operand)}}
 }
 
 func (r *RrfRank) MarshalJSON() ([]byte, error) {
