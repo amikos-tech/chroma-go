@@ -1832,14 +1832,32 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 		{name: "Min_0", bucket: bucketDegenerate, apply: func(r *RrfRank) Rank { return r.Min(FloatOperand(0.0)) }},
 	}
 
+	// Corpus limitation (Pass 2, 2026-04-09): The current 5-doc seed corpus produces
+	// an all-negative baseline RRF score vector (empirically [-0.0333, -0.0328, -0.0323,
+	// -0.0318, -0.0313] for IDs [3,5,1,2,4]). Because RrfRank.MarshalJSON auto-negates
+	// the fusion score at rank.go:1217, the expression tree operates on `-rrf_sum` which
+	// is always non-positive on this corpus. Consequences:
+	//   - Negate and Abs are empirically equivalent: both flip to [4,2,1,5,3] with
+	//     identical scores (|baseline|). abs(x) == -x for x <= 0.
+	//   - Max(0) collapses all scores to zero (max(x, 0) == 0 for x <= 0), producing
+	//     an all-tied result set that falls back to default insertion order.
+	//   - Log returns an inner-empty Scores slice (log of non-positive is undefined),
+	//     with IDs falling back to default insertion order.
+	//   - Min(0) is a mathematical identity (min(x, 0) == x for x <= 0), making it
+	//     indistinguishable from the baseline RRF run.
+	// Per user decision 2026-04-09 (D-20): Wave 2 pins this corpus behavior as a
+	// regression assertion. A future phase should improve the corpus to produce at
+	// least one positive baseline RRF score so Min(0)/Max(0)/Log/Abs can exercise
+	// their non-identity branches meaningfully — corpus improvement is explicitly
+	// OUT OF SCOPE for Phase 21.1.
 	for _, tt := range rows {
 		t.Run(tt.name, func(t *testing.T) {
 			// H1 fix (Pattern A — defer): capture variables that will be populated
 			// by the body after the Search call succeeds, and register a deferred
-			// logger BEFORE the Search so the `pass1 ...` observation line ALWAYS
+			// logger BEFORE the Search so the `pass2 ...` observation line ALWAYS
 			// reaches the user regardless of err/nil/type-assertion-failure state.
-			// This is the exact observation Plan 02 Task 0 depends on for the
-			// risky semflip/degenerate rows.
+			// The defer is kept from Pass 1 as a regression audit trail; the label
+			// changed from `pass1` to `pass2` to reflect the tightening pass.
 			var (
 				srIDs     [][]DocumentID
 				srScores  [][]float64
@@ -1847,7 +1865,7 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 			)
 			if tt.bucket == bucketSemflip || tt.bucket == bucketDegenerate {
 				defer func() {
-					t.Logf("pass1 %s %s: err=%v IDs=%v Scores=%v",
+					t.Logf("pass2 %s %s: err=%v IDs=%v Scores=%v",
 						tt.bucket, tt.name, searchErr, srIDs, srScores)
 				}()
 			}
@@ -1905,20 +1923,142 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 				}
 				require.NotEqual(t, baselineSR.Scores, sr.Scores,
 					"method %s: arithmetic wrapping must produce a measurable score change from baseline", tt.name)
-				t.Logf("pass1 safe %s: IDs=%v Scores=%v", tt.name, sr.IDs, sr.Scores)
+				t.Logf("pass2 safe %s: IDs=%v Scores=%v", tt.name, sr.IDs, sr.Scores)
 
 			case bucketSemflip, bucketDegenerate:
-				// H1 fix: observe-only, NO require.NoError / require.NotNil calls
-				// for these rows. The deferred logger above emits the pass1 line
-				// unconditionally. Pass 2 (Plan 02) will tighten these assertions
-				// after the user reports empirical behavior per D-13.
-				//
-				// Intentionally empty: the defer does the observation.
+				// Pass 2: per-row empirical pin based on Pass 1 observation log.
+				// No `expectedErrorRows` map — Pass 1 showed searchErr=nil for all 6 rows.
+				// Every sr.IDs[0]/sr.Scores[0] dereference is preceded by the M2 guard.
+				switch tt.name {
+				case "Negate":
+					// Pass 1 observed: IDs=[4,2,1,5,3] (flipped), Scores=|baseline|.
+					// Rubric (a): order-flip pin. Negate inverts "lower is better".
+					require.NoError(t, err, "Negate: search must succeed")
+					require.NotNil(t, results, "Negate: results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Negate: result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Negate: outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.Scores, "Negate: outer Scores must not be empty")
+					require.Len(t, sr.IDs, len(baselineSR.IDs), "Negate: query count must match baseline")
+					require.NotEmpty(t, sr.IDs[0], "Negate: inner IDs must not be empty")
+					require.Len(t, sr.IDs[0], len(baselineSR.IDs[0]), "Negate: result cardinality must match baseline")
+					require.NotEqual(t, baselineSR.IDs, sr.IDs,
+						"Negate: expected order flip relative to baseline (Negate inverts lower-is-better)")
+
+				case "Abs":
+					// Pass 1 observed: IDs=[4,2,1,5,3] (flipped), Scores identical to Negate.
+					// Abs and Negate are empirically equivalent on this corpus because all
+					// baseline RRF scores are negative: abs(x) == -x for x <= 0. See the
+					// corpus-limitation comment block above for the full explanation.
+					// Rubric (a): order-flip pin (same as Negate).
+					require.NoError(t, err, "Abs: search must succeed")
+					require.NotNil(t, results, "Abs: results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Abs: result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Abs: outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.Scores, "Abs: outer Scores must not be empty")
+					require.Len(t, sr.IDs, len(baselineSR.IDs), "Abs: query count must match baseline")
+					require.NotEmpty(t, sr.IDs[0], "Abs: inner IDs must not be empty")
+					require.Len(t, sr.IDs[0], len(baselineSR.IDs[0]), "Abs: result cardinality must match baseline")
+					require.NotEqual(t, baselineSR.IDs, sr.IDs,
+						"Abs: expected order flip relative to baseline (abs(x)=-x for x<=0 on all-negative corpus)")
+
+				case "Exp":
+					// Pass 1 observed: IDs=[3,5,1,2,4] (matches baseline), Scores=e^baseline.
+					// NOTE: Exp was classified as "semflip probe" in Pass 1 bucket table,
+					// but empirically exp is a strictly monotonic increasing transform and
+					// preserves order. Pass 2 keeps the row in the semflip bucket arm for
+					// structural consistency, but uses the monotonic-transform assertion
+					// shape (option b), not the order-flip shape.
+					require.NoError(t, err, "Exp: search must succeed")
+					require.NotNil(t, results, "Exp: results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Exp: result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Exp: outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.Scores, "Exp: outer Scores must not be empty")
+					require.Len(t, sr.IDs, len(baselineSR.IDs), "Exp: query count must match baseline")
+					require.NotEmpty(t, sr.IDs[0], "Exp: inner IDs must not be empty")
+					require.NotEmpty(t, sr.Scores[0], "Exp: inner Scores must not be empty")
+					require.Equal(t, baselineSR.IDs, sr.IDs,
+						"Exp: IDs must match baseline (monotonic transform preserves order)")
+					require.NotEqual(t, baselineSR.Scores, sr.Scores,
+						"Exp: Scores must differ from baseline (monotonic transform changes values)")
+
+				case "Log":
+					// Pass 1 observed: err=nil, IDs=[[1,2,3,4,5]] (default insertion order),
+					// Scores=[[]] (outer has one entry, inner is empty).
+					// Classification: BUG per L1 rubric — the server silently fell back to
+					// insertion order instead of returning a structured error or sentinel
+					// NaN/Inf scores when Log was applied to non-positive fused scores.
+					// See the corresponding [BUG] GitHub issue filed in Task 2.
+					// Rubric (h): inner-empty path + default-order IDs pin.
+					require.NoError(t, err, "Log: no error returned in Pass 1 observation")
+					require.NotNil(t, results, "Log: results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Log: result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Log: outer IDs must not be empty") // M2 guard
+					require.Len(t, sr.IDs, 1, "Log: outer IDs must have exactly one query entry")
+					require.Len(t, sr.IDs[0], 5, "Log: inner IDs must have all 5 docs in insertion order")
+					require.Equal(t, []DocumentID{"1", "2", "3", "4", "5"}, sr.IDs[0],
+						"Log: IDs must fall back to default insertion order when server silently degenerates")
+					require.NotEmpty(t, sr.Scores, "Log: outer Scores must not be empty") // M2 guard
+					require.Len(t, sr.Scores, 1, "Log: outer Scores must have exactly one query entry")
+					require.Empty(t, sr.Scores[0],
+						"Log: inner Scores must be empty (degenerate — server dropped scores for log of non-positive)")
+
+				case "Max_0":
+					// Pass 1 observed: err=nil, IDs=[[1,2,3,4,5]] (default insertion order),
+					// Scores=[[0,0,0,0,0]] (all-tied at zero).
+					// Classification: ENH per L1 rubric — client could reject
+					// rrf.Max(FloatOperand(0.0)) at construction as a mathematically
+					// meaningless composition on RRF's non-positive fusion output.
+					// See the corresponding [ENH] GitHub issue filed in Task 2.
+					// Explicit zero-pin (not just all-tied — Pass 1 observed exactly 0s).
+					require.NoError(t, err, "Max(0): search must succeed")
+					require.NotNil(t, results, "Max(0): results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Max(0): result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Max(0): outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.Scores, "Max(0): outer Scores must not be empty")
+					require.Len(t, sr.IDs, 1, "Max(0): outer IDs must have exactly one query entry")
+					require.Len(t, sr.IDs[0], 5, "Max(0): inner IDs must have all 5 docs")
+					require.Equal(t, []DocumentID{"1", "2", "3", "4", "5"}, sr.IDs[0],
+						"Max(0): IDs must fall back to default insertion order when all scores tied at 0")
+					require.Len(t, sr.Scores, 1, "Max(0): outer Scores must have exactly one query entry")
+					require.Len(t, sr.Scores[0], 5, "Max(0): inner Scores must have 5 entries")
+					for i, s := range sr.Scores[0] {
+						require.Equal(t, float64(0), s,
+							"Max(0): expected zero score at index %d, got %v (max(-rrf_sum, 0) collapses to 0 for -rrf_sum<=0)", i, s)
+					}
+
+				case "Min_0":
+					// Pass 1 observed: IDs=[3,5,1,2,4] (matches baseline), Scores identical
+					// to baseline. Min(0) is empirically a no-op on all-negative baselines
+					// because min(x, 0) = x when x <= 0. This is mathematically correct, not
+					// a bug — per user decision 2026-04-09 we file NO issue for Min_0.
+					// See the corpus-limitation comment block above: future work should
+					// improve the corpus to produce at least one positive baseline RRF score
+					// so Min(0) can exercise its clamping behavior meaningfully.
+					// Rubric (d): no-op pin.
+					require.NoError(t, err, "Min(0): search must succeed")
+					require.NotNil(t, results, "Min(0): results must not be nil")
+					sr, srOk := results.(*SearchResultImpl)
+					require.True(t, srOk, "Min(0): result must be *SearchResultImpl")
+					require.NotEmpty(t, sr.IDs, "Min(0): outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.Scores, "Min(0): outer Scores must not be empty")
+					require.Equal(t, baselineSR.IDs, sr.IDs,
+						"Min(0): IDs must match baseline (min(x,0)=x for x<=0 is an identity on all-negative corpus)")
+					require.Equal(t, baselineSR.Scores, sr.Scores,
+						"Min(0): Scores must match baseline (min(x,0)=x for x<=0 is an identity on all-negative corpus)")
+
+				default:
+					t.Fatalf("unexpected method name %q in semflip/degenerate bucket", tt.name)
+				}
 			}
 		})
 	}
 
-	t.Log("pass 1 scaffolding complete — run `go test -tags=\"basicv2 cloud\" -v -run TestCloudClientSearchRRFArithmetic ./pkg/api/v2/...` and report per-row observations so Plan 02 (Pass 2) can tighten semflip/degenerate assertions")
+	t.Log("pass 2 empirical tightening complete — run `go test -tags=\"basicv2 cloud\" -v -run TestCloudClientSearchRRFArithmetic ./pkg/api/v2/...` and `make test-cloud` to satisfy the D-21 phase-completion gate")
 }
 
 func TestCloudClientSearchGroupBy(t *testing.T) {
