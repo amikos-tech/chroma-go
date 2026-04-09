@@ -59,7 +59,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 21.1-01-PLAN.md — Pass 1 scaffolding: TestCloudClientSearchRRFArithmetic with all 10 rows, safe-bucket strict differential, semflip+degenerate observe-only
+- [x] 21.1-01-PLAN.md — Pass 1 scaffolding: TestCloudClientSearchRRFArithmetic with all 10 rows, safe-bucket strict differential, semflip+degenerate observe-only
 - [ ] 21.1-02-PLAN.md — Pass 2 empirical tightening: per-row pinned assertions from user observations + [BUG] issues + D-21 user-run gate
 
 ### Phase 22: WithGroupBy Validation
