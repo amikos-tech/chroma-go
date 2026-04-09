@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v0.4.1 Provider-Neutral Multimodal Foundations** — Phases 1-20 (shipped 2026-04-08)
-- 🚧 **v0.4.2 Bug Fixes and Robustness** — Phases 21-28 (in progress)
+- 🚧 **v0.4.2 Bug Fixes and Robustness** — Phases 21-29 (in progress)
 
 ## Phases
 
@@ -30,6 +30,7 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 - [ ] **Phase 26: Twelve Labs Async Embedding** - Twelve Labs provider handles async task responses for long-running media
 - [ ] **Phase 27: Download Stack Consolidation** - default_ef download code uses shared downloadutil instead of its own HTTP implementation
 - [ ] **Phase 28: Morph Test Fix** - Morph EF integration test handles upstream 404 gracefully
+- [ ] **Phase 29: Rank Expression Composition Robustness** - Reject silent footguns in rank composition (nil operands, degenerate RRF compositions)
 
 ## Phase Details
 
@@ -150,12 +151,29 @@ Plans:
 Plans:
 - [ ] 28-01: TBD
 
+### Phase 29: Rank Expression Composition Robustness
+**Goal**: Rank expression composition fails loud on programmer errors and rejects mathematically meaningless RRF compositions before sending to the server
+**Depends on**: Phase 21 (arithmetic methods must build expression trees before they can be validated)
+**Requirements**: COMP-01, COMP-02, COMP-03
+**Issues**: amikos-tech/chroma-go#499, amikos-tech/chroma-go#500, amikos-tech/chroma-go#501
+**Success Criteria** (what must be TRUE):
+  1. Passing nil to any `*Rank.Add/Sub/Multiply/Div/Max/Min` produces a rank whose `MarshalJSON` reports a clear error instead of silently substituting `Val(0)` (#499)
+  2. `RrfRank.Log()` and `RrfRank.Max(Val(0))` reject the composition at build time with a descriptive error instead of producing a degenerate query (#501)
+  3. Client detects and reports result-shape mismatch (empty inner `Scores` with populated inner `IDs`) from `Search` responses so callers see silent server-side degeneration (#500)
+  4. `TestCloudClientSearchRRFArithmetic` is updated to assert the new client-side errors on degenerate rows instead of pinning the current fallback behavior
+**Plans**: TBD
+
+Plans:
+- [ ] 29-01: TBD — Fix `operandToRank` nil handling (#499)
+- [ ] 29-02: TBD — Client-side rejection of degenerate RRF compositions (#501)
+- [ ] 29-03: TBD — Result-shape validation in `Search` response handling (#500)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 21 -> 22 -> 23 -> 24 -> ... -> 28.
+Phases execute in numeric order: 21 -> 22 -> 23 -> 24 -> ... -> 29.
 Phases 21, 22, 25, 27, 28 are independent and may execute in any order relative to each other.
-Phase 24 depends on Phase 23. Phase 26 depends on Phase 25.
+Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on Phase 21.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -167,3 +185,4 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25.
 | 26. Twelve Labs Async Embedding | v0.4.2 | 0/0 | Not started | - |
 | 27. Download Stack Consolidation | v0.4.2 | 0/0 | Not started | - |
 | 28. Morph Test Fix | v0.4.2 | 0/0 | Not started | - |
+| 29. Rank Expression Composition Robustness | v0.4.2 | 0/3 | Not started | - |
