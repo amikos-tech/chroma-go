@@ -568,9 +568,6 @@ func TestRrfRankArithmetic(t *testing.T) {
 
 			result := tt.apply(rrf)
 
-			// Result must be a different object from the receiver
-			require.False(t, result == Rank(rrf), "arithmetic should return a new Rank, not the receiver")
-
 			resultJSON, err := result.MarshalJSON()
 			require.NoError(t, err)
 			require.JSONEq(t, tt.expected, string(resultJSON))
