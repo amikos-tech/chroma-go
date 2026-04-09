@@ -46,6 +46,10 @@ Progress: [░░░░░░░░░░] 0%
 
 Decisions are logged in PROJECT.md Key Decisions table.
 
+### Roadmap Evolution
+
+- Phase 21.1 inserted after Phase 21: RRF cloud integration test coverage including arithmetic compositions (URGENT) — post-fix cloud coverage gap for Phase 21 arithmetic methods
+
 ### Blockers/Concerns
 
 - Phase 28 (Morph): upstream URL may be permanently moved -- need to verify before coding

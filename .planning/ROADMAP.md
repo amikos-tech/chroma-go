@@ -46,6 +46,16 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 Plans:
 - [x] 21-01-PLAN.md — Fix RrfRank arithmetic methods and add test coverage
 
+### Phase 21.1: RRF cloud integration test coverage including arithmetic compositions (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 21
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 21.1 to break down)
+
 ### Phase 22: WithGroupBy Validation
 **Goal**: WithGroupBy rejects nil input with a clear error
 **Depends on**: Nothing (independent bug fix)
