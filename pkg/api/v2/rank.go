@@ -604,7 +604,7 @@ func (l *LogRank) Exp() Rank {
 }
 
 func (l *LogRank) Log() Rank {
-	return l
+	return &LogRank{rank: l}
 }
 
 func (l *LogRank) Max(operand Operand) Rank {

@@ -581,6 +581,36 @@ func TestRrfRankArithmetic(t *testing.T) {
 			require.Equal(t, string(originalJSON), string(afterJSON), "receiver was mutated")
 		})
 	}
+
+	t.Run("wrappers remain independent across sequential calls", func(t *testing.T) {
+		a := rrf.Add(FloatOperand(1))
+		b := rrf.Multiply(FloatOperand(2))
+		c := rrf.Log()
+
+		bJSON, err := b.MarshalJSON()
+		require.NoError(t, err)
+		cJSON, err := c.MarshalJSON()
+		require.NoError(t, err)
+		aJSON, err := a.MarshalJSON()
+		require.NoError(t, err)
+
+		require.JSONEq(t, `{"$sum":[`+rrfStr+`,{"$val":1}]}`, string(aJSON))
+		require.JSONEq(t, `{"$mul":[`+rrfStr+`,{"$val":2}]}`, string(bJSON))
+		require.JSONEq(t, `{"$log":`+rrfStr+`}`, string(cJSON))
+	})
+}
+
+// Regression test: LogRank.Log() must build a nested log expression.
+// log(log(x)) != log(x), so returning the receiver silently drops the outer Log.
+func TestLogRankLogComposition(t *testing.T) {
+	inner := Val(10.0).Log()
+	nested := inner.Log()
+
+	require.False(t, nested == inner, "LogRank.Log() must return a new Rank, not the receiver")
+
+	nestedJSON, err := nested.MarshalJSON()
+	require.NoError(t, err)
+	require.JSONEq(t, `{"$log":{"$log":{"$val":10}}}`, string(nestedJSON))
 }
 
 func TestRankWithWeight(t *testing.T) {
