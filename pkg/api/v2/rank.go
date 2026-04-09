@@ -1061,10 +1061,15 @@ func WithRrfNormalize() RrfOption {
 //	    WithRrfK(60),
 //	)
 //
-// Do not mutate fields on a *RrfRank after it has been used in an arithmetic
+// Do not mutate a *RrfRank — including the contents of its Ranks slice (e.g.
+// rrf.Ranks[i].Weight = ...) — after it has been used in an arithmetic
 // composition (Add, Sub, Multiply, etc.) or embedded in another expression:
 // composed expressions hold a pointer to this struct and will observe later
 // writes at marshal time, silently changing a previously-built query.
+//
+// Arithmetic methods (Add, Sub, Multiply, Div, Negate, Abs, Exp, Log, Max, Min)
+// operate on the final higher-is-better rank score produced by this RrfRank,
+// not on the raw reciprocal rank fusion sum.
 type RrfRank struct {
 	Ranks     []RankWithWeight
 	K         int
