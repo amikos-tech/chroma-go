@@ -1731,12 +1731,14 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 	ctx := context.Background()
 	collectionName := "test_rrf_arithmetic-" + uuid.New().String()
 
-	// M5: Register cleanup BEFORE CreateCollection so partial-create panics still fire.
-	// M4: Use a fresh background context with timeout so delete survives parent-ctx cancellation.
+	// Register cleanup before CreateCollection so partial-create panics still fire.
+	// Use a detached context so delete survives parent-ctx cancellation.
 	t.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		_ = client.DeleteCollection(cleanupCtx, collectionName)
+		if derr := client.DeleteCollection(cleanupCtx, collectionName); derr != nil {
+			t.Logf("cleanup: delete %s: %v", collectionName, derr)
+		}
 	})
 
 	sparseEF, err := chromacloudsplade.NewEmbeddingFunction(chromacloudsplade.WithEnvAPIKey())
@@ -1767,8 +1769,8 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// N1: Indexing readiness gate — bounded poll on Collection.Count (pkg/api/v2/collection.go:141)
-	// instead of a fixed time.Sleep. Faster on healthy days, resilient on slow ones.
+	// Indexing readiness gate: bounded poll on collection.Count instead of a fixed
+	// sleep. Faster on healthy days, resilient on slow ones.
 	require.Eventually(t, func() bool {
 		n, cerr := collection.Count(ctx)
 		return cerr == nil && n == 5
@@ -1832,12 +1834,10 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 		{name: "Min_0", bucket: bucketDegenerate, apply: func(r *RrfRank) Rank { return r.Min(FloatOperand(0.0)) }},
 	}
 
-	// Corpus limitation (Pass 2, 2026-04-09): The current 5-doc seed corpus produces
-	// an all-negative baseline RRF score vector (empirically [-0.0333, -0.0328, -0.0323,
-	// -0.0318, -0.0313] for IDs [3,5,1,2,4]). Because RrfRank.MarshalJSON auto-negates
-	// the fusion score at rank.go:1217, the expression tree operates on `-rrf_sum` which
-	// is always non-positive on this corpus. Consequences:
-	//   - Negate and Abs are empirically equivalent: both flip to [4,2,1,5,3] with
+	// Corpus limitation: the 5-doc seed produces an all-negative baseline RRF score
+	// vector. Because RrfRank.MarshalJSON auto-negates the fusion score, the expression
+	// tree operates on `-rrf_sum` which is always non-positive here. Consequences:
+	//   - Negate and Abs are empirically equivalent: both flip the order with
 	//     identical scores (|baseline|). abs(x) == -x for x <= 0.
 	//   - Max(0) collapses all scores to zero (max(x, 0) == 0 for x <= 0), producing
 	//     an all-tied result set that falls back to default insertion order.
@@ -1845,19 +1845,14 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 	//     with IDs falling back to default insertion order.
 	//   - Min(0) is a mathematical identity (min(x, 0) == x for x <= 0), making it
 	//     indistinguishable from the baseline RRF run.
-	// Per user decision 2026-04-09 (D-20): Wave 2 pins this corpus behavior as a
-	// regression assertion. A future phase should improve the corpus to produce at
-	// least one positive baseline RRF score so Min(0)/Max(0)/Log/Abs can exercise
-	// their non-identity branches meaningfully — corpus improvement is explicitly
-	// OUT OF SCOPE for Phase 21.1.
+	// This corpus is intentionally pinned as a regression baseline. A richer corpus
+	// that produces at least one positive fused score would let Min(0)/Max(0)/Log/Abs
+	// exercise non-identity branches meaningfully — tracked separately.
 	for _, tt := range rows {
 		t.Run(tt.name, func(t *testing.T) {
-			// H1 fix (Pattern A — defer): capture variables that will be populated
-			// by the body after the Search call succeeds, and register a deferred
-			// logger BEFORE the Search so the `pass2 ...` observation line ALWAYS
-			// reaches the user regardless of err/nil/type-assertion-failure state.
-			// The defer is kept from Pass 1 as a regression audit trail; the label
-			// changed from `pass1` to `pass2` to reflect the tightening pass.
+			// Capture variables populated after Search and register a deferred logger
+			// BEFORE the Search so the observation line always reaches the user
+			// regardless of err / nil result / type-assertion-failure state.
 			var (
 				srIDs     [][]DocumentID
 				srScores  [][]float64
@@ -1865,7 +1860,7 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 			)
 			if tt.bucket == bucketSemflip || tt.bucket == bucketDegenerate {
 				defer func() {
-					t.Logf("pass2 %s %s: err=%v IDs=%v Scores=%v",
+					t.Logf("%s %s: err=%v IDs=%v Scores=%v",
 						tt.bucket, tt.name, searchErr, srIDs, srScores)
 				}()
 			}
@@ -1881,9 +1876,8 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 			searchErr = err
 
 			// Capture slices for the defer closure BEFORE any require.* that might
-			// halt the subtest. If results is nil or wrong type, leave the captured
-			// slices as nil — the defer prints `IDs=[] Scores=[]` which is still
-			// a useful observation (it tells the user the server returned nothing).
+			// halt the subtest. If results is nil or wrong type, leave them nil —
+			// the defer still prints a useful observation.
 			if results != nil {
 				if sr, srOk := results.(*SearchResultImpl); srOk {
 					srIDs = sr.IDs
@@ -1893,18 +1887,14 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 
 			switch tt.bucket {
 			case bucketSafe:
-				// Safe bucket: strict assertions. require.NoError and require.NotNil
-				// are fine here because safe methods are expected to succeed — any
-				// failure is a real regression.
 				require.NoError(t, err, "method %s: search must not return an error", tt.name)
 				require.NotNil(t, results, "method %s: results must not be nil", tt.name)
 
 				sr, ok := results.(*SearchResultImpl)
 				require.True(t, ok, "method %s: result must be *SearchResultImpl", tt.name)
 
-				// M3: shape guardrails BEFORE the differential assertion.
-				// These catch easy regressions (empty slices, NaN/Inf, cardinality mismatch)
-				// that a raw NotEqual would not.
+				// Shape guardrails before the differential assertion: catch empty
+				// slices, NaN/Inf, cardinality mismatches that a raw NotEqual misses.
 				require.NotEmpty(t, sr.IDs, "method %s: IDs must not be empty", tt.name)
 				require.NotEmpty(t, sr.Scores, "method %s: Scores must not be empty", tt.name)
 				require.Len(t, sr.IDs, len(baselineSR.IDs),
@@ -1923,21 +1913,18 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 				}
 				require.NotEqual(t, baselineSR.Scores, sr.Scores,
 					"method %s: arithmetic wrapping must produce a measurable score change from baseline", tt.name)
-				t.Logf("pass2 safe %s: IDs=%v Scores=%v", tt.name, sr.IDs, sr.Scores)
+				t.Logf("safe %s: IDs=%v Scores=%v", tt.name, sr.IDs, sr.Scores)
 
 			case bucketSemflip, bucketDegenerate:
-				// Pass 2: per-row empirical pin based on Pass 1 observation log.
-				// No `expectedErrorRows` map — Pass 1 showed searchErr=nil for all 6 rows.
-				// Every sr.IDs[0]/sr.Scores[0] dereference is preceded by the M2 guard.
 				switch tt.name {
 				case "Negate":
-					// Pass 1 observed: IDs=[4,2,1,5,3] (flipped), Scores=|baseline|.
-					// Rubric (a): order-flip pin. Negate inverts "lower is better".
+					// Negate inverts "lower is better" on an all-negative baseline —
+					// expect an order flip.
 					require.NoError(t, err, "Negate: search must succeed")
 					require.NotNil(t, results, "Negate: results must not be nil")
 					sr, srOk := results.(*SearchResultImpl)
 					require.True(t, srOk, "Negate: result must be *SearchResultImpl")
-					require.NotEmpty(t, sr.IDs, "Negate: outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.IDs, "Negate: outer IDs must not be empty")
 					require.NotEmpty(t, sr.Scores, "Negate: outer Scores must not be empty")
 					require.Len(t, sr.IDs, len(baselineSR.IDs), "Negate: query count must match baseline")
 					require.NotEmpty(t, sr.IDs[0], "Negate: inner IDs must not be empty")
@@ -1946,16 +1933,14 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 						"Negate: expected order flip relative to baseline (Negate inverts lower-is-better)")
 
 				case "Abs":
-					// Pass 1 observed: IDs=[4,2,1,5,3] (flipped), Scores identical to Negate.
-					// Abs and Negate are empirically equivalent on this corpus because all
-					// baseline RRF scores are negative: abs(x) == -x for x <= 0. See the
-					// corpus-limitation comment block above for the full explanation.
-					// Rubric (a): order-flip pin (same as Negate).
+					// Abs is equivalent to Negate on this all-negative corpus
+					// (abs(x) == -x for x <= 0) — see the corpus-limitation block above.
+					// Expect an order flip.
 					require.NoError(t, err, "Abs: search must succeed")
 					require.NotNil(t, results, "Abs: results must not be nil")
 					sr, srOk := results.(*SearchResultImpl)
 					require.True(t, srOk, "Abs: result must be *SearchResultImpl")
-					require.NotEmpty(t, sr.IDs, "Abs: outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.IDs, "Abs: outer IDs must not be empty")
 					require.NotEmpty(t, sr.Scores, "Abs: outer Scores must not be empty")
 					require.Len(t, sr.IDs, len(baselineSR.IDs), "Abs: query count must match baseline")
 					require.NotEmpty(t, sr.IDs[0], "Abs: inner IDs must not be empty")
@@ -1964,17 +1949,13 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 						"Abs: expected order flip relative to baseline (abs(x)=-x for x<=0 on all-negative corpus)")
 
 				case "Exp":
-					// Pass 1 observed: IDs=[3,5,1,2,4] (matches baseline), Scores=e^baseline.
-					// NOTE: Exp was classified as "semflip probe" in Pass 1 bucket table,
-					// but empirically exp is a strictly monotonic increasing transform and
-					// preserves order. Pass 2 keeps the row in the semflip bucket arm for
-					// structural consistency, but uses the monotonic-transform assertion
-					// shape (option b), not the order-flip shape.
+					// Exp is a strictly monotonic increasing transform: preserves
+					// ID order, changes scores.
 					require.NoError(t, err, "Exp: search must succeed")
 					require.NotNil(t, results, "Exp: results must not be nil")
 					sr, srOk := results.(*SearchResultImpl)
 					require.True(t, srOk, "Exp: result must be *SearchResultImpl")
-					require.NotEmpty(t, sr.IDs, "Exp: outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.IDs, "Exp: outer IDs must not be empty")
 					require.NotEmpty(t, sr.Scores, "Exp: outer Scores must not be empty")
 					require.Len(t, sr.IDs, len(baselineSR.IDs), "Exp: query count must match baseline")
 					require.NotEmpty(t, sr.IDs[0], "Exp: inner IDs must not be empty")
@@ -1985,40 +1966,34 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 						"Exp: Scores must differ from baseline (monotonic transform changes values)")
 
 				case "Log":
-					// Pass 1 observed: err=nil, IDs=[[1,2,3,4,5]] (default insertion order),
-					// Scores=[[]] (outer has one entry, inner is empty).
-					// Classification: BUG per L1 rubric — the server silently fell back to
-					// insertion order instead of returning a structured error or sentinel
-					// NaN/Inf scores when Log was applied to non-positive fused scores.
-					// See the corresponding [BUG] GitHub issue filed in Task 2.
-					// Rubric (h): inner-empty path + default-order IDs pin.
-					require.NoError(t, err, "Log: no error returned in Pass 1 observation")
+					// Server bug: applying Log to non-positive fused scores silently
+					// falls back to insertion order with an empty inner Scores slice
+					// instead of returning a structured error. Pinned as a regression
+					// baseline — tracked separately in the issue tracker.
+					require.NoError(t, err, "Log: no error returned (server silently degenerates)")
 					require.NotNil(t, results, "Log: results must not be nil")
 					sr, srOk := results.(*SearchResultImpl)
 					require.True(t, srOk, "Log: result must be *SearchResultImpl")
-					require.NotEmpty(t, sr.IDs, "Log: outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.IDs, "Log: outer IDs must not be empty")
 					require.Len(t, sr.IDs, 1, "Log: outer IDs must have exactly one query entry")
 					require.Len(t, sr.IDs[0], 5, "Log: inner IDs must have all 5 docs in insertion order")
 					require.Equal(t, []DocumentID{"1", "2", "3", "4", "5"}, sr.IDs[0],
 						"Log: IDs must fall back to default insertion order when server silently degenerates")
-					require.NotEmpty(t, sr.Scores, "Log: outer Scores must not be empty") // M2 guard
+					require.NotEmpty(t, sr.Scores, "Log: outer Scores must not be empty")
 					require.Len(t, sr.Scores, 1, "Log: outer Scores must have exactly one query entry")
 					require.Empty(t, sr.Scores[0],
 						"Log: inner Scores must be empty (degenerate — server dropped scores for log of non-positive)")
 
 				case "Max_0":
-					// Pass 1 observed: err=nil, IDs=[[1,2,3,4,5]] (default insertion order),
-					// Scores=[[0,0,0,0,0]] (all-tied at zero).
-					// Classification: ENH per L1 rubric — client could reject
-					// rrf.Max(FloatOperand(0.0)) at construction as a mathematically
-					// meaningless composition on RRF's non-positive fusion output.
-					// See the corresponding [ENH] GitHub issue filed in Task 2.
-					// Explicit zero-pin (not just all-tied — Pass 1 observed exactly 0s).
+					// Max(0) on an all-negative corpus collapses every score to exactly 0
+					// (max(x, 0) == 0 for x <= 0), producing an all-tied result set that
+					// falls back to default insertion order. The client could reject this
+					// construction at build time — tracked separately as an enhancement.
 					require.NoError(t, err, "Max(0): search must succeed")
 					require.NotNil(t, results, "Max(0): results must not be nil")
 					sr, srOk := results.(*SearchResultImpl)
 					require.True(t, srOk, "Max(0): result must be *SearchResultImpl")
-					require.NotEmpty(t, sr.IDs, "Max(0): outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.IDs, "Max(0): outer IDs must not be empty")
 					require.NotEmpty(t, sr.Scores, "Max(0): outer Scores must not be empty")
 					require.Len(t, sr.IDs, 1, "Max(0): outer IDs must have exactly one query entry")
 					require.Len(t, sr.IDs[0], 5, "Max(0): inner IDs must have all 5 docs")
@@ -2032,19 +2007,15 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 					}
 
 				case "Min_0":
-					// Pass 1 observed: IDs=[3,5,1,2,4] (matches baseline), Scores identical
-					// to baseline. Min(0) is empirically a no-op on all-negative baselines
-					// because min(x, 0) = x when x <= 0. This is mathematically correct, not
-					// a bug — per user decision 2026-04-09 we file NO issue for Min_0.
-					// See the corpus-limitation comment block above: future work should
-					// improve the corpus to produce at least one positive baseline RRF score
-					// so Min(0) can exercise its clamping behavior meaningfully.
-					// Rubric (d): no-op pin.
+					// Min(0) is a mathematical identity on an all-negative baseline
+					// (min(x, 0) == x for x <= 0). This is correct, not a bug.
+					// A richer corpus is needed to meaningfully exercise clamping —
+					// see the corpus-limitation block above.
 					require.NoError(t, err, "Min(0): search must succeed")
 					require.NotNil(t, results, "Min(0): results must not be nil")
 					sr, srOk := results.(*SearchResultImpl)
 					require.True(t, srOk, "Min(0): result must be *SearchResultImpl")
-					require.NotEmpty(t, sr.IDs, "Min(0): outer IDs must not be empty") // M2 guard
+					require.NotEmpty(t, sr.IDs, "Min(0): outer IDs must not be empty")
 					require.NotEmpty(t, sr.Scores, "Min(0): outer Scores must not be empty")
 					require.Equal(t, baselineSR.IDs, sr.IDs,
 						"Min(0): IDs must match baseline (min(x,0)=x for x<=0 is an identity on all-negative corpus)")
@@ -2057,8 +2028,6 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 			}
 		})
 	}
-
-	t.Log("pass 2 empirical tightening complete — run `go test -tags=\"basicv2 cloud\" -v -run TestCloudClientSearchRRFArithmetic ./pkg/api/v2/...` and `make test-cloud` to satisfy the D-21 phase-completion gate")
 }
 
 func TestCloudClientSearchGroupBy(t *testing.T) {

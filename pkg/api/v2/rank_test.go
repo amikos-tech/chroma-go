@@ -553,6 +553,16 @@ func TestRrfRankArithmetic(t *testing.T) {
 			expected: `{"$min":[` + rrfStr + `,{"$val":1}]}`,
 		},
 		{
+			name:     "Add_IntOperand",
+			apply:    func(r *RrfRank) Rank { return r.Add(IntOperand(7)) },
+			expected: `{"$sum":[` + rrfStr + `,{"$val":7}]}`,
+		},
+		{
+			name:     "Multiply_RankOperand",
+			apply:    func(r *RrfRank) Rank { return r.Multiply(Val(5).Abs()) },
+			expected: `{"$mul":[` + rrfStr + `,{"$abs":{"$val":5}}]}`,
+		},
+		{
 			name: "chained Add then Log",
 			apply: func(r *RrfRank) Rank {
 				return r.Add(FloatOperand(1)).Log()
