@@ -1071,7 +1071,7 @@ func WithRrfNormalize() RrfOption {
 // lower-is-better convention: RrfRank.MarshalJSON negates the raw reciprocal
 // rank sum so that a smaller (more negative) score means a better match. As a
 // result, the operand to composition is always non-positive on non-empty
-// corpora, and transforms that assume a positive input will degenerate:
+// corpora, and the following transforms misbehave on that input:
 //   - Log degenerates silently: log of a non-positive value is NaN, and the
 //     server drops NaN rows, leaving an empty inner Scores slice and IDs
 //     in insertion order.
@@ -1079,8 +1079,12 @@ func WithRrfNormalize() RrfOption {
 //     producing an all-tied result that falls back to insertion order.
 //   - Abs flips the ordering on RRF's non-positive output (abs(x) == -x
 //     for x <= 0, reversing the sign).
+//   - Negate inverts result ordering the same way Abs does on this input
+//     (-x >= 0 for x <= 0), so the best match moves to the bottom of the
+//     result set. Mathematically well-defined, but the observable effect
+//     is indistinguishable from a footgun.
 //
-// Add/Sub/Multiply/Div with positive constants, and Negate, behave as expected.
+// Add/Sub/Multiply/Div with positive constants behave as expected.
 type RrfRank struct {
 	Ranks     []RankWithWeight
 	K         int
