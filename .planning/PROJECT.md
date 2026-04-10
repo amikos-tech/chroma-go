@@ -30,6 +30,7 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 - ✓ Code cleanups: shared pathutil, context.Context fix, registry test cleanup — v0.4.1
 - ✓ SDK auto-wiring behavior documented across Python, JS, Rust, Go — v0.4.1
 - ✓ RrfRank arithmetic methods build correct expression trees instead of silent no-ops — v0.4.2 Phase 21
+- ✓ WithGroupBy(nil) rejects explicit nil input with a stable validation error — v0.4.2 Phase 22
 
 ## Current Milestone: v0.4.2 Bug Fixes and Robustness
 
@@ -46,7 +47,6 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 - Add Twelve Labs async embedding support (#479)
 
 ### Active
-- WithGroupBy(nil) accepted as no-op instead of error — #482
 - Embedded GetOrCreateCollection passes closed EFs to CreateCollection fallback — #493
 - Default ORT EF leaked when CreateCollection finds existing collection — #494
 - Morph EF integration test broken by upstream 404 — #465
@@ -106,4 +106,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-09 — Phase 21 (RrfRank arithmetic fix) complete*
+*Last updated: 2026-04-10 — Phase 22 (WithGroupBy validation) complete*
