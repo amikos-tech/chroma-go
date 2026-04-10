@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: executing
-stopped_at: Phase 21.1 context gathered
-last_updated: "2026-04-09T14:32:02.308Z"
-last_activity: 2026-04-09
+status: Ready to discuss or plan Phase 23
+stopped_at: Phase 22 complete
+last_updated: "2026-04-10T05:14:10.449Z"
+last_activity: "2026-04-10 -- Phase 22 shipped — PR #502"
 progress:
-  total_phases: 9
-  completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  total_phases: 10
+  completed_phases: 3
+  total_plans: 4
+  completed_plans: 4
   percent: 100
 ---
 
@@ -18,25 +18,25 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-08)
+See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 21.1 — rrf-cloud-integration-test-coverage-including-arithmetic-com
+**Current focus:** Phase 23 — ort-ef-leak-fix
 
 ## Current Position
 
-Phase: 22
+Phase: 23
 Plan: Not started
-Status: Executing Phase 21.1
-Last activity: 2026-04-09
+Status: Ready to discuss or plan Phase 23
+Last activity: 2026-04-10 -- Phase 22 shipped — PR #502
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: --
 - Total execution time: 0 hours
 
@@ -49,6 +49,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ### Roadmap Evolution
 
 - Phase 21.1 inserted after Phase 21: RRF cloud integration test coverage including arithmetic compositions (URGENT) — post-fix cloud coverage gap for Phase 21 arithmetic methods
+- Phase 30 added: V2 SearchRequestOption nil consistency — follow-up to Phase 22 / issue #503 for sibling explicit-nil contract cleanup
 
 ### Blockers/Concerns
 
@@ -56,5 +57,5 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ## Session
 
-**Last Date:** 2026-04-09T11:41:08.829Z
-**Stopped At:** Phase 21.1 context gathered
+**Last Date:** 2026-04-10T04:53:49Z
+**Stopped At:** Phase 22 complete

@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v0.4.1 Provider-Neutral Multimodal Foundations** — Phases 1-20 (shipped 2026-04-08)
-- 🚧 **v0.4.2 Bug Fixes and Robustness** — Phases 21-29 (in progress)
+- 🚧 **v0.4.2 Bug Fixes and Robustness** — Phases 21-30 (in progress)
 
 ## Phases
 
@@ -23,7 +23,7 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 - Decimal phases (21.1, 21.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 21: RrfRank Arithmetic Fix** - RrfRank arithmetic methods compute correct results instead of silently returning self (completed 2026-04-09)
-- [ ] **Phase 22: WithGroupBy Validation** - WithGroupBy(nil) returns an error instead of silently skipping grouping
+- [x] **Phase 22: WithGroupBy Validation** - WithGroupBy(nil) returns an error instead of silently skipping grouping (completed 2026-04-10)
 - [ ] **Phase 23: ORT EF Leak Fix** - Default ORT EF is properly closed when CreateCollection finds an existing collection
 - [ ] **Phase 24: GetOrCreateCollection EF Safety** - GetOrCreateCollection does not pass closed EFs to CreateCollection fallback
 - [ ] **Phase 25: Error Body Truncation** - Embedding provider error messages truncate raw HTTP bodies to safe display lengths
@@ -31,6 +31,7 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 - [ ] **Phase 27: Download Stack Consolidation** - default_ef download code uses shared downloadutil instead of its own HTTP implementation
 - [ ] **Phase 28: Morph Test Fix** - Morph EF integration test handles upstream 404 gracefully
 - [ ] **Phase 29: Rank Expression Composition Robustness** - Reject silent footguns in rank composition (nil operands, degenerate RRF compositions)
+- [ ] **Phase 30: V2 SearchRequestOption Nil Consistency** - Normalize explicit-nil handling across sibling search option helpers to match the Phase 22 contract
 
 ## Phase Details
 
@@ -70,10 +71,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Passing nil to WithGroupBy returns a validation error before the request is sent
   2. Non-nil WithGroupBy calls continue to work as before
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 22-01: TBD
+- [x] 22-01-PLAN.md — Validate `WithGroupBy(nil)` fail-fast behavior and pin direct/request-construction regressions
 
 ### Phase 23: ORT EF Leak Fix
 **Goal**: Default ORT embedding function is properly cleaned up when CreateCollection encounters an existing collection
@@ -168,17 +169,31 @@ Plans:
 - [ ] 29-02: TBD — Client-side rejection of degenerate RRF compositions (#501)
 - [ ] 29-03: TBD — Result-shape validation in `Search` response handling (#500)
 
+### Phase 30: V2 SearchRequestOption Nil Consistency
+**Goal**: Normalize explicit-nil handling across sibling V2 SearchRequestOption helpers so callers get a consistent contract instead of a mix of silent omission and validation errors
+**Depends on**: Phase 22
+**Requirements**: OPT-01
+**Issues**: amikos-tech/chroma-go#503
+**Success Criteria** (what must be TRUE):
+  1. The nil-handling contract for sibling SearchRequestOption helpers in `pkg/api/v2/search.go` is explicitly defined and tested
+  2. Options that should reject explicit nil inputs fail with clear validation errors instead of silently degrading caller intent
+  3. Any options intentionally left permissive are documented and covered by tests so the API behavior is consistent and discoverable
+**Plans**: TBD
+
+Plans:
+- [ ] 30-01: TBD — Audit sibling SearchRequestOption helpers and pin a consistent explicit-nil contract (#503)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 21 -> 22 -> 23 -> 24 -> ... -> 29.
+Phases execute in numeric order: 21 -> 22 -> 23 -> 24 -> ... -> 30.
 Phases 21, 22, 25, 27, 28 are independent and may execute in any order relative to each other.
-Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on Phase 21.
+Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on Phase 21. Phase 30 depends on Phase 22.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 21. RrfRank Arithmetic Fix | v0.4.2 | 1/1 | Complete    | 2026-04-09 |
-| 22. WithGroupBy Validation | v0.4.2 | 0/0 | Not started | - |
+| 22. WithGroupBy Validation | v0.4.2 | 1/1 | Complete    | 2026-04-10 |
 | 23. ORT EF Leak Fix | v0.4.2 | 0/0 | Not started | - |
 | 24. GetOrCreateCollection EF Safety | v0.4.2 | 0/0 | Not started | - |
 | 25. Error Body Truncation | v0.4.2 | 0/0 | Not started | - |
@@ -186,3 +201,4 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on 
 | 27. Download Stack Consolidation | v0.4.2 | 0/0 | Not started | - |
 | 28. Morph Test Fix | v0.4.2 | 0/0 | Not started | - |
 | 29. Rank Expression Composition Robustness | v0.4.2 | 0/3 | Not started | - |
+| 30. V2 SearchRequestOption Nil Consistency | v0.4.2 | 0/0 | Not started | - |

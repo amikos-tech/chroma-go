@@ -9,7 +9,8 @@
 
 - [ ] **RANK-01**: RrfRank arithmetic methods (Multiply, Sub, Add, Div, Negate) compute correct composite rank expressions instead of returning self
 - [ ] **RANK-02**: RrfRank arithmetic results produce valid JSON when marshaled
-- [ ] **GRP-01**: WithGroupBy(nil) returns a validation error instead of silently skipping grouping
+- [x] **GRP-01**: WithGroupBy(nil) returns a validation error instead of silently skipping grouping
+- [ ] **OPT-01**: V2 SearchRequestOption helpers use a documented and consistent explicit-nil contract instead of mixing silent omission with validation errors
 
 ### Embedded Client Lifecycle
 
@@ -61,7 +62,8 @@
 |-------------|-------|--------|
 | RANK-01 | Phase 21 | Pending |
 | RANK-02 | Phase 21 | Pending |
-| GRP-01 | Phase 22 | Pending |
+| GRP-01 | Phase 22 | Complete |
+| OPT-01 | Phase 30 | Pending |
 | EFL-01 | Phase 23 | Pending |
 | EFL-02 | Phase 24 | Pending |
 | EFL-03 | Phase 24 | Pending |
@@ -76,10 +78,10 @@
 | MORPH-01 | Phase 28 | Pending |
 
 **Coverage:**
-- v1 requirements: 15 total
-- Mapped to phases: 15
+- v1 requirements: 16 total
+- Mapped to phases: 16
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-08 after roadmap creation*
+*Last updated: 2026-04-10 after Phase 22 completion*
