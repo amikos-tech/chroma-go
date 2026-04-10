@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [v0.4.2] - Unreleased
+
+### Changed
+
+- **Search API** - `WithGroupBy(nil)` now returns a validation error instead of silently omitting grouping. Callers that want no grouping should omit `WithGroupBy(...)` entirely.
+
 ## [v0.4.1] - 2026-03-23
 
 ### Added

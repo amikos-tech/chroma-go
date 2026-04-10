@@ -39,6 +39,7 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 **Target features:**
 - Fix RrfRank arithmetic silent no-ops (#481)
 - Fix WithGroupBy(nil) silently skipping grouping (#482)
+- Normalize nil-handling across sibling V2 SearchRequestOption helpers (#503)
 - Fix embedded GetOrCreateCollection passing closed EFs (#493)
 - Fix default ORT EF leak in embedded CreateCollection (#494)
 - Fix Morph EF integration test (#465)
@@ -47,6 +48,7 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 - Add Twelve Labs async embedding support (#479)
 
 ### Active
+- Sibling V2 SearchRequestOption helpers still have inconsistent explicit-nil handling after the WithGroupBy(nil) fix — #503
 - Embedded GetOrCreateCollection passes closed EFs to CreateCollection fallback — #493
 - Default ORT EF leaked when CreateCollection finds existing collection — #494
 - Morph EF integration test broken by upstream 404 — #465

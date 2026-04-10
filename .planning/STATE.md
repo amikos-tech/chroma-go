@@ -49,6 +49,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ### Roadmap Evolution
 
 - Phase 21.1 inserted after Phase 21: RRF cloud integration test coverage including arithmetic compositions (URGENT) — post-fix cloud coverage gap for Phase 21 arithmetic methods
+- Phase 30 added: V2 SearchRequestOption nil consistency — follow-up to Phase 22 / issue #503 for sibling explicit-nil contract cleanup
 
 ### Blockers/Concerns
 
