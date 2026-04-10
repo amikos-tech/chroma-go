@@ -634,7 +634,7 @@ func WithGroupBy(groupBy *GroupBy) *groupByOption {
 
 func (o *groupByOption) ApplyToSearchRequest(req *SearchRequest) error {
 	if o.groupBy == nil {
-		return nil
+		return errors.New("groupBy cannot be nil")
 	}
 	if err := o.groupBy.Validate(); err != nil {
 		return err
