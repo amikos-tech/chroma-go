@@ -23,7 +23,7 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 - Decimal phases (21.1, 21.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 21: RrfRank Arithmetic Fix** - RrfRank arithmetic methods compute correct results instead of silently returning self (completed 2026-04-09)
-- [ ] **Phase 22: WithGroupBy Validation** - WithGroupBy(nil) returns an error instead of silently skipping grouping
+- [x] **Phase 22: WithGroupBy Validation** - WithGroupBy(nil) returns an error instead of silently skipping grouping (completed 2026-04-10)
 - [ ] **Phase 23: ORT EF Leak Fix** - Default ORT EF is properly closed when CreateCollection finds an existing collection
 - [ ] **Phase 24: GetOrCreateCollection EF Safety** - GetOrCreateCollection does not pass closed EFs to CreateCollection fallback
 - [ ] **Phase 25: Error Body Truncation** - Embedding provider error messages truncate raw HTTP bodies to safe display lengths
@@ -70,10 +70,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Passing nil to WithGroupBy returns a validation error before the request is sent
   2. Non-nil WithGroupBy calls continue to work as before
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 22-01: TBD
+- [x] 22-01-PLAN.md — Validate `WithGroupBy(nil)` fail-fast behavior and pin direct/request-construction regressions
 
 ### Phase 23: ORT EF Leak Fix
 **Goal**: Default ORT embedding function is properly cleaned up when CreateCollection encounters an existing collection
@@ -178,7 +178,7 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 21. RrfRank Arithmetic Fix | v0.4.2 | 1/1 | Complete    | 2026-04-09 |
-| 22. WithGroupBy Validation | v0.4.2 | 0/0 | Not started | - |
+| 22. WithGroupBy Validation | v0.4.2 | 1/1 | Complete    | 2026-04-10 |
 | 23. ORT EF Leak Fix | v0.4.2 | 0/0 | Not started | - |
 | 24. GetOrCreateCollection EF Safety | v0.4.2 | 0/0 | Not started | - |
 | 25. Error Body Truncation | v0.4.2 | 0/0 | Not started | - |
