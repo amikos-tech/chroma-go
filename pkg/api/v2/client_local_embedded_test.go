@@ -107,6 +107,16 @@ type blockingGetMemoryEmbeddedRuntime struct {
 	getCalls           atomic.Int32
 }
 
+type missingGetCollectionOnceRuntime struct {
+	*memoryEmbeddedRuntime
+	missNextGet atomic.Bool
+}
+
+type staleGetCollectionDeleteRuntime struct {
+	*memoryEmbeddedRuntime
+	staleNextGet atomic.Bool
+}
+
 type failingUpdateEmbeddedRuntime struct {
 	*memoryEmbeddedRuntime
 
@@ -160,6 +170,22 @@ func newBlockingGetMemoryEmbeddedRuntime() *blockingGetMemoryEmbeddedRuntime {
 	}
 }
 
+func newMissingGetCollectionOnceRuntime() *missingGetCollectionOnceRuntime {
+	runtime := &missingGetCollectionOnceRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+	}
+	runtime.missNextGet.Store(true)
+	return runtime
+}
+
+func newStaleGetCollectionDeleteRuntime() *staleGetCollectionDeleteRuntime {
+	runtime := &staleGetCollectionDeleteRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+	}
+	runtime.staleNextGet.Store(true)
+	return runtime
+}
+
 func newFailingUpdateEmbeddedRuntime(updateErr error) *failingUpdateEmbeddedRuntime {
 	return &failingUpdateEmbeddedRuntime{
 		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
@@ -197,6 +223,36 @@ func (s *blockingGetMemoryEmbeddedRuntime) GetCollection(request localchroma.Emb
 		<-s.unblockFirstGet
 	}
 	return col, nil
+}
+
+func (s *missingGetCollectionOnceRuntime) GetCollection(request localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	if s.missNextGet.CompareAndSwap(true, false) {
+		return nil, errors.New("collection not found")
+	}
+	return s.memoryEmbeddedRuntime.GetCollection(request)
+}
+
+func (s *staleGetCollectionDeleteRuntime) GetCollection(request localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	if !s.staleNextGet.CompareAndSwap(true, false) {
+		return s.memoryEmbeddedRuntime.GetCollection(request)
+	}
+
+	s.memoryEmbeddedRuntime.mu.Lock()
+	defer s.memoryEmbeddedRuntime.mu.Unlock()
+
+	key := collectionRuntimeKey(request.TenantID, request.DatabaseName, request.Name)
+	col, ok := s.memoryEmbeddedRuntime.collections[key]
+	if !ok {
+		return nil, errors.New("collection not found")
+	}
+
+	delete(s.memoryEmbeddedRuntime.collections, key)
+	delete(s.memoryEmbeddedRuntime.collectionByID, col.ID)
+	delete(s.memoryEmbeddedRuntime.records, col.ID)
+	delete(s.memoryEmbeddedRuntime.recordOrder, col.ID)
+
+	copyCol := col
+	return &copyCol, nil
 }
 
 func (s *failingUpdateEmbeddedRuntime) UpdateCollection(request localchroma.EmbeddedUpdateCollectionRequest) error {
@@ -1697,6 +1753,45 @@ func TestEmbeddedCreateCollection_DefaultORTExistingCollectionClosesTemporaryDef
 	require.Equal(t, "initial", source)
 }
 
+func TestEmbeddedCreateCollection_DefaultORTExistingCollectionProbeMissStillClosesTemporaryDefault(t *testing.T) {
+	runtime := newMissingGetCollectionOnceRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	initialEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	initialMetadata := NewMetadataFromMap(map[string]interface{}{"source": "initial"})
+	created, err := client.CreateCollection(
+		ctx,
+		"default-ort-existing-missed-probe",
+		WithEmbeddingFunctionCreate(initialEF),
+		WithCollectionMetadataCreate(initialMetadata),
+	)
+	require.NoError(t, err)
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	overrideMetadata := NewMetadataFromMap(map[string]interface{}{"source": "override"})
+	got, err := client.CreateCollection(
+		ctx,
+		"default-ort-existing-missed-probe",
+		WithIfNotExistsCreate(),
+		WithCollectionMetadataCreate(overrideMetadata),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.Equal(t, created.ID(), got.ID())
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, initialEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+
+	source, ok := gotCollection.Metadata().GetString("source")
+	require.True(t, ok)
+	require.Equal(t, "initial", source)
+}
+
 func TestEmbeddedCreateCollection_DefaultORTExistingCollectionReturnsCleanupError(t *testing.T) {
 	runtime := newCountingMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
@@ -1743,6 +1838,35 @@ func TestEmbeddedCreateCollection_DefaultORTNewCollectionDoesNotCloseTemporaryDe
 	gotCollection, ok := got.(*embeddedCollection)
 	require.True(t, ok)
 	require.Same(t, temporaryDefaultEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
+
+	require.NoError(t, got.Close())
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+}
+
+func TestEmbeddedCreateCollection_DefaultORTReplacementCollectionKeepsTemporaryDefaultWhenProbeIsStale(t *testing.T) {
+	runtime := newStaleGetCollectionDeleteRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	original, err := client.CreateCollection(ctx, "default-ort-recreated-after-stale-probe")
+	require.NoError(t, err)
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	got, err := client.CreateCollection(
+		ctx,
+		"default-ort-recreated-after-stale-probe",
+		WithIfNotExistsCreate(),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.NotEqual(t, original.ID(), got.ID())
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, temporaryDefaultEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
+	require.Equal(t, int32(0), temporaryDefaultEF.closeCount.Load())
 
 	require.NoError(t, got.Close())
 	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())

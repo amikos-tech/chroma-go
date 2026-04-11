@@ -364,14 +364,16 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		return nil, errors.Wrap(err, "error converting collection schema")
 	}
 
-	isNewCreation := true
+	existingCollectionID := ""
 	if req.CreateIfNotExists {
 		existingCollection, lookupErr := client.embedded.GetCollection(localchroma.EmbeddedGetCollectionRequest{
 			Name:         req.Name,
 			TenantID:     req.Database.Tenant().Name(),
 			DatabaseName: req.Database.Name(),
 		})
-		isNewCreation = lookupErr != nil || existingCollection == nil
+		if lookupErr == nil && existingCollection != nil {
+			existingCollectionID = existingCollection.ID
+		}
 	}
 
 	model, err := client.embedded.CreateCollection(localchroma.EmbeddedCreateCollectionRequest{
@@ -389,7 +391,8 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 
 	overrideEF := req.embeddingFunction
 	overrideContentEF := req.contentEmbeddingFunction
-	if isNewCreation {
+	reusedExistingCollection := client.returnedExistingCollection(req.Name, model.ID, existingCollectionID)
+	if !reusedExistingCollection {
 		overrideEF = wrapEFCloseOnce(req.embeddingFunction)
 		// NOTE: wrapping must occur after PrepareAndValidateCollectionRequest (see client_http.go).
 		overrideContentEF = wrapContentEFCloseOnce(req.contentEmbeddingFunction)
@@ -745,6 +748,25 @@ func (client *embeddedLocalClient) cachedCollectionByName(name string) Collectio
 		return nil
 	}
 	return client.state.localCollectionByName(name)
+}
+
+func (client *embeddedLocalClient) returnedExistingCollection(name, returnedCollectionID, observedCollectionID string) bool {
+	if returnedCollectionID == "" {
+		return false
+	}
+	if observedCollectionID != "" && observedCollectionID == returnedCollectionID {
+		return true
+	}
+
+	client.collectionStateMu.RLock()
+	state := client.collectionState[returnedCollectionID]
+	client.collectionStateMu.RUnlock()
+	if state != nil {
+		return true
+	}
+
+	cached := client.cachedCollectionByName(name)
+	return cached != nil && cached.ID() == returnedCollectionID
 }
 
 func (client *embeddedLocalClient) renameCollectionInCache(oldName string, collection Collection) {
