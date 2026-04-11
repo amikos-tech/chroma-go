@@ -94,3 +94,15 @@ func logAutoWireBuildErrorToStderr(collectionName, target string, err error) {
 		err,
 	)
 }
+
+func logCreateIfNotExistsPreflightErrorToStderr(collectionName string, err error) {
+	if err == nil {
+		return
+	}
+	_, _ = fmt.Fprintf(
+		os.Stderr,
+		"chroma-go: create-if-not-exists preflight GetCollection failed: collection=%s error=%v\n",
+		collectionName,
+		err,
+	)
+}

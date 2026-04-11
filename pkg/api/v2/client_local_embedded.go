@@ -349,9 +349,6 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing collection create request")
 	}
-	if err := req.PrepareAndValidateCollectionRequest(); err != nil {
-		return nil, errors.Wrap(err, "error validating collection create request")
-	}
 	cleanupMessage := "error cleaning up default embedding function during collection create"
 	defer func() {
 		cleanupErr := req.closeSDKOwnedDefaultDenseEF(cleanupMessage)
@@ -365,6 +362,9 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		}
 		err = cleanupErr
 	}()
+	if err := req.PrepareAndValidateCollectionRequest(); err != nil {
+		return nil, errors.Wrap(err, "error validating collection create request")
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -391,9 +391,13 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		if lookupErr == nil && existingCollection != nil {
 			existingCollectionID = existingCollection.ID
 		} else if lookupErr != nil && !isEmbeddedCollectionNotFoundError(lookupErr) {
-			client.logger.Warn("create-if-not-exists preflight GetCollection failed",
-				logger.String("collection", req.Name),
-				logger.ErrorField("error", lookupErr))
+			if client.logger != nil {
+				client.logger.Warn("create-if-not-exists preflight GetCollection failed",
+					logger.String("collection", req.Name),
+					logger.ErrorField("error", lookupErr))
+			} else {
+				logCreateIfNotExistsPreflightErrorToStderr(req.Name, lookupErr)
+			}
 		}
 	}
 
@@ -417,7 +421,8 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		cleanupMessage = "error closing default embedding function for existing collection"
 		// A missed preflight probe on a fresh client can still reuse an existing
 		// collection; reload it so the returned collection uses the stored EF state.
-		collection, getErr := client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
+		var getErr error
+		collection, getErr = client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
 		if getErr != nil {
 			return nil, errors.Wrap(getErr, "error retrieving existing collection after create-if-not-exists reuse")
 		}
@@ -427,6 +432,22 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 	overrideEF := req.embeddingFunction
 	overrideContentEF := req.contentEmbeddingFunction
 	reusedExistingCollection := client.returnedExistingCollection(req.Name, model.ID, existingCollectionID)
+	if reusedExistingCollection {
+		cleanupMessage = "error closing default embedding function for existing collection"
+		client.collectionStateMu.RLock()
+		hasState := client.collectionState[model.ID] != nil
+		client.collectionStateMu.RUnlock()
+		cached := client.cachedCollectionByName(req.Name)
+		hasCachedCollection := cached != nil && cached.ID() == model.ID
+		if !hasState && !hasCachedCollection {
+			var getErr error
+			collection, getErr = client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
+			if getErr != nil {
+				return nil, errors.Wrap(getErr, "error retrieving existing collection after create-if-not-exists reuse")
+			}
+			return collection, nil
+		}
+	}
 	if !reusedExistingCollection {
 		overrideEF = wrapEFCloseOnce(req.embeddingFunction)
 		// NOTE: wrapping must occur after PrepareAndValidateCollectionRequest (see client_http.go).
@@ -461,7 +482,7 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 			})
 			cleanupErr := client.deleteCollectionState(model.ID)
 			err = errors.Wrap(err, "error building collection")
-			if deleteErr != nil {
+			if deleteErr != nil && !isEmbeddedCollectionNotFoundError(deleteErr) {
 				err = stderrors.Join(err, errors.Wrap(deleteErr, "error deleting collection after build failure"))
 			}
 			if cleanupErr != nil {
@@ -843,7 +864,8 @@ func isEmbeddedCollectionNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(strings.ToLower(err.Error()), "not found")
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "not found") || strings.Contains(message, "does not exist")
 }
 
 func (client *embeddedLocalClient) renameCollectionInCache(oldName string, collection Collection) {

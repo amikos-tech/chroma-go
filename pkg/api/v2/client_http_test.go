@@ -1559,6 +1559,11 @@ func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_NonClosableKeepsTrackedRe
 	require.Same(t, ef, op.sdkOwnedDefaultDenseEF)
 }
 
+func TestWithDefaultDenseEFFactoryCreate_RejectsNil(t *testing.T) {
+	_, err := NewCreateCollectionOp("test-nil-default-factory", withDefaultDenseEFFactoryCreate(nil))
+	require.EqualError(t, err, "default dense EF factory cannot be nil")
+}
+
 func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testing.T) {
 	t.Run("dual-interface contentEF persists config", func(t *testing.T) {
 		dualEF := &mockDualEF{}
@@ -1627,6 +1632,36 @@ func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testi
 		require.NoError(t, err)
 		err = op.PrepareAndValidateCollectionRequest()
 		require.EqualError(t, err, "sdk-owned default embedding function is not closable")
+	})
+
+	t.Run("default dense factory error surfaces", func(t *testing.T) {
+		op, err := NewCreateCollectionOp("test-factory-error",
+			withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+				return nil, nil, stderrors.New("factory boom")
+			}),
+		)
+		require.NoError(t, err)
+
+		err = op.PrepareAndValidateCollectionRequest()
+		require.EqualError(t, err, "error creating default embedding function: factory boom")
+	})
+
+	t.Run("dual contentEF promotion closes sdk-owned default EF once", func(t *testing.T) {
+		dualEF := &mockDualEF{}
+		temporaryDefaultEF := &mockCloseableEF{}
+		op, err := NewCreateCollectionOp("test-promote-close-count",
+			WithContentEmbeddingFunctionCreate(dualEF),
+			withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+				return temporaryDefaultEF, func() error { return nil }, nil
+			}),
+		)
+		require.NoError(t, err)
+
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.Same(t, dualEF, op.embeddingFunction)
+		require.Nil(t, op.sdkOwnedDefaultDenseEF)
+		require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
 	})
 
 	t.Run("wrapped content-only EF does not persist empty config", func(t *testing.T) {
