@@ -31,6 +31,7 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 - ✓ SDK auto-wiring behavior documented across Python, JS, Rust, Go — v0.4.1
 - ✓ RrfRank arithmetic methods build correct expression trees instead of silent no-ops — v0.4.2 Phase 21
 - ✓ WithGroupBy(nil) rejects explicit nil input with a stable validation error — v0.4.2 Phase 22
+- ✓ Embedded `CreateCollection(..., WithIfNotExistsCreate())` closes the SDK-owned temporary default ORT EF without overriding stored collection state — v0.4.2 Phase 23
 
 ## Current Milestone: v0.4.2 Bug Fixes and Robustness
 
@@ -50,7 +51,6 @@ Go applications can use Chroma and embedding providers through a stable, portabl
 ### Active
 - Sibling V2 SearchRequestOption helpers still have inconsistent explicit-nil handling after the WithGroupBy(nil) fix — #503
 - Embedded GetOrCreateCollection passes closed EFs to CreateCollection fallback — #493
-- Default ORT EF leaked when CreateCollection finds existing collection — #494
 - Morph EF integration test broken by upstream 404 — #465
 - Raw error bodies can be arbitrarily large in provider error messages — #478
 - Release download stack has excessive duplication across providers — #412
@@ -108,4 +108,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-10 — Phase 22 (WithGroupBy validation) complete*
+*Last updated: 2026-04-11 — Phase 23 (ORT EF leak fix) complete*
