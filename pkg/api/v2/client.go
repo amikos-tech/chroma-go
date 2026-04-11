@@ -280,10 +280,10 @@ func (op *CreateCollectionOp) closeSDKOwnedDefaultDenseEF(wrapMessage string) er
 	if !ok {
 		return errors.New("sdk-owned default embedding function is not closable")
 	}
-	op.sdkOwnedDefaultDenseEF = nil
-	if err := closer.Close(); err != nil {
+	if err := safeCloseEF(closer); err != nil {
 		return errors.Wrap(err, wrapMessage)
 	}
+	op.sdkOwnedDefaultDenseEF = nil
 	return nil
 }
 

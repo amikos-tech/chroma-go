@@ -2180,6 +2180,88 @@ func TestEmbeddedCreateCollection_DefaultORTExistingCollectionOnFreshClientUsesS
 	require.NotSame(t, temporaryDefaultEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
 }
 
+// TestEmbeddedCreateCollection_DefaultORTExistingEmptyCollectionOnFreshClientDoesNotPromoteTemporaryDefaultWhenPreflightErrors
+// pins the item 3 race from PR #504 review: when a pre-existing collection has
+// all-empty metadata/config/schema (e.g. created via a path that skipped EF
+// config persistence) AND the reader is a fresh client with no cached state AND
+// the preflight GetCollection returned a transient (non-not-found) error, the
+// JSON-equality heuristic in collectionModelMatchesCreateRequest can't detect
+// reuse. The current behaviour installs the reader's throwaway default EF as
+// persistent state; the fix routes this case through the reload branch so the
+// throwaway is closed instead.
+func TestEmbeddedCreateCollection_DefaultORTExistingEmptyCollectionOnFreshClientDoesNotPromoteTemporaryDefaultWhenPreflightErrors(t *testing.T) {
+	runtime := newErrorGetCollectionOnceRuntime(errors.New("transient backend error"))
+	writer := newEmbeddedClientForRuntime(t, runtime)
+	reader := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	const name = "default-ort-existing-empty-preflight-error"
+
+	// Create a persisted collection with empty metadata/config/schema by using
+	// WithDisableEFConfigStorage on the writer and omitting metadata/schema.
+	_, err := writer.CreateCollection(
+		ctx,
+		name,
+		WithDisableEFConfigStorage(),
+	)
+	require.NoError(t, err)
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	got, err := reader.CreateCollection(
+		ctx,
+		name,
+		WithIfNotExistsCreate(),
+		WithDisableEFConfigStorage(),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
+		"temporary default EF must be closed when a fresh client reuses a pre-existing empty collection after a transient preflight error")
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	gotEF := unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot())
+	var temporaryAsEF embeddingspkg.EmbeddingFunction = temporaryDefaultEF
+	require.False(t, gotEF == temporaryAsEF,
+		"returned collection must not wrap the reader's throwaway temporary default EF")
+}
+
+// TestEmbeddedCreateCollection_DefaultORTNewEmptyCollectionWithIfNotExistsStillInstallsTemporaryDefault
+// is a regression guard for the item 3 fix: when the preflight probe
+// conclusively reports not-found for a genuinely-new collection (no transient
+// error), the reader's throwaway default EF must still be promoted to state
+// so that subsequent Add/Query calls on the fresh collection have a usable EF.
+// This is the "legitimately new, all empty, CreateIfNotExists" path that the
+// narrow reload widening must NOT touch.
+func TestEmbeddedCreateCollection_DefaultORTNewEmptyCollectionWithIfNotExistsStillInstallsTemporaryDefault(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	got, err := client.CreateCollection(
+		ctx,
+		"default-ort-new-empty-if-not-exists",
+		WithIfNotExistsCreate(),
+		WithDisableEFConfigStorage(),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, int32(0), temporaryDefaultEF.closeCount.Load(),
+		"brand-new collection must keep its temporary default EF alive as state")
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, temporaryDefaultEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
+}
+
 func TestEmbeddedCreateCollection_DefaultORTReplacementCollectionKeepsTemporaryDefaultWhenProbeIsStale(t *testing.T) {
 	runtime := newStaleGetCollectionDeleteRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)

@@ -1559,6 +1559,53 @@ func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_NonClosableKeepsTrackedRe
 	require.Same(t, ef, op.sdkOwnedDefaultDenseEF)
 }
 
+func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_RecoversPanic(t *testing.T) {
+	ef := &mockPanickingCloseEF{}
+	op := &CreateCollectionOp{
+		embeddingFunction:      ef,
+		sdkOwnedDefaultDenseEF: ef,
+	}
+
+	var err error
+	require.NotPanics(t, func() {
+		err = op.closeSDKOwnedDefaultDenseEF("error closing default embedding function")
+	})
+	require.Error(t, err, "panicking Close must surface as an error, not a panic")
+	require.Contains(t, err.Error(), "error closing default embedding function")
+	require.Contains(t, err.Error(), "panic during EF close")
+}
+
+func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_ClearsOnlyOnSuccess(t *testing.T) {
+	ef := &mockPanickingCloseEF{}
+	op := &CreateCollectionOp{
+		embeddingFunction:      ef,
+		sdkOwnedDefaultDenseEF: ef,
+	}
+
+	// Swallow panic via defer/recover in case Close currently propagates it.
+	func() {
+		defer func() { _ = recover() }()
+		_ = op.closeSDKOwnedDefaultDenseEF("error closing default embedding function")
+	}()
+
+	require.Same(t, ef, op.sdkOwnedDefaultDenseEF,
+		"sdkOwnedDefaultDenseEF must remain tracked when Close failed so outer defers can retry or log the leak")
+}
+
+func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_ClearsAfterSuccessfulClose(t *testing.T) {
+	ef := &mockCloseableEF{}
+	op := &CreateCollectionOp{
+		embeddingFunction:      ef,
+		sdkOwnedDefaultDenseEF: ef,
+	}
+
+	err := op.closeSDKOwnedDefaultDenseEF("unused")
+	require.NoError(t, err)
+	require.Nil(t, op.sdkOwnedDefaultDenseEF,
+		"sdkOwnedDefaultDenseEF must be cleared after a successful close")
+	require.Equal(t, int32(1), ef.closeCount.Load())
+}
+
 func TestWithDefaultDenseEFFactoryCreate_RejectsNil(t *testing.T) {
 	_, err := NewCreateCollectionOp("test-nil-default-factory", withDefaultDenseEFFactoryCreate(nil))
 	require.EqualError(t, err, "default dense EF factory cannot be nil")

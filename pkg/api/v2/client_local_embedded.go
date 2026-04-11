@@ -433,13 +433,26 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		return nil, errors.Wrap(err, "error creating collection")
 	}
 
-	if req.CreateIfNotExists &&
+	// Reload via GetCollection when the returned model looks like reuse of a
+	// pre-existing collection that our local client hasn't seen yet. Two gates:
+	//  - Differential: the returned model differs from what we requested.
+	//  - Inconclusive empty-match: every comparison field is empty on both
+	//    sides (so JSON equality tells us nothing) AND preflight did not
+	//    conclusively report not-found. This covers the PR #504 review case
+	//    where a transient preflight error lets an empty pre-existing
+	//    collection slip past both reuse signals on a fresh client.
+	// The preflight-conclusive-not-found path is deliberately excluded so
+	// genuinely-new empty collections still install their throwaway default
+	// EF as state (see
+	// TestEmbeddedCreateCollection_DefaultORTNewEmptyCollectionWithIfNotExistsStillInstallsTemporaryDefault).
+	shouldReloadForReuse := req.CreateIfNotExists &&
 		req.sdkOwnedDefaultDenseEF != nil &&
 		existingCollectionID == "" &&
-		!collectionModelMatchesCreateRequest(model, metadataMap, configurationMap, schemaMap) {
+		(!collectionModelMatchesCreateRequest(model, metadataMap, configurationMap, schemaMap) ||
+			(!preflightConclusivelyNotFound &&
+				collectionModelRequestAllEmpty(model, metadataMap, configurationMap, schemaMap)))
+	if shouldReloadForReuse {
 		cleanupMessage = "error closing default embedding function for existing collection"
-		// A missed preflight probe on a fresh client can still reuse an existing
-		// collection; reload it so the returned collection uses the stored EF state.
 		var getErr error
 		collection, getErr = client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
 		if getErr != nil {
@@ -867,6 +880,19 @@ func collectionModelMatchesCreateRequest(model *localchroma.EmbeddedCollection, 
 	return comparableCollectionMap(model.Metadata, metadataMap) &&
 		comparableCollectionMap(model.ConfigurationJSON, configurationMap) &&
 		comparableCollectionMap(model.Schema, schemaMap)
+}
+
+// collectionModelRequestAllEmpty reports whether every field compared by
+// collectionModelMatchesCreateRequest is empty on both the persisted model
+// and the create request. When true, the JSON-equality match is vacuous and
+// cannot distinguish "pre-existing collection" from "newly created".
+func collectionModelRequestAllEmpty(model *localchroma.EmbeddedCollection, metadataMap, configurationMap, schemaMap map[string]any) bool {
+	if model == nil {
+		return false
+	}
+	return len(model.Metadata) == 0 && len(metadataMap) == 0 &&
+		len(model.ConfigurationJSON) == 0 && len(configurationMap) == 0 &&
+		len(model.Schema) == 0 && len(schemaMap) == 0
 }
 
 func comparableCollectionMap(left, right map[string]any) bool {
