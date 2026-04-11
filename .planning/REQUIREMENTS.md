@@ -14,7 +14,7 @@
 
 ### Embedded Client Lifecycle
 
-- [ ] **EFL-01**: Default ORT EF created by PrepareAndValidateCollectionRequest is closed when CreateCollection finds an existing collection
+- [x] **EFL-01**: Default ORT EF created by PrepareAndValidateCollectionRequest is closed when CreateCollection finds an existing collection
 - [ ] **EFL-02**: GetOrCreateCollection does not pass closed EFs to CreateCollection fallback when GetCollection fails mid-build
 - [ ] **EFL-03**: Tests cover EF lifecycle under `-race` flag for concurrent GetOrCreateCollection calls
 
@@ -64,7 +64,7 @@
 | RANK-02 | Phase 21 | Pending |
 | GRP-01 | Phase 22 | Complete |
 | OPT-01 | Phase 30 | Pending |
-| EFL-01 | Phase 23 | Pending |
+| EFL-01 | Phase 23 | Complete |
 | EFL-02 | Phase 24 | Pending |
 | EFL-03 | Phase 24 | Pending |
 | ERR-01 | Phase 25 | Pending |
@@ -84,4 +84,4 @@
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-10 after Phase 22 completion*
+*Last updated: 2026-04-11 after Phase 23 completion*

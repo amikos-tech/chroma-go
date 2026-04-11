@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	localchroma "github.com/amikos-tech/chroma-go-local"
+	loggerpkg "github.com/amikos-tech/chroma-go/pkg/logger"
 )
 
 type stubLocalServer struct {
@@ -100,6 +101,25 @@ func (s *stubEmbeddedRuntime) CountCollections(localchroma.EmbeddedCountCollecti
 
 func (s *stubEmbeddedRuntime) UpdateCollection(localchroma.EmbeddedUpdateCollectionRequest) error {
 	return nil
+}
+
+func TestNewEmbeddedLocalClient_DefaultsToNoopLogger(t *testing.T) {
+	origWaitEmbedded := localWaitEmbeddedReadyFunc
+	t.Cleanup(func() {
+		localWaitEmbeddedReadyFunc = origWaitEmbedded
+	})
+	localWaitEmbeddedReadyFunc = func(embedded localEmbeddedRuntime) error { return nil }
+
+	client, err := newEmbeddedLocalClient(defaultLocalClientConfig(), &stubEmbeddedRuntime{})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = client.Close()
+	})
+
+	embeddedClient, ok := client.(*embeddedLocalClient)
+	require.True(t, ok)
+	require.NotNil(t, embeddedClient.logger)
+	require.IsType(t, loggerpkg.NewNoopLogger(), embeddedClient.logger)
 }
 
 func (s *stubEmbeddedRuntime) ForkCollection(localchroma.EmbeddedForkCollectionRequest) (*localchroma.EmbeddedCollection, error) {

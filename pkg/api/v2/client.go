@@ -242,6 +242,14 @@ func NewGetCollectionOp(opts ...GetCollectionOption) (*GetCollectionOp, error) {
 
 type CreateCollectionOption func(*CreateCollectionOp) error
 
+type defaultDenseEFFactory func() (embeddings.EmbeddingFunction, func() error, error)
+
+func newDefaultDenseEFFactory() defaultDenseEFFactory {
+	return func() (embeddings.EmbeddingFunction, func() error, error) {
+		return ort.NewDefaultEmbeddingFunction()
+	}
+}
+
 type CreateCollectionOp struct {
 	Name                     string                              `json:"name"`
 	CreateIfNotExists        bool                                `json:"get_or_create,omitempty"`
@@ -252,11 +260,42 @@ type CreateCollectionOp struct {
 	Schema                   *Schema                             `json:"schema,omitempty"`
 	Database                 Database                            `json:"-"`
 	disableEFConfigStorage   bool                                `json:"-"`
+	defaultDenseEFFactory    defaultDenseEFFactory               `json:"-"`
+	sdkOwnedDefaultDenseEF   embeddings.EmbeddingFunction        `json:"-"`
+}
+
+func (op *CreateCollectionOp) ensureDefaultDenseEFFactory() {
+	if op.defaultDenseEFFactory != nil {
+		return
+	}
+	op.defaultDenseEFFactory = newDefaultDenseEFFactory()
+}
+
+func (op *CreateCollectionOp) closeSDKOwnedDefaultDenseEF(wrapMessage string) error {
+	if op == nil || op.sdkOwnedDefaultDenseEF == nil || op.embeddingFunction != op.sdkOwnedDefaultDenseEF {
+		return nil
+	}
+	sdkOwnedDefaultEF := op.sdkOwnedDefaultDenseEF
+	closer, ok := sdkOwnedDefaultEF.(io.Closer)
+	if !ok {
+		return errors.New("sdk-owned default embedding function is not closable")
+	}
+	// Clear tracking before invoking Close so an outer defer that re-enters
+	// this method becomes a no-op. Running Close() twice on a C-backed EF
+	// (e.g. ORT) can double-free even when the first call returned an error,
+	// so we accept the single-attempt leak and surface the failure to the
+	// caller for logging.
+	op.sdkOwnedDefaultDenseEF = nil
+	if err := safeCloseEF(closer); err != nil {
+		return errors.Wrap(err, wrapMessage)
+	}
+	return nil
 }
 
 func NewCreateCollectionOp(name string, opts ...CreateCollectionOption) (*CreateCollectionOp, error) {
 	op := &CreateCollectionOp{
-		Name: name,
+		Name:                  name,
+		defaultDenseEFFactory: newDefaultDenseEFFactory(),
 	}
 	for _, opt := range opts {
 		err := opt(op)
@@ -271,17 +310,17 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 	if op.Name == "" {
 		return errors.New("collection name cannot be empty")
 	}
+	op.sdkOwnedDefaultDenseEF = nil
 	defaultedDenseEF := op.embeddingFunction == nil
 	if defaultedDenseEF {
-		// Keep the returned close function out of here: collection constructors own the
-		// embedding function lifecycle and will close it via collection.Close().
-		// The EF object is retained in op.embeddingFunction, so its Close() method
-		// remains reachable without storing the separate closer return value.
-		ef, _, err := ort.NewDefaultEmbeddingFunction()
+		op.ensureDefaultDenseEFFactory()
+		// Track SDK-owned default EF so non-collection paths can clean it up explicitly.
+		ef, _, err := op.defaultDenseEFFactory()
 		if err != nil {
 			return errors.Wrap(err, "error creating default embedding function")
 		}
 		op.embeddingFunction = ef
+		op.sdkOwnedDefaultDenseEF = ef
 	}
 
 	// Skip EF config storage if explicitly disabled (for older Chroma versions)
@@ -319,10 +358,8 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 			// denseEF was provided, so the returned collection uses the same EF
 			// that was persisted to config (avoids mixed-model embeddings).
 			if defaultedDenseEF {
-				if closer, ok := op.embeddingFunction.(io.Closer); ok {
-					if err := closer.Close(); err != nil {
-						return errors.Wrap(err, "error closing default embedding function during contentEF promotion")
-					}
+				if err := op.closeSDKOwnedDefaultDenseEF("error closing default embedding function during contentEF promotion"); err != nil {
+					return err
 				}
 				op.embeddingFunction = denseEF
 			}
@@ -352,6 +389,7 @@ func (op *CreateCollectionOp) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	op.Metadata = aux.Metadata
+	op.ensureDefaultDenseEFFactory()
 	return nil
 }
 
@@ -505,6 +543,17 @@ func WithEmbeddingFunctionCreate(embeddingFunction embeddings.EmbeddingFunction)
 			return errors.New("embeddingFunction cannot be nil")
 		}
 		op.embeddingFunction = embeddingFunction
+		return nil
+	}
+}
+
+//nolint:unused // Package-local seam used by basicv2 tests to inject a default EF per create op.
+func withDefaultDenseEFFactoryCreate(factory defaultDenseEFFactory) CreateCollectionOption {
+	return func(op *CreateCollectionOp) error {
+		if factory == nil {
+			return errors.New("default dense EF factory cannot be nil")
+		}
+		op.defaultDenseEFFactory = factory
 		return nil
 	}
 }

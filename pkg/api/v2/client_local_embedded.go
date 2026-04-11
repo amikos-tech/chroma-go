@@ -68,11 +68,16 @@ func newEmbeddedLocalClient(cfg *localClientConfig, embedded localEmbeddedRuntim
 		return nil, errors.Wrap(err, "embedded runtime failed readiness checks")
 	}
 
+	clientLogger := cfg.logger
+	if clientLogger == nil {
+		clientLogger = logger.NewNoopLogger()
+	}
+
 	return &embeddedLocalClient{
 		state:           stateClient,
 		embedded:        embedded,
 		collectionState: map[string]*embeddedCollectionState{},
-		logger:          cfg.logger,
+		logger:          clientLogger,
 	}, nil
 }
 
@@ -338,12 +343,36 @@ func (client *embeddedLocalClient) Reset(ctx context.Context) error {
 	return client.embedded.Reset()
 }
 
-func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name string, options ...CreateCollectionOption) (Collection, error) {
+func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name string, options ...CreateCollectionOption) (collection Collection, err error) {
 	newOptions := append([]CreateCollectionOption{WithDatabaseCreate(client.CurrentDatabase())}, options...)
 	req, err := NewCreateCollectionOp(name, newOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing collection create request")
 	}
+	cleanupMessage := "error cleaning up default embedding function during collection create"
+	defer func() {
+		cleanupErr := req.closeSDKOwnedDefaultDenseEF(cleanupMessage)
+		if cleanupErr == nil {
+			return
+		}
+		// When a valid collection has already been built, the SDK-owned
+		// temporary default EF is a throwaway distinct from the collection's
+		// own embedding functions (which come from persisted state). Failing
+		// to close the throwaway leaks the temp EF's resources but does not
+		// invalidate the collection, so we surface the failure via the
+		// logger and return the collection instead of discarding it.
+		if collection != nil && err == nil {
+			client.logCloseError("failed to close sdk-owned temporary default embedding function",
+				collection.Name(), cleanupErr)
+			return
+		}
+		collection = nil
+		if err != nil {
+			err = stderrors.Join(err, cleanupErr)
+			return
+		}
+		err = cleanupErr
+	}()
 	if err := req.PrepareAndValidateCollectionRequest(); err != nil {
 		return nil, errors.Wrap(err, "error validating collection create request")
 	}
@@ -363,14 +392,32 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		return nil, errors.Wrap(err, "error converting collection schema")
 	}
 
-	isNewCreation := true
+	existingCollectionID := ""
+	// preflightConclusivelyNotFound is the only positive signal that this call
+	// must have created the collection itself (vs. reusing a pre-existing one
+	// via GetOrCreate). It gates the build-failure delete below so we never
+	// destroy a pre-existing user collection after an ambiguous reuse.
+	preflightConclusivelyNotFound := false
 	if req.CreateIfNotExists {
 		existingCollection, lookupErr := client.embedded.GetCollection(localchroma.EmbeddedGetCollectionRequest{
 			Name:         req.Name,
 			TenantID:     req.Database.Tenant().Name(),
 			DatabaseName: req.Database.Name(),
 		})
-		isNewCreation = lookupErr != nil || existingCollection == nil
+		switch {
+		case lookupErr == nil && existingCollection != nil:
+			existingCollectionID = existingCollection.ID
+		case lookupErr != nil && isEmbeddedCollectionNotFoundError(lookupErr):
+			preflightConclusivelyNotFound = true
+		case lookupErr != nil:
+			if client.logger != nil {
+				client.logger.Warn("create-if-not-exists preflight GetCollection failed",
+					logger.String("collection", req.Name),
+					logger.ErrorField("error", lookupErr))
+			} else {
+				logCreateIfNotExistsPreflightErrorToStderr(req.Name, lookupErr)
+			}
+		}
 	}
 
 	model, err := client.embedded.CreateCollection(localchroma.EmbeddedCreateCollectionRequest{
@@ -386,9 +433,49 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		return nil, errors.Wrap(err, "error creating collection")
 	}
 
+	// Reload via GetCollection when the returned model differs from what we
+	// requested -- a positive signal that the server holds authoritative state
+	// (e.g. writer's custom EF config) that we should pick up instead of the
+	// reader's temporary default. The previously-widened "all-empty" branch
+	// was removed per PR #504 review item 3: when both sides are empty there
+	// is no server-side EF config to reload, so closing the temp EF left the
+	// caller with a nil-EF collection. The normal install path below now
+	// handles that case, installing the temp EF as state so subsequent
+	// Add/Query work.
+	shouldReloadForReuse := req.CreateIfNotExists &&
+		req.sdkOwnedDefaultDenseEF != nil &&
+		existingCollectionID == "" &&
+		!collectionModelMatchesCreateRequest(model, metadataMap, configurationMap, schemaMap)
+	if shouldReloadForReuse {
+		cleanupMessage = "error closing default embedding function for existing collection"
+		var getErr error
+		collection, getErr = client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
+		if getErr != nil {
+			return nil, errors.Wrap(getErr, "error retrieving existing collection after create-if-not-exists reuse")
+		}
+		return collection, nil
+	}
+
 	overrideEF := req.embeddingFunction
 	overrideContentEF := req.contentEmbeddingFunction
-	if isNewCreation {
+	reusedExistingCollection := client.returnedExistingCollection(req.Name, model.ID, existingCollectionID)
+	if reusedExistingCollection {
+		cleanupMessage = "error closing default embedding function for existing collection"
+		client.collectionStateMu.RLock()
+		hasState := client.collectionState[model.ID] != nil
+		client.collectionStateMu.RUnlock()
+		cached := client.cachedCollectionByName(req.Name)
+		hasCachedCollection := cached != nil && cached.ID() == model.ID
+		if !hasState && !hasCachedCollection {
+			var getErr error
+			collection, getErr = client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
+			if getErr != nil {
+				return nil, errors.Wrap(getErr, "error retrieving existing collection after create-if-not-exists reuse")
+			}
+			return collection, nil
+		}
+	}
+	if !reusedExistingCollection {
 		overrideEF = wrapEFCloseOnce(req.embeddingFunction)
 		// NOTE: wrapping must occur after PrepareAndValidateCollectionRequest (see client_http.go).
 		overrideContentEF = wrapContentEFCloseOnce(req.contentEmbeddingFunction)
@@ -405,13 +492,39 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 				state.schema = req.Schema
 			}
 		})
+		req.sdkOwnedDefaultDenseEF = nil
 	} else {
 		overrideEF = nil
 		overrideContentEF = nil
 	}
 
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, overrideContentEF, true, true)
+	collection, err = client.buildEmbeddedCollection(*model, req.Database, overrideEF, overrideContentEF, true, true)
 	if err != nil {
+		if !reusedExistingCollection {
+			cleanupErr := client.deleteCollectionState(model.ID)
+			err = errors.Wrap(err, "error building collection")
+			// Only purge the runtime collection when we have positive evidence
+			// this call created it: either a non-GetOrCreate request (the
+			// runtime would have failed outright if it already existed) or a
+			// preflight probe that conclusively reported not-found. Otherwise
+			// an ambiguous reuse (transient preflight failure + GetOrCreate
+			// returning a pre-existing collection) would silently destroy
+			// user data.
+			if !req.CreateIfNotExists || preflightConclusivelyNotFound {
+				deleteErr := client.embedded.DeleteCollection(localchroma.EmbeddedDeleteCollectionRequest{
+					Name:         req.Name,
+					TenantID:     req.Database.Tenant().Name(),
+					DatabaseName: req.Database.Name(),
+				})
+				if deleteErr != nil && !isEmbeddedCollectionNotFoundError(deleteErr) {
+					err = stderrors.Join(err, errors.Wrap(deleteErr, "error deleting collection after build failure"))
+				}
+			}
+			if cleanupErr != nil {
+				return nil, stderrors.Join(err, cleanupErr)
+			}
+			return nil, err
+		}
 		return nil, errors.Wrap(err, "error building collection")
 	}
 	return collection, nil
@@ -734,6 +847,82 @@ func (client *embeddedLocalClient) cachedCollectionByName(name string) Collectio
 		return nil
 	}
 	return client.state.localCollectionByName(name)
+}
+
+func (client *embeddedLocalClient) returnedExistingCollection(name, returnedCollectionID, observedCollectionID string) bool {
+	if returnedCollectionID == "" {
+		return false
+	}
+	if observedCollectionID != "" && observedCollectionID == returnedCollectionID {
+		return true
+	}
+
+	client.collectionStateMu.RLock()
+	state := client.collectionState[returnedCollectionID]
+	client.collectionStateMu.RUnlock()
+	if state != nil {
+		return true
+	}
+
+	cached := client.cachedCollectionByName(name)
+	return cached != nil && cached.ID() == returnedCollectionID
+}
+
+func collectionModelMatchesCreateRequest(model *localchroma.EmbeddedCollection, metadataMap, configurationMap, schemaMap map[string]any) bool {
+	if model == nil {
+		return false
+	}
+	return comparableCollectionMap(model.Metadata, metadataMap) &&
+		comparableCollectionMap(model.ConfigurationJSON, configurationMap) &&
+		comparableCollectionMap(model.Schema, schemaMap)
+}
+
+func comparableCollectionMap(left, right map[string]any) bool {
+	if len(left) == 0 {
+		left = nil
+	}
+	if len(right) == 0 {
+		right = nil
+	}
+	leftPayload, err := json.Marshal(left)
+	if err != nil {
+		logComparableCollectionMapMarshalErrorToStderr(err)
+		return false
+	}
+	rightPayload, err := json.Marshal(right)
+	if err != nil {
+		logComparableCollectionMapMarshalErrorToStderr(err)
+		return false
+	}
+	return bytes.Equal(leftPayload, rightPayload)
+}
+
+// TODO: switch to errors.Is with a typed sentinel (e.g.
+// localchroma.ErrCollectionNotFound) once the embedded runtime exports one.
+// Substring sniffing is a maintenance hazard — any upstream rewording of the
+// error message silently flips classification. Pinned today by
+// TestIsEmbeddedCollectionNotFoundError_RealEmbeddedRuntime.
+// ErrEmbeddedCollectionNotFound is returned (or wrapped) when the embedded
+// runtime reports that a collection does not exist. External code classifying
+// such errors should prefer errors.Is against this sentinel; the substring
+// fallback in isEmbeddedCollectionNotFoundError exists only for localchroma
+// versions that have not yet been adapted to return the typed sentinel.
+//
+// The sentinel is defined here (rather than in localchroma) because the
+// upstream shim returns string-only errors today. When upstream exposes a
+// typed error, this sentinel can be removed in favour of a direct errors.Is
+// against the upstream type, and the substring fallback can be dropped.
+var ErrEmbeddedCollectionNotFound = stderrors.New("embedded collection not found")
+
+func isEmbeddedCollectionNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if stderrors.Is(err, ErrEmbeddedCollectionNotFound) {
+		return true
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "not found") || strings.Contains(message, "does not exist")
 }
 
 func (client *embeddedLocalClient) renameCollectionInCache(oldName string, collection Collection) {

@@ -24,7 +24,7 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 
 - [x] **Phase 21: RrfRank Arithmetic Fix** - RrfRank arithmetic methods compute correct results instead of silently returning self (completed 2026-04-09)
 - [x] **Phase 22: WithGroupBy Validation** - WithGroupBy(nil) returns an error instead of silently skipping grouping (completed 2026-04-10)
-- [ ] **Phase 23: ORT EF Leak Fix** - Default ORT EF is properly closed when CreateCollection finds an existing collection
+- [x] **Phase 23: ORT EF Leak Fix** - Default ORT EF is properly closed when CreateCollection finds an existing collection (completed 2026-04-11)
 - [ ] **Phase 24: GetOrCreateCollection EF Safety** - GetOrCreateCollection does not pass closed EFs to CreateCollection fallback
 - [ ] **Phase 25: Error Body Truncation** - Embedding provider error messages truncate raw HTTP bodies to safe display lengths
 - [ ] **Phase 26: Twelve Labs Async Embedding** - Twelve Labs provider handles async task responses for long-running media
@@ -83,10 +83,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. When CreateCollection finds an existing collection, any default ORT EF created by PrepareAndValidateCollectionRequest is closed
   2. No ORT runtime resources remain open after CreateCollection returns in the existing-collection path
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 23-01: TBD
+- [x] 23-01-PLAN.md — Close the temporary SDK-owned default ORT EF on the embedded existing-collection path and pin close/error/state-preservation regressions
 
 ### Phase 24: GetOrCreateCollection EF Safety
 **Goal**: GetOrCreateCollection never passes a closed EF to CreateCollection fallback
@@ -194,7 +194,7 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on 
 |-------|-----------|----------------|--------|-----------|
 | 21. RrfRank Arithmetic Fix | v0.4.2 | 1/1 | Complete    | 2026-04-09 |
 | 22. WithGroupBy Validation | v0.4.2 | 1/1 | Complete    | 2026-04-10 |
-| 23. ORT EF Leak Fix | v0.4.2 | 0/0 | Not started | - |
+| 23. ORT EF Leak Fix | v0.4.2 | 1/1 | Complete    | 2026-04-11 |
 | 24. GetOrCreateCollection EF Safety | v0.4.2 | 0/0 | Not started | - |
 | 25. Error Body Truncation | v0.4.2 | 0/0 | Not started | - |
 | 26. Twelve Labs Async Embedding | v0.4.2 | 0/0 | Not started | - |

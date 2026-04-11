@@ -1531,6 +1531,115 @@ func TestWithContentEmbeddingFunctionCreateNil(t *testing.T) {
 	require.Contains(t, err.Error(), "content embedding function cannot be nil")
 }
 
+func TestCreateCollectionOpUnmarshalJSON_InitializesDefaultDenseEFFactory(t *testing.T) {
+	var op CreateCollectionOp
+
+	err := json.Unmarshal([]byte(`{"name":"test-json-default"}`), &op)
+	require.NoError(t, err)
+	require.NotNil(t, op.defaultDenseEFFactory)
+}
+
+func TestCreateCollectionOpEnsureDefaultDenseEFFactory_ZeroValue(t *testing.T) {
+	var op CreateCollectionOp
+
+	require.Nil(t, op.defaultDenseEFFactory)
+	op.ensureDefaultDenseEFFactory()
+	require.NotNil(t, op.defaultDenseEFFactory)
+}
+
+func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_NonClosableKeepsTrackedReference(t *testing.T) {
+	ef := &mockNonCloseableEF{}
+	op := &CreateCollectionOp{
+		embeddingFunction:      ef,
+		sdkOwnedDefaultDenseEF: ef,
+	}
+
+	err := op.closeSDKOwnedDefaultDenseEF("unused")
+	require.EqualError(t, err, "sdk-owned default embedding function is not closable")
+	require.Same(t, ef, op.sdkOwnedDefaultDenseEF)
+}
+
+func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_RecoversPanic(t *testing.T) {
+	ef := &mockPanickingCloseEF{}
+	op := &CreateCollectionOp{
+		embeddingFunction:      ef,
+		sdkOwnedDefaultDenseEF: ef,
+	}
+
+	var err error
+	require.NotPanics(t, func() {
+		err = op.closeSDKOwnedDefaultDenseEF("error closing default embedding function")
+	})
+	require.Error(t, err, "panicking Close must surface as an error, not a panic")
+	require.Contains(t, err.Error(), "error closing default embedding function")
+	require.Contains(t, err.Error(), "panic during EF close")
+}
+
+// TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_ClearsOnAnyCloseAttempt pins
+// the contract that prevents the outer-defer double-close identified by the PR
+// #504 review (item 2): once Close() has been attempted on the SDK-owned default
+// EF -- success, error, or panic -- the tracking field must be nilled out. A
+// subsequent invocation from an outer defer must be a no-op so the underlying
+// resource is not closed a second time.
+func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_ClearsOnAnyCloseAttempt(t *testing.T) {
+	t.Run("close returning error clears tracking", func(t *testing.T) {
+		ef := &mockFailingCloseEF{closeErr: stderrors.New("boom")}
+		op := &CreateCollectionOp{
+			embeddingFunction:      ef,
+			sdkOwnedDefaultDenseEF: ef,
+		}
+
+		err := op.closeSDKOwnedDefaultDenseEF("first-call")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "boom")
+		require.Nil(t, op.sdkOwnedDefaultDenseEF,
+			"sdkOwnedDefaultDenseEF must be cleared after any Close attempt to prevent outer defer double-close")
+		require.Equal(t, int32(1), ef.closeCount.Load())
+
+		// Simulate the outer defer invoked by embeddedLocalClient.CreateCollection.
+		err2 := op.closeSDKOwnedDefaultDenseEF("second-call")
+		require.NoError(t, err2, "outer defer re-entry must be a no-op")
+		require.Equal(t, int32(1), ef.closeCount.Load(),
+			"Close must not run a second time via outer defer")
+	})
+
+	t.Run("close panic clears tracking", func(t *testing.T) {
+		ef := &mockPanickingCloseEF{}
+		op := &CreateCollectionOp{
+			embeddingFunction:      ef,
+			sdkOwnedDefaultDenseEF: ef,
+		}
+
+		err := op.closeSDKOwnedDefaultDenseEF("first-call")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "panic during EF close")
+		require.Nil(t, op.sdkOwnedDefaultDenseEF,
+			"panicking Close must also clear tracking so outer defer does not re-enter")
+
+		err2 := op.closeSDKOwnedDefaultDenseEF("second-call")
+		require.NoError(t, err2, "outer defer re-entry must be a no-op")
+	})
+}
+
+func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_ClearsAfterSuccessfulClose(t *testing.T) {
+	ef := &mockCloseableEF{}
+	op := &CreateCollectionOp{
+		embeddingFunction:      ef,
+		sdkOwnedDefaultDenseEF: ef,
+	}
+
+	err := op.closeSDKOwnedDefaultDenseEF("unused")
+	require.NoError(t, err)
+	require.Nil(t, op.sdkOwnedDefaultDenseEF,
+		"sdkOwnedDefaultDenseEF must be cleared after a successful close")
+	require.Equal(t, int32(1), ef.closeCount.Load())
+}
+
+func TestWithDefaultDenseEFFactoryCreate_RejectsNil(t *testing.T) {
+	_, err := NewCreateCollectionOp("test-nil-default-factory", withDefaultDenseEFFactoryCreate(nil))
+	require.EqualError(t, err, "default dense EF factory cannot be nil")
+}
+
 func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testing.T) {
 	t.Run("dual-interface contentEF persists config", func(t *testing.T) {
 		dualEF := &mockDualEF{}
@@ -1588,6 +1697,49 @@ func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testi
 			"runtime denseEF must remain the user-provided EF")
 	})
 
+	t.Run("non-closable sdk-owned default EF returns error during promotion", func(t *testing.T) {
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-promote-non-closable",
+			WithContentEmbeddingFunctionCreate(dualEF),
+			withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+				return &mockNonCloseableEF{}, func() error { return nil }, nil
+			}),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.EqualError(t, err, "sdk-owned default embedding function is not closable")
+	})
+
+	t.Run("default dense factory error surfaces", func(t *testing.T) {
+		op, err := NewCreateCollectionOp("test-factory-error",
+			withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+				return nil, nil, stderrors.New("factory boom")
+			}),
+		)
+		require.NoError(t, err)
+
+		err = op.PrepareAndValidateCollectionRequest()
+		require.EqualError(t, err, "error creating default embedding function: factory boom")
+	})
+
+	t.Run("dual contentEF promotion closes sdk-owned default EF once", func(t *testing.T) {
+		dualEF := &mockDualEF{}
+		temporaryDefaultEF := &mockCloseableEF{}
+		op, err := NewCreateCollectionOp("test-promote-close-count",
+			WithContentEmbeddingFunctionCreate(dualEF),
+			withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+				return temporaryDefaultEF, func() error { return nil }, nil
+			}),
+		)
+		require.NoError(t, err)
+
+		err = op.PrepareAndValidateCollectionRequest()
+		require.NoError(t, err)
+		require.Same(t, dualEF, op.embeddingFunction)
+		require.Nil(t, op.sdkOwnedDefaultDenseEF)
+		require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+	})
+
 	t.Run("wrapped content-only EF does not persist empty config", func(t *testing.T) {
 		contentOnlyEF := &mockCloseableContentEF{}
 		wrapped := wrapContentEFCloseOnce(contentOnlyEF)
@@ -1600,6 +1752,114 @@ func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testi
 		require.Empty(t, denseView.Name(), "wrapper Name() must be empty for content-only inner EF")
 		require.Empty(t, denseView.GetConfig(), "wrapper GetConfig() must be empty for content-only inner EF")
 	})
+}
+
+// TestAPIClientV2_CreateCollection_ClosesTemporaryDefaultEFOnError pins the PR
+// #504 review item 1 fix: when the HTTP CreateCollection path allocates an
+// SDK-owned temporary default EF via PrepareAndValidateCollectionRequest and
+// then fails during SendRequest or response decoding, the temporary EF must be
+// closed rather than orphaned.
+func TestAPIClientV2_CreateCollection_ClosesTemporaryDefaultEFOnError(t *testing.T) {
+	t.Run("server error closes temporary default EF", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":"boom"}`))
+		}))
+		defer server.Close()
+
+		client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+		require.NoError(t, err)
+		defer func() { _ = client.Close() }()
+
+		temporaryDefaultEF := &mockCloseableEF{}
+		_, err = client.CreateCollection(
+			context.Background(),
+			"http-create-fails",
+			withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+				return temporaryDefaultEF, func() error { return nil }, nil
+			}),
+		)
+		require.Error(t, err, "CreateCollection must surface the server error")
+		require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
+			"temporary default EF must be closed when HTTP CreateCollection fails")
+	})
+
+	t.Run("response decode error closes temporary default EF", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`not-json`))
+		}))
+		defer server.Close()
+
+		client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+		require.NoError(t, err)
+		defer func() { _ = client.Close() }()
+
+		temporaryDefaultEF := &mockCloseableEF{}
+		_, err = client.CreateCollection(
+			context.Background(),
+			"http-create-decode-fails",
+			withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+				return temporaryDefaultEF, func() error { return nil }, nil
+			}),
+		)
+		require.Error(t, err, "CreateCollection must surface the decode error")
+		require.Contains(t, err.Error(), "error decoding response")
+		require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
+			"temporary default EF must be closed when response decode fails")
+	})
+}
+
+// TestAPIClientV2_CreateCollection_PreservesTemporaryDefaultEFOnSuccess pins
+// the PR #504 follow-up fix: on the HTTP CreateCollection success path, the
+// SDK-owned temporary default EF must be transferred to the returned
+// collection rather than closed by the cleanup defer. Without the explicit
+// req.sdkOwnedDefaultDenseEF = nil handoff, the defer closed the EF
+// immediately, so the first Add/Query on the returned collection failed with
+// "embedding function is closed" -- which is exactly what broke the cloud
+// integration jobs (CRUD, Search, Schema, Config).
+func TestAPIClientV2_CreateCollection_PreservesTemporaryDefaultEFOnSuccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(&CollectionModel{
+			ID:       "create-success-id",
+			Name:     "create-success",
+			Tenant:   "default_tenant",
+			Database: "default_database",
+		})
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	defer func() { _ = client.Close() }()
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	col, err := client.CreateCollection(
+		context.Background(),
+		"create-success",
+		withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, col)
+	require.Equal(t, int32(0), temporaryDefaultEF.closeCount.Load(),
+		"temporary default EF must not be closed on the success path -- ownership transferred to the returned collection")
+
+	// The collection must still be able to embed through the wrapped EF.
+	impl := col.(*CollectionImpl)
+	wrapped, ok := impl.embeddingFunction.(*closeOnceEF)
+	require.True(t, ok, "collection EF should be wrapped in closeOnceEF")
+	require.Same(t, temporaryDefaultEF, wrapped.ef,
+		"wrapped EF must point at the original temporary default EF")
+	_, err = wrapped.EmbedDocuments(context.Background(), []string{"hello"})
+	require.NoError(t, err, "wrapped EF must still be usable after CreateCollection returns")
+
+	// Closing the collection must now close the temp EF exactly once.
+	require.NoError(t, impl.Close())
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
+		"collection Close() must close the owned temp EF exactly once")
 }
 
 func TestPrepareAndValidateCollectionRequest_ContentEFSchemaPath(t *testing.T) {
