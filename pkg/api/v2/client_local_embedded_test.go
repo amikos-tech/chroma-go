@@ -1658,6 +1658,96 @@ func TestEmbeddedLocalClientCreateCollection_IfNotExistsExistingDoesNotOverrideS
 	require.Equal(t, 1, getCalls)
 }
 
+func TestEmbeddedCreateCollection_DefaultORTExistingCollectionClosesTemporaryDefaultAndPreservesState(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	initialEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	initialMetadata := NewMetadataFromMap(map[string]interface{}{"source": "initial"})
+	created, err := client.CreateCollection(
+		ctx,
+		"default-ort-existing-close",
+		WithEmbeddingFunctionCreate(initialEF),
+		WithCollectionMetadataCreate(initialMetadata),
+	)
+	require.NoError(t, err)
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	overrideMetadata := NewMetadataFromMap(map[string]interface{}{"source": "override"})
+	got, err := client.CreateCollection(
+		ctx,
+		"default-ort-existing-close",
+		WithIfNotExistsCreate(),
+		WithCollectionMetadataCreate(overrideMetadata),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.Equal(t, created.ID(), got.ID())
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, initialEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+
+	source, ok := gotCollection.Metadata().GetString("source")
+	require.True(t, ok)
+	require.Equal(t, "initial", source)
+}
+
+func TestEmbeddedCreateCollection_DefaultORTExistingCollectionReturnsCleanupError(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	initialEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	_, err := client.CreateCollection(
+		ctx,
+		"default-ort-existing-close-error",
+		WithEmbeddingFunctionCreate(initialEF),
+	)
+	require.NoError(t, err)
+
+	temporaryDefaultEF := &mockFailingCloseEF{closeErr: errors.New("close boom")}
+	_, err = client.CreateCollection(
+		ctx,
+		"default-ort-existing-close-error",
+		WithIfNotExistsCreate(),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error closing default embedding function for existing collection")
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+}
+
+func TestEmbeddedCreateCollection_DefaultORTNewCollectionDoesNotCloseTemporaryDefault(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	got, err := client.CreateCollection(
+		ctx,
+		"default-ort-new-collection",
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.Equal(t, int32(0), temporaryDefaultEF.closeCount.Load())
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, temporaryDefaultEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
+
+	require.NoError(t, got.Close())
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+}
+
 func TestEmbeddedCollectionCRUD_AddUpsertQueryDelete(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
