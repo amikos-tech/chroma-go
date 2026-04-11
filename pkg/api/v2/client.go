@@ -280,10 +280,15 @@ func (op *CreateCollectionOp) closeSDKOwnedDefaultDenseEF(wrapMessage string) er
 	if !ok {
 		return errors.New("sdk-owned default embedding function is not closable")
 	}
+	// Clear tracking before invoking Close so an outer defer that re-enters
+	// this method becomes a no-op. Running Close() twice on a C-backed EF
+	// (e.g. ORT) can double-free even when the first call returned an error,
+	// so we accept the single-attempt leak and surface the failure to the
+	// caller for logging.
+	op.sdkOwnedDefaultDenseEF = nil
 	if err := safeCloseEF(closer); err != nil {
 		return errors.Wrap(err, wrapMessage)
 	}
-	op.sdkOwnedDefaultDenseEF = nil
 	return nil
 }
 

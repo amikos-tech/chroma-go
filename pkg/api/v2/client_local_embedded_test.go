@@ -968,25 +968,28 @@ func newRealPersistentClientForTest(t *testing.T, persistPath string) *Persisten
 	return persistent
 }
 
+// countingCloseableEF is a test helper that records every Close() invocation
+// on the wrapped EmbeddingFunction. It deliberately does NOT deduplicate Close
+// via sync.Once so tests can detect double-close regressions -- in particular
+// the PR #504 review item 2 scenario where a failed contentEF-promotion close
+// could cause an outer defer to invoke Close() a second time on a C-backed EF.
+// If you need idempotent Close in a test, wrap the EF with wrapEFCloseOnce
+// instead so the production close-once wrapper is exercised.
 type countingCloseableEF struct {
 	embeddingspkg.EmbeddingFunction
 
 	closeFn    func() error
-	closeOnce  sync.Once
-	closeErr   error
 	closeCount atomic.Int32
 }
 
 var _ io.Closer = (*countingCloseableEF)(nil)
 
 func (e *countingCloseableEF) Close() error {
-	e.closeOnce.Do(func() {
-		e.closeCount.Add(1)
-		if e.closeFn != nil {
-			e.closeErr = e.closeFn()
-		}
-	})
-	return e.closeErr
+	e.closeCount.Add(1)
+	if e.closeFn != nil {
+		return e.closeFn()
+	}
+	return nil
 }
 
 func seedEmbeddedCollectionForTest(t *testing.T, runtime *memoryEmbeddedRuntime, name string, configuration *CollectionConfigurationImpl) string {
@@ -2219,15 +2222,54 @@ func TestEmbeddedCreateCollection_DefaultORTExistingEmptyCollectionOnFreshClient
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
-	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
-		"temporary default EF must be closed when a fresh client reuses a pre-existing empty collection after a transient preflight error")
+	// PR #504 review item 3 fix: when a fresh client lands in the all-empty
+	// ambiguous branch with a transient preflight error, we cannot tell from
+	// the runtime whether the collection was just created or was a pre-existing
+	// empty one. In both cases there is no server-side EF config to reload, so
+	// the reader's temporary default EF is the best (and only) fallback. Install
+	// it as state rather than closing it -- a usable collection beats a
+	// semantically-"pure" nil-EF collection that fails on the first Add/Query.
+	require.Equal(t, int32(0), temporaryDefaultEF.closeCount.Load(),
+		"temporary default EF must remain alive so the reader's collection has a usable EF")
 
 	gotCollection, ok := got.(*embeddedCollection)
 	require.True(t, ok)
-	gotEF := unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot())
-	var temporaryAsEF embeddingspkg.EmbeddingFunction = temporaryDefaultEF
-	require.False(t, gotEF == temporaryAsEF,
-		"returned collection must not wrap the reader's throwaway temporary default EF")
+	require.Same(t, temporaryDefaultEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()),
+		"returned collection must wrap the reader's temporary default EF as fallback")
+}
+
+// TestEmbeddedCreateCollection_DefaultORTFreshClientTransientPreflightOnNewEmptyInstallsTemporaryDefault
+// pins the PR #504 review item 3 fix for the genuinely-new path: a fresh
+// client creates a brand-new empty collection via CreateIfNotExists +
+// DisableEFConfigStorage, and the preflight GetCollection returns a transient
+// (non-not-found) error. Previously the all-empty reload branch wrongly fired
+// and closed the temp EF, handing the caller a nil-EF collection. The fix
+// ensures the temp EF is installed as state so Add/Query work.
+func TestEmbeddedCreateCollection_DefaultORTFreshClientTransientPreflightOnNewEmptyInstallsTemporaryDefault(t *testing.T) {
+	runtime := newErrorGetCollectionOnceRuntime(errors.New("transient backend error"))
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	got, err := client.CreateCollection(
+		ctx,
+		"fresh-new-empty-preflight-error",
+		WithIfNotExistsCreate(),
+		WithDisableEFConfigStorage(),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	require.Equal(t, int32(0), temporaryDefaultEF.closeCount.Load(),
+		"temporary default EF must remain alive on genuinely-new empty collection even after transient preflight error")
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Same(t, temporaryDefaultEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()),
+		"returned collection must wrap the temporary default EF as fallback")
 }
 
 // TestEmbeddedCreateCollection_DefaultORTNewEmptyCollectionWithIfNotExistsStillInstallsTemporaryDefault
@@ -2530,6 +2572,33 @@ func TestIsEmbeddedCollectionNotFoundError(t *testing.T) {
 	require.True(t, isEmbeddedCollectionNotFoundError(errors.New("Collection [missing] does not exist")))
 	require.False(t, isEmbeddedCollectionNotFoundError(errors.New("embedded runtime unavailable")))
 	require.False(t, isEmbeddedCollectionNotFoundError(nil))
+}
+
+// TestIsEmbeddedCollectionNotFoundError_SentinelPath pins the PR #504 review
+// item 5 defensive improvement: classification is keyed on errors.Is against
+// ErrEmbeddedCollectionNotFound so future upstream message rewording cannot
+// silently flip the classifier. Substring matching remains as a fallback for
+// localchroma versions that have not yet been wrapped with the sentinel.
+func TestIsEmbeddedCollectionNotFoundError_SentinelPath(t *testing.T) {
+	t.Run("direct sentinel is classified", func(t *testing.T) {
+		require.True(t, isEmbeddedCollectionNotFoundError(ErrEmbeddedCollectionNotFound))
+	})
+
+	t.Run("wrapped sentinel is classified via errors.Is", func(t *testing.T) {
+		wrapped := fmt.Errorf("failed to fetch: %w", ErrEmbeddedCollectionNotFound)
+		require.True(t, isEmbeddedCollectionNotFoundError(wrapped))
+	})
+
+	t.Run("sentinel with message that would not match substring is still classified", func(t *testing.T) {
+		// Simulate upstream rewording the message to something like "missing
+		// target" -- substring match would not catch it, but the sentinel does.
+		reworded := fmt.Errorf("%w: missing target entity", ErrEmbeddedCollectionNotFound)
+		require.True(t, isEmbeddedCollectionNotFoundError(reworded))
+	})
+
+	t.Run("unrelated error is not classified", func(t *testing.T) {
+		require.False(t, isEmbeddedCollectionNotFoundError(errors.New("permission denied")))
+	})
 }
 
 func TestIsEmbeddedCollectionNotFoundError_RealEmbeddedRuntime(t *testing.T) {

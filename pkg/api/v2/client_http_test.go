@@ -1575,21 +1575,50 @@ func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_RecoversPanic(t *testing.
 	require.Contains(t, err.Error(), "panic during EF close")
 }
 
-func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_ClearsOnlyOnSuccess(t *testing.T) {
-	ef := &mockPanickingCloseEF{}
-	op := &CreateCollectionOp{
-		embeddingFunction:      ef,
-		sdkOwnedDefaultDenseEF: ef,
-	}
+// TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_ClearsOnAnyCloseAttempt pins
+// the contract that prevents the outer-defer double-close identified by the PR
+// #504 review (item 2): once Close() has been attempted on the SDK-owned default
+// EF -- success, error, or panic -- the tracking field must be nilled out. A
+// subsequent invocation from an outer defer must be a no-op so the underlying
+// resource is not closed a second time.
+func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_ClearsOnAnyCloseAttempt(t *testing.T) {
+	t.Run("close returning error clears tracking", func(t *testing.T) {
+		ef := &mockFailingCloseEF{closeErr: stderrors.New("boom")}
+		op := &CreateCollectionOp{
+			embeddingFunction:      ef,
+			sdkOwnedDefaultDenseEF: ef,
+		}
 
-	// Swallow panic via defer/recover in case Close currently propagates it.
-	func() {
-		defer func() { _ = recover() }()
-		_ = op.closeSDKOwnedDefaultDenseEF("error closing default embedding function")
-	}()
+		err := op.closeSDKOwnedDefaultDenseEF("first-call")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "boom")
+		require.Nil(t, op.sdkOwnedDefaultDenseEF,
+			"sdkOwnedDefaultDenseEF must be cleared after any Close attempt to prevent outer defer double-close")
+		require.Equal(t, int32(1), ef.closeCount.Load())
 
-	require.Same(t, ef, op.sdkOwnedDefaultDenseEF,
-		"sdkOwnedDefaultDenseEF must remain tracked when Close failed so outer defers can retry or log the leak")
+		// Simulate the outer defer invoked by embeddedLocalClient.CreateCollection.
+		err2 := op.closeSDKOwnedDefaultDenseEF("second-call")
+		require.NoError(t, err2, "outer defer re-entry must be a no-op")
+		require.Equal(t, int32(1), ef.closeCount.Load(),
+			"Close must not run a second time via outer defer")
+	})
+
+	t.Run("close panic clears tracking", func(t *testing.T) {
+		ef := &mockPanickingCloseEF{}
+		op := &CreateCollectionOp{
+			embeddingFunction:      ef,
+			sdkOwnedDefaultDenseEF: ef,
+		}
+
+		err := op.closeSDKOwnedDefaultDenseEF("first-call")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "panic during EF close")
+		require.Nil(t, op.sdkOwnedDefaultDenseEF,
+			"panicking Close must also clear tracking so outer defer does not re-enter")
+
+		err2 := op.closeSDKOwnedDefaultDenseEF("second-call")
+		require.NoError(t, err2, "outer defer re-entry must be a no-op")
+	})
 }
 
 func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_ClearsAfterSuccessfulClose(t *testing.T) {
@@ -1722,6 +1751,62 @@ func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testi
 		denseView := wrapped.(embeddings.EmbeddingFunction)
 		require.Empty(t, denseView.Name(), "wrapper Name() must be empty for content-only inner EF")
 		require.Empty(t, denseView.GetConfig(), "wrapper GetConfig() must be empty for content-only inner EF")
+	})
+}
+
+// TestAPIClientV2_CreateCollection_ClosesTemporaryDefaultEFOnError pins the PR
+// #504 review item 1 fix: when the HTTP CreateCollection path allocates an
+// SDK-owned temporary default EF via PrepareAndValidateCollectionRequest and
+// then fails during SendRequest or response decoding, the temporary EF must be
+// closed rather than orphaned.
+func TestAPIClientV2_CreateCollection_ClosesTemporaryDefaultEFOnError(t *testing.T) {
+	t.Run("server error closes temporary default EF", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":"boom"}`))
+		}))
+		defer server.Close()
+
+		client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+		require.NoError(t, err)
+		defer func() { _ = client.Close() }()
+
+		temporaryDefaultEF := &mockCloseableEF{}
+		_, err = client.CreateCollection(
+			context.Background(),
+			"http-create-fails",
+			withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+				return temporaryDefaultEF, func() error { return nil }, nil
+			}),
+		)
+		require.Error(t, err, "CreateCollection must surface the server error")
+		require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
+			"temporary default EF must be closed when HTTP CreateCollection fails")
+	})
+
+	t.Run("response decode error closes temporary default EF", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`not-json`))
+		}))
+		defer server.Close()
+
+		client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+		require.NoError(t, err)
+		defer func() { _ = client.Close() }()
+
+		temporaryDefaultEF := &mockCloseableEF{}
+		_, err = client.CreateCollection(
+			context.Background(),
+			"http-create-decode-fails",
+			withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+				return temporaryDefaultEF, func() error { return nil }, nil
+			}),
+		)
+		require.Error(t, err, "CreateCollection must surface the decode error")
+		require.Contains(t, err.Error(), "error decoding response")
+		require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
+			"temporary default EF must be closed when response decode fails")
 	})
 }
 

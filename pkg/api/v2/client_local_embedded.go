@@ -433,24 +433,19 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		return nil, errors.Wrap(err, "error creating collection")
 	}
 
-	// Reload via GetCollection when the returned model looks like reuse of a
-	// pre-existing collection that our local client hasn't seen yet. Two gates:
-	//  - Differential: the returned model differs from what we requested.
-	//  - Inconclusive empty-match: every comparison field is empty on both
-	//    sides (so JSON equality tells us nothing) AND preflight did not
-	//    conclusively report not-found. This covers the PR #504 review case
-	//    where a transient preflight error lets an empty pre-existing
-	//    collection slip past both reuse signals on a fresh client.
-	// The preflight-conclusive-not-found path is deliberately excluded so
-	// genuinely-new empty collections still install their throwaway default
-	// EF as state (see
-	// TestEmbeddedCreateCollection_DefaultORTNewEmptyCollectionWithIfNotExistsStillInstallsTemporaryDefault).
+	// Reload via GetCollection when the returned model differs from what we
+	// requested -- a positive signal that the server holds authoritative state
+	// (e.g. writer's custom EF config) that we should pick up instead of the
+	// reader's temporary default. The previously-widened "all-empty" branch
+	// was removed per PR #504 review item 3: when both sides are empty there
+	// is no server-side EF config to reload, so closing the temp EF left the
+	// caller with a nil-EF collection. The normal install path below now
+	// handles that case, installing the temp EF as state so subsequent
+	// Add/Query work.
 	shouldReloadForReuse := req.CreateIfNotExists &&
 		req.sdkOwnedDefaultDenseEF != nil &&
 		existingCollectionID == "" &&
-		(!collectionModelMatchesCreateRequest(model, metadataMap, configurationMap, schemaMap) ||
-			(!preflightConclusivelyNotFound &&
-				collectionModelRequestAllEmpty(model, metadataMap, configurationMap, schemaMap)))
+		!collectionModelMatchesCreateRequest(model, metadataMap, configurationMap, schemaMap)
 	if shouldReloadForReuse {
 		cleanupMessage = "error closing default embedding function for existing collection"
 		var getErr error
@@ -882,19 +877,6 @@ func collectionModelMatchesCreateRequest(model *localchroma.EmbeddedCollection, 
 		comparableCollectionMap(model.Schema, schemaMap)
 }
 
-// collectionModelRequestAllEmpty reports whether every field compared by
-// collectionModelMatchesCreateRequest is empty on both the persisted model
-// and the create request. When true, the JSON-equality match is vacuous and
-// cannot distinguish "pre-existing collection" from "newly created".
-func collectionModelRequestAllEmpty(model *localchroma.EmbeddedCollection, metadataMap, configurationMap, schemaMap map[string]any) bool {
-	if model == nil {
-		return false
-	}
-	return len(model.Metadata) == 0 && len(metadataMap) == 0 &&
-		len(model.ConfigurationJSON) == 0 && len(configurationMap) == 0 &&
-		len(model.Schema) == 0 && len(schemaMap) == 0
-}
-
 func comparableCollectionMap(left, right map[string]any) bool {
 	if len(left) == 0 {
 		left = nil
@@ -920,9 +902,24 @@ func comparableCollectionMap(left, right map[string]any) bool {
 // Substring sniffing is a maintenance hazard — any upstream rewording of the
 // error message silently flips classification. Pinned today by
 // TestIsEmbeddedCollectionNotFoundError_RealEmbeddedRuntime.
+// ErrEmbeddedCollectionNotFound is returned (or wrapped) when the embedded
+// runtime reports that a collection does not exist. External code classifying
+// such errors should prefer errors.Is against this sentinel; the substring
+// fallback in isEmbeddedCollectionNotFoundError exists only for localchroma
+// versions that have not yet been adapted to return the typed sentinel.
+//
+// The sentinel is defined here (rather than in localchroma) because the
+// upstream shim returns string-only errors today. When upstream exposes a
+// typed error, this sentinel can be removed in favour of a direct errors.Is
+// against the upstream type, and the substring fallback can be dropped.
+var ErrEmbeddedCollectionNotFound = stderrors.New("embedded collection not found")
+
 func isEmbeddedCollectionNotFoundError(err error) bool {
 	if err == nil {
 		return false
+	}
+	if stderrors.Is(err, ErrEmbeddedCollectionNotFound) {
+		return true
 	}
 	message := strings.ToLower(err.Error())
 	return strings.Contains(message, "not found") || strings.Contains(message, "does not exist")

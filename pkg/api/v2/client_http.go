@@ -310,14 +310,37 @@ func (client *APIClientV2) Reset(ctx context.Context) error {
 	return nil
 }
 
-func (client *APIClientV2) CreateCollection(ctx context.Context, name string, options ...CreateCollectionOption) (Collection, error) {
+func (client *APIClientV2) CreateCollection(ctx context.Context, name string, options ...CreateCollectionOption) (collection Collection, err error) {
 	newOptions := append([]CreateCollectionOption{WithDatabaseCreate(client.CurrentDatabase())}, options...)
 	req, err := NewCreateCollectionOp(name, newOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing collection create request")
 	}
-	err = req.PrepareAndValidateCollectionRequest()
-	if err != nil {
+	// Close the SDK-owned temporary default EF on every exit. When
+	// PrepareAndValidateCollectionRequest allocates one and SendRequest or
+	// response decoding fails, this defer prevents the temporary EF from
+	// leaking. On the success path the EF is wrapped into the returned
+	// collection and closeSDKOwnedDefaultDenseEF is a no-op because the
+	// tracking field's guard sees embeddingFunction no longer matching.
+	defer func() {
+		cleanupErr := req.closeSDKOwnedDefaultDenseEF("error cleaning up default embedding function during collection create")
+		if cleanupErr == nil {
+			return
+		}
+		if collection != nil && err == nil {
+			client.logger.Error("failed to close sdk-owned temporary default embedding function",
+				logger.String("collection", collection.Name()),
+				logger.ErrorField("error", cleanupErr))
+			return
+		}
+		collection = nil
+		if err != nil {
+			err = stderrors.Join(err, cleanupErr)
+			return
+		}
+		err = cleanupErr
+	}()
+	if err = req.PrepareAndValidateCollectionRequest(); err != nil {
 		return nil, errors.Wrap(err, "error validating collection create request")
 	}
 	reqURL, err := url.JoinPath(client.BaseURL(), "tenants", req.Database.Tenant().Name(), "databases", req.Database.Name(), "collections")
@@ -338,7 +361,7 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 	}
 	defer func() { _ = resp.Body.Close() }()
 	var cm CollectionModel
-	if err := json.NewDecoder(resp.Body).Decode(&cm); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&cm); err != nil {
 		return nil, errors.Wrap(err, "error decoding response")
 	}
 	c := &CollectionImpl{
