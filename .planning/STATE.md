@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: Ready to discuss or plan Phase 23
-stopped_at: Phase 22 complete
-last_updated: "2026-04-10T05:14:10.449Z"
-last_activity: "2026-04-10 -- Phase 22 shipped — PR #502"
+status: Ready to discuss or plan Phase 24
+stopped_at: Phase 23 complete
+last_updated: "2026-04-11T09:58:19.387Z"
+last_activity: "2026-04-11 -- Phase 23 complete"
 progress:
-  total_phases: 10
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
+  total_phases: 11
+  completed_phases: 4
+  total_plans: 5
+  completed_plans: 5
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 23 — ort-ef-leak-fix
+**Current focus:** Phase 24 — getorcreatecollection-ef-safety
 
 ## Current Position
 
-Phase: 23
+Phase: 24
 Plan: Not started
-Status: Ready to discuss or plan Phase 23
-Last activity: 2026-04-10 -- Phase 22 shipped — PR #502
+Status: Ready to discuss or plan Phase 24
+Last activity: 2026-04-11 -- Phase 23 complete
 
 Progress: [██████████] 100%
 
@@ -36,7 +36,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: --
 - Total execution time: 0 hours
 
@@ -57,5 +57,5 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ## Session
 
-**Last Date:** 2026-04-10T04:53:49Z
-**Stopped At:** Phase 22 complete
+**Last Date:** 2026-04-11T09:58:19Z
+**Stopped At:** Phase 23 complete
