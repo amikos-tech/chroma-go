@@ -1810,6 +1810,58 @@ func TestAPIClientV2_CreateCollection_ClosesTemporaryDefaultEFOnError(t *testing
 	})
 }
 
+// TestAPIClientV2_CreateCollection_PreservesTemporaryDefaultEFOnSuccess pins
+// the PR #504 follow-up fix: on the HTTP CreateCollection success path, the
+// SDK-owned temporary default EF must be transferred to the returned
+// collection rather than closed by the cleanup defer. Without the explicit
+// req.sdkOwnedDefaultDenseEF = nil handoff, the defer closed the EF
+// immediately, so the first Add/Query on the returned collection failed with
+// "embedding function is closed" -- which is exactly what broke the cloud
+// integration jobs (CRUD, Search, Schema, Config).
+func TestAPIClientV2_CreateCollection_PreservesTemporaryDefaultEFOnSuccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(&CollectionModel{
+			ID:       "create-success-id",
+			Name:     "create-success",
+			Tenant:   "default_tenant",
+			Database: "default_database",
+		})
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	defer func() { _ = client.Close() }()
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	col, err := client.CreateCollection(
+		context.Background(),
+		"create-success",
+		withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, col)
+	require.Equal(t, int32(0), temporaryDefaultEF.closeCount.Load(),
+		"temporary default EF must not be closed on the success path -- ownership transferred to the returned collection")
+
+	// The collection must still be able to embed through the wrapped EF.
+	impl := col.(*CollectionImpl)
+	wrapped, ok := impl.embeddingFunction.(*closeOnceEF)
+	require.True(t, ok, "collection EF should be wrapped in closeOnceEF")
+	require.Same(t, temporaryDefaultEF, wrapped.ef,
+		"wrapped EF must point at the original temporary default EF")
+	_, err = wrapped.EmbedDocuments(context.Background(), []string{"hello"})
+	require.NoError(t, err, "wrapped EF must still be usable after CreateCollection returns")
+
+	// Closing the collection must now close the temp EF exactly once.
+	require.NoError(t, impl.Close())
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
+		"collection Close() must close the owned temp EF exactly once")
+}
+
 func TestPrepareAndValidateCollectionRequest_ContentEFSchemaPath(t *testing.T) {
 	t.Run("dual-interface contentEF overrides schema EF", func(t *testing.T) {
 		schema, err := NewSchemaWithDefaults()

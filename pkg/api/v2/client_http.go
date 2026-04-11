@@ -320,8 +320,8 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 	// PrepareAndValidateCollectionRequest allocates one and SendRequest or
 	// response decoding fails, this defer prevents the temporary EF from
 	// leaking. On the success path the EF is wrapped into the returned
-	// collection and closeSDKOwnedDefaultDenseEF is a no-op because the
-	// tracking field's guard sees embeddingFunction no longer matching.
+	// collection and req.sdkOwnedDefaultDenseEF is cleared explicitly before
+	// return, so closeSDKOwnedDefaultDenseEF becomes a no-op.
 	defer func() {
 		cleanupErr := req.closeSDKOwnedDefaultDenseEF("error cleaning up default embedding function during collection create")
 		if cleanupErr == nil {
@@ -381,6 +381,12 @@ func (client *APIClientV2) CreateCollection(ctx context.Context, name string, op
 		dimension:                cm.Dimension,
 	}
 	c.ownsEF.Store(true)
+	// Mark ownership transfer so the deferred cleanup becomes a no-op. The
+	// guard in closeSDKOwnedDefaultDenseEF compares req.embeddingFunction to
+	// req.sdkOwnedDefaultDenseEF by identity, and wrapping into CollectionImpl
+	// does not reassign req.embeddingFunction, so the guard would otherwise
+	// still match and close the EF the collection now owns.
+	req.sdkOwnedDefaultDenseEF = nil
 	client.addCollectionToCache(c)
 	return c, nil
 }
