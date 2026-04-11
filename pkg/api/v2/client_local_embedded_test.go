@@ -143,6 +143,12 @@ type invalidCreateResponseDeleteErrorRuntime struct {
 	deleteErr   error
 }
 
+type preExistingInvalidCreateRuntime struct {
+	*memoryEmbeddedRuntime
+	preflightErr error
+	deleteCalls  []localchroma.EmbeddedDeleteCollectionRequest
+}
+
 type missingGetCollectionOnceRuntime struct {
 	*memoryEmbeddedRuntime
 	missNextGet atomic.Bool
@@ -240,6 +246,14 @@ func newInvalidCreateResponseDeleteErrorRuntime(deleteErr error) *invalidCreateR
 		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
 		deleteCalls:           make([]localchroma.EmbeddedDeleteCollectionRequest, 0, 1),
 		deleteErr:             deleteErr,
+	}
+}
+
+func newPreExistingInvalidCreateRuntime(preflightErr error) *preExistingInvalidCreateRuntime {
+	return &preExistingInvalidCreateRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+		preflightErr:          preflightErr,
+		deleteCalls:           make([]localchroma.EmbeddedDeleteCollectionRequest, 0, 1),
 	}
 }
 
@@ -374,6 +388,27 @@ func (s *invalidCreateResponseDeleteErrorRuntime) CreateCollection(request local
 func (s *invalidCreateResponseDeleteErrorRuntime) DeleteCollection(request localchroma.EmbeddedDeleteCollectionRequest) error {
 	s.deleteCalls = append(s.deleteCalls, request)
 	return s.deleteErr
+}
+
+func (s *preExistingInvalidCreateRuntime) GetCollection(_ localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	return nil, s.preflightErr
+}
+
+func (s *preExistingInvalidCreateRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	col, err := s.memoryEmbeddedRuntime.CreateCollection(request)
+	if err != nil {
+		return nil, err
+	}
+	invalid := *col
+	invalid.Metadata = map[string]any{
+		"invalid": map[string]any{"nested": "object"},
+	}
+	return &invalid, nil
+}
+
+func (s *preExistingInvalidCreateRuntime) DeleteCollection(request localchroma.EmbeddedDeleteCollectionRequest) error {
+	s.deleteCalls = append(s.deleteCalls, request)
+	return s.memoryEmbeddedRuntime.DeleteCollection(request)
 }
 
 func (s *missingGetCollectionOnceRuntime) GetCollection(request localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
@@ -2002,13 +2037,21 @@ func TestEmbeddedCreateCollection_DefaultORTExistingCollectionProbeMissStillClos
 	require.Equal(t, "initial", source)
 }
 
-func TestEmbeddedCreateCollection_DefaultORTExistingCollectionReturnsCleanupError(t *testing.T) {
+// TestEmbeddedCreateCollection_DefaultORTExistingCollectionLogsCleanupErrorAndReturnsCollection
+// verifies that when cleaning up the temporary SDK-owned default embedding
+// function fails after an existing-collection reuse, the user still receives
+// the built collection (since it wraps state EFs unaffected by the cleanup
+// failure) and the failure is surfaced via the logger. Replaces the Phase 23
+// "synchronous error" contract, which incorrectly discarded a valid handle.
+func TestEmbeddedCreateCollection_DefaultORTExistingCollectionLogsCleanupErrorAndReturnsCollection(t *testing.T) {
 	runtime := newCountingMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
+	log := &capturingLogger{}
+	client.logger = log
 	ctx := context.Background()
 
 	initialEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
-	_, err := client.CreateCollection(
+	created, err := client.CreateCollection(
 		ctx,
 		"default-ort-existing-close-error",
 		WithEmbeddingFunctionCreate(initialEF),
@@ -2016,7 +2059,7 @@ func TestEmbeddedCreateCollection_DefaultORTExistingCollectionReturnsCleanupErro
 	require.NoError(t, err)
 
 	temporaryDefaultEF := &mockFailingCloseEF{closeErr: errors.New("close boom")}
-	_, err = client.CreateCollection(
+	got, err := client.CreateCollection(
 		ctx,
 		"default-ort-existing-close-error",
 		WithIfNotExistsCreate(),
@@ -2024,9 +2067,17 @@ func TestEmbeddedCreateCollection_DefaultORTExistingCollectionReturnsCleanupErro
 			return temporaryDefaultEF, func() error { return nil }, nil
 		}),
 	)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "error closing default embedding function for existing collection")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, created.ID(), got.ID())
 	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	require.GreaterOrEqual(t, log.errorCount, 1,
+		"cleanup failure must be surfaced to the logger when the collection is still returned")
+	require.Contains(t, log.lastMsg, "close",
+		"logged message should describe the cleanup failure")
 }
 
 func TestEmbeddedCreateCollection_DefaultORTNewCollectionDoesNotCloseTemporaryDefault(t *testing.T) {
@@ -2219,19 +2270,21 @@ func TestEmbeddedCreateCollection_DefaultORTCanceledContextClosesTemporaryDefaul
 	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
 }
 
-func TestEmbeddedCreateCollection_DefaultORTExistingCollectionWithNonClosableDefaultReturnsError(t *testing.T) {
+func TestEmbeddedCreateCollection_DefaultORTExistingCollectionWithNonClosableDefaultLogsAndReturnsCollection(t *testing.T) {
 	runtime := newCountingMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
+	log := &capturingLogger{}
+	client.logger = log
 	ctx := context.Background()
 
-	_, err := client.CreateCollection(
+	created, err := client.CreateCollection(
 		ctx,
 		"default-ort-existing-non-closable",
 		WithEmbeddingFunctionCreate(embeddingspkg.NewConsistentHashEmbeddingFunction()),
 	)
 	require.NoError(t, err)
 
-	_, err = client.CreateCollection(
+	got, err := client.CreateCollection(
 		ctx,
 		"default-ort-existing-non-closable",
 		WithIfNotExistsCreate(),
@@ -2239,7 +2292,13 @@ func TestEmbeddedCreateCollection_DefaultORTExistingCollectionWithNonClosableDef
 			return &mockNonCloseableEF{}, func() error { return nil }, nil
 		}),
 	)
-	require.EqualError(t, err, "sdk-owned default embedding function is not closable")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, created.ID(), got.ID())
+
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	require.GreaterOrEqual(t, log.errorCount, 1)
 }
 
 func TestEmbeddedCreateCollection_BuildFailureDeletesRuntimeCollection(t *testing.T) {
@@ -2247,7 +2306,13 @@ func TestEmbeddedCreateCollection_BuildFailureDeletesRuntimeCollection(t *testin
 	client := newEmbeddedClientForRuntime(t, runtime)
 	ctx := context.Background()
 
-	_, err := client.CreateCollection(ctx, "invalid-create-response")
+	_, err := client.CreateCollection(
+		ctx,
+		"invalid-create-response",
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return &mockCloseableEF{}, func() error { return nil }, nil
+		}),
+	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "error parsing collection metadata")
 
@@ -2267,7 +2332,13 @@ func TestEmbeddedCreateCollection_BuildFailureSuppressesDeleteCollectionNotFound
 	client := newEmbeddedClientForRuntime(t, runtime)
 	ctx := context.Background()
 
-	_, err := client.CreateCollection(ctx, "invalid-create-response-delete-missing")
+	_, err := client.CreateCollection(
+		ctx,
+		"invalid-create-response-delete-missing",
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return &mockCloseableEF{}, func() error { return nil }, nil
+		}),
+	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "error building collection")
 	require.NotContains(t, err.Error(), "error deleting collection after build failure")
@@ -2287,6 +2358,46 @@ func TestEmbeddedCreateCollection_BuildFailureJoinsDeleteAndCleanupErrors(t *tes
 	require.Contains(t, err.Error(), "error deleting collection after build failure: delete boom")
 	require.Contains(t, err.Error(), "cleanup boom")
 	require.Len(t, runtime.deleteCalls, 1)
+}
+
+// TestEmbeddedCreateCollection_BuildFailureDoesNotDeletePreExistingCollection
+// reproduces the dangerous scenario where a failing post-create build could
+// destroy a pre-existing user collection: preflight GetCollection fails
+// transiently (non-not-found), runtime CreateCollection(GetOrCreate:true)
+// returns the pre-existing collection, and buildEmbeddedCollection then fails.
+// The delete that used to fire in that path has been gated on positive
+// evidence that this call created the collection.
+func TestEmbeddedCreateCollection_BuildFailureDoesNotDeletePreExistingCollection(t *testing.T) {
+	runtime := newPreExistingInvalidCreateRuntime(errors.New("transient preflight failure"))
+	_, preseedErr := runtime.memoryEmbeddedRuntime.CreateCollection(localchroma.EmbeddedCreateCollectionRequest{
+		Name:         "preexisting",
+		TenantID:     DefaultTenant,
+		DatabaseName: DefaultDatabase,
+	})
+	require.NoError(t, preseedErr)
+
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	_, err := client.CreateCollection(
+		ctx,
+		"preexisting",
+		WithIfNotExistsCreate(),
+		WithEmbeddingFunctionCreate(embeddingspkg.NewConsistentHashEmbeddingFunction()),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error parsing collection metadata")
+
+	require.Empty(t, runtime.deleteCalls,
+		"pre-existing user collection must not be deleted on build failure when preflight did not conclusively confirm absence")
+
+	stillThere, getErr := runtime.memoryEmbeddedRuntime.GetCollection(localchroma.EmbeddedGetCollectionRequest{
+		Name:         "preexisting",
+		TenantID:     DefaultTenant,
+		DatabaseName: DefaultDatabase,
+	})
+	require.NoError(t, getErr)
+	require.NotNil(t, stillThere)
 }
 
 func TestComparableCollectionMap_NormalizesJSONNumberAndFloat64(t *testing.T) {

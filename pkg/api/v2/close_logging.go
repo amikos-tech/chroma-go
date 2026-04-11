@@ -106,3 +106,14 @@ func logCreateIfNotExistsPreflightErrorToStderr(collectionName string, err error
 		err,
 	)
 }
+
+func logComparableCollectionMapMarshalErrorToStderr(err error) {
+	if err == nil {
+		return
+	}
+	_, _ = fmt.Fprintf(
+		os.Stderr,
+		"chroma-go: unexpected json.Marshal failure comparing collection payloads: error=%v\n",
+		err,
+	)
+}

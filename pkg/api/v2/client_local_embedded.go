@@ -355,6 +355,17 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		if cleanupErr == nil {
 			return
 		}
+		// When a valid collection has already been built, the SDK-owned
+		// temporary default EF is a throwaway distinct from the collection's
+		// own embedding functions (which come from persisted state). Failing
+		// to close the throwaway leaks the temp EF's resources but does not
+		// invalidate the collection, so we surface the failure via the
+		// logger and return the collection instead of discarding it.
+		if collection != nil && err == nil {
+			client.logCloseError("failed to close sdk-owned temporary default embedding function",
+				collection.Name(), cleanupErr)
+			return
+		}
 		collection = nil
 		if err != nil {
 			err = stderrors.Join(err, cleanupErr)
@@ -382,15 +393,23 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 	}
 
 	existingCollectionID := ""
+	// preflightConclusivelyNotFound is the only positive signal that this call
+	// must have created the collection itself (vs. reusing a pre-existing one
+	// via GetOrCreate). It gates the build-failure delete below so we never
+	// destroy a pre-existing user collection after an ambiguous reuse.
+	preflightConclusivelyNotFound := false
 	if req.CreateIfNotExists {
 		existingCollection, lookupErr := client.embedded.GetCollection(localchroma.EmbeddedGetCollectionRequest{
 			Name:         req.Name,
 			TenantID:     req.Database.Tenant().Name(),
 			DatabaseName: req.Database.Name(),
 		})
-		if lookupErr == nil && existingCollection != nil {
+		switch {
+		case lookupErr == nil && existingCollection != nil:
 			existingCollectionID = existingCollection.ID
-		} else if lookupErr != nil && !isEmbeddedCollectionNotFoundError(lookupErr) {
+		case lookupErr != nil && isEmbeddedCollectionNotFoundError(lookupErr):
+			preflightConclusivelyNotFound = true
+		case lookupErr != nil:
 			if client.logger != nil {
 				client.logger.Warn("create-if-not-exists preflight GetCollection failed",
 					logger.String("collection", req.Name),
@@ -467,7 +486,6 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		})
 		req.sdkOwnedDefaultDenseEF = nil
 	} else {
-		cleanupMessage = "error closing default embedding function for existing collection"
 		overrideEF = nil
 		overrideContentEF = nil
 	}
@@ -475,15 +493,24 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 	collection, err = client.buildEmbeddedCollection(*model, req.Database, overrideEF, overrideContentEF, true, true)
 	if err != nil {
 		if !reusedExistingCollection {
-			deleteErr := client.embedded.DeleteCollection(localchroma.EmbeddedDeleteCollectionRequest{
-				Name:         req.Name,
-				TenantID:     req.Database.Tenant().Name(),
-				DatabaseName: req.Database.Name(),
-			})
 			cleanupErr := client.deleteCollectionState(model.ID)
 			err = errors.Wrap(err, "error building collection")
-			if deleteErr != nil && !isEmbeddedCollectionNotFoundError(deleteErr) {
-				err = stderrors.Join(err, errors.Wrap(deleteErr, "error deleting collection after build failure"))
+			// Only purge the runtime collection when we have positive evidence
+			// this call created it: either a non-GetOrCreate request (the
+			// runtime would have failed outright if it already existed) or a
+			// preflight probe that conclusively reported not-found. Otherwise
+			// an ambiguous reuse (transient preflight failure + GetOrCreate
+			// returning a pre-existing collection) would silently destroy
+			// user data.
+			if !req.CreateIfNotExists || preflightConclusivelyNotFound {
+				deleteErr := client.embedded.DeleteCollection(localchroma.EmbeddedDeleteCollectionRequest{
+					Name:         req.Name,
+					TenantID:     req.Database.Tenant().Name(),
+					DatabaseName: req.Database.Name(),
+				})
+				if deleteErr != nil && !isEmbeddedCollectionNotFoundError(deleteErr) {
+					err = stderrors.Join(err, errors.Wrap(deleteErr, "error deleting collection after build failure"))
+				}
 			}
 			if cleanupErr != nil {
 				return nil, stderrors.Join(err, cleanupErr)
@@ -851,15 +878,22 @@ func comparableCollectionMap(left, right map[string]any) bool {
 	}
 	leftPayload, err := json.Marshal(left)
 	if err != nil {
+		logComparableCollectionMapMarshalErrorToStderr(err)
 		return false
 	}
 	rightPayload, err := json.Marshal(right)
 	if err != nil {
+		logComparableCollectionMapMarshalErrorToStderr(err)
 		return false
 	}
 	return bytes.Equal(leftPayload, rightPayload)
 }
 
+// TODO: switch to errors.Is with a typed sentinel (e.g.
+// localchroma.ErrCollectionNotFound) once the embedded runtime exports one.
+// Substring sniffing is a maintenance hazard — any upstream rewording of the
+// error message silently flips classification. Pinned today by
+// TestIsEmbeddedCollectionNotFoundError_RealEmbeddedRuntime.
 func isEmbeddedCollectionNotFoundError(err error) bool {
 	if err == nil {
 		return false
