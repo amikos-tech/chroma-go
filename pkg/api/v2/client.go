@@ -519,6 +519,7 @@ func WithEmbeddingFunctionCreate(embeddingFunction embeddings.EmbeddingFunction)
 	}
 }
 
+//nolint:unused // Package-local seam used by basicv2 tests to inject a default EF per create op.
 func withDefaultDenseEFFactoryCreate(factory defaultDenseEFFactory) CreateCollectionOption {
 	return func(op *CreateCollectionOp) error {
 		if factory == nil {
