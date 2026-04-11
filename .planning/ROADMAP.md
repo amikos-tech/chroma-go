@@ -96,10 +96,10 @@ Plans:
   1. When GetCollection fails and GetOrCreateCollection falls back to CreateCollection, the EF passed is still open and usable
   2. Concurrent GetOrCreateCollection calls under `-race` do not trigger data races or double-close panics
   3. Tests demonstrate the EF lifecycle under concurrent access
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 24-01: TBD
+- [ ] 24-01-PLAN.md — Harden provisional embedded EF ownership and concurrent loser convergence for `GetOrCreateCollection`
 
 ### Phase 25: Error Body Truncation
 **Goal**: Embedding provider errors display safe-length messages instead of arbitrarily large raw HTTP bodies
@@ -195,7 +195,7 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on 
 | 21. RrfRank Arithmetic Fix | v0.4.2 | 1/1 | Complete    | 2026-04-09 |
 | 22. WithGroupBy Validation | v0.4.2 | 1/1 | Complete    | 2026-04-10 |
 | 23. ORT EF Leak Fix | v0.4.2 | 1/1 | Complete    | 2026-04-11 |
-| 24. GetOrCreateCollection EF Safety | v0.4.2 | 0/0 | Not started | - |
+| 24. GetOrCreateCollection EF Safety | v0.4.2 | 0/1 | Planned | - |
 | 25. Error Body Truncation | v0.4.2 | 0/0 | Not started | - |
 | 26. Twelve Labs Async Embedding | v0.4.2 | 0/0 | Not started | - |
 | 27. Download Stack Consolidation | v0.4.2 | 0/0 | Not started | - |
