@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	stderrors "errors"
+	"io"
 	"math"
 	"reflect"
 	"strings"
@@ -406,6 +407,16 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 			}
 		})
 	} else {
+		if req.sdkOwnedDefaultDenseEF != nil && req.embeddingFunction == req.sdkOwnedDefaultDenseEF {
+			closer, ok := req.sdkOwnedDefaultDenseEF.(io.Closer)
+			if !ok {
+				return nil, errors.New("sdk-owned default embedding function is not closable")
+			}
+			if err := closer.Close(); err != nil {
+				return nil, errors.Wrap(err, "error closing default embedding function for existing collection")
+			}
+			req.sdkOwnedDefaultDenseEF = nil
+		}
 		overrideEF = nil
 		overrideContentEF = nil
 	}
