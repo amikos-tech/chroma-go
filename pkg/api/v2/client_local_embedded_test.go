@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"strconv"
@@ -930,6 +931,27 @@ func newRealPersistentClientForTest(t *testing.T, persistPath string) *Persisten
 	persistent, ok := client.(*PersistentClient)
 	require.True(t, ok)
 	return persistent
+}
+
+type countingCloseableEF struct {
+	embeddingspkg.EmbeddingFunction
+
+	closeFn    func() error
+	closeOnce  sync.Once
+	closeErr   error
+	closeCount atomic.Int32
+}
+
+var _ io.Closer = (*countingCloseableEF)(nil)
+
+func (e *countingCloseableEF) Close() error {
+	e.closeOnce.Do(func() {
+		e.closeCount.Add(1)
+		if e.closeFn != nil {
+			e.closeErr = e.closeFn()
+		}
+	})
+	return e.closeErr
 }
 
 func seedEmbeddedCollectionForTest(t *testing.T, runtime *memoryEmbeddedRuntime, name string, configuration *CollectionConfigurationImpl) string {
@@ -3558,20 +3580,33 @@ func TestEmbeddedCreateCollection_RealORTIfNotExistsRoundTrip(t *testing.T) {
 	require.NotNil(t, createdDenseEF)
 	require.Equal(t, "default", createdDenseEF.Name())
 
-	_, closeORT, err := ortpkg.NewDefaultEmbeddingFunction()
-	if err != nil {
-		t.Skipf("ORT embedding function unavailable in this environment: %v", err)
-	}
-	require.NoError(t, closeORT())
-
 	reader := newRealPersistentClientForTest(t, persistPath)
 	defer func() {
 		_ = reader.Close()
 	}()
 
-	got, err := reader.CreateCollection(ctx, collectionName, WithIfNotExistsCreate())
+	var temporaryDefaultEF *countingCloseableEF
+	got, err := reader.CreateCollection(
+		ctx,
+		collectionName,
+		WithIfNotExistsCreate(),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			ef, closeFn, factoryErr := ortpkg.NewDefaultEmbeddingFunction()
+			if factoryErr != nil {
+				return nil, nil, factoryErr
+			}
+			temporaryDefaultEF = &countingCloseableEF{
+				EmbeddingFunction: ef,
+				closeFn:           closeFn,
+			}
+			return temporaryDefaultEF, temporaryDefaultEF.Close, nil
+		}),
+	)
 	require.NoError(t, err)
 	require.Equal(t, created.ID(), got.ID())
+	require.NotNil(t, temporaryDefaultEF)
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
+		"temporary default EF must be closed when CreateCollection reused an existing collection")
 
 	gotEmbedded, ok := got.(*embeddedCollection)
 	require.True(t, ok)
