@@ -1547,6 +1547,18 @@ func TestCreateCollectionOpEnsureDefaultDenseEFFactory_ZeroValue(t *testing.T) {
 	require.NotNil(t, op.defaultDenseEFFactory)
 }
 
+func TestCreateCollectionOpCloseSDKOwnedDefaultDenseEF_NonClosableKeepsTrackedReference(t *testing.T) {
+	ef := &mockNonCloseableEF{}
+	op := &CreateCollectionOp{
+		embeddingFunction:      ef,
+		sdkOwnedDefaultDenseEF: ef,
+	}
+
+	err := op.closeSDKOwnedDefaultDenseEF("unused")
+	require.EqualError(t, err, "sdk-owned default embedding function is not closable")
+	require.Same(t, ef, op.sdkOwnedDefaultDenseEF)
+}
+
 func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testing.T) {
 	t.Run("dual-interface contentEF persists config", func(t *testing.T) {
 		dualEF := &mockDualEF{}
@@ -1602,6 +1614,19 @@ func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testi
 		require.NoError(t, err)
 		require.Equal(t, explicitEF.Name(), op.embeddingFunction.(embeddings.EmbeddingFunction).Name(),
 			"runtime denseEF must remain the user-provided EF")
+	})
+
+	t.Run("non-closable sdk-owned default EF returns error during promotion", func(t *testing.T) {
+		dualEF := &mockDualEF{}
+		op, err := NewCreateCollectionOp("test-promote-non-closable",
+			WithContentEmbeddingFunctionCreate(dualEF),
+			withDefaultDenseEFFactoryCreate(func() (embeddings.EmbeddingFunction, func() error, error) {
+				return &mockNonCloseableEF{}, func() error { return nil }, nil
+			}),
+		)
+		require.NoError(t, err)
+		err = op.PrepareAndValidateCollectionRequest()
+		require.EqualError(t, err, "sdk-owned default embedding function is not closable")
 	})
 
 	t.Run("wrapped content-only EF does not persist empty config", func(t *testing.T) {

@@ -99,12 +99,26 @@ type countingMemoryEmbeddedRuntime struct {
 	getCollectionCalls    int
 }
 
+type jsonRoundTripMissingGetCollectionOnceRuntime struct {
+	*missingGetCollectionOnceRuntime
+}
+
 type blockingGetMemoryEmbeddedRuntime struct {
 	*memoryEmbeddedRuntime
 
 	firstSnapshotTaken chan struct{}
 	unblockFirstGet    chan struct{}
 	getCalls           atomic.Int32
+}
+
+type failingCreateCollectionRuntime struct {
+	*stubEmbeddedRuntime
+	createErr error
+}
+
+type invalidCreateResponseDeleteTrackingRuntime struct {
+	*memoryEmbeddedRuntime
+	deleteCalls []localchroma.EmbeddedDeleteCollectionRequest
 }
 
 type missingGetCollectionOnceRuntime struct {
@@ -170,6 +184,19 @@ func newBlockingGetMemoryEmbeddedRuntime() *blockingGetMemoryEmbeddedRuntime {
 	}
 }
 
+func newJSONRoundTripMissingGetCollectionOnceRuntime() *jsonRoundTripMissingGetCollectionOnceRuntime {
+	return &jsonRoundTripMissingGetCollectionOnceRuntime{
+		missingGetCollectionOnceRuntime: newMissingGetCollectionOnceRuntime(),
+	}
+}
+
+func newInvalidCreateResponseDeleteTrackingRuntime() *invalidCreateResponseDeleteTrackingRuntime {
+	return &invalidCreateResponseDeleteTrackingRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+		deleteCalls:           make([]localchroma.EmbeddedDeleteCollectionRequest, 0, 1),
+	}
+}
+
 func newMissingGetCollectionOnceRuntime() *missingGetCollectionOnceRuntime {
 	runtime := &missingGetCollectionOnceRuntime{
 		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
@@ -223,6 +250,43 @@ func (s *blockingGetMemoryEmbeddedRuntime) GetCollection(request localchroma.Emb
 		<-s.unblockFirstGet
 	}
 	return col, nil
+}
+
+func (s *jsonRoundTripMissingGetCollectionOnceRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	col, err := s.missingGetCollectionOnceRuntime.CreateCollection(request)
+	if err != nil {
+		return nil, err
+	}
+	return roundTripEmbeddedCollectionModel(col)
+}
+
+func (s *jsonRoundTripMissingGetCollectionOnceRuntime) GetCollection(request localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	col, err := s.missingGetCollectionOnceRuntime.GetCollection(request)
+	if err != nil {
+		return nil, err
+	}
+	return roundTripEmbeddedCollectionModel(col)
+}
+
+func (s *failingCreateCollectionRuntime) CreateCollection(localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	return nil, s.createErr
+}
+
+func (s *invalidCreateResponseDeleteTrackingRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	col, err := s.memoryEmbeddedRuntime.CreateCollection(request)
+	if err != nil {
+		return nil, err
+	}
+	invalid := *col
+	invalid.Metadata = map[string]any{
+		"invalid": map[string]any{"nested": "object"},
+	}
+	return &invalid, nil
+}
+
+func (s *invalidCreateResponseDeleteTrackingRuntime) DeleteCollection(request localchroma.EmbeddedDeleteCollectionRequest) error {
+	s.deleteCalls = append(s.deleteCalls, request)
+	return s.memoryEmbeddedRuntime.DeleteCollection(request)
 }
 
 func (s *missingGetCollectionOnceRuntime) GetCollection(request localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
@@ -346,6 +410,21 @@ func cloneEmbedding(src []float32) []float32 {
 	dst := make([]float32, len(src))
 	copy(dst, src)
 	return dst
+}
+
+func roundTripEmbeddedCollectionModel(model *localchroma.EmbeddedCollection) (*localchroma.EmbeddedCollection, error) {
+	if model == nil {
+		return nil, nil
+	}
+	payload, err := json.Marshal(model)
+	if err != nil {
+		return nil, err
+	}
+	var roundTripped localchroma.EmbeddedCollection
+	if err := json.Unmarshal(payload, &roundTripped); err != nil {
+		return nil, err
+	}
+	return &roundTripped, nil
 }
 
 func (s *memoryEmbeddedRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
@@ -1886,6 +1965,39 @@ func TestEmbeddedCreateCollection_DefaultORTExistingCollectionOnFreshClientUsesS
 	require.NotSame(t, temporaryDefaultEF, unwrapCloseOnceEF(againEmbedded.embeddingFunctionSnapshot()))
 }
 
+func TestEmbeddedCreateCollection_DefaultORTExistingCollectionOnFreshClientUsesStoredEFWhenProbeMisses_AfterJSONRoundTrip(t *testing.T) {
+	runtime := newJSONRoundTripMissingGetCollectionOnceRuntime()
+	writer := newEmbeddedClientForRuntime(t, runtime)
+	reader := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	initialEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	created, err := writer.CreateCollection(
+		ctx,
+		"default-ort-existing-fresh-client-probe-miss-json-roundtrip",
+		WithEmbeddingFunctionCreate(initialEF),
+	)
+	require.NoError(t, err)
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	got, err := reader.CreateCollection(
+		ctx,
+		"default-ort-existing-fresh-client-probe-miss-json-roundtrip",
+		WithIfNotExistsCreate(),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.Equal(t, created.ID(), got.ID())
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	require.Equal(t, initialEF.Name(), unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()).Name())
+	require.NotSame(t, temporaryDefaultEF, unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot()))
+}
+
 func TestEmbeddedCreateCollection_DefaultORTReplacementCollectionKeepsTemporaryDefaultWhenProbeIsStale(t *testing.T) {
 	runtime := newStaleGetCollectionDeleteRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
@@ -1913,6 +2025,118 @@ func TestEmbeddedCreateCollection_DefaultORTReplacementCollectionKeepsTemporaryD
 
 	require.NoError(t, got.Close())
 	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+}
+
+func TestEmbeddedCreateCollection_DefaultORTCreateFailureClosesTemporaryDefault(t *testing.T) {
+	runtime := &failingCreateCollectionRuntime{
+		stubEmbeddedRuntime: &stubEmbeddedRuntime{},
+		createErr:           errors.New("create boom"),
+	}
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	_, err := client.CreateCollection(
+		ctx,
+		"default-ort-create-failure",
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error creating collection")
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+}
+
+func TestEmbeddedCreateCollection_DefaultORTCanceledContextClosesTemporaryDefault(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	_, err := client.CreateCollection(
+		ctx,
+		"default-ort-canceled-context",
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
+}
+
+func TestEmbeddedCreateCollection_DefaultORTExistingCollectionWithNonClosableDefaultReturnsError(t *testing.T) {
+	runtime := newCountingMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	_, err := client.CreateCollection(
+		ctx,
+		"default-ort-existing-non-closable",
+		WithEmbeddingFunctionCreate(embeddingspkg.NewConsistentHashEmbeddingFunction()),
+	)
+	require.NoError(t, err)
+
+	_, err = client.CreateCollection(
+		ctx,
+		"default-ort-existing-non-closable",
+		WithIfNotExistsCreate(),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return &mockNonCloseableEF{}, func() error { return nil }, nil
+		}),
+	)
+	require.EqualError(t, err, "sdk-owned default embedding function is not closable")
+}
+
+func TestEmbeddedCreateCollection_BuildFailureDeletesRuntimeCollection(t *testing.T) {
+	runtime := newInvalidCreateResponseDeleteTrackingRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	_, err := client.CreateCollection(ctx, "invalid-create-response")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error parsing collection metadata")
+
+	require.Len(t, runtime.deleteCalls, 1)
+	require.Equal(t, "invalid-create-response", runtime.deleteCalls[0].Name)
+
+	_, getErr := runtime.GetCollection(localchroma.EmbeddedGetCollectionRequest{
+		Name:         "invalid-create-response",
+		TenantID:     DefaultTenant,
+		DatabaseName: DefaultDatabase,
+	})
+	require.Error(t, getErr)
+}
+
+func TestComparableCollectionMap_NormalizesJSONNumberAndFloat64(t *testing.T) {
+	left := map[string]any{
+		"hnsw": map[string]any{
+			"construction_ef": float64(200),
+			"m":               float64(16),
+		},
+	}
+	right := map[string]any{
+		"hnsw": map[string]any{
+			"construction_ef": json.Number("200"),
+			"m":               json.Number("16"),
+		},
+	}
+
+	require.True(t, comparableCollectionMap(left, right))
+	require.True(t, comparableCollectionMap(right, left))
+}
+
+func TestComparableCollectionMap_EmptyAndNilMatch(t *testing.T) {
+	require.True(t, comparableCollectionMap(nil, map[string]any{}))
+	require.True(t, comparableCollectionMap(map[string]any{}, nil))
+}
+
+func TestIsEmbeddedCollectionNotFoundError(t *testing.T) {
+	require.True(t, isEmbeddedCollectionNotFoundError(errors.New("collection not found")))
+	require.True(t, isEmbeddedCollectionNotFoundError(errors.New("Collection NOT FOUND in runtime")))
+	require.False(t, isEmbeddedCollectionNotFoundError(errors.New("embedded runtime unavailable")))
+	require.False(t, isEmbeddedCollectionNotFoundError(nil))
 }
 
 func TestEmbeddedCollectionCRUD_AddUpsertQueryDelete(t *testing.T) {

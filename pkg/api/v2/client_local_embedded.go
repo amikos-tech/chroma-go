@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	stderrors "errors"
-	"io"
 	"math"
 	"reflect"
 	"strings"
@@ -69,11 +68,16 @@ func newEmbeddedLocalClient(cfg *localClientConfig, embedded localEmbeddedRuntim
 		return nil, errors.Wrap(err, "embedded runtime failed readiness checks")
 	}
 
+	clientLogger := cfg.logger
+	if clientLogger == nil {
+		clientLogger = logger.NewNoopLogger()
+	}
+
 	return &embeddedLocalClient{
 		state:           stateClient,
 		embedded:        embedded,
 		collectionState: map[string]*embeddedCollectionState{},
-		logger:          cfg.logger,
+		logger:          clientLogger,
 	}, nil
 }
 
@@ -339,7 +343,7 @@ func (client *embeddedLocalClient) Reset(ctx context.Context) error {
 	return client.embedded.Reset()
 }
 
-func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name string, options ...CreateCollectionOption) (Collection, error) {
+func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name string, options ...CreateCollectionOption) (collection Collection, err error) {
 	newOptions := append([]CreateCollectionOption{WithDatabaseCreate(client.CurrentDatabase())}, options...)
 	req, err := NewCreateCollectionOp(name, newOptions...)
 	if err != nil {
@@ -348,6 +352,19 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 	if err := req.PrepareAndValidateCollectionRequest(); err != nil {
 		return nil, errors.Wrap(err, "error validating collection create request")
 	}
+	cleanupMessage := "error cleaning up default embedding function during collection create"
+	defer func() {
+		cleanupErr := req.closeSDKOwnedDefaultDenseEF(cleanupMessage)
+		if cleanupErr == nil {
+			return
+		}
+		collection = nil
+		if err != nil {
+			err = stderrors.Join(err, cleanupErr)
+			return
+		}
+		err = cleanupErr
+	}()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -373,6 +390,10 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		})
 		if lookupErr == nil && existingCollection != nil {
 			existingCollectionID = existingCollection.ID
+		} else if lookupErr != nil && !isEmbeddedCollectionNotFoundError(lookupErr) {
+			client.logger.Warn("create-if-not-exists preflight GetCollection failed",
+				logger.String("collection", req.Name),
+				logger.ErrorField("error", lookupErr))
 		}
 	}
 
@@ -393,9 +414,9 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		req.sdkOwnedDefaultDenseEF != nil &&
 		existingCollectionID == "" &&
 		!collectionModelMatchesCreateRequest(model, metadataMap, configurationMap, schemaMap) {
-		if err := closeSDKOwnedDefaultDenseEF(req, "error closing default embedding function for existing collection"); err != nil {
-			return nil, err
-		}
+		cleanupMessage = "error closing default embedding function for existing collection"
+		// A missed preflight probe on a fresh client can still reuse an existing
+		// collection; reload it so the returned collection uses the stored EF state.
 		collection, getErr := client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
 		if getErr != nil {
 			return nil, errors.Wrap(getErr, "error retrieving existing collection after create-if-not-exists reuse")
@@ -423,16 +444,31 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 				state.schema = req.Schema
 			}
 		})
+		req.sdkOwnedDefaultDenseEF = nil
 	} else {
-		if err := closeSDKOwnedDefaultDenseEF(req, "error closing default embedding function for existing collection"); err != nil {
-			return nil, err
-		}
+		cleanupMessage = "error closing default embedding function for existing collection"
 		overrideEF = nil
 		overrideContentEF = nil
 	}
 
-	collection, err := client.buildEmbeddedCollection(*model, req.Database, overrideEF, overrideContentEF, true, true)
+	collection, err = client.buildEmbeddedCollection(*model, req.Database, overrideEF, overrideContentEF, true, true)
 	if err != nil {
+		if !reusedExistingCollection {
+			deleteErr := client.embedded.DeleteCollection(localchroma.EmbeddedDeleteCollectionRequest{
+				Name:         req.Name,
+				TenantID:     req.Database.Tenant().Name(),
+				DatabaseName: req.Database.Name(),
+			})
+			cleanupErr := client.deleteCollectionState(model.ID)
+			err = errors.Wrap(err, "error building collection")
+			if deleteErr != nil {
+				err = stderrors.Join(err, errors.Wrap(deleteErr, "error deleting collection after build failure"))
+			}
+			if cleanupErr != nil {
+				return nil, stderrors.Join(err, cleanupErr)
+			}
+			return nil, err
+		}
 		return nil, errors.Wrap(err, "error building collection")
 	}
 	return collection, nil
@@ -776,21 +812,6 @@ func (client *embeddedLocalClient) returnedExistingCollection(name, returnedColl
 	return cached != nil && cached.ID() == returnedCollectionID
 }
 
-func closeSDKOwnedDefaultDenseEF(req *CreateCollectionOp, wrapMessage string) error {
-	if req == nil || req.sdkOwnedDefaultDenseEF == nil || req.embeddingFunction != req.sdkOwnedDefaultDenseEF {
-		return nil
-	}
-	closer, ok := req.sdkOwnedDefaultDenseEF.(io.Closer)
-	if !ok {
-		return errors.New("sdk-owned default embedding function is not closable")
-	}
-	if err := closer.Close(); err != nil {
-		return errors.Wrap(err, wrapMessage)
-	}
-	req.sdkOwnedDefaultDenseEF = nil
-	return nil
-}
-
 func collectionModelMatchesCreateRequest(model *localchroma.EmbeddedCollection, metadataMap, configurationMap, schemaMap map[string]any) bool {
 	if model == nil {
 		return false
@@ -807,7 +828,22 @@ func comparableCollectionMap(left, right map[string]any) bool {
 	if len(right) == 0 {
 		right = nil
 	}
-	return reflect.DeepEqual(left, right)
+	leftPayload, err := json.Marshal(left)
+	if err != nil {
+		return false
+	}
+	rightPayload, err := json.Marshal(right)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(leftPayload, rightPayload)
+}
+
+func isEmbeddedCollectionNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "not found")
 }
 
 func (client *embeddedLocalClient) renameCollectionInCache(oldName string, collection Collection) {

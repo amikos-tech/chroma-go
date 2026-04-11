@@ -271,6 +271,22 @@ func (op *CreateCollectionOp) ensureDefaultDenseEFFactory() {
 	op.defaultDenseEFFactory = newDefaultDenseEFFactory()
 }
 
+func (op *CreateCollectionOp) closeSDKOwnedDefaultDenseEF(wrapMessage string) error {
+	if op == nil || op.sdkOwnedDefaultDenseEF == nil || op.embeddingFunction != op.sdkOwnedDefaultDenseEF {
+		return nil
+	}
+	sdkOwnedDefaultEF := op.sdkOwnedDefaultDenseEF
+	closer, ok := sdkOwnedDefaultEF.(io.Closer)
+	if !ok {
+		return errors.New("sdk-owned default embedding function is not closable")
+	}
+	op.sdkOwnedDefaultDenseEF = nil
+	if err := closer.Close(); err != nil {
+		return errors.Wrap(err, wrapMessage)
+	}
+	return nil
+}
+
 func NewCreateCollectionOp(name string, opts ...CreateCollectionOption) (*CreateCollectionOp, error) {
 	op := &CreateCollectionOp{
 		Name:                  name,
@@ -293,10 +309,7 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 	defaultedDenseEF := op.embeddingFunction == nil
 	if defaultedDenseEF {
 		op.ensureDefaultDenseEFFactory()
-		// Keep the returned close function out of here: collection constructors own the
-		// embedding function lifecycle and will close it via collection.Close().
-		// The EF object is retained in op.embeddingFunction, so its Close() method
-		// remains reachable without storing the separate closer return value.
+		// Track SDK-owned default EF so non-collection paths can clean it up explicitly.
 		ef, _, err := op.defaultDenseEFFactory()
 		if err != nil {
 			return errors.Wrap(err, "error creating default embedding function")
@@ -340,12 +353,9 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 			// denseEF was provided, so the returned collection uses the same EF
 			// that was persisted to config (avoids mixed-model embeddings).
 			if defaultedDenseEF {
-				if closer, ok := op.embeddingFunction.(io.Closer); ok {
-					if err := closer.Close(); err != nil {
-						return errors.Wrap(err, "error closing default embedding function during contentEF promotion")
-					}
+				if err := op.closeSDKOwnedDefaultDenseEF("error closing default embedding function during contentEF promotion"); err != nil {
+					return err
 				}
-				op.sdkOwnedDefaultDenseEF = nil
 				op.embeddingFunction = denseEF
 			}
 		} else if op.Schema == nil {
