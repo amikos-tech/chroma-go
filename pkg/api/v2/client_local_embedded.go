@@ -389,6 +389,20 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		return nil, errors.Wrap(err, "error creating collection")
 	}
 
+	if req.CreateIfNotExists &&
+		req.sdkOwnedDefaultDenseEF != nil &&
+		existingCollectionID == "" &&
+		!collectionModelMatchesCreateRequest(model, metadataMap, configurationMap, schemaMap) {
+		if err := closeSDKOwnedDefaultDenseEF(req, "error closing default embedding function for existing collection"); err != nil {
+			return nil, err
+		}
+		collection, getErr := client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
+		if getErr != nil {
+			return nil, errors.Wrap(getErr, "error retrieving existing collection after create-if-not-exists reuse")
+		}
+		return collection, nil
+	}
+
 	overrideEF := req.embeddingFunction
 	overrideContentEF := req.contentEmbeddingFunction
 	reusedExistingCollection := client.returnedExistingCollection(req.Name, model.ID, existingCollectionID)
@@ -410,15 +424,8 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 			}
 		})
 	} else {
-		if req.sdkOwnedDefaultDenseEF != nil && req.embeddingFunction == req.sdkOwnedDefaultDenseEF {
-			closer, ok := req.sdkOwnedDefaultDenseEF.(io.Closer)
-			if !ok {
-				return nil, errors.New("sdk-owned default embedding function is not closable")
-			}
-			if err := closer.Close(); err != nil {
-				return nil, errors.Wrap(err, "error closing default embedding function for existing collection")
-			}
-			req.sdkOwnedDefaultDenseEF = nil
+		if err := closeSDKOwnedDefaultDenseEF(req, "error closing default embedding function for existing collection"); err != nil {
+			return nil, err
 		}
 		overrideEF = nil
 		overrideContentEF = nil
@@ -767,6 +774,40 @@ func (client *embeddedLocalClient) returnedExistingCollection(name, returnedColl
 
 	cached := client.cachedCollectionByName(name)
 	return cached != nil && cached.ID() == returnedCollectionID
+}
+
+func closeSDKOwnedDefaultDenseEF(req *CreateCollectionOp, wrapMessage string) error {
+	if req == nil || req.sdkOwnedDefaultDenseEF == nil || req.embeddingFunction != req.sdkOwnedDefaultDenseEF {
+		return nil
+	}
+	closer, ok := req.sdkOwnedDefaultDenseEF.(io.Closer)
+	if !ok {
+		return errors.New("sdk-owned default embedding function is not closable")
+	}
+	if err := closer.Close(); err != nil {
+		return errors.Wrap(err, wrapMessage)
+	}
+	req.sdkOwnedDefaultDenseEF = nil
+	return nil
+}
+
+func collectionModelMatchesCreateRequest(model *localchroma.EmbeddedCollection, metadataMap, configurationMap, schemaMap map[string]any) bool {
+	if model == nil {
+		return false
+	}
+	return comparableCollectionMap(model.Metadata, metadataMap) &&
+		comparableCollectionMap(model.ConfigurationJSON, configurationMap) &&
+		comparableCollectionMap(model.Schema, schemaMap)
+}
+
+func comparableCollectionMap(left, right map[string]any) bool {
+	if len(left) == 0 {
+		left = nil
+	}
+	if len(right) == 0 {
+		right = nil
+	}
+	return reflect.DeepEqual(left, right)
 }
 
 func (client *embeddedLocalClient) renameCollectionInCache(oldName string, collection Collection) {

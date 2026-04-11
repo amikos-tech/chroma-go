@@ -1531,6 +1531,22 @@ func TestWithContentEmbeddingFunctionCreateNil(t *testing.T) {
 	require.Contains(t, err.Error(), "content embedding function cannot be nil")
 }
 
+func TestCreateCollectionOpUnmarshalJSON_InitializesDefaultDenseEFFactory(t *testing.T) {
+	var op CreateCollectionOp
+
+	err := json.Unmarshal([]byte(`{"name":"test-json-default"}`), &op)
+	require.NoError(t, err)
+	require.NotNil(t, op.defaultDenseEFFactory)
+}
+
+func TestCreateCollectionOpEnsureDefaultDenseEFFactory_ZeroValue(t *testing.T) {
+	var op CreateCollectionOp
+
+	require.Nil(t, op.defaultDenseEFFactory)
+	op.ensureDefaultDenseEFFactory()
+	require.NotNil(t, op.defaultDenseEFFactory)
+}
+
 func TestPrepareAndValidateCollectionRequest_ContentEFConfigPersistence(t *testing.T) {
 	t.Run("dual-interface contentEF persists config", func(t *testing.T) {
 		dualEF := &mockDualEF{}

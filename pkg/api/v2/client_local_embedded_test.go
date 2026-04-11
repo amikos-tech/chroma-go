@@ -1843,6 +1843,49 @@ func TestEmbeddedCreateCollection_DefaultORTNewCollectionDoesNotCloseTemporaryDe
 	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load())
 }
 
+func TestEmbeddedCreateCollection_DefaultORTExistingCollectionOnFreshClientUsesStoredEFWhenProbeMisses(t *testing.T) {
+	runtime := newMissingGetCollectionOnceRuntime()
+	writer := newEmbeddedClientForRuntime(t, runtime)
+	reader := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	initialEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	created, err := writer.CreateCollection(
+		ctx,
+		"default-ort-existing-fresh-client-probe-miss",
+		WithEmbeddingFunctionCreate(initialEF),
+	)
+	require.NoError(t, err)
+
+	temporaryDefaultEF := &mockCloseableEF{}
+	got, err := reader.CreateCollection(
+		ctx,
+		"default-ort-existing-fresh-client-probe-miss",
+		WithIfNotExistsCreate(),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.Equal(t, created.ID(), got.ID())
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
+		"temporary default EF must be closed when CreateCollection reused an existing collection")
+
+	gotCollection, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	gotDenseEF := unwrapCloseOnceEF(gotCollection.embeddingFunctionSnapshot())
+	require.NotNil(t, gotDenseEF)
+	require.Equal(t, initialEF.Name(), gotDenseEF.Name())
+	require.NotSame(t, temporaryDefaultEF, gotDenseEF)
+
+	again, err := reader.GetCollection(ctx, "default-ort-existing-fresh-client-probe-miss")
+	require.NoError(t, err)
+	againEmbedded, ok := again.(*embeddedCollection)
+	require.True(t, ok)
+	require.Equal(t, initialEF.Name(), unwrapCloseOnceEF(againEmbedded.embeddingFunctionSnapshot()).Name())
+	require.NotSame(t, temporaryDefaultEF, unwrapCloseOnceEF(againEmbedded.embeddingFunctionSnapshot()))
+}
+
 func TestEmbeddedCreateCollection_DefaultORTReplacementCollectionKeepsTemporaryDefaultWhenProbeIsStale(t *testing.T) {
 	runtime := newStaleGetCollectionDeleteRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)

@@ -244,6 +244,12 @@ type CreateCollectionOption func(*CreateCollectionOp) error
 
 type defaultDenseEFFactory func() (embeddings.EmbeddingFunction, func() error, error)
 
+func newDefaultDenseEFFactory() defaultDenseEFFactory {
+	return func() (embeddings.EmbeddingFunction, func() error, error) {
+		return ort.NewDefaultEmbeddingFunction()
+	}
+}
+
 type CreateCollectionOp struct {
 	Name                     string                              `json:"name"`
 	CreateIfNotExists        bool                                `json:"get_or_create,omitempty"`
@@ -258,12 +264,17 @@ type CreateCollectionOp struct {
 	sdkOwnedDefaultDenseEF   embeddings.EmbeddingFunction        `json:"-"`
 }
 
+func (op *CreateCollectionOp) ensureDefaultDenseEFFactory() {
+	if op.defaultDenseEFFactory != nil {
+		return
+	}
+	op.defaultDenseEFFactory = newDefaultDenseEFFactory()
+}
+
 func NewCreateCollectionOp(name string, opts ...CreateCollectionOption) (*CreateCollectionOp, error) {
 	op := &CreateCollectionOp{
-		Name: name,
-		defaultDenseEFFactory: func() (embeddings.EmbeddingFunction, func() error, error) {
-			return ort.NewDefaultEmbeddingFunction()
-		},
+		Name:                  name,
+		defaultDenseEFFactory: newDefaultDenseEFFactory(),
 	}
 	for _, opt := range opts {
 		err := opt(op)
@@ -281,6 +292,7 @@ func (op *CreateCollectionOp) PrepareAndValidateCollectionRequest() error {
 	op.sdkOwnedDefaultDenseEF = nil
 	defaultedDenseEF := op.embeddingFunction == nil
 	if defaultedDenseEF {
+		op.ensureDefaultDenseEFFactory()
 		// Keep the returned close function out of here: collection constructors own the
 		// embedding function lifecycle and will close it via collection.Close().
 		// The EF object is retained in op.embeddingFunction, so its Close() method
@@ -362,6 +374,7 @@ func (op *CreateCollectionOp) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	op.Metadata = aux.Metadata
+	op.ensureDefaultDenseEFFactory()
 	return nil
 }
 
