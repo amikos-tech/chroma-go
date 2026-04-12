@@ -511,3 +511,67 @@ func TestDeleteCollectionFromCache_EmbeddedCollectionNonOwner(t *testing.T) {
 	require.Equal(t, int32(0), mockContentEF.closeCount.Load(), "content EF must not be closed for non-owner embedded collection")
 	require.Nil(t, client.collectionCache["embedded-test"], "cache entry must be removed")
 }
+
+// Fix 5: closeOwnedEmbeddingFunctions must close shared dense EF when
+// ownDense=true but ownContent=false — the content side won't handle it.
+func TestCloseOwnedEmbeddingFunctions_SharedDenseClosedWhenContentNotOwned(t *testing.T) {
+	inner := &mockCloseableEF{}
+	contentAdapter := &mockSharedContentAdapter{inner: inner}
+
+	err := closeOwnedEmbeddingFunctions(inner, true, contentAdapter, false)
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), inner.closeCount.Load(),
+		"shared dense EF must be closed when ownDense=true and ownContent=false")
+	assert.Equal(t, 0, contentAdapter.closeCount,
+		"content side must not be closed when ownContent=false")
+}
+
+// Complementary: shared dense is still skipped when content owns cleanup.
+func TestCloseOwnedEmbeddingFunctions_SharedDenseSkippedWhenContentOwned(t *testing.T) {
+	inner := &mockCloseableEF{}
+	contentAdapter := &mockSharedContentAdapter{inner: inner}
+
+	err := closeOwnedEmbeddingFunctions(inner, true, contentAdapter, true)
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), inner.closeCount.Load(),
+		"shared EF must be closed exactly once (via content side)")
+	assert.Equal(t, 1, contentAdapter.closeCount,
+		"content adapter must be closed when ownContent=true")
+}
+
+// Fix 1: buildEmbeddedCollection re-evaluates shared-EF ownership
+// when overriding EFs, preventing stale ownsEmbeddingFunction flags.
+func TestBuildEmbeddedCollection_ReEvaluatesSharedOwnershipOnOverride(t *testing.T) {
+	inner := &mockCloseableEF{}
+	contentAdapter := &mockSharedContentAdapter{inner: inner}
+
+	// Simulate: state has ownsEmbeddingFunction=true from a prior non-shared install.
+	state := &embeddedCollectionState{
+		embeddingFunction:         inner,
+		ownsEmbeddingFunction:     true,
+		contentEmbeddingFunction:  nil,
+		ownsContentEmbeddingFunction: false,
+	}
+
+	// Override content with an adapter that shares the dense EF.
+	// The shared-EF re-evaluation should flip ownsEmbeddingFunction to false.
+	wrappedContent := wrapContentEFCloseOnce(contentAdapter)
+	wrappedDense := wrapEFCloseOnce(inner)
+	upsertFn := func(s *embeddedCollectionState) {
+		if wrappedDense != nil {
+			s.embeddingFunction = wrappedDense
+		}
+		if wrappedContent != nil {
+			s.contentEmbeddingFunction = wrappedContent
+		}
+		if (wrappedDense != nil || wrappedContent != nil) &&
+			s.ownsEmbeddingFunction &&
+			isDenseEFSharedWithContent(s.embeddingFunction, s.contentEmbeddingFunction) {
+			s.ownsEmbeddingFunction = false
+		}
+	}
+	upsertFn(state)
+
+	assert.False(t, state.ownsEmbeddingFunction,
+		"ownsEmbeddingFunction must be flipped to false when dense is shared with new content override")
+}

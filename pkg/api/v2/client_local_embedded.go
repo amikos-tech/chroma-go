@@ -19,12 +19,14 @@ import (
 )
 
 type embeddedCollectionState struct {
-	embeddingFunction        embeddingspkg.EmbeddingFunction
-	contentEmbeddingFunction embeddingspkg.ContentEmbeddingFunction
-	metadata                 CollectionMetadata
-	configuration            CollectionConfiguration
-	schema                   *Schema
-	dimension                int
+	embeddingFunction            embeddingspkg.EmbeddingFunction
+	ownsEmbeddingFunction        bool
+	contentEmbeddingFunction     embeddingspkg.ContentEmbeddingFunction
+	ownsContentEmbeddingFunction bool
+	metadata                     CollectionMetadata
+	configuration                CollectionConfiguration
+	schema                       *Schema
+	dimension                    int
 }
 
 type localClientState interface {
@@ -448,8 +450,15 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		!collectionModelMatchesCreateRequest(model, metadataMap, configurationMap, schemaMap)
 	if shouldReloadForReuse {
 		cleanupMessage = "error closing default embedding function for existing collection"
+		getOptions := []GetCollectionOption{WithDatabaseGet(req.Database)}
+		if req.embeddingFunction != nil && req.embeddingFunction != req.sdkOwnedDefaultDenseEF {
+			getOptions = append(getOptions, WithEmbeddingFunctionGet(req.embeddingFunction))
+		}
+		if req.contentEmbeddingFunction != nil {
+			getOptions = append(getOptions, WithContentEmbeddingFunctionGet(req.contentEmbeddingFunction))
+		}
 		var getErr error
-		collection, getErr = client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
+		collection, getErr = client.GetCollection(ctx, req.Name, getOptions...)
 		if getErr != nil {
 			return nil, errors.Wrap(getErr, "error retrieving existing collection after create-if-not-exists reuse")
 		}
@@ -467,8 +476,15 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		cached := client.cachedCollectionByName(req.Name)
 		hasCachedCollection := cached != nil && cached.ID() == model.ID
 		if !hasState && !hasCachedCollection {
+			getOptions := []GetCollectionOption{WithDatabaseGet(req.Database)}
+			if req.embeddingFunction != nil && req.embeddingFunction != req.sdkOwnedDefaultDenseEF {
+				getOptions = append(getOptions, WithEmbeddingFunctionGet(req.embeddingFunction))
+			}
+			if req.contentEmbeddingFunction != nil {
+				getOptions = append(getOptions, WithContentEmbeddingFunctionGet(req.contentEmbeddingFunction))
+			}
 			var getErr error
-			collection, getErr = client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
+			collection, getErr = client.GetCollection(ctx, req.Name, getOptions...)
 			if getErr != nil {
 				return nil, errors.Wrap(getErr, "error retrieving existing collection after create-if-not-exists reuse")
 			}
@@ -482,6 +498,11 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
 			state.embeddingFunction = overrideEF
 			state.contentEmbeddingFunction = overrideContentEF
+			state.ownsEmbeddingFunction = state.embeddingFunction != nil
+			state.ownsContentEmbeddingFunction = state.contentEmbeddingFunction != nil
+			if isDenseEFSharedWithContent(state.embeddingFunction, state.contentEmbeddingFunction) {
+				state.ownsEmbeddingFunction = false
+			}
 			if req.Metadata != nil {
 				state.metadata = req.Metadata
 			}
@@ -691,17 +712,19 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 	// collection snapshot.
 	if contentEF != nil {
 		s.contentEmbeddingFunction = wrapContentEFCloseOnce(contentEF)
+		s.ownsContentEmbeddingFunction = req.contentEmbeddingFunction == nil
 	}
 	if ef != nil {
 		s.embeddingFunction = wrapEFCloseOnce(ef)
+		s.ownsEmbeddingFunction = req.embeddingFunction == nil && !isDenseEFSharedWithContent(s.embeddingFunction, s.contentEmbeddingFunction)
 	}
 	snapshot := *s
 	client.collectionStateMu.Unlock()
 
 	collection, err := client.buildEmbeddedCollection(*model, req.Database, snapshot.embeddingFunction, snapshot.contentEmbeddingFunction, true, false)
 	if err != nil {
-		_ = client.deleteCollectionState(model.ID)
-		return nil, errors.Wrap(err, "error building collection")
+		cleanupErr := client.deleteCollectionState(model.ID)
+		return nil, stderrors.Join(errors.Wrap(err, "error building collection"), cleanupErr)
 	}
 	verifiedModel, verifyErr := client.embedded.GetCollection(localchroma.EmbeddedGetCollectionRequest{
 		Name:         req.name,
@@ -709,10 +732,6 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 		DatabaseName: req.Database.Name(),
 	})
 	if verifyErr != nil || verifiedModel == nil || verifiedModel.ID != model.ID {
-		// Clean up auto-wired EFs. In a narrow race window a concurrent
-		// GetCollection that already cached its result may share these same
-		// close-once wrappers; its next embed call would see errEFClosed.
-		// A proper fix requires reference counting — accepted as known limitation.
 		var errs []error
 		if cleanupErr := client.deleteCollectionState(model.ID); cleanupErr != nil {
 			errs = append(errs, cleanupErr)
@@ -820,7 +839,12 @@ func (client *embeddedLocalClient) Close() error {
 	client.collectionStateMu.Unlock()
 
 	for id, s := range states {
-		if err := closeEmbeddingFunctions(s.embeddingFunction, s.contentEmbeddingFunction); err != nil {
+		if err := closeOwnedEmbeddingFunctions(
+			s.embeddingFunction,
+			s.ownsEmbeddingFunction,
+			s.contentEmbeddingFunction,
+			s.ownsContentEmbeddingFunction,
+		); err != nil {
 			client.logCloseError("failed to close EF during client shutdown", id, err)
 			errs = append(errs, err)
 		}
@@ -962,7 +986,12 @@ func (client *embeddedLocalClient) deleteCollectionState(collectionID string) er
 	client.collectionStateMu.Unlock()
 	// Close outside the lock so EF teardown does not block unrelated state updates.
 	if state != nil {
-		if err := closeEmbeddingFunctions(state.embeddingFunction, state.contentEmbeddingFunction); err != nil {
+		if err := closeOwnedEmbeddingFunctions(
+			state.embeddingFunction,
+			state.ownsEmbeddingFunction,
+			state.contentEmbeddingFunction,
+			state.ownsContentEmbeddingFunction,
+		); err != nil {
 			client.logCloseError("failed to close EF during collection state cleanup", collectionID, err)
 			return err
 		}
@@ -990,12 +1019,14 @@ func (client *embeddedLocalClient) upsertCollectionState(collectionID string, up
 	}
 
 	return embeddedCollectionState{
-		embeddingFunction:        state.embeddingFunction,
-		contentEmbeddingFunction: state.contentEmbeddingFunction,
-		metadata:                 state.metadata,
-		configuration:            state.configuration,
-		schema:                   state.schema,
-		dimension:                state.dimension,
+		embeddingFunction:            state.embeddingFunction,
+		ownsEmbeddingFunction:        state.ownsEmbeddingFunction,
+		contentEmbeddingFunction:     state.contentEmbeddingFunction,
+		ownsContentEmbeddingFunction: state.ownsContentEmbeddingFunction,
+		metadata:                     state.metadata,
+		configuration:                state.configuration,
+		schema:                       state.schema,
+		dimension:                    state.dimension,
 	}
 }
 
@@ -1068,11 +1099,20 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 	}
 
 	snapshot := client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
+		// Ownership flags are set by the caller that first installed the state
+		// (CreateCollection/GetCollection/etc.). When an EF is overridden here
+		// we re-evaluate the shared-EF invariant so a stale ownership flag from
+		// a prior install cannot prevent cleanup of the new EF.
 		if overrideEF != nil {
 			state.embeddingFunction = overrideEF
 		}
 		if overrideContentEF != nil {
 			state.contentEmbeddingFunction = overrideContentEF
+		}
+		if (overrideEF != nil || overrideContentEF != nil) &&
+			state.ownsEmbeddingFunction &&
+			isDenseEFSharedWithContent(state.embeddingFunction, state.contentEmbeddingFunction) {
+			state.ownsEmbeddingFunction = false
 		}
 		if metadata != nil {
 			state.metadata = metadata
@@ -1746,6 +1786,11 @@ func (c *embeddedCollection) Close() error {
 	contentEF := c.contentEmbeddingFunction
 	c.mu.RUnlock()
 	c.closeOnce.Do(func() {
+		// Collection-level Close owns the returned snapshot regardless of the
+		// client state's ownership flags. State cleanup (deleteCollectionState /
+		// client.Close) may intentionally skip caller-provided EFs, but once a
+		// collection handle is explicitly closed we tear down the snapshot it was
+		// given so user-facing cleanup stays deterministic.
 		c.closeErr = closeEmbeddingFunctions(ef, contentEF)
 	})
 	return c.closeErr

@@ -122,6 +122,24 @@ type blockingGetMemoryEmbeddedRuntime struct {
 	getCalls           atomic.Int32
 }
 
+type blockingCreateAfterMissMemoryEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+
+	targetCollectionName string
+	firstCreateReady     chan struct{}
+	allowFirstCreate     chan struct{}
+	createCalls          atomic.Int32
+}
+
+type failingRevalidationGetMemoryEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+
+	targetCollectionName string
+
+	mu                 sync.Mutex
+	getCollectionCalls map[string]int
+}
+
 type failingCreateCollectionRuntime struct {
 	*stubEmbeddedRuntime
 	createErr error
@@ -209,6 +227,23 @@ func newBlockingGetMemoryEmbeddedRuntime() *blockingGetMemoryEmbeddedRuntime {
 		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
 		firstSnapshotTaken:    make(chan struct{}),
 		unblockFirstGet:       make(chan struct{}),
+	}
+}
+
+func newBlockingCreateAfterMissMemoryEmbeddedRuntime(targetCollectionName string) *blockingCreateAfterMissMemoryEmbeddedRuntime {
+	return &blockingCreateAfterMissMemoryEmbeddedRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+		targetCollectionName:  targetCollectionName,
+		firstCreateReady:      make(chan struct{}),
+		allowFirstCreate:      make(chan struct{}),
+	}
+}
+
+func newFailingRevalidationGetMemoryEmbeddedRuntime(targetCollectionName string) *failingRevalidationGetMemoryEmbeddedRuntime {
+	return &failingRevalidationGetMemoryEmbeddedRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+		targetCollectionName:  targetCollectionName,
+		getCollectionCalls:    map[string]int{},
 	}
 }
 
@@ -310,6 +345,34 @@ func (s *blockingGetMemoryEmbeddedRuntime) GetCollection(request localchroma.Emb
 		<-s.unblockFirstGet
 	}
 	return col, nil
+}
+
+func (s *blockingCreateAfterMissMemoryEmbeddedRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	if request.Name == s.targetCollectionName && s.createCalls.Add(1) == 1 {
+		close(s.firstCreateReady)
+		select {
+		case <-s.allowFirstCreate:
+		case <-time.After(5 * time.Second):
+			return nil, errors.New("timed out waiting to resume first create")
+		}
+	}
+	return s.memoryEmbeddedRuntime.CreateCollection(request)
+}
+
+func (s *failingRevalidationGetMemoryEmbeddedRuntime) GetCollection(request localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	if request.Name != s.targetCollectionName {
+		return s.memoryEmbeddedRuntime.GetCollection(request)
+	}
+
+	s.mu.Lock()
+	s.getCollectionCalls[request.Name]++
+	callNo := s.getCollectionCalls[request.Name]
+	s.mu.Unlock()
+
+	if callNo == 2 {
+		return nil, errors.New("revalidation boom")
+	}
+	return s.memoryEmbeddedRuntime.GetCollection(request)
 }
 
 func (s *jsonRoundTripMissingGetCollectionOnceRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
@@ -1818,6 +1881,37 @@ func TestEmbeddedLocalClientGetCollectionFailsOnInvalidRuntimeMetadata(t *testin
 	require.Contains(t, err.Error(), "error parsing collection metadata")
 }
 
+func TestEmbeddedLocalClientGetCollection_BuildFailureJoinsStateCleanupError(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	failingEF := &mockFailingCloseEF{closeErr: errors.New("get cleanup failure")}
+	created, err := client.CreateCollection(
+		ctx,
+		"invalid-runtime-metadata-close-error",
+		WithEmbeddingFunctionCreate(failingEF),
+		WithCollectionMetadataCreate(NewMetadataFromMap(map[string]interface{}{"owner": "qa"})),
+	)
+	require.NoError(t, err)
+
+	runtime.mu.Lock()
+	key := runtime.collectionByID[created.ID()]
+	col := runtime.collections[key]
+	col.Metadata = map[string]any{
+		"invalid": map[string]any{"nested": "object"},
+	}
+	runtime.collections[key] = col
+	runtime.mu.Unlock()
+
+	_, err = client.GetCollection(ctx, "invalid-runtime-metadata-close-error")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error building collection")
+	require.Contains(t, err.Error(), "error parsing collection metadata")
+	require.Contains(t, err.Error(), "get cleanup failure")
+	require.Equal(t, int32(1), failingEF.closeCount.Load(), "GetCollection must still physically close the EF once")
+}
+
 func TestEmbeddedLocalClientListCollectionsFailsOnInvalidRuntimeSchema(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
@@ -1921,6 +2015,251 @@ func TestEmbeddedLocalClientGetOrCreateCollection_CreatesWhenMissing(t *testing.
 	createCalls, getCalls := runtime.callCounts()
 	require.Equal(t, 1, createCalls)
 	require.Equal(t, 2, getCalls)
+}
+
+func TestEmbeddedLocalClientGetOrCreateCollection_FallbackAfterProvisionalGetFailureKeepsCallerEFOpen(t *testing.T) {
+	ctx := context.Background()
+
+	type scenario struct {
+		name    string
+		run     func(t *testing.T, got *embeddedCollection)
+		options func() ([]CreateCollectionOption, *atomic.Int32)
+	}
+
+	tests := []scenario{
+		{
+			name: "dense caller ef",
+			options: func() ([]CreateCollectionOption, *atomic.Int32) {
+				denseEF := &mockCloseableEF{}
+				return []CreateCollectionOption{WithEmbeddingFunctionCreate(denseEF)}, &denseEF.closeCount
+			},
+			run: func(t *testing.T, got *embeddedCollection) {
+				t.Helper()
+				denseEF := unwrapCloseOnceEF(got.embeddingFunctionSnapshot())
+				require.NotNil(t, denseEF, "dense EF must remain usable after fallback")
+				_, err := denseEF.EmbedQuery(ctx, "hello")
+				require.NoError(t, err)
+				require.NotErrorIs(t, err, errEFClosed)
+			},
+		},
+		{
+			name: "content caller ef",
+			options: func() ([]CreateCollectionOption, *atomic.Int32) {
+				contentEF := &mockCloseableContentEF{}
+				return []CreateCollectionOption{WithContentEmbeddingFunctionCreate(contentEF)}, &contentEF.closeCount
+			},
+			run: func(t *testing.T, got *embeddedCollection) {
+				t.Helper()
+				got.mu.RLock()
+				contentEF := got.contentEmbeddingFunction
+				got.mu.RUnlock()
+				require.NotNil(t, contentEF, "content EF must remain usable after fallback")
+				_, err := contentEF.EmbedContent(ctx, embeddingspkg.Content{})
+				require.NoError(t, err)
+				require.NotErrorIs(t, err, errEFClosed)
+			},
+		},
+		{
+			name: "dual-interface content ef",
+			options: func() ([]CreateCollectionOption, *atomic.Int32) {
+				dualEF := &mockDualEF{}
+				return []CreateCollectionOption{WithContentEmbeddingFunctionCreate(dualEF)}, &dualEF.closeCount
+			},
+			run: func(t *testing.T, got *embeddedCollection) {
+				t.Helper()
+				denseEF := unwrapCloseOnceEF(got.embeddingFunctionSnapshot())
+				require.NotNil(t, denseEF, "dense view must remain usable for dual-interface content EF")
+				_, err := denseEF.EmbedQuery(ctx, "hello")
+				require.NoError(t, err)
+				require.NotErrorIs(t, err, errEFClosed)
+
+				got.mu.RLock()
+				contentEF := got.contentEmbeddingFunction
+				got.mu.RUnlock()
+				require.NotNil(t, contentEF, "content view must remain usable for dual-interface content EF")
+				_, err = contentEF.EmbedContent(ctx, embeddingspkg.Content{})
+				require.NoError(t, err)
+				require.NotErrorIs(t, err, errEFClosed)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collectionName := "fallback-after-provisional-" + strings.ReplaceAll(tt.name, " ", "-")
+			runtime := newFailingRevalidationGetMemoryEmbeddedRuntime(collectionName)
+			seedEmbeddedCollectionForTest(t, runtime.memoryEmbeddedRuntime, collectionName, nil)
+
+			client := newEmbeddedClientForRuntime(t, runtime)
+			options, closeCount := tt.options()
+
+			// Call-order contract for the revalidation failure helper:
+			// 1. GetOrCreateCollection -> GetCollection triggers embedded.GetCollection call 1.
+			// 2. The same GetCollection path triggers embedded.GetCollection call 2 for revalidation.
+			// 3. After call 2 fails, GetOrCreateCollection falls back to CreateCollection(..., WithIfNotExistsCreate()),
+			//    whose own preflight lookup / reuse logic becomes call 3+ and delegates to the real runtime.
+			got, err := client.GetOrCreateCollection(ctx, collectionName, options...)
+			require.NoError(t, err)
+			require.NotEmpty(t, got.ID())
+
+			gotEmbedded, ok := got.(*embeddedCollection)
+			require.True(t, ok)
+			tt.run(t, gotEmbedded)
+			require.Equal(t, int32(0), closeCount.Load(), "caller-provided EF must stay open until collection Close")
+
+			require.NoError(t, got.Close())
+			require.Equal(t, int32(1), closeCount.Load(), "collection Close must own exactly one cleanup")
+		})
+	}
+}
+
+func TestEmbeddedGetCollection_RevalidationPreservesCallerOwnedEFsInState(t *testing.T) {
+	ctx := context.Background()
+
+	type scenario struct {
+		name      string
+		getOpts   func() ([]GetCollectionOption, *atomic.Int32)
+		assertEFs func(t *testing.T, got *embeddedCollection)
+	}
+
+	tests := []scenario{
+		{
+			name: "dense caller ef",
+			getOpts: func() ([]GetCollectionOption, *atomic.Int32) {
+				denseEF := &mockCloseableEF{}
+				return []GetCollectionOption{WithEmbeddingFunctionGet(denseEF)}, &denseEF.closeCount
+			},
+			assertEFs: func(t *testing.T, got *embeddedCollection) {
+				t.Helper()
+				require.NotNil(t, got.embeddingFunctionSnapshot())
+			},
+		},
+		{
+			name: "content caller ef",
+			getOpts: func() ([]GetCollectionOption, *atomic.Int32) {
+				contentEF := &mockCloseableContentEF{}
+				return []GetCollectionOption{WithContentEmbeddingFunctionGet(contentEF)}, &contentEF.closeCount
+			},
+			assertEFs: func(t *testing.T, got *embeddedCollection) {
+				t.Helper()
+				got.mu.RLock()
+				defer got.mu.RUnlock()
+				require.NotNil(t, got.contentEmbeddingFunction)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runtime := newMemoryEmbeddedRuntime()
+			writer := newEmbeddedClientForRuntime(t, runtime)
+			reader := newEmbeddedClientForRuntime(t, runtime)
+
+			collectionName := "get-revalidation-preserves-" + strings.ReplaceAll(tt.name, " ", "-")
+			_, err := writer.CreateCollection(ctx, collectionName,
+				WithEmbeddingFunctionCreate(embeddingspkg.NewConsistentHashEmbeddingFunction()),
+			)
+			require.NoError(t, err)
+
+			getOpts, closeCount := tt.getOpts()
+			got, err := reader.GetCollection(ctx, collectionName, getOpts...)
+			require.NoError(t, err)
+
+			gotEmbedded, ok := got.(*embeddedCollection)
+			require.True(t, ok)
+			tt.assertEFs(t, gotEmbedded)
+
+			require.NoError(t, reader.deleteCollectionState(got.ID()))
+			require.Equal(t, int32(0), closeCount.Load(),
+				"state cleanup must not close caller-provided EFs after successful revalidation")
+
+			require.NoError(t, got.Close())
+			require.Equal(t, int32(1), closeCount.Load(),
+				"collection Close must retain ownership of the caller-provided EF wrapper")
+		})
+	}
+}
+
+func TestEmbeddedLocalClientGetOrCreateCollection_ConcurrentRaceReturnsUsableCollection(t *testing.T) {
+	const collectionName = "concurrent-race-usable"
+
+	runtime := newBlockingCreateAfterMissMemoryEmbeddedRuntime(collectionName)
+	sharedClient := newEmbeddedClientForRuntime(t, runtime)
+	sharedDualEF := &mockDualEF{}
+	ctx := context.Background()
+
+	type result struct {
+		collection Collection
+		err        error
+	}
+
+	runGetOrCreate := func(resultCh chan<- result) {
+		collection, err := sharedClient.GetOrCreateCollection(
+			ctx,
+			collectionName,
+			WithEmbeddingFunctionCreate(sharedDualEF),
+			WithContentEmbeddingFunctionCreate(sharedDualEF),
+		)
+		resultCh <- result{collection: collection, err: err}
+	}
+
+	results := make(chan result, 2)
+	go runGetOrCreate(results)
+
+	select {
+	case <-runtime.firstCreateReady:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for first create to block")
+	}
+
+	go runGetOrCreate(results)
+
+	var first result
+	select {
+	case first = <-results:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for winning get-or-create result")
+	}
+	require.NoError(t, first.err)
+	require.NotNil(t, first.collection)
+
+	close(runtime.allowFirstCreate)
+
+	var second result
+	select {
+	case second = <-results:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for losing get-or-create result")
+	}
+	require.NoError(t, second.err)
+	require.NotNil(t, second.collection)
+
+	require.NotEmpty(t, first.collection.ID())
+	require.NotEmpty(t, second.collection.ID())
+	require.Equal(t, first.collection.ID(), second.collection.ID())
+
+	for _, got := range []Collection{first.collection, second.collection} {
+		gotEmbedded, ok := got.(*embeddedCollection)
+		require.True(t, ok)
+
+		denseEF := unwrapCloseOnceEF(gotEmbedded.embeddingFunctionSnapshot())
+		require.NotNil(t, denseEF, "dense EF must remain usable after concurrent get-or-create race")
+		_, err := denseEF.EmbedQuery(ctx, "hello")
+		require.NoError(t, err)
+		require.NotErrorIs(t, err, errEFClosed)
+
+		gotEmbedded.mu.RLock()
+		contentEF := gotEmbedded.contentEmbeddingFunction
+		gotEmbedded.mu.RUnlock()
+		require.NotNil(t, contentEF, "content EF must remain usable after concurrent get-or-create race")
+		_, err = contentEF.EmbedContent(ctx, embeddingspkg.Content{})
+		require.NoError(t, err)
+		require.NotErrorIs(t, err, errEFClosed)
+	}
+
+	require.NoError(t, first.collection.Close())
+	require.NoError(t, second.collection.Close())
+	require.Equal(t, int32(1), sharedDualEF.closeCount.Load(), "shared dual-interface EF must be closed exactly once")
 }
 
 func TestEmbeddedLocalClientCreateCollection_IfNotExistsExistingDoesNotOverrideState(t *testing.T) {
@@ -2038,6 +2377,52 @@ func TestEmbeddedCreateCollection_DefaultORTExistingCollectionProbeMissStillClos
 	source, ok := gotCollection.Metadata().GetString("source")
 	require.True(t, ok)
 	require.Equal(t, "initial", source)
+}
+
+func TestEmbeddedCreateCollection_DefaultORTReloadForReuseForwardsCallerContentEF(t *testing.T) {
+	runtime := newMissingGetCollectionOnceRuntime()
+	writer := newEmbeddedClientForRuntime(t, runtime)
+	reader := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	initialEF := embeddingspkg.NewConsistentHashEmbeddingFunction()
+	created, err := writer.CreateCollection(
+		ctx,
+		"default-ort-reload-content-forward",
+		WithEmbeddingFunctionCreate(initialEF),
+		WithCollectionMetadataCreate(NewMetadataFromMap(map[string]interface{}{"source": "initial"})),
+	)
+	require.NoError(t, err)
+
+	contentEF := &mockCloseableContentEF{}
+	temporaryDefaultEF := &mockCloseableEF{}
+	got, err := reader.CreateCollection(
+		ctx,
+		"default-ort-reload-content-forward",
+		WithIfNotExistsCreate(),
+		WithCollectionMetadataCreate(NewMetadataFromMap(map[string]interface{}{"source": "override"})),
+		WithContentEmbeddingFunctionCreate(contentEF),
+		withDefaultDenseEFFactoryCreate(func() (embeddingspkg.EmbeddingFunction, func() error, error) {
+			return temporaryDefaultEF, func() error { return nil }, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.Equal(t, created.ID(), got.ID())
+	require.Equal(t, int32(1), temporaryDefaultEF.closeCount.Load(),
+		"temporary default EF must still be cleaned up on existing-collection reuse")
+
+	gotEmbedded, ok := got.(*embeddedCollection)
+	require.True(t, ok)
+	gotEmbedded.mu.RLock()
+	gotContentEF := gotEmbedded.contentEmbeddingFunction
+	gotEmbedded.mu.RUnlock()
+	require.NotNil(t, gotContentEF, "reload-for-reuse must forward the caller-provided content EF")
+	require.Same(t, contentEF, unwrapCloseOnceContentEF(gotContentEF))
+	require.Equal(t, int32(0), contentEF.closeCount.Load())
+
+	require.NoError(t, got.Close())
+	require.Equal(t, int32(1), contentEF.closeCount.Load(),
+		"collection Close must own the forwarded content EF wrapper")
 }
 
 // TestEmbeddedCreateCollection_DefaultORTExistingCollectionLogsCleanupErrorAndReturnsCollection
@@ -3281,8 +3666,10 @@ func TestEmbeddedDeleteCollectionState_ClosesEFs(t *testing.T) {
 
 	client.collectionStateMu.Lock()
 	client.collectionState["test-id"] = &embeddedCollectionState{
-		embeddingFunction:        wrappedEF,
-		contentEmbeddingFunction: wrappedContentEF,
+		embeddingFunction:            wrappedEF,
+		ownsEmbeddingFunction:        true,
+		contentEmbeddingFunction:     wrappedContentEF,
+		ownsContentEmbeddingFunction: true,
 	}
 	client.collectionStateMu.Unlock()
 
@@ -3296,6 +3683,79 @@ func TestEmbeddedDeleteCollectionState_ClosesEFs(t *testing.T) {
 	client.collectionStateMu.RUnlock()
 }
 
+func TestEmbeddedLocalClient_UpsertCollectionStateSnapshotIncludesOwnershipFlags(t *testing.T) {
+	client := newEmbeddedClientForRuntime(t, newMemoryEmbeddedRuntime())
+
+	snapshot := client.upsertCollectionState("snapshot-id", func(state *embeddedCollectionState) {
+		state.ownsEmbeddingFunction = true
+		state.ownsContentEmbeddingFunction = true
+	})
+
+	require.True(t, snapshot.ownsEmbeddingFunction)
+	require.True(t, snapshot.ownsContentEmbeddingFunction)
+}
+
+func TestEmbeddedLocalClient_Close_RespectsCollectionStateOwnershipFlags(t *testing.T) {
+	tests := []struct {
+		name              string
+		ownDense          bool
+		ownContent        bool
+		wantDenseCloses   int32
+		wantContentCloses int32
+	}{
+		{
+			name:              "owns both",
+			ownDense:          true,
+			ownContent:        true,
+			wantDenseCloses:   1,
+			wantContentCloses: 1,
+		},
+		{
+			name:              "owns dense only",
+			ownDense:          true,
+			ownContent:        false,
+			wantDenseCloses:   1,
+			wantContentCloses: 0,
+		},
+		{
+			name:              "owns content only",
+			ownDense:          false,
+			ownContent:        true,
+			wantDenseCloses:   0,
+			wantContentCloses: 1,
+		},
+		{
+			name:              "owns neither",
+			ownDense:          false,
+			ownContent:        false,
+			wantDenseCloses:   0,
+			wantContentCloses: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newEmbeddedClientForRuntime(t, newMemoryEmbeddedRuntime())
+
+			mockEF := &mockCloseableEF{}
+			mockContentEF := &mockCloseableContentEF{}
+
+			client.collectionStateMu.Lock()
+			client.collectionState["test-id"] = &embeddedCollectionState{
+				embeddingFunction:            wrapEFCloseOnce(mockEF),
+				ownsEmbeddingFunction:        tt.ownDense,
+				contentEmbeddingFunction:     wrapContentEFCloseOnce(mockContentEF),
+				ownsContentEmbeddingFunction: tt.ownContent,
+			}
+			client.collectionStateMu.Unlock()
+
+			require.NoError(t, client.Close())
+			require.Equal(t, tt.wantDenseCloses, mockEF.closeCount.Load())
+			require.Equal(t, tt.wantContentCloses, mockContentEF.closeCount.Load())
+		})
+	}
+}
+
 func TestEmbeddedLocalClient_Close_CleansUpCollectionState(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
@@ -3307,12 +3767,16 @@ func TestEmbeddedLocalClient_Close_CleansUpCollectionState(t *testing.T) {
 
 	client.collectionStateMu.Lock()
 	client.collectionState["col-1"] = &embeddedCollectionState{
-		embeddingFunction:        wrapEFCloseOnce(mockEF1),
-		contentEmbeddingFunction: wrapContentEFCloseOnce(mockContentEF1),
+		embeddingFunction:            wrapEFCloseOnce(mockEF1),
+		ownsEmbeddingFunction:        true,
+		contentEmbeddingFunction:     wrapContentEFCloseOnce(mockContentEF1),
+		ownsContentEmbeddingFunction: true,
 	}
 	client.collectionState["col-2"] = &embeddedCollectionState{
-		embeddingFunction:        wrapEFCloseOnce(mockEF2),
-		contentEmbeddingFunction: wrapContentEFCloseOnce(mockContentEF2),
+		embeddingFunction:            wrapEFCloseOnce(mockEF2),
+		ownsEmbeddingFunction:        true,
+		contentEmbeddingFunction:     wrapContentEFCloseOnce(mockContentEF2),
+		ownsContentEmbeddingFunction: true,
 	}
 	client.collectionStateMu.Unlock()
 
@@ -3340,7 +3804,8 @@ func TestEmbeddedLocalClient_Close_LogsCloseErrors(t *testing.T) {
 	mockEF := &mockFailingCloseEF{closeErr: errors.New("mock close failure")}
 	client.collectionStateMu.Lock()
 	client.collectionState["test-id"] = &embeddedCollectionState{
-		embeddingFunction: wrapEFCloseOnce(mockEF),
+		embeddingFunction:     wrapEFCloseOnce(mockEF),
+		ownsEmbeddingFunction: true,
 	}
 	client.collectionStateMu.Unlock()
 
@@ -3359,8 +3824,10 @@ func TestEmbeddedLocalClient_Close_IsSafeToCallTwice(t *testing.T) {
 
 	client.collectionStateMu.Lock()
 	client.collectionState["test-id"] = &embeddedCollectionState{
-		embeddingFunction:        wrapEFCloseOnce(mockEF),
-		contentEmbeddingFunction: wrapContentEFCloseOnce(mockContentEF),
+		embeddingFunction:            wrapEFCloseOnce(mockEF),
+		ownsEmbeddingFunction:        true,
+		contentEmbeddingFunction:     wrapContentEFCloseOnce(mockContentEF),
+		ownsContentEmbeddingFunction: true,
 	}
 	client.collectionStateMu.Unlock()
 
@@ -3378,7 +3845,8 @@ func TestEmbeddedLocalClient_Close_NoLoggerFallsBackToStderrWithShutdownContext(
 	mockEF := &mockFailingCloseEF{closeErr: errors.New("shutdown stderr test error")}
 	client.collectionStateMu.Lock()
 	client.collectionState["shutdown-test"] = &embeddedCollectionState{
-		embeddingFunction: wrapEFCloseOnce(mockEF),
+		embeddingFunction:     wrapEFCloseOnce(mockEF),
+		ownsEmbeddingFunction: true,
 	}
 	client.collectionStateMu.Unlock()
 
@@ -3644,8 +4112,10 @@ func TestEmbeddedDeleteAndCloseShareWrapper(t *testing.T) {
 
 	client.collectionStateMu.Lock()
 	client.collectionState["test-id"] = &embeddedCollectionState{
-		embeddingFunction:        wrappedEF,
-		contentEmbeddingFunction: wrappedContentEF,
+		embeddingFunction:            wrappedEF,
+		ownsEmbeddingFunction:        true,
+		contentEmbeddingFunction:     wrappedContentEF,
+		ownsContentEmbeddingFunction: true,
 	}
 	client.collectionStateMu.Unlock()
 
@@ -3678,8 +4148,10 @@ func TestEmbeddedDeleteAndCloseRace(t *testing.T) {
 
 	client.collectionStateMu.Lock()
 	client.collectionState["race-id"] = &embeddedCollectionState{
-		embeddingFunction:        wrappedEF,
-		contentEmbeddingFunction: wrappedContentEF,
+		embeddingFunction:            wrappedEF,
+		ownsEmbeddingFunction:        true,
+		contentEmbeddingFunction:     wrappedContentEF,
+		ownsContentEmbeddingFunction: true,
 	}
 	client.collectionStateMu.Unlock()
 
@@ -3774,7 +4246,10 @@ func TestEmbeddedClient_LoggerReceivesErrors(t *testing.T) {
 		wrappedEF := wrapEFCloseOnce(mockEF)
 
 		client.collectionStateMu.Lock()
-		client.collectionState["test-id"] = &embeddedCollectionState{embeddingFunction: wrappedEF}
+		client.collectionState["test-id"] = &embeddedCollectionState{
+			embeddingFunction:     wrappedEF,
+			ownsEmbeddingFunction: true,
+		}
 		client.collectionStateMu.Unlock()
 
 		client.deleteCollectionState("test-id")
@@ -3886,7 +4361,10 @@ func TestEmbeddedClient_NoLoggerFallsBackToStderr(t *testing.T) {
 	wrappedEF := wrapEFCloseOnce(mockEF)
 
 	client.collectionStateMu.Lock()
-	client.collectionState["stderr-test"] = &embeddedCollectionState{embeddingFunction: wrappedEF}
+	client.collectionState["stderr-test"] = &embeddedCollectionState{
+		embeddingFunction:     wrappedEF,
+		ownsEmbeddingFunction: true,
+	}
 	client.collectionStateMu.Unlock()
 
 	output := captureStderr(t, func() {

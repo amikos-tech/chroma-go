@@ -28,8 +28,9 @@ func safeCloseEF(closer io.Closer) (err error) {
 }
 
 // isDenseEFSharedWithContent reports whether the dense EF and content EF share
-// the same underlying resource. When true, closing the content EF is sufficient
-// and the dense EF should not be closed separately.
+// the same underlying resource. Callers use this to avoid double-close: the
+// dense EF is skipped only when the content side both shares the resource AND
+// owns its cleanup (ownContent=true).
 func isDenseEFSharedWithContent(denseEF embeddings.EmbeddingFunction, contentEF embeddings.ContentEmbeddingFunction) bool {
 	if denseEF == nil || contentEF == nil {
 		return false
@@ -47,15 +48,24 @@ func isDenseEFSharedWithContent(denseEF embeddings.EmbeddingFunction, contentEF 
 // closeEmbeddingFunctions closes the content and dense embedding functions,
 // skipping the dense EF if it shares the same underlying resource as the content EF.
 func closeEmbeddingFunctions(denseEF embeddings.EmbeddingFunction, contentEF embeddings.ContentEmbeddingFunction) error {
+	return closeOwnedEmbeddingFunctions(denseEF, true, contentEF, true)
+}
+
+func closeOwnedEmbeddingFunctions(
+	denseEF embeddings.EmbeddingFunction,
+	ownDense bool,
+	contentEF embeddings.ContentEmbeddingFunction,
+	ownContent bool,
+) error {
 	var errs []error
-	if contentEF != nil {
+	if ownContent && contentEF != nil {
 		if closer, ok := contentEF.(io.Closer); ok {
 			if err := safeCloseEF(closer); err != nil {
 				errs = append(errs, err)
 			}
 		}
 	}
-	if denseEF != nil && !isDenseEFSharedWithContent(denseEF, contentEF) {
+	if ownDense && denseEF != nil && (!ownContent || !isDenseEFSharedWithContent(denseEF, contentEF)) {
 		if closer, ok := denseEF.(io.Closer); ok {
 			if err := safeCloseEF(closer); err != nil {
 				errs = append(errs, err)
