@@ -122,6 +122,15 @@ type blockingGetMemoryEmbeddedRuntime struct {
 	getCalls           atomic.Int32
 }
 
+type blockingCreateAfterMissMemoryEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+
+	targetCollectionName string
+	firstCreateReady     chan struct{}
+	allowFirstCreate     chan struct{}
+	createCalls          atomic.Int32
+}
+
 type failingRevalidationGetMemoryEmbeddedRuntime struct {
 	*memoryEmbeddedRuntime
 
@@ -218,6 +227,15 @@ func newBlockingGetMemoryEmbeddedRuntime() *blockingGetMemoryEmbeddedRuntime {
 		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
 		firstSnapshotTaken:    make(chan struct{}),
 		unblockFirstGet:       make(chan struct{}),
+	}
+}
+
+func newBlockingCreateAfterMissMemoryEmbeddedRuntime(targetCollectionName string) *blockingCreateAfterMissMemoryEmbeddedRuntime {
+	return &blockingCreateAfterMissMemoryEmbeddedRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+		targetCollectionName:  targetCollectionName,
+		firstCreateReady:      make(chan struct{}),
+		allowFirstCreate:      make(chan struct{}),
 	}
 }
 
@@ -327,6 +345,18 @@ func (s *blockingGetMemoryEmbeddedRuntime) GetCollection(request localchroma.Emb
 		<-s.unblockFirstGet
 	}
 	return col, nil
+}
+
+func (s *blockingCreateAfterMissMemoryEmbeddedRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	if request.Name == s.targetCollectionName && s.createCalls.Add(1) == 1 {
+		close(s.firstCreateReady)
+		select {
+		case <-s.allowFirstCreate:
+		case <-time.After(5 * time.Second):
+			return nil, errors.New("timed out waiting to resume first create")
+		}
+	}
+	return s.memoryEmbeddedRuntime.CreateCollection(request)
 }
 
 func (s *failingRevalidationGetMemoryEmbeddedRuntime) GetCollection(request localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
@@ -2050,6 +2080,88 @@ func TestEmbeddedLocalClientGetOrCreateCollection_FallbackAfterProvisionalGetFai
 			require.Equal(t, int32(1), closeCount.Load(), "collection Close must own exactly one cleanup")
 		})
 	}
+}
+
+func TestEmbeddedLocalClientGetOrCreateCollection_ConcurrentRaceReturnsUsableCollection(t *testing.T) {
+	const collectionName = "concurrent-race-usable"
+
+	runtime := newBlockingCreateAfterMissMemoryEmbeddedRuntime(collectionName)
+	sharedClient := newEmbeddedClientForRuntime(t, runtime)
+	sharedDualEF := &mockDualEF{}
+	ctx := context.Background()
+
+	type result struct {
+		collection Collection
+		err        error
+	}
+
+	runGetOrCreate := func(resultCh chan<- result) {
+		collection, err := sharedClient.GetOrCreateCollection(
+			ctx,
+			collectionName,
+			WithEmbeddingFunctionCreate(sharedDualEF),
+			WithContentEmbeddingFunctionCreate(sharedDualEF),
+		)
+		resultCh <- result{collection: collection, err: err}
+	}
+
+	results := make(chan result, 2)
+	go runGetOrCreate(results)
+
+	select {
+	case <-runtime.firstCreateReady:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for first create to block")
+	}
+
+	go runGetOrCreate(results)
+
+	var first result
+	select {
+	case first = <-results:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for winning get-or-create result")
+	}
+	require.NoError(t, first.err)
+	require.NotNil(t, first.collection)
+
+	close(runtime.allowFirstCreate)
+
+	var second result
+	select {
+	case second = <-results:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for losing get-or-create result")
+	}
+	require.NoError(t, second.err)
+	require.NotNil(t, second.collection)
+
+	require.NotEmpty(t, first.collection.ID())
+	require.NotEmpty(t, second.collection.ID())
+	require.Equal(t, first.collection.ID(), second.collection.ID())
+
+	for _, got := range []Collection{first.collection, second.collection} {
+		gotEmbedded, ok := got.(*embeddedCollection)
+		require.True(t, ok)
+
+		denseEF := unwrapCloseOnceEF(gotEmbedded.embeddingFunctionSnapshot())
+		require.NotNil(t, denseEF, "dense EF must remain usable after concurrent get-or-create race")
+		_, err := denseEF.EmbedQuery(ctx, "hello")
+		require.NoError(t, err)
+		require.NotErrorIs(t, err, errEFClosed)
+
+		gotEmbedded.mu.RLock()
+		contentEF := gotEmbedded.contentEmbeddingFunction
+		gotEmbedded.mu.RUnlock()
+		require.NotNil(t, contentEF, "content EF must remain usable after concurrent get-or-create race")
+		_, err = contentEF.EmbedContent(ctx, embeddingspkg.Content{})
+		require.NoError(t, err)
+		require.NotErrorIs(t, err, errEFClosed)
+	}
+
+	require.NoError(t, first.collection.Close())
+	require.NoError(t, second.collection.Close())
+	require.Equal(t, int32(1), sharedDualEF.closeCount.Load(), "shared dual-interface EF must be closed exactly once")
 }
 
 func TestEmbeddedLocalClientCreateCollection_IfNotExistsExistingDoesNotOverrideState(t *testing.T) {
