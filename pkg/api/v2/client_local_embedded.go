@@ -1099,15 +1099,20 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 	}
 
 	snapshot := client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
-		// Ownership flags are intentionally not rewritten here. The caller that
-		// first installed/updated the state (CreateCollection/GetCollection/etc.)
-		// defines whether the client owns cleanup for the stored EFs; this helper
-		// only refreshes the snapshot payload while preserving that prior contract.
+		// Ownership flags are set by the caller that first installed the state
+		// (CreateCollection/GetCollection/etc.). When an EF is overridden here
+		// we re-evaluate the shared-EF invariant so a stale ownership flag from
+		// a prior install cannot prevent cleanup of the new EF.
 		if overrideEF != nil {
 			state.embeddingFunction = overrideEF
 		}
 		if overrideContentEF != nil {
 			state.contentEmbeddingFunction = overrideContentEF
+		}
+		if (overrideEF != nil || overrideContentEF != nil) &&
+			state.ownsEmbeddingFunction &&
+			isDenseEFSharedWithContent(state.embeddingFunction, state.contentEmbeddingFunction) {
+			state.ownsEmbeddingFunction = false
 		}
 		if metadata != nil {
 			state.metadata = metadata
