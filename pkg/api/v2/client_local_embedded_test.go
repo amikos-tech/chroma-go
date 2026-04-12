@@ -3522,8 +3522,10 @@ func TestEmbeddedDeleteCollectionState_ClosesEFs(t *testing.T) {
 
 	client.collectionStateMu.Lock()
 	client.collectionState["test-id"] = &embeddedCollectionState{
-		embeddingFunction:        wrappedEF,
-		contentEmbeddingFunction: wrappedContentEF,
+		embeddingFunction:            wrappedEF,
+		ownsEmbeddingFunction:        true,
+		contentEmbeddingFunction:     wrappedContentEF,
+		ownsContentEmbeddingFunction: true,
 	}
 	client.collectionStateMu.Unlock()
 
@@ -4015,7 +4017,10 @@ func TestEmbeddedClient_LoggerReceivesErrors(t *testing.T) {
 		wrappedEF := wrapEFCloseOnce(mockEF)
 
 		client.collectionStateMu.Lock()
-		client.collectionState["test-id"] = &embeddedCollectionState{embeddingFunction: wrappedEF}
+		client.collectionState["test-id"] = &embeddedCollectionState{
+			embeddingFunction:     wrappedEF,
+			ownsEmbeddingFunction: true,
+		}
 		client.collectionStateMu.Unlock()
 
 		client.deleteCollectionState("test-id")
@@ -4127,7 +4132,10 @@ func TestEmbeddedClient_NoLoggerFallsBackToStderr(t *testing.T) {
 	wrappedEF := wrapEFCloseOnce(mockEF)
 
 	client.collectionStateMu.Lock()
-	client.collectionState["stderr-test"] = &embeddedCollectionState{embeddingFunction: wrappedEF}
+	client.collectionState["stderr-test"] = &embeddedCollectionState{
+		embeddingFunction:     wrappedEF,
+		ownsEmbeddingFunction: true,
+	}
 	client.collectionStateMu.Unlock()
 
 	output := captureStderr(t, func() {
