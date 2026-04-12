@@ -122,6 +122,15 @@ type blockingGetMemoryEmbeddedRuntime struct {
 	getCalls           atomic.Int32
 }
 
+type failingRevalidationGetMemoryEmbeddedRuntime struct {
+	*memoryEmbeddedRuntime
+
+	targetCollectionName string
+
+	mu                  sync.Mutex
+	getCollectionCalls  map[string]int
+}
+
 type failingCreateCollectionRuntime struct {
 	*stubEmbeddedRuntime
 	createErr error
@@ -209,6 +218,14 @@ func newBlockingGetMemoryEmbeddedRuntime() *blockingGetMemoryEmbeddedRuntime {
 		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
 		firstSnapshotTaken:    make(chan struct{}),
 		unblockFirstGet:       make(chan struct{}),
+	}
+}
+
+func newFailingRevalidationGetMemoryEmbeddedRuntime(targetCollectionName string) *failingRevalidationGetMemoryEmbeddedRuntime {
+	return &failingRevalidationGetMemoryEmbeddedRuntime{
+		memoryEmbeddedRuntime: newMemoryEmbeddedRuntime(),
+		targetCollectionName:  targetCollectionName,
+		getCollectionCalls:    map[string]int{},
 	}
 }
 
@@ -310,6 +327,22 @@ func (s *blockingGetMemoryEmbeddedRuntime) GetCollection(request localchroma.Emb
 		<-s.unblockFirstGet
 	}
 	return col, nil
+}
+
+func (s *failingRevalidationGetMemoryEmbeddedRuntime) GetCollection(request localchroma.EmbeddedGetCollectionRequest) (*localchroma.EmbeddedCollection, error) {
+	if request.Name != s.targetCollectionName {
+		return s.memoryEmbeddedRuntime.GetCollection(request)
+	}
+
+	s.mu.Lock()
+	s.getCollectionCalls[request.Name]++
+	callNo := s.getCollectionCalls[request.Name]
+	s.mu.Unlock()
+
+	if callNo == 2 {
+		return nil, errors.New("revalidation boom")
+	}
+	return s.memoryEmbeddedRuntime.GetCollection(request)
 }
 
 func (s *jsonRoundTripMissingGetCollectionOnceRuntime) CreateCollection(request localchroma.EmbeddedCreateCollectionRequest) (*localchroma.EmbeddedCollection, error) {
@@ -1921,6 +1954,102 @@ func TestEmbeddedLocalClientGetOrCreateCollection_CreatesWhenMissing(t *testing.
 	createCalls, getCalls := runtime.callCounts()
 	require.Equal(t, 1, createCalls)
 	require.Equal(t, 2, getCalls)
+}
+
+func TestEmbeddedLocalClientGetOrCreateCollection_FallbackAfterProvisionalGetFailureKeepsCallerEFOpen(t *testing.T) {
+	ctx := context.Background()
+
+	type scenario struct {
+		name     string
+		run      func(t *testing.T, got *embeddedCollection)
+		options  func() ([]CreateCollectionOption, *atomic.Int32)
+	}
+
+	tests := []scenario{
+		{
+			name: "dense caller ef",
+			options: func() ([]CreateCollectionOption, *atomic.Int32) {
+				denseEF := &mockCloseableEF{}
+				return []CreateCollectionOption{WithEmbeddingFunctionCreate(denseEF)}, &denseEF.closeCount
+			},
+			run: func(t *testing.T, got *embeddedCollection) {
+				t.Helper()
+				denseEF := unwrapCloseOnceEF(got.embeddingFunctionSnapshot())
+				require.NotNil(t, denseEF, "dense EF must remain usable after fallback")
+				_, err := denseEF.EmbedQuery(ctx, "hello")
+				require.NoError(t, err)
+				require.NotErrorIs(t, err, errEFClosed)
+			},
+		},
+		{
+			name: "content caller ef",
+			options: func() ([]CreateCollectionOption, *atomic.Int32) {
+				contentEF := &mockCloseableContentEF{}
+				return []CreateCollectionOption{WithContentEmbeddingFunctionCreate(contentEF)}, &contentEF.closeCount
+			},
+			run: func(t *testing.T, got *embeddedCollection) {
+				t.Helper()
+				got.mu.RLock()
+				contentEF := got.contentEmbeddingFunction
+				got.mu.RUnlock()
+				require.NotNil(t, contentEF, "content EF must remain usable after fallback")
+				_, err := contentEF.EmbedContent(ctx, embeddingspkg.Content{})
+				require.NoError(t, err)
+				require.NotErrorIs(t, err, errEFClosed)
+			},
+		},
+		{
+			name: "dual-interface content ef",
+			options: func() ([]CreateCollectionOption, *atomic.Int32) {
+				dualEF := &mockDualEF{}
+				return []CreateCollectionOption{WithContentEmbeddingFunctionCreate(dualEF)}, &dualEF.closeCount
+			},
+			run: func(t *testing.T, got *embeddedCollection) {
+				t.Helper()
+				denseEF := unwrapCloseOnceEF(got.embeddingFunctionSnapshot())
+				require.NotNil(t, denseEF, "dense view must remain usable for dual-interface content EF")
+				_, err := denseEF.EmbedQuery(ctx, "hello")
+				require.NoError(t, err)
+				require.NotErrorIs(t, err, errEFClosed)
+
+				got.mu.RLock()
+				contentEF := got.contentEmbeddingFunction
+				got.mu.RUnlock()
+				require.NotNil(t, contentEF, "content view must remain usable for dual-interface content EF")
+				_, err = contentEF.EmbedContent(ctx, embeddingspkg.Content{})
+				require.NoError(t, err)
+				require.NotErrorIs(t, err, errEFClosed)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collectionName := "fallback-after-provisional-" + strings.ReplaceAll(tt.name, " ", "-")
+			runtime := newFailingRevalidationGetMemoryEmbeddedRuntime(collectionName)
+			seedEmbeddedCollectionForTest(t, runtime.memoryEmbeddedRuntime, collectionName, nil)
+
+			client := newEmbeddedClientForRuntime(t, runtime)
+			options, closeCount := tt.options()
+
+			// Call-order contract for the revalidation failure helper:
+			// 1. GetOrCreateCollection -> GetCollection triggers embedded.GetCollection call 1.
+			// 2. The same GetCollection path triggers embedded.GetCollection call 2 for revalidation.
+			// 3. After call 2 fails, GetOrCreateCollection falls back to CreateCollection(..., WithIfNotExistsCreate()),
+			//    whose own preflight lookup / reuse logic becomes call 3+ and delegates to the real runtime.
+			got, err := client.GetOrCreateCollection(ctx, collectionName, options...)
+			require.NoError(t, err)
+			require.NotEmpty(t, got.ID())
+
+			gotEmbedded, ok := got.(*embeddedCollection)
+			require.True(t, ok)
+			tt.run(t, gotEmbedded)
+			require.Equal(t, int32(0), closeCount.Load(), "caller-provided EF must stay open until collection Close")
+
+			require.NoError(t, got.Close())
+			require.Equal(t, int32(1), closeCount.Load(), "collection Close must own exactly one cleanup")
+		})
+	}
 }
 
 func TestEmbeddedLocalClientCreateCollection_IfNotExistsExistingDoesNotOverrideState(t *testing.T) {
