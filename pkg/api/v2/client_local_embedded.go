@@ -723,8 +723,8 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 
 	collection, err := client.buildEmbeddedCollection(*model, req.Database, snapshot.embeddingFunction, snapshot.contentEmbeddingFunction, true, false)
 	if err != nil {
-		_ = client.deleteCollectionState(model.ID)
-		return nil, errors.Wrap(err, "error building collection")
+		cleanupErr := client.deleteCollectionState(model.ID)
+		return nil, stderrors.Join(errors.Wrap(err, "error building collection"), cleanupErr)
 	}
 	verifiedModel, verifyErr := client.embedded.GetCollection(localchroma.EmbeddedGetCollectionRequest{
 		Name:         req.name,
@@ -1099,6 +1099,10 @@ func (client *embeddedLocalClient) buildEmbeddedCollection(model localchroma.Emb
 	}
 
 	snapshot := client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
+		// Ownership flags are intentionally not rewritten here. The caller that
+		// first installed/updated the state (CreateCollection/GetCollection/etc.)
+		// defines whether the client owns cleanup for the stored EFs; this helper
+		// only refreshes the snapshot payload while preserving that prior contract.
 		if overrideEF != nil {
 			state.embeddingFunction = overrideEF
 		}
@@ -1777,6 +1781,11 @@ func (c *embeddedCollection) Close() error {
 	contentEF := c.contentEmbeddingFunction
 	c.mu.RUnlock()
 	c.closeOnce.Do(func() {
+		// Collection-level Close owns the returned snapshot regardless of the
+		// client state's ownership flags. State cleanup (deleteCollectionState /
+		// client.Close) may intentionally skip caller-provided EFs, but once a
+		// collection handle is explicitly closed we tear down the snapshot it was
+		// given so user-facing cleanup stays deterministic.
 		c.closeErr = closeEmbeddingFunctions(ef, contentEF)
 	})
 	return c.closeErr

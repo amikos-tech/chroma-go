@@ -1881,6 +1881,37 @@ func TestEmbeddedLocalClientGetCollectionFailsOnInvalidRuntimeMetadata(t *testin
 	require.Contains(t, err.Error(), "error parsing collection metadata")
 }
 
+func TestEmbeddedLocalClientGetCollection_BuildFailureJoinsStateCleanupError(t *testing.T) {
+	runtime := newMemoryEmbeddedRuntime()
+	client := newEmbeddedClientForRuntime(t, runtime)
+	ctx := context.Background()
+
+	failingEF := &mockFailingCloseEF{closeErr: errors.New("get cleanup failure")}
+	created, err := client.CreateCollection(
+		ctx,
+		"invalid-runtime-metadata-close-error",
+		WithEmbeddingFunctionCreate(failingEF),
+		WithCollectionMetadataCreate(NewMetadataFromMap(map[string]interface{}{"owner": "qa"})),
+	)
+	require.NoError(t, err)
+
+	runtime.mu.Lock()
+	key := runtime.collectionByID[created.ID()]
+	col := runtime.collections[key]
+	col.Metadata = map[string]any{
+		"invalid": map[string]any{"nested": "object"},
+	}
+	runtime.collections[key] = col
+	runtime.mu.Unlock()
+
+	_, err = client.GetCollection(ctx, "invalid-runtime-metadata-close-error")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error building collection")
+	require.Contains(t, err.Error(), "error parsing collection metadata")
+	require.Contains(t, err.Error(), "get cleanup failure")
+	require.Equal(t, int32(1), failingEF.closeCount.Load(), "GetCollection must still physically close the EF once")
+}
+
 func TestEmbeddedLocalClientListCollectionsFailsOnInvalidRuntimeSchema(t *testing.T) {
 	runtime := newMemoryEmbeddedRuntime()
 	client := newEmbeddedClientForRuntime(t, runtime)
