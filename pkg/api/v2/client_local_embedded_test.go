@@ -127,8 +127,8 @@ type failingRevalidationGetMemoryEmbeddedRuntime struct {
 
 	targetCollectionName string
 
-	mu                  sync.Mutex
-	getCollectionCalls  map[string]int
+	mu                 sync.Mutex
+	getCollectionCalls map[string]int
 }
 
 type failingCreateCollectionRuntime struct {
@@ -1960,9 +1960,9 @@ func TestEmbeddedLocalClientGetOrCreateCollection_FallbackAfterProvisionalGetFai
 	ctx := context.Background()
 
 	type scenario struct {
-		name     string
-		run      func(t *testing.T, got *embeddedCollection)
-		options  func() ([]CreateCollectionOption, *atomic.Int32)
+		name    string
+		run     func(t *testing.T, got *embeddedCollection)
+		options func() ([]CreateCollectionOption, *atomic.Int32)
 	}
 
 	tests := []scenario{

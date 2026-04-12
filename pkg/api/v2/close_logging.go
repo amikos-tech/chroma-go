@@ -47,15 +47,24 @@ func isDenseEFSharedWithContent(denseEF embeddings.EmbeddingFunction, contentEF 
 // closeEmbeddingFunctions closes the content and dense embedding functions,
 // skipping the dense EF if it shares the same underlying resource as the content EF.
 func closeEmbeddingFunctions(denseEF embeddings.EmbeddingFunction, contentEF embeddings.ContentEmbeddingFunction) error {
+	return closeOwnedEmbeddingFunctions(denseEF, true, contentEF, true)
+}
+
+func closeOwnedEmbeddingFunctions(
+	denseEF embeddings.EmbeddingFunction,
+	ownDense bool,
+	contentEF embeddings.ContentEmbeddingFunction,
+	ownContent bool,
+) error {
 	var errs []error
-	if contentEF != nil {
+	if ownContent && contentEF != nil {
 		if closer, ok := contentEF.(io.Closer); ok {
 			if err := safeCloseEF(closer); err != nil {
 				errs = append(errs, err)
 			}
 		}
 	}
-	if denseEF != nil && !isDenseEFSharedWithContent(denseEF, contentEF) {
+	if ownDense && denseEF != nil && !isDenseEFSharedWithContent(denseEF, contentEF) {
 		if closer, ok := denseEF.(io.Closer); ok {
 			if err := safeCloseEF(closer); err != nil {
 				errs = append(errs, err)
