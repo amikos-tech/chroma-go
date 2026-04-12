@@ -450,8 +450,15 @@ func (client *embeddedLocalClient) CreateCollection(ctx context.Context, name st
 		!collectionModelMatchesCreateRequest(model, metadataMap, configurationMap, schemaMap)
 	if shouldReloadForReuse {
 		cleanupMessage = "error closing default embedding function for existing collection"
+		getOptions := []GetCollectionOption{WithDatabaseGet(req.Database)}
+		if req.embeddingFunction != nil && req.embeddingFunction != req.sdkOwnedDefaultDenseEF {
+			getOptions = append(getOptions, WithEmbeddingFunctionGet(req.embeddingFunction))
+		}
+		if req.contentEmbeddingFunction != nil {
+			getOptions = append(getOptions, WithContentEmbeddingFunctionGet(req.contentEmbeddingFunction))
+		}
 		var getErr error
-		collection, getErr = client.GetCollection(ctx, req.Name, WithDatabaseGet(req.Database))
+		collection, getErr = client.GetCollection(ctx, req.Name, getOptions...)
 		if getErr != nil {
 			return nil, errors.Wrap(getErr, "error retrieving existing collection after create-if-not-exists reuse")
 		}
@@ -711,9 +718,6 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 		s.embeddingFunction = wrapEFCloseOnce(ef)
 		s.ownsEmbeddingFunction = req.embeddingFunction == nil && !isDenseEFSharedWithContent(s.embeddingFunction, s.contentEmbeddingFunction)
 	}
-	if isDenseEFSharedWithContent(s.embeddingFunction, s.contentEmbeddingFunction) {
-		s.ownsEmbeddingFunction = false
-	}
 	snapshot := *s
 	client.collectionStateMu.Unlock()
 
@@ -743,13 +747,6 @@ func (client *embeddedLocalClient) GetCollection(ctx context.Context, name strin
 		}
 		return nil, stderrors.Join(errs...)
 	}
-	client.upsertCollectionState(model.ID, func(state *embeddedCollectionState) {
-		state.ownsEmbeddingFunction = state.embeddingFunction != nil
-		state.ownsContentEmbeddingFunction = state.contentEmbeddingFunction != nil
-		if isDenseEFSharedWithContent(state.embeddingFunction, state.contentEmbeddingFunction) {
-			state.ownsEmbeddingFunction = false
-		}
-	})
 	client.state.localAddCollectionToCache(collection)
 	return collection, nil
 }
@@ -842,7 +839,12 @@ func (client *embeddedLocalClient) Close() error {
 	client.collectionStateMu.Unlock()
 
 	for id, s := range states {
-		if err := closeEmbeddingFunctions(s.embeddingFunction, s.contentEmbeddingFunction); err != nil {
+		if err := closeOwnedEmbeddingFunctions(
+			s.embeddingFunction,
+			s.ownsEmbeddingFunction,
+			s.contentEmbeddingFunction,
+			s.ownsContentEmbeddingFunction,
+		); err != nil {
 			client.logCloseError("failed to close EF during client shutdown", id, err)
 			errs = append(errs, err)
 		}
@@ -1017,12 +1019,14 @@ func (client *embeddedLocalClient) upsertCollectionState(collectionID string, up
 	}
 
 	return embeddedCollectionState{
-		embeddingFunction:        state.embeddingFunction,
-		contentEmbeddingFunction: state.contentEmbeddingFunction,
-		metadata:                 state.metadata,
-		configuration:            state.configuration,
-		schema:                   state.schema,
-		dimension:                state.dimension,
+		embeddingFunction:            state.embeddingFunction,
+		ownsEmbeddingFunction:        state.ownsEmbeddingFunction,
+		contentEmbeddingFunction:     state.contentEmbeddingFunction,
+		ownsContentEmbeddingFunction: state.ownsContentEmbeddingFunction,
+		metadata:                     state.metadata,
+		configuration:                state.configuration,
+		schema:                       state.schema,
+		dimension:                    state.dimension,
 	}
 }
 
