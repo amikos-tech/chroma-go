@@ -76,13 +76,16 @@ func sanitizeErrorBodyWith(body []byte, fn func([]byte) string) (result string) 
 	return result
 }
 
+// ReadRespBody returns the response body or "" on read failure / oversize body.
+// Callers parse the result as JSON/int/text, so an error sentinel here would
+// leak into their parse errors and obscure the real failure.
 func ReadRespBody(resp io.Reader) string {
 	if resp == nil {
 		return ""
 	}
 	body, err := ReadLimitedBody(resp)
 	if err != nil {
-		return fmt.Sprintf("[failed to read response body: %s]", SanitizeErrorBody([]byte(err.Error())))
+		return ""
 	}
 	return string(body)
 }

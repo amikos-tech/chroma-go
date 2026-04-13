@@ -160,7 +160,15 @@ func TestSanitizeErrorBodyWithRecoversFromPanic(t *testing.T) {
 	assert.Equal(t, panicErrorBodyFallback, got)
 }
 
-func TestReadRespBodyReportsReadErrors(t *testing.T) {
-	assert.Contains(t, ReadRespBody(errorReader{}), "failed to read response body")
-	assert.Contains(t, ReadRespBody(errorReader{}), "boom")
+func TestReadRespBodyReturnsEmptyOnReadError(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "", ReadRespBody(errorReader{}))
+}
+
+func TestReadRespBodyReturnsEmptyOnOversizeBody(t *testing.T) {
+	t.Parallel()
+
+	oversize := strings.NewReader(strings.Repeat("x", MaxResponseBodySize+1))
+	assert.Equal(t, "", ReadRespBody(oversize))
 }
