@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: executing
-stopped_at: Completed 25-03-PLAN.md
-last_updated: "2026-04-13T07:44:20Z"
-last_activity: 2026-04-13 -- Completed 25-03
+status: verifying
+stopped_at: Completed 25-04-PLAN.md
+last_updated: "2026-04-13T08:13:19.129Z"
+last_activity: 2026-04-13
 progress:
   total_phases: 11
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 10
-  completed_plans: 9
-  percent: 90
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -21,24 +21,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 25 — error-body-truncation
+**Current focus:** Phase 25 — ready for verification
 
 ## Current Position
 
-Phase: 25 (error-body-truncation) — EXECUTING
+Phase: 25 (error-body-truncation) — COMPLETE
 Plan: 4 of 4
-Status: Ready to execute
-Last activity: 2026-04-13 -- Completed 25-03
+Status: Phase complete — ready for verification
+Last activity: 2026-04-13 -- Completed 25-04
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 9
-- Average duration: --
-- Total execution time: 0 hours
+- Total plans completed: 10
+- Average duration: 23 min
+- Total execution time: 23 min
 
 ## Accumulated Context
 
@@ -55,6 +55,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 25]: Cloudflare keeps parsed embeddings.Errors intact while sanitizing only the appended raw-body tail.
 - [Phase 25]: Cloudflare's mixed-format contract is enforced with a focused httptest regression instead of a source-only check.
 - [Phase 25]: Cohere's default embed model moved to embed-english-v3.0 after the retired v2.0 default blocked live ef verification on April 13, 2026.
+- [Phase 25]: Kept the batch-B provider edits mechanical by changing only the body-derived error segment and preserving existing status and endpoint wording. — This completed ERR-02 without widening the rollout into provider-specific wording changes.
+- [Phase 25]: Treated Twelve Labs parsed apiErr.Message values as body-derived text and sanitized them the same way as the raw fallback path. — The review-approved policy for parsed provider error text needed to stay consistent across OpenRouter and Twelve Labs.
+- [Phase 25]: Used a temporary authless DOCKER_CONFIG and a one-time ollama/ollama:latest pre-pull to unblock the required ollama ef verification. — The host Docker credsStore helper timed out on public-image pulls; isolating Docker config restored the intended verification path without repository changes.
 
 ### Roadmap Evolution
 
@@ -67,5 +70,5 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ## Session
 
-**Last Date:** 2026-04-13T07:41:24.273Z
-**Stopped At:** Completed 25-03-PLAN.md
+**Last Date:** 2026-04-13T08:13:19.127Z
+**Stopped At:** Completed 25-04-PLAN.md
