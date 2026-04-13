@@ -21,8 +21,8 @@ updated: 2026-04-13
 |----------|-------|
 | **Framework** | `go test` |
 | **Config file** | `none` |
-| **Quick run command** | `go test ./pkg/commons/http ./pkg/embeddings/openrouter ./pkg/embeddings/perplexity ./pkg/embeddings/openai ./pkg/embeddings/baseten ./pkg/embeddings/cloudflare ./pkg/embeddings/twelvelabs` |
-| **Full suite command** | `go test ./pkg/commons/http ./pkg/embeddings/... && make lint` |
+| **Quick run command** | `go test -tags=ef ./pkg/commons/http ./pkg/embeddings/openrouter ./pkg/embeddings/perplexity ./pkg/embeddings/openai ./pkg/embeddings/baseten ./pkg/embeddings/cloudflare ./pkg/embeddings/twelvelabs && make lint` |
+| **Full suite command** | `go test -tags=ef ./pkg/commons/http ./pkg/embeddings/... && make lint` |
 | **Estimated runtime** | ~20-45s depending on package cache |
 
 ---
@@ -40,9 +40,9 @@ updated: 2026-04-13
 ## Sampling Rate
 
 - **After every task commit:** run the task-specific automated command from the verification map below
-- **After Wave 1:** run `go test ./pkg/commons/http ./pkg/embeddings/openrouter ./pkg/embeddings/perplexity`
-- **After Wave 2:** run `go test ./pkg/commons/http ./pkg/embeddings/openai ./pkg/embeddings/baseten ./pkg/embeddings/bedrock ./pkg/embeddings/chromacloud ./pkg/embeddings/chromacloudsplade ./pkg/embeddings/cloudflare ./pkg/embeddings/cohere ./pkg/embeddings/hf ./pkg/embeddings/jina`
-- **Before `/gsd-verify-work`:** `go test ./pkg/commons/http ./pkg/embeddings/... && make lint` must be green
+- **After Wave 1:** run `go test -tags=ef ./pkg/commons/http ./pkg/embeddings/openrouter ./pkg/embeddings/perplexity`
+- **After Wave 2:** run `go test -tags=ef ./pkg/commons/http ./pkg/embeddings/openai ./pkg/embeddings/baseten ./pkg/embeddings/bedrock ./pkg/embeddings/chromacloud ./pkg/embeddings/chromacloudsplade ./pkg/embeddings/cloudflare ./pkg/embeddings/cohere ./pkg/embeddings/hf ./pkg/embeddings/jina`
+- **Before `/gsd-verify-work`:** `go test -tags=ef ./pkg/commons/http ./pkg/embeddings/... && make lint` must be green
 - **Max feedback latency:** 60 seconds for focused feedback
 
 ---
@@ -51,15 +51,17 @@ updated: 2026-04-13
 
 | Task ID | Plan | Wave | Requirement IDs | Threat Ref | Secure Behavior | Automated Command | File Exists | Status |
 |---------|------|------|-----------------|------------|-----------------|-------------------|-------------|--------|
-| 25-01-01 | 01 | 1 | ERR-01, ERR-02 | T-25-03 / T-25-04 | Shared sanitizer tests pin trimming, rune-safe truncation, exact `[truncated]` suffix, and the compile-fail RED entry point for the new helper contract | `cd /Users/tazarov/GolandProjects/chroma-go && go test ./pkg/commons/http ./pkg/embeddings/openrouter ./pkg/embeddings/perplexity` | ✅ | ⬜ pending |
-| 25-01-02 | 01 | 1 | ERR-01, ERR-02 | T-25-01 / T-25-02 / T-25-04 | Shared helper implements panic-safe best-effort sanitization and Perplexity/OpenRouter stop owning local truncation behavior | `cd /Users/tazarov/GolandProjects/chroma-go && go test ./pkg/commons/http ./pkg/embeddings/openrouter ./pkg/embeddings/perplexity` | ✅ | ⬜ pending |
-| 25-02-01 | 02 | 2 | ERR-02 | T-25-05 / T-25-06 | Representative raw-body providers sanitize body text and OpenAI/Baseten regressions prove large payloads collapse to `[truncated]` output | `cd /Users/tazarov/GolandProjects/chroma-go && go test ./pkg/commons/http ./pkg/embeddings/openrouter ./pkg/embeddings/perplexity ./pkg/embeddings/openai ./pkg/embeddings/baseten ./pkg/embeddings/bedrock ./pkg/embeddings/chromacloud ./pkg/embeddings/chromacloudsplade` | ✅ | ⬜ pending |
-| 25-03-01 | 03 | 2 | ERR-02 | T-25-08 / T-25-09 | Cloudflare preserves `embeddings.Errors` while sanitizing only the appended raw-body tail; Cohere/HF/Jina sanitize raw provider text | `cd /Users/tazarov/GolandProjects/chroma-go && go test ./pkg/commons/http ./pkg/embeddings/cloudflare ./pkg/embeddings/cohere ./pkg/embeddings/hf ./pkg/embeddings/jina && rg -n 'embeddings.Errors|SanitizeErrorBody\\(respData\\)' pkg/embeddings/cloudflare/cloudflare.go` | ✅ | ⬜ pending |
-| 25-04-01 | 04 | 3 | ERR-02 | T-25-10 | Remaining batch-B raw-body providers use the shared sanitizer without changing provider-specific status and endpoint wording | `cd /Users/tazarov/GolandProjects/chroma-go && go test ./pkg/commons/http ./pkg/embeddings/mistral ./pkg/embeddings/morph ./pkg/embeddings/nomic ./pkg/embeddings/ollama ./pkg/embeddings/roboflow ./pkg/embeddings/together ./pkg/embeddings/voyage` | ✅ | ⬜ pending |
-| 25-04-02 | 04 | 3 | ERR-02 | T-25-11 | Twelve Labs treats parsed `message` fields as body-derived text, sanitizes them, and proves the structured-message path truncates safely | `cd /Users/tazarov/GolandProjects/chroma-go && go test ./pkg/commons/http ./pkg/embeddings/twelvelabs` | ✅ | ⬜ pending |
-| 25-04-03 | 04 | 3 | ERR-01, ERR-02 | T-25-12 | Final phase gate proves the shared helper and all provider migrations survive the full embedding-package sweep and lint | `cd /Users/tazarov/GolandProjects/chroma-go && go test ./pkg/commons/http ./pkg/embeddings/... && make lint` | ✅ | ⬜ pending |
+| 25-01-01 | 01 | 1 | ERR-01, ERR-02 | T-25-03 / T-25-04 | Shared sanitizer tests pin trimming, rune-safe truncation, exact `[truncated]` suffix, and the compile-fail RED entry point for the new helper contract | `cd /Users/tazarov/GolandProjects/chroma-go && go test -tags=ef ./pkg/commons/http ./pkg/embeddings/openrouter ./pkg/embeddings/perplexity` | ✅ | ⬜ pending |
+| 25-01-02 | 01 | 1 | ERR-01, ERR-02 | T-25-01 / T-25-02 / T-25-04 | Shared helper implements panic-safe best-effort sanitization and Perplexity/OpenRouter stop owning local truncation behavior | `cd /Users/tazarov/GolandProjects/chroma-go && go test -tags=ef ./pkg/commons/http ./pkg/embeddings/openrouter ./pkg/embeddings/perplexity && make lint` | ✅ | ⬜ pending |
+| 25-02-01 | 02 | 2 | ERR-02 | T-25-05 / T-25-06 | Representative raw-body providers sanitize body text and OpenAI/Baseten regressions prove large payloads collapse to `[truncated]` output | `cd /Users/tazarov/GolandProjects/chroma-go && go test -tags=ef ./pkg/commons/http ./pkg/embeddings/openrouter ./pkg/embeddings/perplexity ./pkg/embeddings/openai ./pkg/embeddings/baseten ./pkg/embeddings/bedrock ./pkg/embeddings/chromacloud ./pkg/embeddings/chromacloudsplade && make lint` | ✅ | ⬜ pending |
+| 25-03-01 | 03 | 2 | ERR-02 | T-25-08 / T-25-09 | Cloudflare preserves `embeddings.Errors` while sanitizing only the appended raw-body tail; a focused Cloudflare regression proves the emitted error string shape while Cohere/HF/Jina sanitize raw provider text | `cd /Users/tazarov/GolandProjects/chroma-go && go test -tags=ef ./pkg/commons/http ./pkg/embeddings/cloudflare ./pkg/embeddings/cohere ./pkg/embeddings/hf ./pkg/embeddings/jina && make lint` | ✅ | ⬜ pending |
+| 25-04-01 | 04 | 3 | ERR-02 | T-25-10 | Remaining batch-B raw-body providers use the shared sanitizer without changing provider-specific status and endpoint wording | `cd /Users/tazarov/GolandProjects/chroma-go && go test -tags=ef ./pkg/commons/http ./pkg/embeddings/mistral ./pkg/embeddings/morph ./pkg/embeddings/nomic ./pkg/embeddings/ollama ./pkg/embeddings/roboflow ./pkg/embeddings/together ./pkg/embeddings/voyage && make lint` | ✅ | ⬜ pending |
+| 25-04-02 | 04 | 3 | ERR-02 | T-25-11 | Twelve Labs treats parsed `message` fields as body-derived text, sanitizes them, and proves the structured-message path truncates safely | `cd /Users/tazarov/GolandProjects/chroma-go && go test -tags=ef ./pkg/commons/http ./pkg/embeddings/twelvelabs && make lint` | ✅ | ⬜ pending |
+| 25-04-03 | 04 | 3 | ERR-01, ERR-02 | T-25-12 | Final phase gate proves the shared helper and all provider migrations survive the full embedding-package sweep and lint | `cd /Users/tazarov/GolandProjects/chroma-go && go test -tags=ef ./pkg/commons/http ./pkg/embeddings/... && make lint` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+
+**Commit-point lint rule:** `25-01-01` is an intentional RED checkpoint and should not create a commit. Every commit-capable task from `25-01-02` onward includes `make lint` in its automated command to satisfy `CLAUDE.md` before summaries/commits are written.
 
 ---
 
@@ -71,7 +73,7 @@ Existing infrastructure covers all phase requirements. No extra Wave 0 scaffoldi
 
 ## Manual-Only Verifications
 
-All Phase 25 behaviors are automatable in shared helper tests, provider unit tests, source-level grep spot-checks, and the final suite/lint gate.
+All Phase 25 behaviors are automatable in shared helper tests, provider unit tests, focused Cloudflare error-format assertions, and the final suite/lint gate.
 
 ---
 
