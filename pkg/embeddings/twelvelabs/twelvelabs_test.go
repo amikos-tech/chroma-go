@@ -8,12 +8,19 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+)
+
+const (
+	testTwelveLabsErrorBodyLimit  = 512
+	testTwelveLabsTruncatedSuffix = "[truncated]"
 )
 
 func newTestEF(serverURL string) *TwelveLabsEmbeddingFunction {
@@ -246,13 +253,68 @@ func TestTwelveLabsAPIError(t *testing.T) {
 	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"message":"invalid request","code":"bad_request"}`)
+		fmt.Fprint(w, `{"message":"invalid request","code":"parameter_invalid"}`)
 	})
 
 	ef := newTestEF(srv.URL)
 	_, err := ef.EmbedQuery(context.Background(), "test")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid request")
+	assert.Contains(t, err.Error(), "parameter_invalid")
+}
+
+func TestTwelveLabsAPIErrorSanitizesStructuredMessage(t *testing.T) {
+	longMessage := strings.Repeat("structured-", 80)
+
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"message":%q,"code":"bad_request"}`, longMessage)
+	})
+
+	ef := newTestEF(srv.URL)
+	_, err := ef.EmbedQuery(context.Background(), "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "[truncated]")
+	assert.NotContains(t, err.Error(), longMessage)
+
+	prefix := strings.TrimSuffix(err.Error()[strings.LastIndex(err.Error(), ": ")+2:], testTwelveLabsTruncatedSuffix)
+	require.True(t, utf8.ValidString(prefix))
+	assert.Len(t, []rune(prefix), testTwelveLabsErrorBodyLimit)
+}
+
+func TestTwelveLabsAPIErrorSanitizesStructuredCode(t *testing.T) {
+	const tailMarker = "tl-code-tail-marker"
+	longCode := strings.Repeat("c", testTwelveLabsErrorBodyLimit+64) + tailMarker
+
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"message":"invalid request","code":%q}`, longCode)
+	})
+
+	ef := newTestEF(srv.URL)
+	_, err := ef.EmbedQuery(context.Background(), "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid request")
+	assert.Contains(t, err.Error(), testTwelveLabsTruncatedSuffix)
+	assert.NotContains(t, err.Error(), tailMarker)
+}
+
+func TestTwelveLabsAPIErrorSanitizesRawFallbackBody(t *testing.T) {
+	longBody := strings.Repeat("raw-body-", 80)
+
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprint(w, longBody)
+	})
+
+	ef := newTestEF(srv.URL)
+	_, err := ef.EmbedQuery(context.Background(), "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "[truncated]")
+	assert.NotContains(t, err.Error(), longBody)
 }
 
 func TestTwelveLabsContextModel(t *testing.T) {

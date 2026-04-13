@@ -105,7 +105,7 @@ func (c *OllamaClient) createEmbedding(ctx context.Context, req *CreateEmbedding
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected code [%v] while making a request to %v: %v", resp.Status, endpoint, string(respData))
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v: %v", resp.Status, endpoint, chttp.SanitizeErrorBody(respData))
 	}
 
 	var embeddingResponse CreateEmbeddingResponse

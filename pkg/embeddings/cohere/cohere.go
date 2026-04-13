@@ -174,7 +174,7 @@ func (c *CohereEmbeddingFunction) CreateEmbedding(ctx context.Context, req *Crea
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected code %v for response: %s", resp.Status, string(respData))
+		return nil, errors.Errorf("unexpected code %v for response: %s", resp.Status, chttp.SanitizeErrorBody(respData))
 	}
 	var createEmbeddingResponse CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &createEmbeddingResponse); err != nil {

@@ -152,7 +152,7 @@ func (c *Client) embedBearer(ctx context.Context, text string) ([]float32, error
 		return nil, errors.Wrap(err, "failed to read Bedrock response body")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("Bedrock API returned %s: %s", resp.Status, string(respBody))
+		return nil, errors.Errorf("Bedrock API returned %s: %s", resp.Status, chttp.SanitizeErrorBody(respBody))
 	}
 
 	var titanResp titanResponse

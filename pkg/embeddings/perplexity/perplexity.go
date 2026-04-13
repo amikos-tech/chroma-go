@@ -29,7 +29,6 @@ const (
 	APIKeyEnvVar   = "PERPLEXITY_API_KEY"
 
 	EncodingFormatBase64Int8 = "base64_int8"
-	maxErrorBodyChars        = 512
 )
 
 type PerplexityClient struct {
@@ -142,15 +141,6 @@ func cloneIntPtr(v *int) *int {
 	return &n
 }
 
-func sanitizeErrorBody(body []byte) string {
-	trimmed := strings.TrimSpace(string(body))
-	runes := []rune(trimmed)
-	if len(runes) <= maxErrorBodyChars {
-		return trimmed
-	}
-	return string(runes[:maxErrorBodyChars]) + "...(truncated)"
-}
-
 func (e *EmbeddingTypeResult) UnmarshalJSON(data []byte) error {
 	var encoded string
 	if err := json.Unmarshal(data, &encoded); err == nil {
@@ -233,7 +223,7 @@ func (c *PerplexityClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.baseAPI, sanitizeErrorBody(respData))
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.baseAPI, chttp.SanitizeErrorBody(respData))
 	}
 	var embeddingResponse CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddingResponse); err != nil {

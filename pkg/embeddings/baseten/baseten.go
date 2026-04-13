@@ -157,7 +157,7 @@ func (c *BasetenClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddin
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected response %v, %v", resp.Status, string(respData))
+		return nil, errors.Errorf("unexpected response %v, %v", resp.Status, chttp.SanitizeErrorBody(respData))
 	}
 
 	var createEmbeddingResponse CreateEmbeddingResponse

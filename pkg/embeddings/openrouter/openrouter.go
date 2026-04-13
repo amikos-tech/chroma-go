@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"net/url"
@@ -121,7 +122,12 @@ type CreateEmbeddingResponse struct {
 
 type apiErrorResponse struct {
 	Error struct {
-		Message string `json:"message"`
+		Message  string `json:"message"`
+		Code     any    `json:"code"`
+		Metadata struct {
+			ProviderName string `json:"provider_name"`
+			Raw          string `json:"raw"`
+		} `json:"metadata"`
 	} `json:"error"`
 }
 
@@ -190,19 +196,30 @@ func (c *Client) CreateEmbedding(ctx context.Context, req *CreateEmbeddingReques
 	return &embResp, nil
 }
 
-const maxErrorBodyChars = 512
-
 func parseAPIError(body []byte) string {
 	var apiErr apiErrorResponse
 	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error.Message != "" {
-		return apiErr.Error.Message
+		return formatAPIError(apiErr)
 	}
-	trimmed := strings.TrimSpace(string(body))
-	runes := []rune(trimmed)
-	if len(runes) > maxErrorBodyChars {
-		return string(runes[:maxErrorBodyChars]) + "...(truncated)"
+	return chttp.SanitizeErrorBody(body)
+}
+
+func formatAPIError(apiErr apiErrorResponse) string {
+	message := chttp.SanitizeErrorBody([]byte(apiErr.Error.Message))
+	details := make([]string, 0, 3)
+	if apiErr.Error.Code != nil {
+		details = append(details, "code="+chttp.SanitizeErrorBody([]byte(fmt.Sprintf("%v", apiErr.Error.Code))))
 	}
-	return trimmed
+	if apiErr.Error.Metadata.ProviderName != "" {
+		details = append(details, "provider="+chttp.SanitizeErrorBody([]byte(apiErr.Error.Metadata.ProviderName)))
+	}
+	if apiErr.Error.Metadata.Raw != "" {
+		details = append(details, "raw="+chttp.SanitizeErrorBody([]byte(apiErr.Error.Metadata.Raw)))
+	}
+	if len(details) == 0 {
+		return message
+	}
+	return fmt.Sprintf("%s (%s)", message, strings.Join(details, ", "))
 }
 
 var _ embeddings.EmbeddingFunction = (*OpenRouterEmbeddingFunction)(nil)

@@ -180,7 +180,7 @@ func (e *RoboflowEmbeddingFunction) doRequest(ctx context.Context, endpoint stri
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected response %v: %s", resp.Status, string(respData))
+		return nil, errors.Errorf("unexpected response %v: %s", resp.Status, chttp.SanitizeErrorBody(respData))
 	}
 
 	var response embeddingResponse

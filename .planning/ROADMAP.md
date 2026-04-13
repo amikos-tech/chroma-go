@@ -26,7 +26,7 @@ See: [v0.4.1 Archived Roadmap](milestones/v0.4.1-ROADMAP.md)
 - [x] **Phase 22: WithGroupBy Validation** - WithGroupBy(nil) returns an error instead of silently skipping grouping (completed 2026-04-10)
 - [x] **Phase 23: ORT EF Leak Fix** - Default ORT EF is properly closed when CreateCollection finds an existing collection (completed 2026-04-11)
 - [x] **Phase 24: GetOrCreateCollection EF Safety** - GetOrCreateCollection does not pass closed EFs to CreateCollection fallback (completed 2026-04-12)
-- [ ] **Phase 25: Error Body Truncation** - Embedding provider error messages truncate raw HTTP bodies to safe display lengths
+- [x] **Phase 25: Error Body Truncation** - Embedding provider error messages truncate raw HTTP bodies to safe display lengths (completed 2026-04-13)
 - [ ] **Phase 26: Twelve Labs Async Embedding** - Twelve Labs provider handles async task responses for long-running media
 - [ ] **Phase 27: Download Stack Consolidation** - default_ef download code uses shared downloadutil instead of its own HTTP implementation
 - [ ] **Phase 28: Morph Test Fix** - Morph EF integration test handles upstream 404 gracefully
@@ -109,10 +109,13 @@ Plans:
   1. A shared SanitizeErrorBody utility exists that truncates bodies exceeding a safe display length and appends a `[truncated]` suffix
   2. All embedding providers use SanitizeErrorBody when constructing error messages from HTTP responses
   3. Error messages from providers with large error bodies are readable (not multi-KB dumps)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 25-01: TBD
+- [x] 25-01-PLAN.md — Create the shared sanitizer contract with panic recovery and normalize Perplexity/OpenRouter
+- [x] 25-02-PLAN.md — Migrate the representative raw-body providers and add OpenAI/Baseten regressions
+- [x] 25-03-PLAN.md — Finish batch A with Cloudflare/Cohere/HF/Jina and preserve Cloudflare mixed formatting
+- [x] 25-04-PLAN.md — Finish batch B, sanitize Twelve Labs structured errors, and run the full embedding sweep/lint
 
 ### Phase 26: Twelve Labs Async Embedding
 **Goal**: Twelve Labs provider handles async task responses for long-running audio and video embeddings
@@ -196,7 +199,7 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on 
 | 22. WithGroupBy Validation | v0.4.2 | 1/1 | Complete    | 2026-04-10 |
 | 23. ORT EF Leak Fix | v0.4.2 | 1/1 | Complete    | 2026-04-11 |
 | 24. GetOrCreateCollection EF Safety | v0.4.2 | 1/1 | Complete    | 2026-04-12 |
-| 25. Error Body Truncation | v0.4.2 | 0/0 | Not started | - |
+| 25. Error Body Truncation | v0.4.2 | 4/4 | Complete   | 2026-04-13 |
 | 26. Twelve Labs Async Embedding | v0.4.2 | 0/0 | Not started | - |
 | 27. Download Stack Consolidation | v0.4.2 | 0/0 | Not started | - |
 | 28. Morph Test Fix | v0.4.2 | 0/0 | Not started | - |

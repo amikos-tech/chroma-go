@@ -114,6 +114,27 @@ type CreateEmbeddingResponse struct {
 	Result   Result `json:"result"`
 }
 
+func sanitizeStructuredErrors(errs []any) string {
+	if len(errs) == 0 {
+		return ""
+	}
+
+	data, err := json.Marshal(errs)
+	if err != nil {
+		return fmt.Sprintf("[failed to encode structured errors: %s]", chttp.SanitizeErrorBody([]byte(err.Error())))
+	}
+
+	return chttp.SanitizeErrorBody(data)
+}
+
+func formatCreateEmbeddingError(status string, endpoint string, errs []any, body []byte) error {
+	msg := fmt.Sprintf("unexpected code [%v] while making a request to %v", status, endpoint)
+	if structuredErrors := sanitizeStructuredErrors(errs); structuredErrors != "" {
+		msg += fmt.Sprintf(". errors: %s", structuredErrors)
+	}
+	return errors.Errorf("%s\n%v", msg, chttp.SanitizeErrorBody(body))
+}
+
 func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	data, err := json.Marshal(c)
 	if err != nil {
@@ -148,13 +169,16 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
-	// we also process any embedding errors in the response
+	// Cloudflare can report failures via HTTP status or an errors[] envelope.
 	var embeddings CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddings); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, formatCreateEmbeddingError(resp.Status, c.endpoint, embeddings.Errors, respData)
+		}
 		return nil, errors.Wrap(err, "failed to unmarshal response body")
 	}
 	if resp.StatusCode != http.StatusOK || len(embeddings.Errors) > 0 {
-		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v\n%v", resp.Status, c.endpoint, embeddings.Errors, string(respData))
+		return nil, formatCreateEmbeddingError(resp.Status, c.endpoint, embeddings.Errors, respData)
 	}
 
 	return &embeddings, nil

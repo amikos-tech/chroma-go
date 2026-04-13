@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -297,6 +298,28 @@ func TestBasetenEmbeddingFunction_APIError(t *testing.T) {
 	_, err = ef.EmbedDocuments(context.Background(), []string{"test"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unexpected response")
+}
+
+func TestBasetenEmbeddingFunction_APIErrorTruncatesLongBody(t *testing.T) {
+	payload := strings.Repeat("x", 600)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(payload))
+	}))
+	defer server.Close()
+
+	ef, err := NewBasetenEmbeddingFunction(
+		WithAPIKey("test-key"),
+		WithBaseURL(server.URL),
+		WithInsecure(),
+	)
+	require.NoError(t, err)
+
+	_, err = ef.EmbedDocuments(context.Background(), []string{"test"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unexpected response 400 Bad Request")
+	require.Contains(t, err.Error(), "[truncated]")
+	require.NotContains(t, err.Error(), payload)
 }
 
 func TestBasetenEmbeddingFunction_ModelInRequest(t *testing.T) {
