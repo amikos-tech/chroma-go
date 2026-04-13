@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -253,6 +254,38 @@ func TestTwelveLabsAPIError(t *testing.T) {
 	_, err := ef.EmbedQuery(context.Background(), "test")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid request")
+}
+
+func TestTwelveLabsAPIErrorSanitizesStructuredMessage(t *testing.T) {
+	longMessage := strings.Repeat("structured-", 80)
+
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"message":%q,"code":"bad_request"}`, longMessage)
+	})
+
+	ef := newTestEF(srv.URL)
+	_, err := ef.EmbedQuery(context.Background(), "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "[truncated]")
+	assert.NotContains(t, err.Error(), longMessage)
+}
+
+func TestTwelveLabsAPIErrorSanitizesRawFallbackBody(t *testing.T) {
+	longBody := strings.Repeat("raw-body-", 80)
+
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprint(w, longBody)
+	})
+
+	ef := newTestEF(srv.URL)
+	_, err := ef.EmbedQuery(context.Background(), "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "[truncated]")
+	assert.NotContains(t, err.Error(), longBody)
 }
 
 func TestTwelveLabsContextModel(t *testing.T) {
