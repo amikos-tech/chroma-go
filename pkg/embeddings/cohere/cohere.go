@@ -39,7 +39,7 @@ const (
 	ModelEmbedMultilingualV30 embeddings.EmbeddingModel = "embed-multilingual-v3.0"
 	ModelEmbedEnglishLightV20 embeddings.EmbeddingModel = "embed-english-light-v2.0"
 	ModelEmbedEnglishLightV30 embeddings.EmbeddingModel = "embed-english-light-v3.0"
-	DefaultEmbedModel         embeddings.EmbeddingModel = ModelEmbedEnglishV20
+	DefaultEmbedModel         embeddings.EmbeddingModel = ModelEmbedEnglishV30
 )
 
 type TruncateMode string
@@ -174,7 +174,7 @@ func (c *CohereEmbeddingFunction) CreateEmbedding(ctx context.Context, req *Crea
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected code %v for response: %s", resp.Status, string(respData))
+		return nil, errors.Errorf("unexpected code %v for response: %s", resp.Status, chttp.SanitizeErrorBody(respData))
 	}
 	var createEmbeddingResponse CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &createEmbeddingResponse); err != nil {

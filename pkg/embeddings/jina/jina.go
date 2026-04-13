@@ -135,7 +135,7 @@ func (e *JinaEmbeddingFunction) sendRequest(ctx context.Context, req *EmbeddingR
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected response %v: %s", resp.Status, string(respData))
+		return nil, errors.Errorf("unexpected response %v: %s", resp.Status, chttp.SanitizeErrorBody(respData))
 	}
 	var response *EmbeddingResponse
 	if err := json.Unmarshal(respData, &response); err != nil {
