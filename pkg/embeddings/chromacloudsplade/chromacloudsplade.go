@@ -125,7 +125,7 @@ func (c *Client) embed(ctx context.Context, texts []string) ([]*embeddings.Spars
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, errors.Errorf("request failed with status %d: %s", resp.StatusCode, chttp.SanitizeErrorBody(body))
 	}
 
 	var embResp embeddingResponse
