@@ -179,7 +179,7 @@ func (c *Client) CreateEmbedding(ctx context.Context, req CreateEmbeddingRequest
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected code [%v] while making a request to %v: %v", resp.Status, c.EmbeddingEndpoint, string(respData))
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v: %v", resp.Status, c.EmbeddingEndpoint, chttp.SanitizeErrorBody(respData))
 	}
 	var embeddingResponse CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddingResponse); err != nil {

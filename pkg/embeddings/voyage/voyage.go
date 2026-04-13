@@ -245,7 +245,7 @@ func (c *VoyageAIClient) doPost(ctx context.Context, targetURL string, body any)
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, targetURL, string(respData))
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, targetURL, chttp.SanitizeErrorBody(respData))
 	}
 	return respData, nil
 }

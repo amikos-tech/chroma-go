@@ -126,7 +126,7 @@ func (c *MorphClient) CreateEmbedding(ctx context.Context, req *CreateEmbeddingR
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected response %v: %v", resp.Status, string(respData))
+		return nil, errors.Errorf("unexpected response %v: %v", resp.Status, chttp.SanitizeErrorBody(respData))
 	}
 
 	var createEmbeddingResponse CreateEmbeddingResponse

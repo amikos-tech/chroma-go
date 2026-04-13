@@ -152,7 +152,7 @@ func (c *TogetherAIClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.BaseAPI, string(respData))
+		return nil, errors.Errorf("unexpected code [%v] while making a request to %v. errors: %v", resp.Status, c.BaseAPI, chttp.SanitizeErrorBody(respData))
 	}
 	var embeddings CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddings); err != nil {
