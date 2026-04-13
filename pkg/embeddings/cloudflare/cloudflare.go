@@ -151,6 +151,15 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	// we also process any embedding errors in the response
 	var embeddings CreateEmbeddingResponse
 	if err := json.Unmarshal(respData, &embeddings); err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf(
+				"unexpected code [%v] while making a request to %v. errors: %v\n%v",
+				resp.Status,
+				c.endpoint,
+				embeddings.Errors,
+				chttp.SanitizeErrorBody(respData),
+			)
+		}
 		return nil, errors.Wrap(err, "failed to unmarshal response body")
 	}
 	if resp.StatusCode != http.StatusOK || len(embeddings.Errors) > 0 {
