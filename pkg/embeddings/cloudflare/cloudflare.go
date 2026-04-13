@@ -114,6 +114,19 @@ type CreateEmbeddingResponse struct {
 	Result   Result `json:"result"`
 }
 
+func sanitizeStructuredErrors(errs []any) string {
+	if len(errs) == 0 {
+		return "[]"
+	}
+
+	data, err := json.Marshal(errs)
+	if err != nil {
+		return "[unavailable]"
+	}
+
+	return chttp.SanitizeErrorBody(data)
+}
+
 func (c *CreateEmbeddingRequest) JSON() (string, error) {
 	data, err := json.Marshal(c)
 	if err != nil {
@@ -153,10 +166,10 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	if err := json.Unmarshal(respData, &embeddings); err != nil {
 		if resp.StatusCode != http.StatusOK {
 			return nil, errors.Errorf(
-				"unexpected code [%v] while making a request to %v. errors: %v\n%v",
+				"unexpected code [%v] while making a request to %v. errors: %s\n%v",
 				resp.Status,
 				c.endpoint,
-				embeddings.Errors,
+				sanitizeStructuredErrors(embeddings.Errors),
 				chttp.SanitizeErrorBody(respData),
 			)
 		}
@@ -164,10 +177,10 @@ func (c *CloudflareClient) CreateEmbedding(ctx context.Context, req *CreateEmbed
 	}
 	if resp.StatusCode != http.StatusOK || len(embeddings.Errors) > 0 {
 		return nil, errors.Errorf(
-			"unexpected code [%v] while making a request to %v. errors: %v\n%v",
+			"unexpected code [%v] while making a request to %v. errors: %s\n%v",
 			resp.Status,
 			c.endpoint,
-			embeddings.Errors,
+			sanitizeStructuredErrors(embeddings.Errors),
 			chttp.SanitizeErrorBody(respData),
 		)
 	}
