@@ -199,7 +199,7 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on 
 | 22. WithGroupBy Validation | v0.4.2 | 1/1 | Complete    | 2026-04-10 |
 | 23. ORT EF Leak Fix | v0.4.2 | 1/1 | Complete    | 2026-04-11 |
 | 24. GetOrCreateCollection EF Safety | v0.4.2 | 1/1 | Complete    | 2026-04-12 |
-| 25. Error Body Truncation | v0.4.2 | 0/4 | Planned | - |
+| 25. Error Body Truncation | v0.4.2 | 1/4 | In Progress|  |
 | 26. Twelve Labs Async Embedding | v0.4.2 | 0/0 | Not started | - |
 | 27. Download Stack Consolidation | v0.4.2 | 0/0 | Not started | - |
 | 28. Morph Test Fix | v0.4.2 | 0/0 | Not started | - |

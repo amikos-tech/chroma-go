@@ -20,7 +20,7 @@
 
 ### Error Handling
 
-- [ ] **ERR-01**: Shared `SanitizeErrorBody` utility truncates HTTP error bodies to a safe display length with `[truncated]` suffix
+- [x] **ERR-01**: Shared `SanitizeErrorBody` utility truncates HTTP error bodies to a safe display length with `[truncated]` suffix
 - [ ] **ERR-02**: All embedding providers use `SanitizeErrorBody` for error message construction instead of raw `string(respData)`
 
 ### Provider Enhancement
@@ -67,7 +67,7 @@
 | EFL-01 | Phase 23 | Complete |
 | EFL-02 | Phase 24 | Pending |
 | EFL-03 | Phase 24 | Pending |
-| ERR-01 | Phase 25 | Pending |
+| ERR-01 | Phase 25 | Complete |
 | ERR-02 | Phase 25 | Pending |
 | TLA-01 | Phase 26 | Pending |
 | TLA-02 | Phase 26 | Pending |
