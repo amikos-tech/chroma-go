@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
 status: ready
-stopped_at: Phase 25 verified complete
-last_updated: "2026-04-13T08:38:40Z"
-last_activity: 2026-04-13 -- Phase 25 verified complete
+stopped_at: Phase 25 shipped — PR #506
+last_updated: "2026-04-13T18:25:33.287Z"
+last_activity: "2026-04-13 -- Phase 25 shipped — PR #506"
 progress:
   total_phases: 11
   completed_phases: 6
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 Phase: 30
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-13 -- Phase 25 verified complete
+Status: Phase 25 shipped — PR #506
+Last activity: 2026-04-13 -- Phase 25 shipped — PR #506
 
 Progress: [██████████] 100%
 
@@ -71,4 +71,4 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ## Session
 
 **Last Date:** 2026-04-13T08:13:19.127Z
-**Stopped At:** Completed 25-04-PLAN.md
+**Stopped At:** Phase 25 shipped — PR #506
