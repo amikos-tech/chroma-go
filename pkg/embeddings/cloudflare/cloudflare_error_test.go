@@ -54,7 +54,8 @@ func TestCreateEmbeddingPreservesStructuredErrorsWhileSanitizingRawTail(t *testi
 func TestCreateEmbeddingSanitizesStructuredErrorMessages(t *testing.T) {
 	t.Parallel()
 
-	longMessage := strings.Repeat("structured provider error ", 40)
+	const tailMarker = "unique-tail-marker"
+	longMessage := strings.Repeat("structured provider error ", 40) + tailMarker
 	responseBody := fmt.Sprintf(
 		`{"success":false,"messages":[],"errors":[{"code":"bad_request","message":"%s"}]}`,
 		longMessage,
@@ -81,9 +82,10 @@ func TestCreateEmbeddingSanitizesStructuredErrorMessages(t *testing.T) {
 		Text: []string{"test document"},
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "structured provider error")
+	require.Contains(t, err.Error(), `"code":"bad_request"`)
+	require.Contains(t, err.Error(), "structured provider error structured provider error")
 	require.Contains(t, err.Error(), "[truncated]")
-	require.NotContains(t, err.Error(), longMessage)
+	require.NotContains(t, err.Error(), tailMarker)
 	require.NotContains(t, err.Error(), responseBody)
 }
 
