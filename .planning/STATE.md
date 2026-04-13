@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: verifying
-stopped_at: Completed 25-04-PLAN.md
-last_updated: "2026-04-13T08:13:19.129Z"
-last_activity: 2026-04-13
+status: ready
+stopped_at: Phase 25 verified complete
+last_updated: "2026-04-13T08:38:40Z"
+last_activity: 2026-04-13 -- Phase 25 verified complete
 progress:
   total_phases: 11
   completed_phases: 6
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** Go applications can use Chroma and embedding providers through a stable, portable API that minimizes provider-specific friction.
-**Current focus:** Phase 25 — ready for verification
+**Current focus:** Phase 30 — v2-searchrequestoption-nil-consistency
 
 ## Current Position
 
-Phase: 25 (error-body-truncation) — COMPLETE
-Plan: 4 of 4
-Status: Phase complete — ready for verification
-Last activity: 2026-04-13 -- Completed 25-04
+Phase: 30
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-04-13 -- Phase 25 verified complete
 
 Progress: [██████████] 100%
 
