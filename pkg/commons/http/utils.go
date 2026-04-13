@@ -61,18 +61,6 @@ func min(a, b int) int {
 	return b
 }
 
-func sanitizeErrorBodyString(body string) string {
-	trimmed := strings.TrimSpace(body)
-	if trimmed == "" {
-		return ""
-	}
-	runes := []rune(trimmed)
-	if len(runes) <= maxSanitizedErrorBodyRunes {
-		return trimmed
-	}
-	return string(runes[:maxSanitizedErrorBodyRunes]) + truncatedErrorBodySuffix
-}
-
 // SanitizeErrorBody normalizes provider body text for display without affecting
 // transport-level read limits. It never panics; recovery returns the best
 // sanitized value available instead of surfacing raw body contents.

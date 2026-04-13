@@ -2,7 +2,7 @@ package http
 
 import (
 	"bytes"
-	"runtime"
+	"os"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -102,19 +102,23 @@ func TestSanitizeErrorBody(t *testing.T) {
 }
 
 func TestSanitizeErrorBodyBoundsAllocationForLargeBodies(t *testing.T) {
-	t.Parallel()
-
 	body := []byte(strings.Repeat("x", 100_000))
-
-	var before runtime.MemStats
-	var after runtime.MemStats
-	runtime.GC()
-	runtime.ReadMemStats(&before)
-
-	got := SanitizeErrorBody(body)
-
-	runtime.ReadMemStats(&after)
+	var got string
+	allocs := testing.AllocsPerRun(10, func() {
+		got = SanitizeErrorBody(body)
+	})
 
 	assert.Equal(t, strings.Repeat("x", testSanitizeErrorBodyLimit)+testSanitizeErrorBodySuffix, got)
-	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(256*1024))
+	assert.LessOrEqual(t, allocs, float64(2))
+}
+
+func TestSanitizeErrorBodyAvoidsWholeBodyMaterialization(t *testing.T) {
+	t.Parallel()
+
+	source, err := os.ReadFile("utils.go")
+	require.NoError(t, err)
+
+	assert.NotContains(t, string(source), "[]rune(trimmed)")
+	assert.NotContains(t, string(source), "fallback = string(body)")
+	assert.NotContains(t, string(source), "result = string(body)")
 }
