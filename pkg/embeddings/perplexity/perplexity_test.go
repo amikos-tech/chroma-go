@@ -158,7 +158,7 @@ func TestPerplexityEmbeddingFunction_HTTPErrorResponse_TruncatedBody_UTF8Safe(t 
 	longMsg := strings.Repeat(rune3byte, testPerplexityErrorBodyLimit+10)
 	httpClient := &http.Client{
 		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			return newResponse(http.StatusBadRequest, `{"error":"`+longMsg+`"}`), nil
+			return newResponse(http.StatusBadRequest, longMsg), nil
 		}),
 	}
 	ef, err := NewPerplexityEmbeddingFunction(
