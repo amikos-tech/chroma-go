@@ -39,7 +39,7 @@ const (
 	ModelEmbedMultilingualV30 embeddings.EmbeddingModel = "embed-multilingual-v3.0"
 	ModelEmbedEnglishLightV20 embeddings.EmbeddingModel = "embed-english-light-v2.0"
 	ModelEmbedEnglishLightV30 embeddings.EmbeddingModel = "embed-english-light-v3.0"
-	DefaultEmbedModel         embeddings.EmbeddingModel = ModelEmbedEnglishV30
+	DefaultEmbedModel         embeddings.EmbeddingModel = ModelEmbedEnglishV20
 )
 
 type TruncateMode string
