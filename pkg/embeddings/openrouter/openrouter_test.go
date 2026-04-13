@@ -379,6 +379,31 @@ func TestAPIErrorResponseParsing(t *testing.T) {
 		require.NotContains(t, err.Error(), "tail-marker")
 	})
 
+	t.Run("structured json oversize code is sanitized", func(t *testing.T) {
+		const tailMarker = "code-tail-marker"
+		longCode := strings.Repeat("c", testOpenRouterErrorBodyLimit+64) + tailMarker
+		server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"message":"bad request","code":"` + longCode + `"}}`))
+		})
+		defer server.Close()
+
+		ef, err := NewOpenRouterEmbeddingFunction(
+			WithAPIKey("test-key"),
+			WithModel("test-model"),
+			WithBaseURL(server.URL),
+			WithInsecure(),
+		)
+		require.NoError(t, err)
+
+		_, err = ef.EmbedQuery(context.Background(), "single input")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "bad request")
+		require.Contains(t, err.Error(), "code=")
+		require.Contains(t, err.Error(), testOpenRouterTruncatedSuffix)
+		require.NotContains(t, err.Error(), tailMarker)
+	})
+
 	t.Run("plain text fallback", func(t *testing.T) {
 		server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusTooManyRequests)

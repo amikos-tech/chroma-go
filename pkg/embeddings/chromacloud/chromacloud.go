@@ -163,7 +163,7 @@ func (c *Client) embed(ctx context.Context, texts []string, forQuery bool) ([][]
 	}
 
 	if embResp.Error != "" {
-		return nil, errors.Errorf("API error [status %d]: %s", resp.StatusCode, embResp.Error)
+		return nil, errors.Errorf("API error [status %d]: %s", resp.StatusCode, chttp.SanitizeErrorBody([]byte(embResp.Error)))
 	}
 
 	return embResp.Embeddings, nil

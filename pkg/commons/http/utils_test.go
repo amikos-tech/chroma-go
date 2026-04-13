@@ -150,16 +150,14 @@ func TestSanitizeErrorBodyAvoidsWholeBodyMaterialization(t *testing.T) {
 	assert.NotContains(t, string(source), "result = string(body)")
 }
 
-func TestSanitizeErrorBodyRecoversFromPanic(t *testing.T) {
-	original := sanitizeErrorBodyFunc
-	sanitizeErrorBodyFunc = func([]byte) string {
+func TestSanitizeErrorBodyWithRecoversFromPanic(t *testing.T) {
+	t.Parallel()
+
+	got := sanitizeErrorBodyWith([]byte("body"), func([]byte) string {
 		panic("boom")
-	}
-	t.Cleanup(func() {
-		sanitizeErrorBodyFunc = original
 	})
 
-	assert.Equal(t, panicErrorBodyFallback, SanitizeErrorBody([]byte("body")))
+	assert.Equal(t, panicErrorBodyFallback, got)
 }
 
 func TestReadRespBodyReportsReadErrors(t *testing.T) {

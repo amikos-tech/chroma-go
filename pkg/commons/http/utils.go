@@ -17,8 +17,6 @@ const (
 	panicErrorBodyFallback     = truncatedErrorBodySuffix
 )
 
-var sanitizeErrorBodyFunc = sanitizeErrorBody
-
 // ReadLimitedBody reads up to MaxResponseBodySize bytes from r.
 // Returns an error if the response exceeds the limit.
 func ReadLimitedBody(r io.Reader) ([]byte, error) {
@@ -61,7 +59,11 @@ func sanitizeErrorBody(body []byte) string {
 // SanitizeErrorBody normalizes provider body text for display without affecting
 // transport-level read limits. It never panics; recovery returns the best
 // sanitized value available instead of surfacing raw body contents.
-func SanitizeErrorBody(body []byte) (result string) {
+func SanitizeErrorBody(body []byte) string {
+	return sanitizeErrorBodyWith(body, sanitizeErrorBody)
+}
+
+func sanitizeErrorBodyWith(body []byte, fn func([]byte) string) (result string) {
 	defer func() {
 		if recover() != nil {
 			if result == "" {
@@ -70,7 +72,7 @@ func SanitizeErrorBody(body []byte) (result string) {
 		}
 	}()
 
-	result = sanitizeErrorBodyFunc(body)
+	result = fn(body)
 	return result
 }
 

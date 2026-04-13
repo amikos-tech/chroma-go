@@ -208,7 +208,7 @@ func formatAPIError(apiErr apiErrorResponse) string {
 	message := chttp.SanitizeErrorBody([]byte(apiErr.Error.Message))
 	details := make([]string, 0, 3)
 	if apiErr.Error.Code != nil {
-		details = append(details, fmt.Sprintf("code=%v", apiErr.Error.Code))
+		details = append(details, "code="+chttp.SanitizeErrorBody([]byte(fmt.Sprintf("%v", apiErr.Error.Code))))
 	}
 	if apiErr.Error.Metadata.ProviderName != "" {
 		details = append(details, "provider="+chttp.SanitizeErrorBody([]byte(apiErr.Error.Metadata.ProviderName)))

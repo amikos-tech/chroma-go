@@ -283,6 +283,24 @@ func TestTwelveLabsAPIErrorSanitizesStructuredMessage(t *testing.T) {
 	assert.Len(t, []rune(prefix), testTwelveLabsErrorBodyLimit)
 }
 
+func TestTwelveLabsAPIErrorSanitizesStructuredCode(t *testing.T) {
+	const tailMarker = "tl-code-tail-marker"
+	longCode := strings.Repeat("c", testTwelveLabsErrorBodyLimit+64) + tailMarker
+
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"message":"invalid request","code":%q}`, longCode)
+	})
+
+	ef := newTestEF(srv.URL)
+	_, err := ef.EmbedQuery(context.Background(), "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid request")
+	assert.Contains(t, err.Error(), testTwelveLabsTruncatedSuffix)
+	assert.NotContains(t, err.Error(), tailMarker)
+}
+
 func TestTwelveLabsAPIErrorSanitizesRawFallbackBody(t *testing.T) {
 	longBody := strings.Repeat("raw-body-", 80)
 

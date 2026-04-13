@@ -134,7 +134,7 @@ func (c *Client) embed(ctx context.Context, texts []string) ([]*embeddings.Spars
 	}
 
 	if embResp.Error != "" {
-		return nil, errors.Errorf("API error [status %d]: %s", resp.StatusCode, embResp.Error)
+		return nil, errors.Errorf("API error [status %d]: %s", resp.StatusCode, chttp.SanitizeErrorBody([]byte(embResp.Error)))
 	}
 
 	result := make([]*embeddings.SparseVector, len(embResp.Embeddings))
