@@ -11,11 +11,17 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+)
+
+const (
+	testPerplexityErrorBodyLimit  = 512
+	testPerplexityTruncatedSuffix = "[truncated]"
 )
 
 type roundTripFunc func(req *http.Request) (*http.Response, error)
@@ -128,7 +134,7 @@ func TestPerplexityEmbeddingFunction_HTTPErrorResponse(t *testing.T) {
 }
 
 func TestPerplexityEmbeddingFunction_HTTPErrorResponse_TruncatedBody(t *testing.T) {
-	longMsg := strings.Repeat("x", maxErrorBodyChars+200)
+	longMsg := strings.Repeat("x", testPerplexityErrorBodyLimit+200)
 	httpClient := &http.Client{
 		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 			return newResponse(http.StatusBadRequest, `{"error":"`+longMsg+`"}`), nil
@@ -143,23 +149,33 @@ func TestPerplexityEmbeddingFunction_HTTPErrorResponse_TruncatedBody(t *testing.
 	_, err = ef.EmbedQuery(context.Background(), "hello")
 	require.Error(t, err)
 	msg := err.Error()
-	require.Contains(t, msg, "...(truncated)")
+	require.Contains(t, msg, testPerplexityTruncatedSuffix)
 	assert.Less(t, len(msg), len(longMsg)+100)
 }
 
-func TestSanitizeErrorBody_UTF8Safe(t *testing.T) {
-	// Build a body that is exactly maxErrorBodyChars multi-byte runes long + extra.
-	// Each '☺' is 3 bytes, so byte length >> rune count.
+func TestPerplexityEmbeddingFunction_HTTPErrorResponse_TruncatedBody_UTF8Safe(t *testing.T) {
 	rune3byte := "☺"
-	body := []byte(strings.Repeat(rune3byte, maxErrorBodyChars+10))
-	result := sanitizeErrorBody(body)
+	longMsg := strings.Repeat(rune3byte, testPerplexityErrorBodyLimit+10)
+	httpClient := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return newResponse(http.StatusBadRequest, `{"error":"`+longMsg+`"}`), nil
+		}),
+	}
+	ef, err := NewPerplexityEmbeddingFunction(
+		WithAPIKey("test-key"),
+		WithHTTPClient(httpClient),
+	)
+	require.NoError(t, err)
 
-	require.Contains(t, result, "...(truncated)")
+	_, err = ef.EmbedQuery(context.Background(), "hello")
+	require.Error(t, err)
+	msg := err.Error()
+	require.Contains(t, msg, testPerplexityTruncatedSuffix)
 
-	// The truncated prefix must be valid UTF-8 with exactly maxErrorBodyChars runes.
-	prefix := strings.TrimSuffix(result, "...(truncated)")
+	prefix := strings.TrimSuffix(msg[strings.LastIndex(msg, ": ")+2:], testPerplexityTruncatedSuffix)
+	require.True(t, utf8.ValidString(prefix))
 	runes := []rune(prefix)
-	assert.Equal(t, maxErrorBodyChars, len(runes))
+	assert.Equal(t, testPerplexityErrorBodyLimit, len(runes))
 	for _, r := range runes {
 		assert.Equal(t, '☺', r, "rune should not be corrupted")
 	}

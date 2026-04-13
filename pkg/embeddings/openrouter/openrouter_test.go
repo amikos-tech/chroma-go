@@ -12,12 +12,19 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
+)
+
+const (
+	testOpenRouterErrorBodyLimit  = 512
+	testOpenRouterTruncatedSuffix = "[truncated]"
 )
 
 func mockEmbeddingServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
@@ -319,6 +326,33 @@ func TestAPIErrorResponseParsing(t *testing.T) {
 		require.NotContains(t, err.Error(), `{"error"`)
 	})
 
+	t.Run("structured json long message is sanitized", func(t *testing.T) {
+		longMsg := strings.Repeat("☺", testOpenRouterErrorBodyLimit+10)
+		server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":{"message":"` + longMsg + `"}}`))
+		})
+		defer server.Close()
+
+		ef, err := NewOpenRouterEmbeddingFunction(
+			WithAPIKey("test-key"),
+			WithModel("test-model"),
+			WithBaseURL(server.URL),
+			WithInsecure(),
+		)
+		require.NoError(t, err)
+
+		_, err = ef.EmbedQuery(context.Background(), "single input")
+		require.Error(t, err)
+		msg := err.Error()
+		require.Contains(t, msg, testOpenRouterTruncatedSuffix)
+		require.NotContains(t, msg, `{"error"}`)
+
+		prefix := strings.TrimSuffix(msg[strings.LastIndex(msg, ": ")+2:], testOpenRouterTruncatedSuffix)
+		require.True(t, utf8.ValidString(prefix))
+		assert.Len(t, []rune(prefix), testOpenRouterErrorBodyLimit)
+	})
+
 	t.Run("plain text fallback", func(t *testing.T) {
 		server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -558,13 +592,9 @@ func TestBase64EmbeddingInvalidPayload(t *testing.T) {
 }
 
 func TestParseAPIErrorTruncatesLargeBody(t *testing.T) {
-	largeBody := make([]byte, 1024)
-	for i := range largeBody {
-		largeBody[i] = 'x'
-	}
+	largeBody := []byte(strings.Repeat("x", testOpenRouterErrorBodyLimit+128))
 	result := parseAPIError(largeBody)
-	require.LessOrEqual(t, len(result), maxErrorBodyChars+len("...(truncated)"))
-	require.Contains(t, result, "...(truncated)")
+	require.Equal(t, strings.Repeat("x", testOpenRouterErrorBodyLimit)+testOpenRouterTruncatedSuffix, result)
 }
 
 func TestRegistryRegistration(t *testing.T) {
