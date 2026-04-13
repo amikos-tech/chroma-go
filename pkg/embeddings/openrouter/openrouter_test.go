@@ -353,6 +353,32 @@ func TestAPIErrorResponseParsing(t *testing.T) {
 		assert.Len(t, []rune(prefix), testOpenRouterErrorBodyLimit)
 	})
 
+	t.Run("structured json preserves code and provider metadata", func(t *testing.T) {
+		rawTail := strings.Repeat("provider-raw-", 80) + "tail-marker"
+		server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error":{"message":"provider quota exceeded","code":429,"metadata":{"provider_name":"openai","raw":"` + rawTail + `"}}}`))
+		})
+		defer server.Close()
+
+		ef, err := NewOpenRouterEmbeddingFunction(
+			WithAPIKey("test-key"),
+			WithModel("test-model"),
+			WithBaseURL(server.URL),
+			WithInsecure(),
+		)
+		require.NoError(t, err)
+
+		_, err = ef.EmbedQuery(context.Background(), "single input")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "provider quota exceeded")
+		require.Contains(t, err.Error(), "429")
+		require.Contains(t, err.Error(), "openai")
+		require.Contains(t, err.Error(), "provider-raw-")
+		require.Contains(t, err.Error(), testOpenRouterTruncatedSuffix)
+		require.NotContains(t, err.Error(), "tail-marker")
+	})
+
 	t.Run("plain text fallback", func(t *testing.T) {
 		server := mockEmbeddingServer(t, func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusTooManyRequests)

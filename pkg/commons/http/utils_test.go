@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -15,6 +16,12 @@ const (
 	testSanitizeErrorBodyLimit  = 512
 	testSanitizeErrorBodySuffix = "[truncated]"
 )
+
+type errorReader struct{}
+
+func (errorReader) Read(_ []byte) (int, error) {
+	return 0, errors.New("boom")
+}
 
 func TestReadLimitedBody(t *testing.T) {
 	t.Run("under limit", func(t *testing.T) {
@@ -73,6 +80,16 @@ func TestSanitizeErrorBody(t *testing.T) {
 			want: "short body",
 		},
 		{
+			name: "exactly 512 runes does not append suffix",
+			body: []byte(strings.Repeat("x", testSanitizeErrorBodyLimit)),
+			want: strings.Repeat("x", testSanitizeErrorBodyLimit),
+		},
+		{
+			name: "513 runes appends suffix",
+			body: []byte(strings.Repeat("x", testSanitizeErrorBodyLimit+1)),
+			want: strings.Repeat("x", testSanitizeErrorBodyLimit) + testSanitizeErrorBodySuffix,
+		},
+		{
 			name: "long ascii body truncates with exact suffix",
 			body: []byte(strings.Repeat("x", testSanitizeErrorBodyLimit+32)),
 			want: strings.Repeat("x", testSanitizeErrorBodyLimit) + testSanitizeErrorBodySuffix,
@@ -86,6 +103,16 @@ func TestSanitizeErrorBody(t *testing.T) {
 				prefix := strings.TrimSuffix(got, testSanitizeErrorBodySuffix)
 				require.True(t, utf8.ValidString(prefix))
 				assert.Len(t, []rune(prefix), testSanitizeErrorBodyLimit)
+			},
+		},
+		{
+			name: "invalid utf8 decodes as replacement runes",
+			body: append([]byte(strings.Repeat("a", testSanitizeErrorBodyLimit-1)), 0xff),
+			want: strings.Repeat("a", testSanitizeErrorBodyLimit-1) + string(utf8.RuneError),
+			verify: func(t *testing.T, got string) {
+				t.Helper()
+				require.True(t, utf8.ValidString(got))
+				assert.Len(t, []rune(got), testSanitizeErrorBodyLimit)
 			},
 		},
 	}
@@ -121,4 +148,21 @@ func TestSanitizeErrorBodyAvoidsWholeBodyMaterialization(t *testing.T) {
 	assert.NotContains(t, string(source), "[]rune(trimmed)")
 	assert.NotContains(t, string(source), "fallback = string(body)")
 	assert.NotContains(t, string(source), "result = string(body)")
+}
+
+func TestSanitizeErrorBodyRecoversFromPanic(t *testing.T) {
+	original := sanitizeErrorBodyFunc
+	sanitizeErrorBodyFunc = func([]byte) string {
+		panic("boom")
+	}
+	t.Cleanup(func() {
+		sanitizeErrorBodyFunc = original
+	})
+
+	assert.Equal(t, panicErrorBodyFallback, SanitizeErrorBody([]byte("body")))
+}
+
+func TestReadRespBodyReportsReadErrors(t *testing.T) {
+	assert.Contains(t, ReadRespBody(errorReader{}), "failed to read response body")
+	assert.Contains(t, ReadRespBody(errorReader{}), "boom")
 }

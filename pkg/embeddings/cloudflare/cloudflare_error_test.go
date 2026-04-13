@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -120,4 +121,46 @@ func TestCreateEmbeddingSanitizesNonJSONErrorBody(t *testing.T) {
 	require.Contains(t, err.Error(), "[truncated]")
 	require.NotContains(t, err.Error(), longBody)
 	require.NotContains(t, err.Error(), "failed to unmarshal response body")
+}
+
+func TestCreateEmbeddingSuppressesEmptyStructuredErrorsForBareJSONBodies(t *testing.T) {
+	t.Parallel()
+
+	longBody := strings.Repeat("gateway-json-", 80)
+	responseBody := fmt.Sprintf(`{"error":"gateway rejected request","details":"%s"}`, longBody)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(responseBody))
+	}))
+	defer server.Close()
+
+	client, err := NewCloudflareClient(
+		WithAPIToken("test-token"),
+		WithGatewayEndpoint(server.URL),
+		WithHTTPClient(server.Client()),
+		WithDefaultModel("test-model"),
+		WithInsecure(),
+	)
+	require.NoError(t, err)
+
+	_, err = client.CreateEmbedding(context.Background(), &CreateEmbeddingRequest{
+		Text: []string{"test document"},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "gateway rejected request")
+	require.Contains(t, err.Error(), "[truncated]")
+	require.NotContains(t, err.Error(), "errors: []")
+	require.NotContains(t, err.Error(), longBody)
+}
+
+func TestSanitizeStructuredErrorsReportsMarshalFailure(t *testing.T) {
+	t.Parallel()
+
+	got := sanitizeStructuredErrors([]any{map[string]any{"broken": func() {}}})
+
+	assert.Contains(t, got, "failed to encode structured errors")
+	assert.NotEqual(t, "[unavailable]", got)
 }

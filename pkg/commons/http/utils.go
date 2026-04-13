@@ -17,6 +17,8 @@ const (
 	panicErrorBodyFallback     = truncatedErrorBodySuffix
 )
 
+var sanitizeErrorBodyFunc = sanitizeErrorBody
+
 // ReadLimitedBody reads up to MaxResponseBodySize bytes from r.
 // Returns an error if the response exceeds the limit.
 func ReadLimitedBody(r io.Reader) ([]byte, error) {
@@ -38,6 +40,8 @@ func sanitizeErrorBody(body []byte) string {
 	}
 
 	var b strings.Builder
+	// Grow for at most 512 runes plus the suffix without materializing the
+	// entire body; utf8.UTFMax keeps the allocation bounded for multi-byte input.
 	b.Grow(len(truncatedErrorBodySuffix) + min(len(trimmed), maxSanitizedErrorBodyRunes*utf8.UTFMax))
 	runes := 0
 	for len(trimmed) > 0 && runes < maxSanitizedErrorBodyRunes {
@@ -54,13 +58,6 @@ func sanitizeErrorBody(body []byte) string {
 	return b.String()
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // SanitizeErrorBody normalizes provider body text for display without affecting
 // transport-level read limits. It never panics; recovery returns the best
 // sanitized value available instead of surfacing raw body contents.
@@ -73,7 +70,7 @@ func SanitizeErrorBody(body []byte) (result string) {
 		}
 	}()
 
-	result = sanitizeErrorBody(body)
+	result = sanitizeErrorBodyFunc(body)
 	return result
 }
 
@@ -81,9 +78,9 @@ func ReadRespBody(resp io.Reader) string {
 	if resp == nil {
 		return ""
 	}
-	body, err := io.ReadAll(resp)
+	body, err := ReadLimitedBody(resp)
 	if err != nil {
-		return ""
+		return fmt.Sprintf("[failed to read response body: %s]", SanitizeErrorBody([]byte(err.Error())))
 	}
 	return string(body)
 }

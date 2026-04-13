@@ -181,6 +181,9 @@ func (e *TwelveLabsEmbeddingFunction) doPost(ctx context.Context, req EmbedV2Req
 	if resp.StatusCode != http.StatusOK {
 		var apiErr EmbedV2ErrorResponse
 		if jsonErr := json.Unmarshal(respData, &apiErr); jsonErr == nil && apiErr.Message != "" {
+			if apiErr.Code != "" {
+				return nil, errors.Errorf("Twelve Labs API error [%s] (%s): %s", resp.Status, apiErr.Code, chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+			}
 			return nil, errors.Errorf("Twelve Labs API error [%s]: %s", resp.Status, chttp.SanitizeErrorBody([]byte(apiErr.Message)))
 		}
 		return nil, errors.Errorf("unexpected status [%s] from %s: %s", resp.Status, e.apiClient.BaseAPI, chttp.SanitizeErrorBody(respData))
