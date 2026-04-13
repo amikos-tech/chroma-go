@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"runtime"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -98,4 +99,22 @@ func TestSanitizeErrorBody(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSanitizeErrorBodyBoundsAllocationForLargeBodies(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(strings.Repeat("x", 100_000))
+
+	var before runtime.MemStats
+	var after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+
+	got := SanitizeErrorBody(body)
+
+	runtime.ReadMemStats(&after)
+
+	assert.Equal(t, strings.Repeat("x", testSanitizeErrorBodyLimit)+testSanitizeErrorBodySuffix, got)
+	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(256*1024))
 }

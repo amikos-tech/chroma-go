@@ -1,9 +1,11 @@
 package http
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 )
 
 // MaxResponseBodySize is the maximum allowed response body size (200 MB).
@@ -12,6 +14,7 @@ const MaxResponseBodySize = 200 * 1024 * 1024
 const (
 	maxSanitizedErrorBodyRunes = 512
 	truncatedErrorBodySuffix   = "[truncated]"
+	panicErrorBodyFallback     = truncatedErrorBodySuffix
 )
 
 // ReadLimitedBody reads up to MaxResponseBodySize bytes from r.
@@ -26,6 +29,36 @@ func ReadLimitedBody(r io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("response body exceeds maximum size of %d bytes", MaxResponseBodySize)
 	}
 	return data, nil
+}
+
+func sanitizeErrorBody(body []byte) string {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.Grow(len(truncatedErrorBodySuffix) + min(len(trimmed), maxSanitizedErrorBodyRunes*utf8.UTFMax))
+	runes := 0
+	for len(trimmed) > 0 && runes < maxSanitizedErrorBodyRunes {
+		r, size := utf8.DecodeRune(trimmed)
+		b.WriteRune(r)
+		trimmed = trimmed[size:]
+		runes++
+	}
+
+	if len(trimmed) > 0 {
+		b.WriteString(truncatedErrorBodySuffix)
+	}
+
+	return b.String()
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func sanitizeErrorBodyString(body string) string {
@@ -46,16 +79,13 @@ func sanitizeErrorBodyString(body string) string {
 func SanitizeErrorBody(body []byte) (result string) {
 	defer func() {
 		if recover() != nil {
-			fallback := result
-			if fallback == "" {
-				fallback = string(body)
+			if result == "" {
+				result = panicErrorBodyFallback
 			}
-			result = sanitizeErrorBodyString(fallback)
 		}
 	}()
 
-	result = string(body)
-	result = sanitizeErrorBodyString(result)
+	result = sanitizeErrorBody(body)
 	return result
 }
 
