@@ -5,11 +5,14 @@ package twelvelabs
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
@@ -330,4 +333,143 @@ func TestTwelveLabsContextModel(t *testing.T) {
 	ctx := ContextWithModel(context.Background(), "custom-model")
 	_, err := ef.EmbedQuery(ctx, "test")
 	require.NoError(t, err)
+}
+
+// --- Async polling test helpers ---
+
+func newTestAsyncEF(serverURL string) *TwelveLabsEmbeddingFunction {
+	ef := newTestEF(serverURL)
+	ef.apiClient.asyncPollingEnabled = true
+	ef.apiClient.asyncMaxWait = 5 * time.Second
+	ef.apiClient.asyncPollInitial = 1 * time.Millisecond
+	ef.apiClient.asyncPollMultiplier = 1.5
+	ef.apiClient.asyncPollCap = 10 * time.Millisecond
+	return ef
+}
+
+func audioContent(url string) embeddings.Content {
+	return embeddings.Content{Parts: []embeddings.Part{{
+		Modality: embeddings.ModalityAudio,
+		Source:   &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: url},
+	}}}
+}
+
+func videoContent(url string) embeddings.Content {
+	return embeddings.Content{Parts: []embeddings.Part{{
+		Modality: embeddings.ModalityVideo,
+		Source:   &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: url},
+	}}}
+}
+
+// taskCreateJSON and taskGetJSON produce fixtures with the _id alias (Pitfall 1).
+func taskCreateJSON(id, status string) string {
+	return fmt.Sprintf(`{"_id":%q,"status":%q}`, id, status)
+}
+
+func taskGetJSON(id, status string, data []float64) string {
+	if data == nil {
+		return fmt.Sprintf(`{"_id":%q,"status":%q}`, id, status)
+	}
+	b, _ := json.Marshal(data)
+	return fmt.Sprintf(`{"_id":%q,"status":%q,"data":[{"embedding":%s}]}`, id, status, b)
+}
+
+// --- Async polling tests ---
+
+func TestTwelveLabsAsyncTaskCreate(t *testing.T) {
+	vec := make512DimVector()
+	var attempts atomic.Int32
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/tasks"):
+			var req AsyncEmbedV2Request
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+			assert.Equal(t, "audio", req.InputType)
+			require.NotNil(t, req.Audio)
+			assert.Equal(t, []string{"audio"}, req.Audio.EmbeddingOption, "async endpoint requires embedding_option as []string (F-02)")
+			fmt.Fprint(w, taskCreateJSON("task_abc", "processing"))
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/tasks/task_abc"):
+			fmt.Fprint(w, taskGetJSON("task_abc", "ready", vec))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	emb, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.NoError(t, err)
+	require.NotNil(t, emb)
+	assert.Equal(t, 512, emb.Len())
+	assert.GreaterOrEqual(t, attempts.Load(), int32(2), "expected at least 1 POST + 1 GET")
+}
+
+func TestTwelveLabsAsyncPollToReady(t *testing.T) {
+	vec := make512DimVector()
+	var gets atomic.Int32
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_ready", "processing"))
+			return
+		}
+		n := gets.Add(1)
+		if n < 3 {
+			fmt.Fprint(w, taskGetJSON("task_ready", "processing", nil))
+			return
+		}
+		fmt.Fprint(w, taskGetJSON("task_ready", "ready", vec))
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	emb, err := ef.EmbedContent(context.Background(), videoContent("https://example.com/v.mp4"))
+	require.NoError(t, err)
+	require.NotNil(t, emb)
+	assert.Equal(t, 512, emb.Len())
+	assert.Equal(t, int32(3), gets.Load(), "expected 3 GETs before ready")
+}
+
+func TestTwelveLabsAsyncPollToFailed(t *testing.T) {
+	var gets atomic.Int32
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_fail", "processing"))
+			return
+		}
+		n := gets.Add(1)
+		if n < 2 {
+			fmt.Fprint(w, taskGetJSON("task_fail", "processing", nil))
+			return
+		}
+		fmt.Fprint(w, taskGetJSON("task_fail", "failed", nil))
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	emb, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Nil(t, emb)
+	assert.Contains(t, err.Error(), "task_fail")
+	assert.Contains(t, err.Error(), "terminal status=failed")
+	assert.False(t, stderrors.Is(err, context.Canceled))
+	assert.False(t, stderrors.Is(err, context.DeadlineExceeded))
+}
+
+func TestTwelveLabsAsyncUnexpectedStatus(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_weird", "processing"))
+			return
+		}
+		fmt.Fprint(w, taskGetJSON("task_weird", "weird", nil))
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected status")
+	assert.Contains(t, err.Error(), "weird")
+	assert.Contains(t, err.Error(), "task_weird")
 }
