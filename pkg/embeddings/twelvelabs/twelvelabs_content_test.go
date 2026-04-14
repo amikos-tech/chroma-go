@@ -215,6 +215,31 @@ func TestBuildMediaSourceURLValidation(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, MediaSource{URL: "https://example.com/audio.mp3"}, got)
 	})
+
+	t.Run("accepts plain http URL", func(t *testing.T) {
+		got, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "http://example.com/audio.mp3"})
+		require.NoError(t, err)
+		assert.Equal(t, MediaSource{URL: "http://example.com/audio.mp3"}, got)
+	})
+
+	t.Run("rejects non-http(s) schemes", func(t *testing.T) {
+		for _, url := range []string{
+			"ftp://example.com/clip.mp3",
+			"gopher://example.com/clip.mp3",
+			"file://localhost/etc/passwd",
+		} {
+			_, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: url})
+			require.Error(t, err, "scheme in %q must be rejected", url)
+			assert.Contains(t, err.Error(), "not supported", "url=%s", url)
+		}
+	})
+
+	t.Run("rejects opaque URLs with unsupported schemes", func(t *testing.T) {
+		// javascript: and data: URLs parse with empty host; the earlier
+		// absolute-URL check handles them, but this pins the behavior.
+		_, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "javascript:alert(1)"})
+		require.Error(t, err)
+	})
 }
 
 func TestTwelveLabsEmbedContentValidationIncludesProviderContext(t *testing.T) {

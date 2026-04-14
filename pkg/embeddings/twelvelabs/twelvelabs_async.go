@@ -177,8 +177,16 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 	if created.ID == "" {
 		return nil, errors.New("Twelve Labs async task create returned empty _id")
 	}
-	// Rare early-ready path (server finished before response round-trip returned).
-	if created.Status == taskStatusReady && len(created.Data) > 0 {
+	// Terminal states short-circuit the poll loop. A status=failed on the
+	// create response is rare (usually surfaces as a non-2xx, handled by
+	// doTaskPost) but the async contract allows it — error immediately rather
+	// than waste a GET round-trip. Likewise status=ready is always terminal;
+	// if data is absent that's a server-side malformation and
+	// buildEmbeddingFromData will surface it.
+	switch created.Status {
+	case taskStatusFailed:
+		return nil, errors.Errorf("Twelve Labs async task [%s] terminal status=failed at creation", created.ID)
+	case taskStatusReady:
 		return buildEmbeddingFromData(created.Data)
 	}
 	// Pass the *remaining* maxWait budget to pollTask so total operation time

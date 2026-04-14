@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -127,6 +128,11 @@ func buildMediaSource(source *embeddings.BinarySource) (MediaSource, error) {
 		}
 		if parsed.Scheme == "" || parsed.Host == "" {
 			return MediaSource{}, errors.New("URL source must be an absolute URL with scheme and host")
+		}
+		switch strings.ToLower(parsed.Scheme) {
+		case "http", "https":
+		default:
+			return MediaSource{}, errors.Errorf("URL source scheme %q not supported; use http or https", parsed.Scheme)
 		}
 		return MediaSource{URL: source.URL}, nil
 	}
