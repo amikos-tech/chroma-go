@@ -102,6 +102,11 @@ func WithAudioEmbeddingOption(opt string) Option {
 // audio and video content. Passing maxWait=0 selects the 30-minute default
 // (CONTEXT.md D-03). This is the sole public trigger for async — polling
 // interval, backoff multiplier, and cap are internal (D-04).
+//
+// maxWait is a hard upper bound on the whole async operation (task create
+// + polling), not just the polling loop. A blocked POST /tasks call will
+// be interrupted at maxWait and surface as a distinct SDK timeout error
+// (not raw context.DeadlineExceeded — see D-20).
 func WithAsyncPolling(maxWait time.Duration) Option {
 	return func(p *TwelveLabsClient) error {
 		if maxWait < 0 {
