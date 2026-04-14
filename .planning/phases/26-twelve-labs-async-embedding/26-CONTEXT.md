@@ -11,7 +11,7 @@ Enable the Twelve Labs provider to embed long-running audio and video content (u
 **Framing:** timeout-bug-fix, not async-DX. The caller still blocks on a single call; the call now succeeds for media that would previously fail because the sync HTTP connection cannot be held open long enough server-side. No new async-shaped public surface, no interface changes, no impact on existing callers who do not opt in.
 
 **In scope:**
-- New internal code path hitting `POST /v1.3/embed-v2/tasks`, `GET /v1.3/embed-v2/tasks/{id}/status`, `GET /v1.3/embed-v2/tasks/{id}`
+- New internal code path hitting `POST /v1.3/embed-v2/tasks` and `GET /v1.3/embed-v2/tasks/{id}` (two endpoints per RESEARCH F-01 — there is no separate `/status` sub-path; the GET returns both status and data)
 - Single new functional option `WithAsyncPolling(maxWait time.Duration)` that gates the async path
 - Modality-based routing: when opt-in is present, audio and video go through the tasks endpoint; text and image stay on the sync `/embed-v2` path
 - Polling loop that respects `ctx.Deadline()` and the `maxWait` bound
