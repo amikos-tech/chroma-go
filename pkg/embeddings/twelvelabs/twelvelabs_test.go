@@ -495,6 +495,51 @@ func TestTwelveLabsAsyncPollToFailed(t *testing.T) {
 	assert.False(t, stderrors.Is(err, context.DeadlineExceeded))
 }
 
+// TestTwelveLabsAsyncCreateReturnsFailed covers the rare case where the server
+// returns status=failed on the POST /tasks response. The SDK must short-circuit
+// rather than fire a wasteful GET on the same terminal state.
+func TestTwelveLabsAsyncCreateReturnsFailed(t *testing.T) {
+	var gets atomic.Int32
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_create_failed", "failed"))
+			return
+		}
+		gets.Add(1)
+		fmt.Fprint(w, taskGetJSON("task_create_failed", "failed", nil))
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "task_create_failed")
+	assert.Contains(t, err.Error(), "terminal status=failed at creation")
+	assert.Equal(t, int32(0), gets.Load(), "failed create response must not trigger a poll GET")
+}
+
+// TestTwelveLabsAsyncCreateReturnsReadyEmptyData covers the malformed server
+// case where status=ready arrives with no data. Since ready is terminal per F-01,
+// we surface the malformation immediately instead of polling for the same state.
+func TestTwelveLabsAsyncCreateReturnsReadyEmptyData(t *testing.T) {
+	var gets atomic.Int32
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_empty_ready", "ready"))
+			return
+		}
+		gets.Add(1)
+		fmt.Fprint(w, taskGetJSON("task_empty_ready", "ready", nil))
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no embedding returned")
+	assert.Equal(t, int32(0), gets.Load(), "terminal ready must not trigger a poll GET even when data is empty")
+}
+
 func TestTwelveLabsAsyncUnexpectedStatus(t *testing.T) {
 	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
