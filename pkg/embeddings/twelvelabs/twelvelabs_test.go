@@ -473,3 +473,195 @@ func TestTwelveLabsAsyncUnexpectedStatus(t *testing.T) {
 	assert.Contains(t, err.Error(), "weird")
 	assert.Contains(t, err.Error(), "task_weird")
 }
+
+func TestTwelveLabsAsyncCtxCancel(t *testing.T) {
+	var gets atomic.Int32
+	cancelCh := make(chan struct{})
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_cancel", "processing"))
+			return
+		}
+		n := gets.Add(1)
+		if n == 1 {
+			close(cancelCh) // signal the test to cancel after the first poll response
+		}
+		fmt.Fprint(w, taskGetJSON("task_cancel", "processing", nil))
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	ef.apiClient.asyncPollInitial = 50 * time.Millisecond // slow enough that cancel wins
+	ef.apiClient.asyncPollCap = 50 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-cancelCh
+		cancel()
+	}()
+	_, err := ef.EmbedContent(ctx, audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.True(t, stderrors.Is(err, context.Canceled), "expected ctx.Canceled wrapping, got %v", err)
+}
+
+func TestTwelveLabsAsyncMaxWait(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_maxwait", "processing"))
+			return
+		}
+		fmt.Fprint(w, taskGetJSON("task_maxwait", "processing", nil))
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	ef.apiClient.asyncMaxWait = 50 * time.Millisecond
+
+	_, err := ef.EmbedContent(context.Background(), videoContent("https://example.com/v.mp4"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "async polling maxWait")
+	assert.False(t, stderrors.Is(err, context.DeadlineExceeded), "maxWait must surface distinct from ctx.DeadlineExceeded (D-20)")
+	assert.False(t, stderrors.Is(err, context.Canceled))
+}
+
+func TestTwelveLabsAsyncSkipsTextImage(t *testing.T) {
+	vec := make512DimVector()
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/tasks") {
+			t.Fatalf("text/image must not hit async endpoint; got %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, embedV2Response(vec))
+	})
+
+	ef := newTestAsyncEF(srv.URL) // asyncPollingEnabled=true — but text/image skip async per D-07
+
+	// text
+	textContent := embeddings.Content{Parts: []embeddings.Part{{Modality: embeddings.ModalityText, Text: "hello"}}}
+	emb, err := ef.EmbedContent(context.Background(), textContent)
+	require.NoError(t, err)
+	require.NotNil(t, emb)
+
+	// image (URL source)
+	imageContent := embeddings.Content{Parts: []embeddings.Part{{
+		Modality: embeddings.ModalityImage,
+		Source:   &embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/i.png"},
+	}}}
+	emb2, err := ef.EmbedContent(context.Background(), imageContent)
+	require.NoError(t, err)
+	require.NotNil(t, emb2)
+}
+
+func TestTwelveLabsAsyncConfigRoundTrip(t *testing.T) {
+	t.Setenv(APIKeyEnvVar, "round-trip-key")
+	ef, err := NewTwelveLabsEmbeddingFunction(WithEnvAPIKey(), WithAsyncPolling(7*time.Minute))
+	require.NoError(t, err)
+
+	cfg := ef.GetConfig()
+	assert.Equal(t, true, cfg["async_polling"])
+	assert.Equal(t, int64(420000), cfg["async_max_wait_ms"], "7 min = 420000 ms as int64")
+
+	rebuilt, err := NewTwelveLabsEmbeddingFunctionFromConfig(cfg)
+	require.NoError(t, err)
+	assert.True(t, rebuilt.apiClient.asyncPollingEnabled)
+	assert.Equal(t, 7*time.Minute, rebuilt.apiClient.asyncMaxWait)
+	// APIKeyEnvVar must survive the round-trip so env-var-sourced EFs
+	// rebuilt from a registry still resolve the same way.
+	assert.Equal(t, APIKeyEnvVar, rebuilt.apiClient.APIKeyEnvVar)
+}
+
+func TestTwelveLabsAsyncConfigOmitWhenDisabled(t *testing.T) {
+	t.Setenv(APIKeyEnvVar, "some-key")
+	ef, err := NewTwelveLabsEmbeddingFunction(WithEnvAPIKey())
+	require.NoError(t, err)
+
+	cfg := ef.GetConfig()
+	_, hasPolling := cfg["async_polling"]
+	_, hasWait := cfg["async_max_wait_ms"]
+	assert.False(t, hasPolling, "async_polling must be omitted when WithAsyncPolling is absent (D-22)")
+	assert.False(t, hasWait, "async_max_wait_ms must be omitted when WithAsyncPolling is absent (D-22)")
+}
+
+// TestTwelveLabsAsyncFailedReasonSanitized proves the authentic server
+// failure reason (from the raw response body, preserved in
+// TaskResponse.FailureDetail by Plan 01) reaches the error — not a
+// re-marshaled subset of known fields (D-17 review fix).
+func TestTwelveLabsAsyncFailedReasonSanitized(t *testing.T) {
+	longReason := strings.Repeat("detailed server-side failure reason — ", 40) // ~1.5KB
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_failreason", "processing"))
+			return
+		}
+		// Respond with an extra server-only reason field NOT in TaskResponse.
+		// If the plan re-marshaled the parsed struct the reason would be lost.
+		fmt.Fprintf(w, `{"_id":"task_failreason","status":"failed","reason":%q,"error":{"code":"E_BAD_MEDIA","detail":%q}}`, longReason, longReason)
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "task_failreason")
+	assert.Contains(t, err.Error(), "terminal status=failed")
+	// Authentic server reason substring must survive sanitization.
+	assert.Contains(t, err.Error(), "detailed server-side failure reason", "error must carry the server-provided reason from the raw body, not just the parsed TaskResponse fields")
+	// Sanitization must still cap the error size.
+	assert.Less(t, len(err.Error()), 4096, "sanitized error body must be truncated to a safe display length")
+}
+
+// TestTwelveLabsAsyncBlockedHTTPMaxWait proves the per-HTTP-call deadline
+// added in Plan 02 actually unblocks an in-flight GET /tasks/{id} when
+// maxWait fires. Without the per-call deadline, a blocked HTTP call would
+// hang indefinitely regardless of maxWait (Plan 02 review fix).
+func TestTwelveLabsAsyncBlockedHTTPMaxWait(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_block", "processing"))
+			return
+		}
+		// Block until the request's context is canceled by the per-call
+		// deadline. If the plan fails to bound the HTTP call, this select
+		// would block until the server closed and the test would hang until
+		// `go test` timeout — a loud failure.
+		<-r.Context().Done()
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	ef.apiClient.asyncMaxWait = 100 * time.Millisecond
+
+	start := time.Now()
+	_, err := ef.EmbedContent(context.Background(), videoContent("https://example.com/v.mp4"))
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	// The distinct SDK-timeout message must fire, not ctx.DeadlineExceeded —
+	// parent ctx has no deadline, so maxWait is the only bound.
+	assert.Contains(t, err.Error(), "async polling maxWait")
+	assert.False(t, stderrors.Is(err, context.DeadlineExceeded), "SDK maxWait must not collapse into context.DeadlineExceeded (D-20)")
+	// Sanity-check the upper bound so a regression where maxWait is not
+	// enforced on in-flight HTTP work fails loudly.
+	assert.Less(t, elapsed, 2*time.Second, "maxWait must interrupt the blocked HTTP call; took %s", elapsed)
+}
+
+// TestTwelveLabsAsyncFusedRejected proves the async path rejects
+// WithAudioEmbeddingOption("fused") deterministically (RESEARCH F-02 / A5
+// review fix). The rejection must happen before any POST /tasks call.
+func TestTwelveLabsAsyncFusedRejected(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("no HTTP call expected for fused+async; got %s %s", r.Method, r.URL.Path)
+	})
+	_ = srv
+
+	ef := newTestAsyncEF(srv.URL)
+	// Apply the fused audio option by setting the field directly (the
+	// public option setter would also work; direct assignment keeps the
+	// test independent of option ordering).
+	ef.apiClient.AudioEmbeddingOption = "fused"
+
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "fused")
+	assert.Contains(t, err.Error(), "async")
+}
