@@ -181,7 +181,15 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 	if created.Status == taskStatusReady && len(created.Data) > 0 {
 		return buildEmbeddingFromData(created.Data)
 	}
-	final, err := e.pollTask(ctx, created.ID, e.apiClient.asyncMaxWait)
+	// Pass the *remaining* maxWait budget to pollTask so total operation time
+	// (create + poll) stays within a single asyncMaxWait window — honoring the
+	// documented hard upper bound (D-09). Without this, a slow create would
+	// grant polling a fresh full budget, yielding up to 2× maxWait total.
+	remaining := time.Until(sdkMaxWaitDeadline)
+	if remaining <= 0 {
+		return nil, errors.Errorf("Twelve Labs async maxWait %s exceeded after task create", e.apiClient.asyncMaxWait)
+	}
+	final, err := e.pollTask(ctx, created.ID, remaining)
 	if err != nil {
 		return nil, err
 	}
