@@ -96,6 +96,12 @@ func validate(c *TwelveLabsClient) error {
 	if c.asyncPollCap < c.asyncPollInitial {
 		return errors.Errorf("async poll cap %s must be >= async poll initial %s", c.asyncPollCap, c.asyncPollInitial)
 	}
+	// Fail fast on option combinations that would only surface at EmbedContent
+	// time. The async /tasks endpoint rejects "fused" (RESEARCH F-02) — surface
+	// this at construction rather than minutes into a pipeline.
+	if c.asyncPollingEnabled && c.AudioEmbeddingOption == "fused" {
+		return errors.New(`WithAudioEmbeddingOption("fused") is not supported with WithAsyncPolling; the async tasks endpoint accepts only "audio" and "transcription" (RESEARCH F-02)`)
+	}
 	return nil
 }
 
@@ -173,6 +179,11 @@ type TaskCreateResponse struct {
 	ID     string            `json:"_id"`
 	Status string            `json:"status"`
 	Data   []EmbedV2DataItem `json:"data,omitempty"`
+	// FailureDetail carries the raw server response body when Status=failed so
+	// callers surface the authentic server reason rather than just the task ID.
+	// Mirrors TaskResponse.FailureDetail; populated only on terminal-failure
+	// creates (rare — usually surface as non-2xx).
+	FailureDetail json.RawMessage `json:"-"`
 }
 
 // TaskResponse is returned from GET /v1.3/embed-v2/tasks/{id}.
@@ -304,6 +315,11 @@ func (e *TwelveLabsEmbeddingFunction) doTaskPost(ctx context.Context, req AsyncE
 	var out TaskCreateResponse
 	if err := json.Unmarshal(respData, &out); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal task create response")
+	}
+	// Preserve raw body on terminal failure so callers can sanitize the
+	// authentic server reason — mirrors doTaskGet (D-17).
+	if out.Status == taskStatusFailed {
+		out.FailureDetail = append(json.RawMessage(nil), respData...)
 	}
 	return &out, nil
 }
