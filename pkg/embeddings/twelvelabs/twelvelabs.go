@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -39,6 +40,12 @@ type TwelveLabsClient struct {
 	Client               *http.Client
 	Insecure             bool
 	AudioEmbeddingOption string
+
+	asyncPollingEnabled bool
+	asyncMaxWait        time.Duration
+	asyncPollInitial    time.Duration
+	asyncPollMultiplier float64
+	asyncPollCap        time.Duration
 }
 
 func applyDefaults(c *TwelveLabsClient) {
@@ -53,6 +60,15 @@ func applyDefaults(c *TwelveLabsClient) {
 	}
 	if c.AudioEmbeddingOption == "" {
 		c.AudioEmbeddingOption = defaultAudioEmbeddingOption
+	}
+	if c.asyncPollInitial == 0 {
+		c.asyncPollInitial = 2 * time.Second
+	}
+	if c.asyncPollMultiplier == 0 {
+		c.asyncPollMultiplier = 1.5
+	}
+	if c.asyncPollCap == 0 {
+		c.asyncPollCap = 60 * time.Second
 	}
 }
 
@@ -117,6 +133,49 @@ type AudioInput struct {
 
 type VideoInput struct {
 	MediaSource MediaSource `json:"media_source"`
+}
+
+// AsyncEmbedV2Request is the JSON body for POST /v1.3/embed-v2/tasks.
+// The async endpoint uses a distinct shape from the sync endpoint
+// (embedding_option is a list, not a single string). See RESEARCH F-02.
+type AsyncEmbedV2Request struct {
+	InputType string           `json:"input_type"`
+	ModelName string           `json:"model_name"`
+	Audio     *AsyncAudioInput `json:"audio,omitempty"`
+	Video     *AsyncVideoInput `json:"video,omitempty"`
+}
+
+type AsyncAudioInput struct {
+	MediaSource     MediaSource `json:"media_source"`
+	EmbeddingOption []string    `json:"embedding_option,omitempty"`
+}
+
+type AsyncVideoInput struct {
+	MediaSource MediaSource `json:"media_source"`
+}
+
+// TaskCreateResponse is returned from POST /v1.3/embed-v2/tasks.
+// NOTE: task ID uses `_id` alias (Mongo-style) — RESEARCH Pitfall 1.
+type TaskCreateResponse struct {
+	ID     string            `json:"_id"`
+	Status string            `json:"status"`
+	Data   []EmbedV2DataItem `json:"data,omitempty"`
+}
+
+// TaskResponse is returned from GET /v1.3/embed-v2/tasks/{id}.
+// Serves BOTH polling and retrieval (RESEARCH F-01 — only two
+// endpoints exist; there is no separate /status sub-path).
+//
+// FailureDetail holds the raw HTTP response body so that on status=failed
+// Plan 02 can sanitize the actual server-provided failure reason rather
+// than re-marshaling this struct's subset of fields (D-17 compliance).
+// The `json:"-"` tag excludes it from unmarshaling; doTaskGet populates
+// it directly from the body bytes.
+type TaskResponse struct {
+	ID            string            `json:"_id"`
+	Status        string            `json:"status"` // "processing" | "ready" | "failed"
+	Data          []EmbedV2DataItem `json:"data,omitempty"`
+	FailureDetail json.RawMessage   `json:"-"`
 }
 
 // EmbedV2Response is the response body from the embed-v2 endpoint.
