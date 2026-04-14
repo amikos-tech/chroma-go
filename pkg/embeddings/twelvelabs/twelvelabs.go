@@ -47,8 +47,8 @@ type TwelveLabsClient struct {
 
 	// Async polling state — wired up by WithAsyncPolling (Plan 26-03)
 	// and consumed by the polling loop (Plan 26-02).
-	asyncPollingEnabled bool          //nolint:unused // consumed by Plans 26-02/03
-	asyncMaxWait        time.Duration //nolint:unused // consumed by Plans 26-02/03
+	asyncPollingEnabled bool
+	asyncMaxWait        time.Duration
 	asyncPollInitial    time.Duration
 	asyncPollMultiplier float64
 	asyncPollCap        time.Duration
@@ -267,8 +267,6 @@ func (e *TwelveLabsEmbeddingFunction) doPost(ctx context.Context, req EmbedV2Req
 // doTaskPost creates an async embedding task via POST {BaseAPI}/tasks.
 // Used when WithAsyncPolling is enabled and the content modality is
 // audio or video. See CONTEXT.md D-01, D-07.
-//
-//nolint:unused // consumed by Plans 26-02/03
 func (e *TwelveLabsEmbeddingFunction) doTaskPost(ctx context.Context, req AsyncEmbedV2Request) (*TaskCreateResponse, error) {
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
@@ -312,8 +310,6 @@ func (e *TwelveLabsEmbeddingFunction) doTaskPost(ctx context.Context, req AsyncE
 // doTaskGet retrieves an async embedding task via GET {BaseAPI}/tasks/{id}.
 // Per RESEARCH F-01 this single endpoint serves BOTH status polling and
 // final result retrieval — the response carries status + data.
-//
-//nolint:unused // consumed by Plans 26-02/03
 func (e *TwelveLabsEmbeddingFunction) doTaskGet(ctx context.Context, taskID string) (*TaskResponse, error) {
 	if taskID == "" {
 		return nil, errors.New("task ID cannot be empty (check _id JSON tag on create response)")
@@ -351,8 +347,12 @@ func (e *TwelveLabsEmbeddingFunction) doTaskGet(ctx context.Context, taskID stri
 	}
 	// Preserve raw body so pollTask can sanitize the authentic server reason
 	// on status=failed (D-17). Copy respData — the underlying buffer may be
-	// reused; json.RawMessage needs stable bytes.
-	out.FailureDetail = append(json.RawMessage(nil), respData...)
+	// reused; json.RawMessage needs stable bytes. Only populated on terminal
+	// failure: ready responses carry the full embedding payload and copying
+	// that would double memory for data we never read.
+	if out.Status == taskStatusFailed {
+		out.FailureDetail = append(json.RawMessage(nil), respData...)
+	}
 	return &out, nil
 }
 

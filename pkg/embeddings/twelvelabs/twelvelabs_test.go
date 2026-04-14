@@ -563,6 +563,43 @@ func TestTwelveLabsAsyncMaxWait(t *testing.T) {
 	assert.False(t, stderrors.Is(err, context.Canceled))
 }
 
+// TestTwelveLabsAsyncMaxWaitHardBound asserts the documented D-09 guarantee:
+// total operation time (create + poll) stays within a single asyncMaxWait
+// window, not create_time + asyncMaxWait. A slow task-create POST must eat
+// into the polling budget, not reset it.
+func TestTwelveLabsAsyncMaxWaitHardBound(t *testing.T) {
+	const maxWait = 200 * time.Millisecond
+	const createDelay = 120 * time.Millisecond // spends >half the budget
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			time.Sleep(createDelay)
+			fmt.Fprint(w, taskCreateJSON("task_hard_bound", "processing"))
+			return
+		}
+		fmt.Fprint(w, taskGetJSON("task_hard_bound", "processing", nil))
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	ef.apiClient.asyncMaxWait = maxWait
+
+	start := time.Now()
+	_, err := ef.EmbedContent(context.Background(), videoContent("https://example.com/v.mp4"))
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	// Either the create call or the poll loop may trip the bound depending on
+	// scheduling; both surface the distinct maxWait SDK error, not raw ctx errs.
+	assert.Contains(t, err.Error(), "maxWait")
+	assert.False(t, stderrors.Is(err, context.DeadlineExceeded))
+	assert.False(t, stderrors.Is(err, context.Canceled))
+	// Total elapsed must stay within ~maxWait. Allow 50% slack for CI jitter
+	// (backoff sleeps, goroutine scheduling). Without the fix this would be
+	// ~createDelay + maxWait ≈ 320ms, which is well over the threshold.
+	assert.Less(t, elapsed, maxWait+maxWait/2,
+		"total elapsed %s must stay within ~asyncMaxWait %s (D-09 hard bound)", elapsed, maxWait)
+}
+
 func TestTwelveLabsAsyncPollParentDeadlinePreservesTransportError(t *testing.T) {
 	ef := newTestAsyncEF("https://example.test/embed-v2")
 	ef.apiClient.Client = &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
