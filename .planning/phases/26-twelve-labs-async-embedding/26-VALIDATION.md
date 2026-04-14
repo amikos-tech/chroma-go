@@ -1,10 +1,11 @@
 ---
 phase: 26
 slug: twelve-labs-async-embedding
-status: draft
+status: validated
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-04-14
+validated: 2026-04-14
 ---
 
 # Phase 26 — Validation Strategy
@@ -40,14 +41,14 @@ created: 2026-04-14
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 26-01-01 | 01 | 1 | TLA-01, TLA-02, TLA-03 | T-26-01..05 | `_id` alias + list-shape `embedding_option` + polling defaults | unit (build + grep) | `go build -tags=ef ./pkg/embeddings/twelvelabs/...` plus grep asserts `_id`, `[]string`, `asyncPollInitial` | EXISTS | pending |
-| 26-01-02 | 01 | 1 | TLA-01, TLA-02, TLA-03 | T-26-01..05 | body sanitization on non-2xx, URL escaping, empty-id guard | unit (build + grep) | grep asserts `doTaskPost`, `doTaskGet`, `url.PathEscape`, `SanitizeErrorBody` count >= 4 | EXISTS | pending |
-| 26-02-01 | 02 | 2 | TLA-01, TLA-02, TLA-03 | T-26-06..10 | status discriminator, ctx-cancel, maxWait distinct, no `time.After`, no `WithTimeout` on maxWait | unit (build + grep) | grep asserts `time.NewTimer`, `case <-ctx.Done`, `async polling maxWait`, `terminal status=failed`, absence of `time.After(` and `context.WithTimeout(ctx, maxWait)` | EXISTS | pending |
-| 26-02-02 | 02 | 2 | TLA-01, TLA-02, TLA-03 | T-26-06..10 | modality-gated routing; sync path unchanged for non-opt-in | unit (existing tests regression) | `go test -tags=ef -count=1 -run TestTwelveLabs ./pkg/embeddings/twelvelabs/...` | EXISTS | pending |
-| 26-03-01 | 03 | 2 | TLA-03 | T-26-11, T-26-12 | reject negative maxWait, 30m default on zero | unit (build + grep) | grep asserts `maxWait cannot be negative`, `30 * time.Minute`, exact signature `func WithAsyncPolling(maxWait time.Duration) Option` | EXISTS | pending |
-| 26-03-02 | 03 | 2 | TLA-03 | T-26-13, T-26-14 | config keys round-trip; omit when disabled | unit (build + grep + regression) | grep asserts emit/read of `async_polling` + `async_max_wait_ms` + `asyncMaxWait.Milliseconds()`; existing tests still pass | EXISTS | pending |
-| 26-04-01 | 04 | 3 | TLA-04 | T-26-15, T-26-16 | task-create, poll-to-ready, poll-to-failed, unexpected-status | unit (httptest) | `go test -tags=ef -count=1 -run TestTwelveLabsAsyncTaskCreate\|TestTwelveLabsAsyncPollToReady\|TestTwelveLabsAsyncPollToFailed\|TestTwelveLabsAsyncUnexpectedStatus ./pkg/embeddings/twelvelabs/...` | EXISTS | pending |
-| 26-04-02 | 04 | 3 | TLA-04 | T-26-17 | ctx-cancel, maxWait distinct from DeadlineExceeded, text/image skip async, config round-trip | unit (httptest) | `go test -tags=ef -count=1 -run TestTwelveLabsAsyncCtxCancel\|TestTwelveLabsAsyncMaxWait\|TestTwelveLabsAsyncSkipsTextImage\|TestTwelveLabsAsyncConfigRoundTrip\|TestTwelveLabsAsyncConfigOmitWhenDisabled ./pkg/embeddings/twelvelabs/...` | EXISTS | pending |
+| 26-01-01 | 01 | 1 | TLA-01, TLA-02, TLA-03 | T-26-01..05 | `_id` alias + list-shape `embedding_option` + polling defaults | unit (build + grep) | `go build -tags=ef ./pkg/embeddings/twelvelabs/...` plus grep asserts `_id`, `[]string`, `asyncPollInitial` | EXISTS | green |
+| 26-01-02 | 01 | 1 | TLA-01, TLA-02, TLA-03 | T-26-01..05 | body sanitization on non-2xx, URL escaping, empty-id guard | unit (build + grep) | grep asserts `doTaskPost`, `doTaskGet`, `url.PathEscape`, `SanitizeErrorBody` count >= 4 | EXISTS | green |
+| 26-02-01 | 02 | 2 | TLA-01, TLA-02, TLA-03 | T-26-06..10 | status discriminator, ctx-cancel, maxWait distinct, no `time.After`, no `WithTimeout` on maxWait | unit (build + grep) | grep asserts `time.NewTimer`, `case <-ctx.Done`, `async polling maxWait`, `terminal status=failed`, absence of `time.After(` and `context.WithTimeout(ctx, maxWait)` | EXISTS | green |
+| 26-02-02 | 02 | 2 | TLA-01, TLA-02, TLA-03 | T-26-06..10 | modality-gated routing; sync path unchanged for non-opt-in | unit (existing tests regression) | `go test -tags=ef -count=1 -run TestTwelveLabs ./pkg/embeddings/twelvelabs/...` | EXISTS | green |
+| 26-03-01 | 03 | 2 | TLA-03 | T-26-11, T-26-12 | reject negative maxWait, 30m default on zero | unit (build + grep) | grep asserts `maxWait cannot be negative`, `30 * time.Minute`, exact signature `func WithAsyncPolling(maxWait time.Duration) Option` | EXISTS | green |
+| 26-03-02 | 03 | 2 | TLA-03 | T-26-13, T-26-14 | config keys round-trip; omit when disabled | unit (build + grep + regression) | grep asserts emit/read of `async_polling` + `async_max_wait_ms` + `asyncMaxWait.Milliseconds()`; existing tests still pass | EXISTS | green |
+| 26-04-01 | 04 | 3 | TLA-04 | T-26-15, T-26-16 | task-create, poll-to-ready, poll-to-failed, unexpected-status | unit (httptest) | `go test -tags=ef -count=1 -run TestTwelveLabsAsyncTaskCreate\|TestTwelveLabsAsyncPollToReady\|TestTwelveLabsAsyncPollToFailed\|TestTwelveLabsAsyncUnexpectedStatus ./pkg/embeddings/twelvelabs/...` | EXISTS | green |
+| 26-04-02 | 04 | 3 | TLA-04 | T-26-17 | ctx-cancel, maxWait distinct from DeadlineExceeded, text/image skip async, config round-trip | unit (httptest) | `go test -tags=ef -count=1 -run TestTwelveLabsAsyncCtxCancel\|TestTwelveLabsAsyncMaxWait\|TestTwelveLabsAsyncSkipsTextImage\|TestTwelveLabsAsyncConfigRoundTrip\|TestTwelveLabsAsyncConfigOmitWhenDisabled ./pkg/embeddings/twelvelabs/...` | EXISTS | green |
 
 *Status: pending · green · red · flaky*
 
@@ -81,3 +82,24 @@ created: 2026-04-14
 - [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** approved by planner 2026-04-14
+
+---
+
+## Validation Audit 2026-04-14
+
+| Metric | Count |
+|--------|-------|
+| Tasks audited | 8 |
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+**Evidence:**
+
+- `go test -tags=ef -count=1 -run TestTwelveLabs ./pkg/embeddings/twelvelabs/...` → PASS (0.537s)
+- All 9 async httptest cases (`TestTwelveLabsAsync{TaskCreate,PollToReady,PollToFailed,UnexpectedStatus,CtxCancel,MaxWait,SkipsTextImage,ConfigRoundTrip,ConfigOmitWhenDisabled}`) green; 3 extra error-sanitization regressions (WR-02) also green
+- Grep assertions verified for 26-01-01, 26-01-02, 26-02-01, 26-03-01, 26-03-02 (positive matches present, negative matches absent — no `time.After(` and no `context.WithTimeout(ctx, maxWait)` in `twelvelabs_async.go`)
+- Manual-only entry (live long-media) retained — requires paid API key, not CI-runnable
+
+Phase 26 remains `nyquist_compliant: true`. No new test files generated.
+
