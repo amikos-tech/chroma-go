@@ -13,8 +13,6 @@ import (
 // contentToAsyncRequest builds the tasks-endpoint body for audio/video content.
 // See RESEARCH F-02 — the async endpoint uses embedding_option as []string
 // and does NOT accept "fused" (only "audio" and "transcription").
-//
-//nolint:unused // wired in Task 2 (content.go routing)
 func contentToAsyncRequest(content embeddings.Content, model string, audioOpt string) (*AsyncEmbedV2Request, error) {
 	if len(content.Parts) != 1 {
 		return nil, errors.Errorf("Twelve Labs requires exactly one part per Content item, got %d", len(content.Parts))
@@ -60,8 +58,6 @@ func contentToAsyncRequest(content embeddings.Content, model string, audioOpt st
 // a blocked HTTP request cannot outlive maxWait (D-09 hard bound). When the
 // derived deadline fires, we inspect which source expired first and translate
 // back into the appropriate distinct error message (D-20).
-//
-//nolint:unused // wired in Task 2 (content.go routing) via createTaskAndPoll
 func (e *TwelveLabsEmbeddingFunction) pollTask(ctx context.Context, taskID string, maxWait time.Duration) (*TaskResponse, error) {
 	sdkMaxWaitDeadline := time.Now().Add(maxWait)
 	interval := e.apiClient.asyncPollInitial
@@ -129,7 +125,6 @@ func (e *TwelveLabsEmbeddingFunction) pollTask(ctx context.Context, taskID strin
 	}
 }
 
-//nolint:unused // wired in Task 2 (content.go routing) via pollTask
 func nextBackoff(cur time.Duration, mul float64, backoffCap time.Duration) time.Duration {
 	next := time.Duration(float64(cur) * mul)
 	if next > backoffCap {
@@ -139,8 +134,6 @@ func nextBackoff(cur time.Duration, mul float64, backoffCap time.Duration) time.
 }
 
 // createTaskAndPoll builds the async request, creates the task, and polls to completion.
-//
-//nolint:unused // wired in Task 2 (content.go routing)
 func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
 	req, err := contentToAsyncRequest(content, e.resolveModel(ctx), e.apiClient.AudioEmbeddingOption)
 	if err != nil {
@@ -165,8 +158,6 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 }
 
 // buildEmbeddingFromData mirrors embeddingFromResponse but operates on a raw data slice.
-//
-//nolint:unused // wired in Task 2 (content.go routing) via createTaskAndPoll
 func buildEmbeddingFromData(data []EmbedV2DataItem) (embeddings.Embedding, error) {
 	if len(data) == 0 {
 		return nil, errors.New("no embedding returned from Twelve Labs task")
