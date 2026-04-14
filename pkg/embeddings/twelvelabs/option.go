@@ -3,6 +3,7 @@ package twelvelabs
 import (
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -94,5 +95,24 @@ func WithAudioEmbeddingOption(opt string) Option {
 		default:
 			return errors.Errorf("invalid audio embedding option %q: must be one of audio, transcription, fused", opt)
 		}
+	}
+}
+
+// WithAsyncPolling enables the Twelve Labs tasks-endpoint code path for
+// audio and video content. Passing maxWait=0 selects the 30-minute default
+// (CONTEXT.md D-03). This is the sole public trigger for async — polling
+// interval, backoff multiplier, and cap are internal (D-04).
+func WithAsyncPolling(maxWait time.Duration) Option {
+	return func(p *TwelveLabsClient) error {
+		if maxWait < 0 {
+			return errors.New("maxWait cannot be negative")
+		}
+		p.asyncPollingEnabled = true
+		if maxWait == 0 {
+			p.asyncMaxWait = 30 * time.Minute
+		} else {
+			p.asyncMaxWait = maxWait
+		}
+		return nil
 	}
 }
