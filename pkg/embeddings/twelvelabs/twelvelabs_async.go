@@ -139,8 +139,31 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 	if err != nil {
 		return nil, err
 	}
-	created, err := e.doTaskPost(ctx, *req)
+	// Bound the create call by the same min(parent ctx deadline, sdk maxWait
+	// deadline) used in pollTask so the whole operation honors maxWait as a
+	// hard upper bound (D-09). Without this, a blocked POST /tasks would hang
+	// until the underlying http.Client transport timed out (default: forever).
+	sdkMaxWaitDeadline := time.Now().Add(e.apiClient.asyncMaxWait)
+	createDeadline := sdkMaxWaitDeadline
+	if parentDL, ok := ctx.Deadline(); ok && parentDL.Before(createDeadline) {
+		createDeadline = parentDL
+	}
+	createCtx, cancel := context.WithDeadline(ctx, createDeadline)
+	created, err := e.doTaskPost(createCtx, *req)
+	cancel()
 	if err != nil {
+		// Translate deadline errors the same way pollTask does so a maxWait
+		// timeout on the create call surfaces as the distinct SDK error rather
+		// than raw context.DeadlineExceeded (D-20).
+		if errors.Is(err, context.DeadlineExceeded) {
+			if time.Now().After(sdkMaxWaitDeadline) {
+				return nil, errors.Errorf("Twelve Labs async task create maxWait %s exceeded", e.apiClient.asyncMaxWait)
+			}
+			return nil, errors.Wrap(ctx.Err(), "Twelve Labs async task create deadline exceeded")
+		}
+		if errors.Is(err, context.Canceled) {
+			return nil, errors.Wrap(ctx.Err(), "Twelve Labs async task create canceled")
+		}
 		return nil, errors.Wrap(err, "failed to create Twelve Labs async task")
 	}
 	if created.ID == "" {
