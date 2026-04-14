@@ -435,6 +435,10 @@ func (e *TwelveLabsEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionCo
 	if e.apiClient.Insecure {
 		cfg["insecure"] = true
 	}
+	if e.apiClient.asyncPollingEnabled {
+		cfg["async_polling"] = true
+		cfg["async_max_wait_ms"] = e.apiClient.asyncMaxWait.Milliseconds() // int64
+	}
 	return cfg
 }
 
@@ -459,6 +463,16 @@ func NewTwelveLabsEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionCo
 	}
 	if audioOpt, ok := cfg["audio_embedding_option"].(string); ok && audioOpt != "" {
 		opts = append(opts, WithAudioEmbeddingOption(audioOpt))
+	}
+	// Only enable async when BOTH keys are present and parseable. A missing or
+	// malformed async_max_wait_ms with async_polling=true is treated as a broken
+	// round-trip — we deliberately do NOT fall back to WithAsyncPolling(0) (the
+	// 30-minute default) because that would silently enable a 30-minute blocking
+	// bound on config the caller didn't specify. Missing key → not enabled.
+	if enabled, ok := cfg["async_polling"].(bool); ok && enabled {
+		if ms, ok := embeddings.ConfigInt(cfg, "async_max_wait_ms"); ok && ms >= 0 {
+			opts = append(opts, WithAsyncPolling(time.Duration(ms)*time.Millisecond))
+		}
 	}
 	return NewTwelveLabsEmbeddingFunction(opts...)
 }
