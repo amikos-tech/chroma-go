@@ -193,7 +193,7 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 	// buildEmbeddingFromData will surface it.
 	switch created.Status {
 	case taskStatusFailed:
-		return nil, errors.Errorf("Twelve Labs async task [%s] terminal status=failed at creation", created.ID)
+		return nil, errors.Errorf("Twelve Labs async task [%s] terminal status=failed at creation: %s", created.ID, sanitizeTaskFailureDetail(created.FailureDetail))
 	case taskStatusReady:
 		return buildEmbeddingFromData(created.Data)
 	}

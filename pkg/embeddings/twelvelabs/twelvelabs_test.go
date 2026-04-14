@@ -754,6 +754,30 @@ func TestTwelveLabsAsyncConfigRoundTrip(t *testing.T) {
 	assert.Equal(t, 7*time.Minute, rebuiltFromJSON.apiClient.asyncMaxWait)
 }
 
+// TestTwelveLabsAsyncRejectsFusedAudioAtConstruction proves the fused+async
+// combination fails at NewTwelveLabsEmbeddingFunction rather than deferring
+// the error to the first EmbedContent call (RESEARCH F-02 — async endpoint
+// only accepts "audio" and "transcription").
+func TestTwelveLabsAsyncRejectsFusedAudioAtConstruction(t *testing.T) {
+	t.Setenv(APIKeyEnvVar, "fused-key")
+	_, err := NewTwelveLabsEmbeddingFunction(
+		WithEnvAPIKey(),
+		WithAudioEmbeddingOption("fused"),
+		WithAsyncPolling(5*time.Minute),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "fused")
+	assert.Contains(t, err.Error(), "async")
+
+	// "fused" alone (no async) must still work.
+	_, err = NewTwelveLabsEmbeddingFunction(WithEnvAPIKey(), WithAudioEmbeddingOption("fused"))
+	require.NoError(t, err)
+
+	// "audio" + async must still work.
+	_, err = NewTwelveLabsEmbeddingFunction(WithEnvAPIKey(), WithAudioEmbeddingOption("audio"), WithAsyncPolling(5*time.Minute))
+	require.NoError(t, err)
+}
+
 // TestTwelveLabsAsyncPollingRejectsSubFloorMaxWait asserts that sub-second
 // values that can't complete a single poll cycle are rejected at option
 // application time rather than deterministically timing out on first poll.
@@ -792,6 +816,27 @@ func TestTwelveLabsAsyncFailedReasonFallbackOnEmptyBody(t *testing.T) {
 	assert.Contains(t, err.Error(), "terminal status=failed")
 	assert.Contains(t, err.Error(), "(no failure detail provided)")
 	assert.NotContains(t, err.Error(), "_id", "housekeeping fields must not leak into the error message")
+}
+
+// TestTwelveLabsAsyncTaskCreateStatusFailedSurfacesReason proves the rare
+// create-time terminal-failure path preserves the server's failure reason
+// instead of returning only the task ID — mirrors the GET /tasks polling
+// behavior (D-17 symmetry).
+func TestTwelveLabsAsyncTaskCreateStatusFailedSurfacesReason(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method != http.MethodPost {
+			t.Fatalf("unexpected %s %s: create-status=failed must short-circuit before polling", r.Method, r.URL.Path)
+		}
+		fmt.Fprint(w, `{"_id":"task_failatcreate","status":"failed","message":"unsupported media format"}`)
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "task_failatcreate")
+	assert.Contains(t, err.Error(), "terminal status=failed at creation")
+	assert.Contains(t, err.Error(), "unsupported media format", "server failure reason must reach the caller")
 }
 
 func TestTwelveLabsAsyncConfigOmitWhenDisabled(t *testing.T) {
