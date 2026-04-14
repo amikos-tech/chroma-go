@@ -127,7 +127,16 @@ func buildMediaSource(source *embeddings.BinarySource) (MediaSource, error) {
 }
 
 // embedContent sends a single Content item to the API and returns the embedding.
+// When asyncPollingEnabled is true and the modality is audio or video, the
+// content routes through the tasks endpoint + polling loop (CONTEXT.md D-07).
+// All other cases use the sync /embed-v2 path (D-08 — zero change for non-opt-in).
 func (e *TwelveLabsEmbeddingFunction) embedContent(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
+	if e.apiClient.asyncPollingEnabled && len(content.Parts) == 1 {
+		switch content.Parts[0].Modality {
+		case embeddings.ModalityAudio, embeddings.ModalityVideo:
+			return e.createTaskAndPoll(ctx, content)
+		}
+	}
 	req, err := contentToRequest(content, e.resolveModel(ctx), e.apiClient.AudioEmbeddingOption)
 	if err != nil {
 		return nil, err
