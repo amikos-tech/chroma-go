@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"io"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -117,6 +119,21 @@ func buildMediaSource(source *embeddings.BinarySource) (MediaSource, error) {
 		return MediaSource{}, errors.New("binary source is required for non-text parts")
 	}
 	if source.Kind == embeddings.SourceKindURL {
+		if source.URL == "" {
+			return MediaSource{}, errors.New("URL source must include non-empty URL")
+		}
+		parsed, err := url.Parse(source.URL)
+		if err != nil {
+			return MediaSource{}, errors.Wrap(err, "invalid URL source")
+		}
+		if parsed.Scheme == "" || parsed.Host == "" {
+			return MediaSource{}, errors.New("URL source must be an absolute URL with scheme and host")
+		}
+		switch strings.ToLower(parsed.Scheme) {
+		case "http", "https":
+		default:
+			return MediaSource{}, errors.Errorf("URL source scheme %q not supported; use http or https", parsed.Scheme)
+		}
 		return MediaSource{URL: source.URL}, nil
 	}
 	data, err := resolveBytes(source)
@@ -127,7 +144,16 @@ func buildMediaSource(source *embeddings.BinarySource) (MediaSource, error) {
 }
 
 // embedContent sends a single Content item to the API and returns the embedding.
+// When asyncPollingEnabled is true and the modality is audio or video, the
+// content routes through the tasks endpoint + polling loop (CONTEXT.md D-07).
+// All other cases use the sync /embed-v2 path (D-08 — zero change for non-opt-in).
 func (e *TwelveLabsEmbeddingFunction) embedContent(ctx context.Context, content embeddings.Content) (embeddings.Embedding, error) {
+	if e.apiClient.asyncPollingEnabled && len(content.Parts) == 1 {
+		switch content.Parts[0].Modality {
+		case embeddings.ModalityAudio, embeddings.ModalityVideo:
+			return e.createTaskAndPoll(ctx, content)
+		}
+	}
 	req, err := contentToRequest(content, e.resolveModel(ctx), e.apiClient.AudioEmbeddingOption)
 	if err != nil {
 		return nil, err

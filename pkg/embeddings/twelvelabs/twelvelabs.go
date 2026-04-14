@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -18,7 +19,12 @@ const (
 	defaultBaseAPI              = "https://api.twelvelabs.io/v1.3/embed-v2"
 	defaultModel                = "marengo3.0"
 	defaultAudioEmbeddingOption = "audio"
+	defaultAsyncMaxWait         = 30 * time.Minute
+	defaultAsyncPollInitial     = 2 * time.Second
 	APIKeyEnvVar                = "TWELVE_LABS_API_KEY"
+	taskStatusProcessing        = "processing"
+	taskStatusReady             = "ready"
+	taskStatusFailed            = "failed"
 )
 
 type contextKey struct{ name string }
@@ -39,6 +45,14 @@ type TwelveLabsClient struct {
 	Client               *http.Client
 	Insecure             bool
 	AudioEmbeddingOption string
+
+	// Async polling state — wired up by WithAsyncPolling (Plan 26-03)
+	// and consumed by the polling loop (Plan 26-02).
+	asyncPollingEnabled bool
+	asyncMaxWait        time.Duration
+	asyncPollInitial    time.Duration
+	asyncPollMultiplier float64
+	asyncPollCap        time.Duration
 }
 
 func applyDefaults(c *TwelveLabsClient) {
@@ -54,6 +68,15 @@ func applyDefaults(c *TwelveLabsClient) {
 	if c.AudioEmbeddingOption == "" {
 		c.AudioEmbeddingOption = defaultAudioEmbeddingOption
 	}
+	if c.asyncPollInitial == 0 {
+		c.asyncPollInitial = defaultAsyncPollInitial
+	}
+	if c.asyncPollMultiplier == 0 {
+		c.asyncPollMultiplier = 1.5
+	}
+	if c.asyncPollCap == 0 {
+		c.asyncPollCap = 60 * time.Second
+	}
 }
 
 func validate(c *TwelveLabsClient) error {
@@ -66,6 +89,18 @@ func validate(c *TwelveLabsClient) error {
 	}
 	if !c.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
 		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
+	}
+	if c.asyncPollMultiplier < 1 {
+		return errors.Errorf("async poll multiplier %.3f must be >= 1.0", c.asyncPollMultiplier)
+	}
+	if c.asyncPollCap < c.asyncPollInitial {
+		return errors.Errorf("async poll cap %s must be >= async poll initial %s", c.asyncPollCap, c.asyncPollInitial)
+	}
+	// Fail fast on option combinations that would only surface at EmbedContent
+	// time. The async /tasks endpoint rejects "fused" (RESEARCH F-02) — surface
+	// this at construction rather than minutes into a pipeline.
+	if c.asyncPollingEnabled && c.AudioEmbeddingOption == "fused" {
+		return errors.New(`WithAudioEmbeddingOption("fused") is not supported with WithAsyncPolling; the async tasks endpoint accepts only "audio" and "transcription" (RESEARCH F-02)`)
 	}
 	return nil
 }
@@ -117,6 +152,54 @@ type AudioInput struct {
 
 type VideoInput struct {
 	MediaSource MediaSource `json:"media_source"`
+}
+
+// AsyncEmbedV2Request is the JSON body for POST /v1.3/embed-v2/tasks.
+// The async endpoint uses a distinct shape from the sync endpoint
+// (embedding_option is a list, not a single string). See RESEARCH F-02.
+type AsyncEmbedV2Request struct {
+	InputType string           `json:"input_type"`
+	ModelName string           `json:"model_name"`
+	Audio     *AsyncAudioInput `json:"audio,omitempty"`
+	Video     *AsyncVideoInput `json:"video,omitempty"`
+}
+
+type AsyncAudioInput struct {
+	MediaSource     MediaSource `json:"media_source"`
+	EmbeddingOption []string    `json:"embedding_option,omitempty"`
+}
+
+type AsyncVideoInput struct {
+	MediaSource MediaSource `json:"media_source"`
+}
+
+// TaskCreateResponse is returned from POST /v1.3/embed-v2/tasks.
+// NOTE: task ID uses `_id` alias (Mongo-style) — RESEARCH Pitfall 1.
+type TaskCreateResponse struct {
+	ID     string            `json:"_id"`
+	Status string            `json:"status"`
+	Data   []EmbedV2DataItem `json:"data,omitempty"`
+	// FailureDetail carries the raw server response body when Status=failed so
+	// callers surface the authentic server reason rather than just the task ID.
+	// Mirrors TaskResponse.FailureDetail; populated only on terminal-failure
+	// creates (rare — usually surface as non-2xx).
+	FailureDetail json.RawMessage `json:"-"`
+}
+
+// TaskResponse is returned from GET /v1.3/embed-v2/tasks/{id}.
+// Serves BOTH polling and retrieval (RESEARCH F-01 — only two
+// endpoints exist; there is no separate /status sub-path).
+//
+// FailureDetail holds the raw HTTP response body so terminal task failures can
+// surface the provider's authentic reason rather than a re-marshaled subset of
+// known fields.
+// The `json:"-"` tag excludes it from unmarshaling; doTaskGet populates
+// it directly from the body bytes.
+type TaskResponse struct {
+	ID            string            `json:"_id"`
+	Status        string            `json:"status"` // "processing" | "ready" | "failed"
+	Data          []EmbedV2DataItem `json:"data,omitempty"`
+	FailureDetail json.RawMessage   `json:"-"`
 }
 
 // EmbedV2Response is the response body from the embed-v2 endpoint.
@@ -181,10 +264,7 @@ func (e *TwelveLabsEmbeddingFunction) doPost(ctx context.Context, req EmbedV2Req
 	if resp.StatusCode != http.StatusOK {
 		var apiErr EmbedV2ErrorResponse
 		if jsonErr := json.Unmarshal(respData, &apiErr); jsonErr == nil && apiErr.Message != "" {
-			if apiErr.Code != "" {
-				return nil, errors.Errorf("Twelve Labs API error [%s] (%s): %s", resp.Status, chttp.SanitizeErrorBody([]byte(apiErr.Code)), chttp.SanitizeErrorBody([]byte(apiErr.Message)))
-			}
-			return nil, errors.Errorf("Twelve Labs API error [%s]: %s", resp.Status, chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+			return nil, formatStructuredAPIError("Twelve Labs API error", resp.Status, apiErr)
 		}
 		return nil, errors.Errorf("unexpected status [%s] from %s: %s", resp.Status, e.apiClient.BaseAPI, chttp.SanitizeErrorBody(respData))
 	}
@@ -196,8 +276,180 @@ func (e *TwelveLabsEmbeddingFunction) doPost(ctx context.Context, req EmbedV2Req
 	return &embedResp, nil
 }
 
+// doTaskPost creates an async embedding task via POST {BaseAPI}/tasks.
+// Used when WithAsyncPolling is enabled and the content modality is
+// audio or video. See CONTEXT.md D-01, D-07.
+func (e *TwelveLabsEmbeddingFunction) doTaskPost(ctx context.Context, req AsyncEmbedV2Request) (*TaskCreateResponse, error) {
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal async task request")
+	}
+	endpoint := strings.TrimRight(e.apiClient.BaseAPI, "/") + "/tasks"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(reqJSON))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create HTTP request")
+	}
+	httpReq.Header.Set("x-api-key", e.apiClient.APIKey.Value())
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
+
+	resp, err := e.apiClient.Client.Do(httpReq)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to send task request to %s", endpoint)
+	}
+	defer resp.Body.Close()
+
+	respData, err := chttp.ReadLimitedBody(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var apiErr EmbedV2ErrorResponse
+		if jsonErr := json.Unmarshal(respData, &apiErr); jsonErr == nil && apiErr.Message != "" {
+			return nil, formatStructuredAPIError("Twelve Labs task create error", resp.Status, apiErr)
+		}
+		return nil, errors.Errorf("unexpected status [%s] from %s: %s", resp.Status, endpoint, chttp.SanitizeErrorBody(respData))
+	}
+
+	var out TaskCreateResponse
+	if err := json.Unmarshal(respData, &out); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal task create response")
+	}
+	// Preserve raw body on terminal failure so callers can sanitize the
+	// authentic server reason — mirrors doTaskGet (D-17).
+	if out.Status == taskStatusFailed {
+		out.FailureDetail = append(json.RawMessage(nil), respData...)
+	}
+	return &out, nil
+}
+
+// doTaskGet retrieves an async embedding task via GET {BaseAPI}/tasks/{id}.
+// Per RESEARCH F-01 this single endpoint serves BOTH status polling and
+// final result retrieval — the response carries status + data.
+func (e *TwelveLabsEmbeddingFunction) doTaskGet(ctx context.Context, taskID string) (*TaskResponse, error) {
+	if taskID == "" {
+		return nil, errors.New("task ID cannot be empty (check _id JSON tag on create response)")
+	}
+	endpoint := strings.TrimRight(e.apiClient.BaseAPI, "/") + "/tasks/" + url.PathEscape(taskID)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create HTTP request")
+	}
+	httpReq.Header.Set("x-api-key", e.apiClient.APIKey.Value())
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
+
+	resp, err := e.apiClient.Client.Do(httpReq)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to send task retrieve request to %s", endpoint)
+	}
+	defer resp.Body.Close()
+
+	respData, err := chttp.ReadLimitedBody(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var apiErr EmbedV2ErrorResponse
+		if jsonErr := json.Unmarshal(respData, &apiErr); jsonErr == nil && apiErr.Message != "" {
+			return nil, formatStructuredAPIError("Twelve Labs task retrieve error", resp.Status, apiErr)
+		}
+		return nil, errors.Errorf("unexpected status [%s] from %s: %s", resp.Status, endpoint, chttp.SanitizeErrorBody(respData))
+	}
+
+	var out TaskResponse
+	if err := json.Unmarshal(respData, &out); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal task retrieve response")
+	}
+	// Preserve raw body so pollTask can sanitize the authentic server reason
+	// on status=failed (D-17). Copy respData — the underlying buffer may be
+	// reused; json.RawMessage needs stable bytes. Only populated on terminal
+	// failure: ready responses carry the full embedding payload and copying
+	// that would double memory for data we never read.
+	if out.Status == taskStatusFailed {
+		out.FailureDetail = append(json.RawMessage(nil), respData...)
+	}
+	return &out, nil
+}
+
 func (e *TwelveLabsEmbeddingFunction) Name() string {
 	return "twelvelabs"
+}
+
+func formatStructuredAPIError(prefix, status string, apiErr EmbedV2ErrorResponse) error {
+	if apiErr.Code != "" {
+		return errors.Errorf("%s [%s] (%s): %s", prefix, status, chttp.SanitizeErrorBody([]byte(apiErr.Code)), chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+	}
+	return errors.Errorf("%s [%s]: %s", prefix, status, chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+}
+
+func sanitizeTaskFailureDetail(body json.RawMessage) string {
+	if detail := extractTaskFailureDetail(body); detail != "" {
+		return chttp.SanitizeErrorBody([]byte(detail))
+	}
+	// No structured reason. If the body parses as a JSON object, dumping it
+	// just leaks housekeeping fields (_id, status) without diagnostic value.
+	// Non-JSON bodies may carry free-text errors worth preserving.
+	var probe map[string]any
+	if len(body) > 0 && json.Unmarshal(body, &probe) != nil {
+		if sanitized := chttp.SanitizeErrorBody(body); sanitized != "" {
+			return sanitized
+		}
+	}
+	return "(no failure detail provided)"
+}
+
+func extractTaskFailureDetail(body json.RawMessage) string {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+
+	if detail := extractTaskFailureValue(payload["error"]); detail != "" {
+		return detail
+	}
+	if detail := firstStringField(payload, "message", "failure_reason", "reason", "detail"); detail != "" {
+		return detail
+	}
+	return ""
+}
+
+func extractTaskFailureValue(v any) string {
+	switch value := v.(type) {
+	case string:
+		return strings.TrimSpace(value)
+	case map[string]any:
+		detail := firstStringField(value, "message", "failure_reason", "reason", "detail")
+		code := firstStringField(value, "code")
+		if detail != "" && code != "" {
+			return code + ": " + detail
+		}
+		if detail != "" {
+			return detail
+		}
+		return code
+	default:
+		return ""
+	}
+}
+
+func firstStringField(payload map[string]any, keys ...string) string {
+	for _, key := range keys {
+		raw, ok := payload[key]
+		if !ok {
+			continue
+		}
+		value, ok := raw.(string)
+		if !ok {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func (e *TwelveLabsEmbeddingFunction) resolveModel(ctx context.Context) string {
@@ -282,6 +534,10 @@ func (e *TwelveLabsEmbeddingFunction) GetConfig() embeddings.EmbeddingFunctionCo
 	if e.apiClient.Insecure {
 		cfg["insecure"] = true
 	}
+	if e.apiClient.asyncPollingEnabled {
+		cfg["async_polling"] = true
+		cfg["async_max_wait_ms"] = e.apiClient.asyncMaxWait.Milliseconds() // int64
+	}
 	return cfg
 }
 
@@ -306,6 +562,16 @@ func NewTwelveLabsEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionCo
 	}
 	if audioOpt, ok := cfg["audio_embedding_option"].(string); ok && audioOpt != "" {
 		opts = append(opts, WithAudioEmbeddingOption(audioOpt))
+	}
+	// Only enable async when BOTH keys are present and parseable. A missing or
+	// malformed async_max_wait_ms with async_polling=true is treated as a broken
+	// round-trip — we deliberately do NOT fall back to WithAsyncPolling(0) (the
+	// 30-minute default) because that would silently enable a 30-minute blocking
+	// bound on config the caller didn't specify. Missing key → not enabled.
+	if enabled, ok := cfg["async_polling"].(bool); ok && enabled {
+		if ms, ok := embeddings.ConfigInt(cfg, "async_max_wait_ms"); ok && ms >= 0 {
+			opts = append(opts, WithAsyncPolling(time.Duration(ms)*time.Millisecond))
+		}
 	}
 	return NewTwelveLabsEmbeddingFunction(opts...)
 }

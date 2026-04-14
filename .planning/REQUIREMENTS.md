@@ -25,10 +25,10 @@
 
 ### Provider Enhancement
 
-- [ ] **TLA-01**: Twelve Labs provider detects async task responses from the sync endpoint and enters a polling loop
-- [ ] **TLA-02**: Async polling respects caller context for cancellation and timeout
-- [ ] **TLA-03**: Async polling handles terminal states (ready, failed) with appropriate error messages
-- [ ] **TLA-04**: Tests cover async task creation, polling, completion, failure, and context cancellation
+- [x] **TLA-01**: Twelve Labs provider detects async task responses from the sync endpoint and enters a polling loop
+- [x] **TLA-02**: Async polling respects caller context for cancellation and timeout
+- [x] **TLA-03**: Async polling handles terminal states (ready, failed) with appropriate error messages
+- [x] **TLA-04**: Tests cover async task creation, polling, completion, failure, and context cancellation
 
 ### Internal Cleanup
 
@@ -69,10 +69,10 @@
 | EFL-03 | Phase 24 | Pending |
 | ERR-01 | Phase 25 | Complete |
 | ERR-02 | Phase 25 | Complete |
-| TLA-01 | Phase 26 | Pending |
-| TLA-02 | Phase 26 | Pending |
-| TLA-03 | Phase 26 | Pending |
-| TLA-04 | Phase 26 | Pending |
+| TLA-01 | Phase 26 | Complete |
+| TLA-02 | Phase 26 | Complete |
+| TLA-03 | Phase 26 | Complete |
+| TLA-04 | Phase 26 | Complete |
 | DL-01 | Phase 27 | Pending |
 | DL-02 | Phase 27 | Pending |
 | MORPH-01 | Phase 28 | Pending |
