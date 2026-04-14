@@ -645,6 +645,56 @@ func TestTwelveLabsAsyncBlockedHTTPMaxWait(t *testing.T) {
 	assert.Less(t, elapsed, 2*time.Second, "maxWait must interrupt the blocked HTTP call; took %s", elapsed)
 }
 
+func TestTwelveLabsAsyncTaskCreateClientTimeoutReturnsError(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		select {
+		case <-r.Context().Done():
+		case <-time.After(200 * time.Millisecond):
+		}
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	ef.apiClient.Client = &http.Client{Timeout: 50 * time.Millisecond}
+	ef.apiClient.asyncMaxWait = time.Second
+
+	emb, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Nil(t, emb)
+	assert.Contains(t, err.Error(), "async task create request timed out")
+	assert.True(t, stderrors.Is(err, context.DeadlineExceeded), "client timeout should preserve the underlying deadline error")
+}
+
+func TestTwelveLabsAsyncPollClientTimeoutReturnsErrorWithoutPanic(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_client_timeout", "processing"))
+			return
+		}
+		select {
+		case <-r.Context().Done():
+		case <-time.After(200 * time.Millisecond):
+		}
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	ef.apiClient.Client = &http.Client{Timeout: 50 * time.Millisecond}
+	ef.apiClient.asyncMaxWait = time.Second
+
+	var emb embeddings.Embedding
+	var err error
+	assert.NotPanics(t, func() {
+		emb, err = ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	})
+	require.Error(t, err)
+	assert.Nil(t, emb)
+	assert.Contains(t, err.Error(), "async polling request timed out")
+	assert.True(t, stderrors.Is(err, context.DeadlineExceeded), "client timeout should preserve the underlying deadline error")
+}
+
 // TestTwelveLabsAsyncTaskCreateError proves the doTaskPost non-2xx error
 // path mirrors the structured-error-then-raw-fallback logic in doPost
 // (twelvelabs.go). Without this test, a regression that breaks the create

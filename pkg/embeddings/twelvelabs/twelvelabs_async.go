@@ -75,11 +75,14 @@ func (e *TwelveLabsEmbeddingFunction) pollTask(ctx context.Context, taskID strin
 			// figure out which source was responsible and return the distinct
 			// error (D-20). errors.Is works through pkg/errors wrapping.
 			if errors.Is(err, context.DeadlineExceeded) {
-				if time.Now().After(sdkMaxWaitDeadline) {
+				if !time.Now().Before(sdkMaxWaitDeadline) {
 					return nil, errors.Errorf("Twelve Labs task [%s] async polling maxWait %s exceeded", taskID, maxWait)
 				}
-				// Parent ctx deadline fired first.
-				return nil, errors.Wrap(ctx.Err(), "Twelve Labs async polling deadline exceeded")
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					// Parent ctx deadline fired first.
+					return nil, errors.Wrap(ctxErr, "Twelve Labs async polling deadline exceeded")
+				}
+				return nil, errors.Wrap(err, "Twelve Labs async polling request timed out")
 			}
 			if errors.Is(err, context.Canceled) {
 				return nil, errors.Wrap(ctx.Err(), "Twelve Labs async polling canceled")
@@ -156,10 +159,13 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 		// timeout on the create call surfaces as the distinct SDK error rather
 		// than raw context.DeadlineExceeded (D-20).
 		if errors.Is(err, context.DeadlineExceeded) {
-			if time.Now().After(sdkMaxWaitDeadline) {
+			if !time.Now().Before(sdkMaxWaitDeadline) {
 				return nil, errors.Errorf("Twelve Labs async task create maxWait %s exceeded", e.apiClient.asyncMaxWait)
 			}
-			return nil, errors.Wrap(ctx.Err(), "Twelve Labs async task create deadline exceeded")
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, errors.Wrap(ctxErr, "Twelve Labs async task create deadline exceeded")
+			}
+			return nil, errors.Wrap(err, "Twelve Labs async task create request timed out")
 		}
 		if errors.Is(err, context.Canceled) {
 			return nil, errors.Wrap(ctx.Err(), "Twelve Labs async task create canceled")
