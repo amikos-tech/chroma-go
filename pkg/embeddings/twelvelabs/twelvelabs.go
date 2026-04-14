@@ -41,8 +41,10 @@ type TwelveLabsClient struct {
 	Insecure             bool
 	AudioEmbeddingOption string
 
-	asyncPollingEnabled bool
-	asyncMaxWait        time.Duration
+	// Async polling state — wired up by WithAsyncPolling (Plan 26-03)
+	// and consumed by the polling loop (Plan 26-02).
+	asyncPollingEnabled bool          //nolint:unused // consumed by Plans 26-02/03
+	asyncMaxWait        time.Duration //nolint:unused // consumed by Plans 26-02/03
 	asyncPollInitial    time.Duration
 	asyncPollMultiplier float64
 	asyncPollCap        time.Duration
@@ -253,6 +255,98 @@ func (e *TwelveLabsEmbeddingFunction) doPost(ctx context.Context, req EmbedV2Req
 		return nil, errors.Wrap(err, "failed to unmarshal response body")
 	}
 	return &embedResp, nil
+}
+
+// doTaskPost creates an async embedding task via POST {BaseAPI}/tasks.
+// Used when WithAsyncPolling is enabled and the content modality is
+// audio or video. See CONTEXT.md D-01, D-07.
+//
+//nolint:unused // consumed by Plans 26-02/03
+func (e *TwelveLabsEmbeddingFunction) doTaskPost(ctx context.Context, req AsyncEmbedV2Request) (*TaskCreateResponse, error) {
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal async task request")
+	}
+	endpoint := strings.TrimRight(e.apiClient.BaseAPI, "/") + "/tasks"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(reqJSON))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create HTTP request")
+	}
+	httpReq.Header.Set("x-api-key", e.apiClient.APIKey.Value())
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
+
+	resp, err := e.apiClient.Client.Do(httpReq)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to send task request to %s", endpoint)
+	}
+	defer resp.Body.Close()
+
+	respData, err := chttp.ReadLimitedBody(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var apiErr EmbedV2ErrorResponse
+		if jsonErr := json.Unmarshal(respData, &apiErr); jsonErr == nil && apiErr.Message != "" {
+			return nil, errors.Errorf("Twelve Labs task create error [%s]: %s", resp.Status, chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+		}
+		return nil, errors.Errorf("unexpected status [%s] from %s: %s", resp.Status, endpoint, chttp.SanitizeErrorBody(respData))
+	}
+
+	var out TaskCreateResponse
+	if err := json.Unmarshal(respData, &out); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal task create response")
+	}
+	return &out, nil
+}
+
+// doTaskGet retrieves an async embedding task via GET {BaseAPI}/tasks/{id}.
+// Per RESEARCH F-01 this single endpoint serves BOTH status polling and
+// final result retrieval — the response carries status + data.
+//
+//nolint:unused // consumed by Plans 26-02/03
+func (e *TwelveLabsEmbeddingFunction) doTaskGet(ctx context.Context, taskID string) (*TaskResponse, error) {
+	if taskID == "" {
+		return nil, errors.New("task ID cannot be empty (check _id JSON tag on create response)")
+	}
+	endpoint := strings.TrimRight(e.apiClient.BaseAPI, "/") + "/tasks/" + url.PathEscape(taskID)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create HTTP request")
+	}
+	httpReq.Header.Set("x-api-key", e.apiClient.APIKey.Value())
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("User-Agent", chttp.ChromaGoClientUserAgent)
+
+	resp, err := e.apiClient.Client.Do(httpReq)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to send task retrieve request to %s", endpoint)
+	}
+	defer resp.Body.Close()
+
+	respData, err := chttp.ReadLimitedBody(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var apiErr EmbedV2ErrorResponse
+		if jsonErr := json.Unmarshal(respData, &apiErr); jsonErr == nil && apiErr.Message != "" {
+			return nil, errors.Errorf("Twelve Labs task retrieve error [%s]: %s", resp.Status, chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+		}
+		return nil, errors.Errorf("unexpected status [%s] from %s: %s", resp.Status, endpoint, chttp.SanitizeErrorBody(respData))
+	}
+
+	var out TaskResponse
+	if err := json.Unmarshal(respData, &out); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal task retrieve response")
+	}
+	// Preserve raw body so pollTask can sanitize the authentic server reason
+	// on status=failed (D-17). Copy respData — the underlying buffer may be
+	// reused; json.RawMessage needs stable bytes.
+	out.FailureDetail = append(json.RawMessage(nil), respData...)
+	return &out, nil
 }
 
 func (e *TwelveLabsEmbeddingFunction) Name() string {
