@@ -645,6 +645,54 @@ func TestTwelveLabsAsyncBlockedHTTPMaxWait(t *testing.T) {
 	assert.Less(t, elapsed, 2*time.Second, "maxWait must interrupt the blocked HTTP call; took %s", elapsed)
 }
 
+// TestTwelveLabsAsyncTaskCreateError proves the doTaskPost non-2xx error
+// path mirrors the structured-error-then-raw-fallback logic in doPost
+// (twelvelabs.go). Without this test, a regression that breaks the create
+// error branch (forgotten sanitize, wrong wrap) would go undetected until
+// a real Twelve Labs 4xx arrived in production.
+func TestTwelveLabsAsyncTaskCreateError(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, `{"message":"invalid media source","code":"E_BAD_SRC"}`)
+	})
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "task create error")
+	assert.Contains(t, err.Error(), "invalid media source")
+}
+
+func TestTwelveLabsAsyncTaskCreateErrorSanitizesStructuredMessage(t *testing.T) {
+	longMessage := strings.Repeat("create-err-", 80)
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"message":%q,"code":"bad_request"}`, longMessage)
+	})
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "task create error")
+	assert.Contains(t, err.Error(), testTwelveLabsTruncatedSuffix)
+	assert.NotContains(t, err.Error(), longMessage)
+}
+
+func TestTwelveLabsAsyncTaskCreateErrorRawFallback(t *testing.T) {
+	longBody := strings.Repeat("raw-create-", 80)
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprint(w, longBody)
+	})
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected status")
+	assert.Contains(t, err.Error(), testTwelveLabsTruncatedSuffix)
+	assert.NotContains(t, err.Error(), longBody)
+}
+
 // TestTwelveLabsAsyncFusedRejected proves the async path rejects
 // WithAudioEmbeddingOption("fused") deterministically (RESEARCH F-02 / A5
 // review fix). The rejection must happen before any POST /tasks call.
