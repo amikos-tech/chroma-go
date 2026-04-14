@@ -19,7 +19,11 @@ const (
 	defaultBaseAPI              = "https://api.twelvelabs.io/v1.3/embed-v2"
 	defaultModel                = "marengo3.0"
 	defaultAudioEmbeddingOption = "audio"
+	defaultAsyncMaxWait         = 30 * time.Minute
 	APIKeyEnvVar                = "TWELVE_LABS_API_KEY"
+	taskStatusProcessing        = "processing"
+	taskStatusReady             = "ready"
+	taskStatusFailed            = "failed"
 )
 
 type contextKey struct{ name string }
@@ -84,6 +88,12 @@ func validate(c *TwelveLabsClient) error {
 	}
 	if !c.Insecure && !strings.EqualFold(parsed.Scheme, "https") {
 		return errors.New("base URL must use HTTPS scheme for secure API key transmission; use WithInsecure() to override")
+	}
+	if c.asyncPollMultiplier < 1 {
+		return errors.Errorf("async poll multiplier %.3f must be >= 1.0", c.asyncPollMultiplier)
+	}
+	if c.asyncPollCap < c.asyncPollInitial {
+		return errors.Errorf("async poll cap %s must be >= async poll initial %s", c.asyncPollCap, c.asyncPollInitial)
 	}
 	return nil
 }
@@ -168,9 +178,9 @@ type TaskCreateResponse struct {
 // Serves BOTH polling and retrieval (RESEARCH F-01 — only two
 // endpoints exist; there is no separate /status sub-path).
 //
-// FailureDetail holds the raw HTTP response body so that on status=failed
-// Plan 02 can sanitize the actual server-provided failure reason rather
-// than re-marshaling this struct's subset of fields (D-17 compliance).
+// FailureDetail holds the raw HTTP response body so terminal task failures can
+// surface the provider's authentic reason rather than a re-marshaled subset of
+// known fields.
 // The `json:"-"` tag excludes it from unmarshaling; doTaskGet populates
 // it directly from the body bytes.
 type TaskResponse struct {
@@ -242,10 +252,7 @@ func (e *TwelveLabsEmbeddingFunction) doPost(ctx context.Context, req EmbedV2Req
 	if resp.StatusCode != http.StatusOK {
 		var apiErr EmbedV2ErrorResponse
 		if jsonErr := json.Unmarshal(respData, &apiErr); jsonErr == nil && apiErr.Message != "" {
-			if apiErr.Code != "" {
-				return nil, errors.Errorf("Twelve Labs API error [%s] (%s): %s", resp.Status, chttp.SanitizeErrorBody([]byte(apiErr.Code)), chttp.SanitizeErrorBody([]byte(apiErr.Message)))
-			}
-			return nil, errors.Errorf("Twelve Labs API error [%s]: %s", resp.Status, chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+			return nil, formatStructuredAPIError("Twelve Labs API error", resp.Status, apiErr)
 		}
 		return nil, errors.Errorf("unexpected status [%s] from %s: %s", resp.Status, e.apiClient.BaseAPI, chttp.SanitizeErrorBody(respData))
 	}
@@ -290,7 +297,7 @@ func (e *TwelveLabsEmbeddingFunction) doTaskPost(ctx context.Context, req AsyncE
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var apiErr EmbedV2ErrorResponse
 		if jsonErr := json.Unmarshal(respData, &apiErr); jsonErr == nil && apiErr.Message != "" {
-			return nil, errors.Errorf("Twelve Labs task create error [%s]: %s", resp.Status, chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+			return nil, formatStructuredAPIError("Twelve Labs task create error", resp.Status, apiErr)
 		}
 		return nil, errors.Errorf("unexpected status [%s] from %s: %s", resp.Status, endpoint, chttp.SanitizeErrorBody(respData))
 	}
@@ -333,7 +340,7 @@ func (e *TwelveLabsEmbeddingFunction) doTaskGet(ctx context.Context, taskID stri
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var apiErr EmbedV2ErrorResponse
 		if jsonErr := json.Unmarshal(respData, &apiErr); jsonErr == nil && apiErr.Message != "" {
-			return nil, errors.Errorf("Twelve Labs task retrieve error [%s]: %s", resp.Status, chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+			return nil, formatStructuredAPIError("Twelve Labs task retrieve error", resp.Status, apiErr)
 		}
 		return nil, errors.Errorf("unexpected status [%s] from %s: %s", resp.Status, endpoint, chttp.SanitizeErrorBody(respData))
 	}
@@ -351,6 +358,72 @@ func (e *TwelveLabsEmbeddingFunction) doTaskGet(ctx context.Context, taskID stri
 
 func (e *TwelveLabsEmbeddingFunction) Name() string {
 	return "twelvelabs"
+}
+
+func formatStructuredAPIError(prefix, status string, apiErr EmbedV2ErrorResponse) error {
+	if apiErr.Code != "" {
+		return errors.Errorf("%s [%s] (%s): %s", prefix, status, chttp.SanitizeErrorBody([]byte(apiErr.Code)), chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+	}
+	return errors.Errorf("%s [%s]: %s", prefix, status, chttp.SanitizeErrorBody([]byte(apiErr.Message)))
+}
+
+func sanitizeTaskFailureDetail(body json.RawMessage) string {
+	if detail := extractTaskFailureDetail(body); detail != "" {
+		return chttp.SanitizeErrorBody([]byte(detail))
+	}
+	return chttp.SanitizeErrorBody(body)
+}
+
+func extractTaskFailureDetail(body json.RawMessage) string {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+
+	if detail := extractTaskFailureValue(payload["error"]); detail != "" {
+		return detail
+	}
+	if detail := firstStringField(payload, "message", "failure_reason", "reason", "detail"); detail != "" {
+		return detail
+	}
+	return ""
+}
+
+func extractTaskFailureValue(v any) string {
+	switch value := v.(type) {
+	case string:
+		return strings.TrimSpace(value)
+	case map[string]any:
+		detail := firstStringField(value, "message", "failure_reason", "reason", "detail")
+		code := firstStringField(value, "code")
+		if detail != "" && code != "" {
+			return code + ": " + detail
+		}
+		if detail != "" {
+			return detail
+		}
+		return code
+	default:
+		return ""
+	}
+}
+
+func firstStringField(payload map[string]any, keys ...string) string {
+	for _, key := range keys {
+		raw, ok := payload[key]
+		if !ok {
+			continue
+		}
+		value, ok := raw.(string)
+		if !ok {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func (e *TwelveLabsEmbeddingFunction) resolveModel(ctx context.Context) string {

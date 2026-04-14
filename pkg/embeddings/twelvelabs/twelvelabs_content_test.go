@@ -197,6 +197,26 @@ func TestResolveBytes(t *testing.T) {
 	})
 }
 
+func TestBuildMediaSourceURLValidation(t *testing.T) {
+	t.Run("rejects empty URL", func(t *testing.T) {
+		_, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "non-empty URL")
+	})
+
+	t.Run("rejects malformed URL", func(t *testing.T) {
+		_, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "example.com/audio.mp3"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "absolute URL")
+	})
+
+	t.Run("accepts absolute URL", func(t *testing.T) {
+		got, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/audio.mp3"})
+		require.NoError(t, err)
+		assert.Equal(t, MediaSource{URL: "https://example.com/audio.mp3"}, got)
+	})
+}
+
 func TestTwelveLabsEmbedContentValidationIncludesProviderContext(t *testing.T) {
 	ef := newTestEF("http://localhost")
 	_, err := ef.EmbedContent(context.Background(), embeddings.NewTextContent(""))

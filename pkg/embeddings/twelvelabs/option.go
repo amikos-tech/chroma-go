@@ -99,7 +99,7 @@ func WithAudioEmbeddingOption(opt string) Option {
 }
 
 // WithAsyncPolling enables the Twelve Labs tasks-endpoint code path for
-// audio and video content. Passing maxWait=0 selects the 30-minute default
+// audio and video content. Passing maxWait=0 selects the default timeout
 // (CONTEXT.md D-03). This is the sole public trigger for async — polling
 // interval, backoff multiplier, and cap are internal (D-04).
 //
@@ -114,7 +114,7 @@ func WithAsyncPolling(maxWait time.Duration) Option {
 		}
 		p.asyncPollingEnabled = true
 		if maxWait == 0 {
-			p.asyncMaxWait = 30 * time.Minute
+			p.asyncMaxWait = defaultAsyncMaxWait
 		} else {
 			p.asyncMaxWait = maxWait
 		}
