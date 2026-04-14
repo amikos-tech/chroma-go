@@ -604,6 +604,7 @@ func TestTwelveLabsAsyncMaxWait(t *testing.T) {
 	_, err := ef.EmbedContent(context.Background(), videoContent("https://example.com/v.mp4"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "async polling maxWait")
+	assert.True(t, stderrors.Is(err, ErrAsyncMaxWaitExceeded), "maxWait must wrap ErrAsyncMaxWaitExceeded sentinel")
 	assert.False(t, stderrors.Is(err, context.DeadlineExceeded), "maxWait must surface distinct from ctx.DeadlineExceeded (D-20)")
 	assert.False(t, stderrors.Is(err, context.Canceled))
 }
@@ -737,6 +738,60 @@ func TestTwelveLabsAsyncConfigRoundTrip(t *testing.T) {
 	// APIKeyEnvVar must survive the round-trip so env-var-sourced EFs
 	// rebuilt from a registry still resolve the same way.
 	assert.Equal(t, APIKeyEnvVar, rebuilt.apiClient.APIKeyEnvVar)
+
+	// JSON round-trip: registries persist configs as JSON, which decodes
+	// integers as float64. ConfigInt must coerce back to int64 so the
+	// rebuilt EF honors the original asyncMaxWait.
+	raw, err := json.Marshal(cfg)
+	require.NoError(t, err)
+	var decoded embeddings.EmbeddingFunctionConfig
+	require.NoError(t, json.Unmarshal(raw, &decoded))
+	_, isFloat := decoded["async_max_wait_ms"].(float64)
+	assert.True(t, isFloat, "sanity check: JSON decoding must produce float64, not int64")
+	rebuiltFromJSON, err := NewTwelveLabsEmbeddingFunctionFromConfig(decoded)
+	require.NoError(t, err)
+	assert.True(t, rebuiltFromJSON.apiClient.asyncPollingEnabled)
+	assert.Equal(t, 7*time.Minute, rebuiltFromJSON.apiClient.asyncMaxWait)
+}
+
+// TestTwelveLabsAsyncPollingRejectsSubFloorMaxWait asserts that sub-second
+// values that can't complete a single poll cycle are rejected at option
+// application time rather than deterministically timing out on first poll.
+func TestTwelveLabsAsyncPollingRejectsSubFloorMaxWait(t *testing.T) {
+	t.Setenv(APIKeyEnvVar, "floor-key")
+	_, err := NewTwelveLabsEmbeddingFunction(WithEnvAPIKey(), WithAsyncPolling(100*time.Millisecond))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "below minimum")
+
+	// 0 means "use default" and must still be accepted.
+	_, err = NewTwelveLabsEmbeddingFunction(WithEnvAPIKey(), WithAsyncPolling(0))
+	require.NoError(t, err)
+
+	// Exactly the floor value is accepted.
+	_, err = NewTwelveLabsEmbeddingFunction(WithEnvAPIKey(), WithAsyncPolling(defaultAsyncPollInitial))
+	require.NoError(t, err)
+}
+
+// TestTwelveLabsAsyncFailedReasonFallbackOnEmptyBody proves the failure
+// message uses the generic fallback when the server returns a JSON body with
+// no diagnostic fields (only housekeeping), rather than dumping the raw JSON.
+func TestTwelveLabsAsyncFailedReasonFallbackOnEmptyBody(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_nodetail", "processing"))
+			return
+		}
+		fmt.Fprint(w, `{"_id":"task_nodetail","status":"failed"}`)
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "task_nodetail")
+	assert.Contains(t, err.Error(), "terminal status=failed")
+	assert.Contains(t, err.Error(), "(no failure detail provided)")
+	assert.NotContains(t, err.Error(), "_id", "housekeeping fields must not leak into the error message")
 }
 
 func TestTwelveLabsAsyncConfigOmitWhenDisabled(t *testing.T) {
@@ -832,6 +887,7 @@ func TestTwelveLabsAsyncBlockedHTTPMaxWait(t *testing.T) {
 	// The distinct SDK-timeout message must fire, not ctx.DeadlineExceeded —
 	// parent ctx has no deadline, so maxWait is the only bound.
 	assert.Contains(t, err.Error(), "async polling maxWait")
+	assert.True(t, stderrors.Is(err, ErrAsyncMaxWaitExceeded), "SDK maxWait must wrap ErrAsyncMaxWaitExceeded sentinel")
 	assert.False(t, stderrors.Is(err, context.DeadlineExceeded), "SDK maxWait must not collapse into context.DeadlineExceeded (D-20)")
 	// Sanity-check the upper bound so a regression where maxWait is not
 	// enforced on in-flight HTTP work fails loudly.

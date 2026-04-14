@@ -107,10 +107,19 @@ func WithAudioEmbeddingOption(opt string) Option {
 // + polling), not just the polling loop. A blocked POST /tasks call will
 // be interrupted at maxWait and surface as a distinct SDK timeout error
 // (not raw context.DeadlineExceeded — see D-20).
+//
+// maxWait must be >= defaultAsyncPollInitial (one poll interval) so the
+// loop can complete at least one GET before timing out. Sub-floor values
+// are rejected rather than silently clamped so misconfiguration surfaces
+// at option-application time, mirroring the "poll cap >= poll initial"
+// validation in validate().
 func WithAsyncPolling(maxWait time.Duration) Option {
 	return func(p *TwelveLabsClient) error {
 		if maxWait < 0 {
 			return errors.New("maxWait cannot be negative")
+		}
+		if maxWait > 0 && maxWait < defaultAsyncPollInitial {
+			return errors.Errorf("maxWait %s is below minimum %s (one poll interval)", maxWait, defaultAsyncPollInitial)
 		}
 		p.asyncPollingEnabled = true
 		if maxWait == 0 {

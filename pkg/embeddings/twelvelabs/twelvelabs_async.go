@@ -2,12 +2,20 @@ package twelvelabs
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
+
+// ErrAsyncMaxWaitExceeded is returned when the total async budget
+// (task create + polling) is exhausted. Detect programmatically with
+// errors.Is. This is intentionally NOT chained to context.DeadlineExceeded
+// so callers can distinguish SDK-enforced maxWait timeouts from parent
+// context deadlines (D-20).
+var ErrAsyncMaxWaitExceeded = errors.New("Twelve Labs async maxWait exceeded")
 
 // contentToAsyncRequest builds the tasks-endpoint body for audio/video content.
 // See RESEARCH F-02 — the async endpoint uses embedding_option as []string
@@ -76,7 +84,7 @@ func (e *TwelveLabsEmbeddingFunction) pollTask(ctx context.Context, taskID strin
 			// error (D-20). errors.Is works through pkg/errors wrapping.
 			if errors.Is(err, context.DeadlineExceeded) {
 				if !time.Now().Before(sdkMaxWaitDeadline) {
-					return nil, errors.Errorf("Twelve Labs task [%s] async polling maxWait %s exceeded: %v", taskID, maxWait, err)
+					return nil, fmt.Errorf("task [%s] async polling maxWait %s: %w", taskID, maxWait, ErrAsyncMaxWaitExceeded)
 				}
 				if parentDeadlineSelected || ctx.Err() != nil {
 					// Parent ctx deadline fired first.
@@ -105,7 +113,7 @@ func (e *TwelveLabsEmbeddingFunction) pollTask(ctx context.Context, taskID strin
 
 		remaining := time.Until(sdkMaxWaitDeadline)
 		if remaining <= 0 {
-			return nil, errors.Errorf("Twelve Labs task [%s] async polling maxWait %s exceeded", taskID, maxWait)
+			return nil, fmt.Errorf("task [%s] async polling maxWait %s: %w", taskID, maxWait, ErrAsyncMaxWaitExceeded)
 		}
 		wait := interval
 		if wait > remaining {
@@ -162,7 +170,7 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 		// than raw context.DeadlineExceeded (D-20).
 		if errors.Is(err, context.DeadlineExceeded) {
 			if !time.Now().Before(sdkMaxWaitDeadline) {
-				return nil, errors.Errorf("Twelve Labs async task create maxWait %s exceeded: %v", e.apiClient.asyncMaxWait, err)
+				return nil, fmt.Errorf("async task create maxWait %s: %w", e.apiClient.asyncMaxWait, ErrAsyncMaxWaitExceeded)
 			}
 			if parentDeadlineSelected || ctx.Err() != nil {
 				return nil, errors.Wrapf(err, "Twelve Labs async task create deadline exceeded")
@@ -195,7 +203,7 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 	// grant polling a fresh full budget, yielding up to 2× maxWait total.
 	remaining := time.Until(sdkMaxWaitDeadline)
 	if remaining <= 0 {
-		return nil, errors.Errorf("Twelve Labs async maxWait %s exceeded after task create", e.apiClient.asyncMaxWait)
+		return nil, fmt.Errorf("async maxWait %s after task create: %w", e.apiClient.asyncMaxWait, ErrAsyncMaxWaitExceeded)
 	}
 	final, err := e.pollTask(ctx, created.ID, remaining)
 	if err != nil {

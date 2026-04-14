@@ -20,6 +20,7 @@ const (
 	defaultModel                = "marengo3.0"
 	defaultAudioEmbeddingOption = "audio"
 	defaultAsyncMaxWait         = 30 * time.Minute
+	defaultAsyncPollInitial     = 2 * time.Second
 	APIKeyEnvVar                = "TWELVE_LABS_API_KEY"
 	taskStatusProcessing        = "processing"
 	taskStatusReady             = "ready"
@@ -68,7 +69,7 @@ func applyDefaults(c *TwelveLabsClient) {
 		c.AudioEmbeddingOption = defaultAudioEmbeddingOption
 	}
 	if c.asyncPollInitial == 0 {
-		c.asyncPollInitial = 2 * time.Second
+		c.asyncPollInitial = defaultAsyncPollInitial
 	}
 	if c.asyncPollMultiplier == 0 {
 		c.asyncPollMultiplier = 1.5
@@ -371,7 +372,16 @@ func sanitizeTaskFailureDetail(body json.RawMessage) string {
 	if detail := extractTaskFailureDetail(body); detail != "" {
 		return chttp.SanitizeErrorBody([]byte(detail))
 	}
-	return chttp.SanitizeErrorBody(body)
+	// No structured reason. If the body parses as a JSON object, dumping it
+	// just leaks housekeeping fields (_id, status) without diagnostic value.
+	// Non-JSON bodies may carry free-text errors worth preserving.
+	var probe map[string]any
+	if len(body) > 0 && json.Unmarshal(body, &probe) != nil {
+		if sanitized := chttp.SanitizeErrorBody(body); sanitized != "" {
+			return sanitized
+		}
+	}
+	return "(no failure detail provided)"
 }
 
 func extractTaskFailureDetail(body json.RawMessage) string {
