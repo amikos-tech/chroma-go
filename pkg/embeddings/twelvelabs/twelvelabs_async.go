@@ -85,7 +85,7 @@ func (e *TwelveLabsEmbeddingFunction) pollTask(ctx context.Context, taskID strin
 				return nil, errors.Wrap(err, "Twelve Labs async polling request timed out")
 			}
 			if errors.Is(err, context.Canceled) {
-				return nil, errors.Wrap(ctx.Err(), "Twelve Labs async polling canceled")
+				return nil, errors.Wrap(err, "Twelve Labs async polling canceled")
 			}
 			return nil, err
 		}
@@ -170,7 +170,7 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 			return nil, errors.Wrap(err, "Twelve Labs async task create request timed out")
 		}
 		if errors.Is(err, context.Canceled) {
-			return nil, errors.Wrap(ctx.Err(), "Twelve Labs async task create canceled")
+			return nil, errors.Wrap(err, "Twelve Labs async task create canceled")
 		}
 		return nil, errors.Wrap(err, "failed to create Twelve Labs async task")
 	}
