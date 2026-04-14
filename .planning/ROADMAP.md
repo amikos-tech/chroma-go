@@ -126,10 +126,13 @@ Plans:
   2. Polling respects the caller's context.Context for cancellation and timeout
   3. Terminal states (ready, failed) are handled with appropriate result delivery or error messages
   4. Tests cover async task creation, polling to completion, polling to failure, and context cancellation
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 26-01: TBD
+- [ ] 26-01-PLAN.md — Async HTTP foundation: request/response types, polling fields, doTaskPost/doTaskGet helpers
+- [ ] 26-02-PLAN.md — Polling loop, modality routing, and async orchestrator (pollTask + content.go branch)
+- [ ] 26-03-PLAN.md — WithAsyncPolling option and GetConfig/FromConfig async round-trip
+- [ ] 26-04-PLAN.md — Seven async tests (create, poll-ready, poll-failed, unexpected-status, ctx-cancel, maxWait, config round-trip)
 
 ### Phase 27: Download Stack Consolidation
 **Goal**: default_ef download code uses the shared downloadutil package instead of its own HTTP download implementation
@@ -200,7 +203,7 @@ Phase 24 depends on Phase 23. Phase 26 depends on Phase 25. Phase 29 depends on 
 | 23. ORT EF Leak Fix | v0.4.2 | 1/1 | Complete    | 2026-04-11 |
 | 24. GetOrCreateCollection EF Safety | v0.4.2 | 1/1 | Complete    | 2026-04-12 |
 | 25. Error Body Truncation | v0.4.2 | 4/4 | Complete   | 2026-04-13 |
-| 26. Twelve Labs Async Embedding | v0.4.2 | 0/0 | Not started | - |
+| 26. Twelve Labs Async Embedding | v0.4.2 | 0/4 | Not started | - |
 | 27. Download Stack Consolidation | v0.4.2 | 0/0 | Not started | - |
 | 28. Morph Test Fix | v0.4.2 | 0/0 | Not started | - |
 | 29. Rank Expression Composition Robustness | v0.4.2 | 0/3 | Not started | - |
