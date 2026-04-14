@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	chttp "github.com/amikos-tech/chroma-go/pkg/commons/http"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
@@ -21,11 +20,10 @@ func contentToAsyncRequest(content embeddings.Content, model string, audioOpt st
 	req := &AsyncEmbedV2Request{ModelName: model}
 	switch part.Modality {
 	case embeddings.ModalityAudio:
-		// RESEARCH F-02 / A5: "fused" is valid on the sync embedding_option
-		// string but is NOT a valid async embedding_option list value. Reject
-		// deterministically rather than silently dropping or mapping.
-		if audioOpt == "fused" {
-			return nil, errors.New("Twelve Labs async path does not support audio embedding option \"fused\"; async endpoint only accepts \"audio\" and \"transcription\" (see RESEARCH F-02). Disable WithAsyncPolling for fused-audio calls.")
+		switch audioOpt {
+		case "", "audio", "transcription":
+		default:
+			return nil, errors.Errorf("Twelve Labs async path does not support audio embedding option %q; async endpoint only accepts \"audio\" and \"transcription\" (see RESEARCH F-02). Disable WithAsyncPolling for unsupported async-audio calls.", audioOpt)
 		}
 		ms, err := buildMediaSource(part.Source)
 		if err != nil {
@@ -64,8 +62,10 @@ func (e *TwelveLabsEmbeddingFunction) pollTask(ctx context.Context, taskID strin
 	for {
 		// Derive per-call deadline = min(parent ctx deadline, sdkMaxWaitDeadline).
 		callDeadline := sdkMaxWaitDeadline
+		parentDeadlineSelected := false
 		if parentDL, ok := ctx.Deadline(); ok && parentDL.Before(callDeadline) {
 			callDeadline = parentDL
+			parentDeadlineSelected = true
 		}
 		callCtx, cancel := context.WithDeadline(ctx, callDeadline)
 		resp, err := e.doTaskGet(callCtx, taskID)
@@ -76,11 +76,11 @@ func (e *TwelveLabsEmbeddingFunction) pollTask(ctx context.Context, taskID strin
 			// error (D-20). errors.Is works through pkg/errors wrapping.
 			if errors.Is(err, context.DeadlineExceeded) {
 				if !time.Now().Before(sdkMaxWaitDeadline) {
-					return nil, errors.Errorf("Twelve Labs task [%s] async polling maxWait %s exceeded", taskID, maxWait)
+					return nil, errors.Errorf("Twelve Labs task [%s] async polling maxWait %s exceeded: %v", taskID, maxWait, err)
 				}
-				if ctxErr := ctx.Err(); ctxErr != nil {
+				if parentDeadlineSelected || ctx.Err() != nil {
 					// Parent ctx deadline fired first.
-					return nil, errors.Wrap(ctxErr, "Twelve Labs async polling deadline exceeded")
+					return nil, errors.Wrapf(err, "Twelve Labs async polling deadline exceeded")
 				}
 				return nil, errors.Wrap(err, "Twelve Labs async polling request timed out")
 			}
@@ -90,14 +90,14 @@ func (e *TwelveLabsEmbeddingFunction) pollTask(ctx context.Context, taskID strin
 			return nil, err
 		}
 		switch resp.Status {
-		case "ready":
+		case taskStatusReady:
 			return resp, nil
-		case "failed":
+		case taskStatusFailed:
 			// Use the raw server body captured by doTaskGet (Plan 01 FailureDetail)
 			// so the sanitized reason reflects the authentic server payload,
 			// not a re-marshaled subset of known fields.
-			return nil, errors.Errorf("Twelve Labs task [%s] terminal status=failed: %s", taskID, chttp.SanitizeErrorBody(resp.FailureDetail))
-		case "processing":
+			return nil, errors.Errorf("Twelve Labs task [%s] terminal status=failed: %s", taskID, sanitizeTaskFailureDetail(resp.FailureDetail))
+		case taskStatusProcessing:
 			// fall through to sleep
 		default:
 			return nil, errors.Errorf("Twelve Labs task [%s] unexpected status %q", taskID, resp.Status)
@@ -148,8 +148,10 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 	// until the underlying http.Client transport timed out (default: forever).
 	sdkMaxWaitDeadline := time.Now().Add(e.apiClient.asyncMaxWait)
 	createDeadline := sdkMaxWaitDeadline
+	parentDeadlineSelected := false
 	if parentDL, ok := ctx.Deadline(); ok && parentDL.Before(createDeadline) {
 		createDeadline = parentDL
+		parentDeadlineSelected = true
 	}
 	createCtx, cancel := context.WithDeadline(ctx, createDeadline)
 	created, err := e.doTaskPost(createCtx, *req)
@@ -160,10 +162,10 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 		// than raw context.DeadlineExceeded (D-20).
 		if errors.Is(err, context.DeadlineExceeded) {
 			if !time.Now().Before(sdkMaxWaitDeadline) {
-				return nil, errors.Errorf("Twelve Labs async task create maxWait %s exceeded", e.apiClient.asyncMaxWait)
+				return nil, errors.Errorf("Twelve Labs async task create maxWait %s exceeded: %v", e.apiClient.asyncMaxWait, err)
 			}
-			if ctxErr := ctx.Err(); ctxErr != nil {
-				return nil, errors.Wrap(ctxErr, "Twelve Labs async task create deadline exceeded")
+			if parentDeadlineSelected || ctx.Err() != nil {
+				return nil, errors.Wrapf(err, "Twelve Labs async task create deadline exceeded")
 			}
 			return nil, errors.Wrap(err, "Twelve Labs async task create request timed out")
 		}
@@ -176,7 +178,7 @@ func (e *TwelveLabsEmbeddingFunction) createTaskAndPoll(ctx context.Context, con
 		return nil, errors.New("Twelve Labs async task create returned empty _id")
 	}
 	// Rare early-ready path (server finished before response round-trip returned).
-	if created.Status == "ready" && len(created.Data) > 0 {
+	if created.Status == taskStatusReady && len(created.Data) > 0 {
 		return buildEmbeddingFromData(created.Data)
 	}
 	final, err := e.pollTask(ctx, created.ID, e.apiClient.asyncMaxWait)

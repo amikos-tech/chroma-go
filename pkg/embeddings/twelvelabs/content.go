@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"io"
+	"net/url"
 	"os"
 
 	"github.com/pkg/errors"
@@ -117,6 +118,16 @@ func buildMediaSource(source *embeddings.BinarySource) (MediaSource, error) {
 		return MediaSource{}, errors.New("binary source is required for non-text parts")
 	}
 	if source.Kind == embeddings.SourceKindURL {
+		if source.URL == "" {
+			return MediaSource{}, errors.New("URL source must include non-empty URL")
+		}
+		parsed, err := url.Parse(source.URL)
+		if err != nil {
+			return MediaSource{}, errors.Wrap(err, "invalid URL source")
+		}
+		if parsed.Scheme == "" || parsed.Host == "" {
+			return MediaSource{}, errors.New("URL source must be an absolute URL with scheme and host")
+		}
 		return MediaSource{URL: source.URL}, nil
 	}
 	data, err := resolveBytes(source)

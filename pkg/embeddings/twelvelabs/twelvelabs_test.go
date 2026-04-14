@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -25,6 +26,21 @@ const (
 	testTwelveLabsErrorBodyLimit  = 512
 	testTwelveLabsTruncatedSuffix = "[truncated]"
 )
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func newJSONResponse(status int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Status:     fmt.Sprintf("%d %s", status, http.StatusText(status)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}
 
 func newTestEF(serverURL string) *TwelveLabsEmbeddingFunction {
 	return &TwelveLabsEmbeddingFunction{
@@ -195,6 +211,29 @@ func TestNewTwelveLabsClientValidation(t *testing.T) {
 		_, err := NewTwelveLabsClient(WithAPIKey("test-key"), WithAudioEmbeddingOption("invalid"))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid audio embedding option")
+	})
+}
+
+func TestValidateAsyncPollingBackoffConfig(t *testing.T) {
+	t.Run("rejects multiplier below one", func(t *testing.T) {
+		client, err := NewTwelveLabsClient(WithAPIKey("test-key"))
+		require.NoError(t, err)
+		client.asyncPollMultiplier = 0.5
+
+		err = validate(client)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "async poll multiplier")
+	})
+
+	t.Run("rejects cap below initial", func(t *testing.T) {
+		client, err := NewTwelveLabsClient(WithAPIKey("test-key"))
+		require.NoError(t, err)
+		client.asyncPollInitial = 3 * time.Second
+		client.asyncPollCap = 2 * time.Second
+
+		err = validate(client)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "async poll cap")
 	})
 }
 
@@ -524,6 +563,54 @@ func TestTwelveLabsAsyncMaxWait(t *testing.T) {
 	assert.False(t, stderrors.Is(err, context.Canceled))
 }
 
+func TestTwelveLabsAsyncPollParentDeadlinePreservesTransportError(t *testing.T) {
+	ef := newTestAsyncEF("https://example.test/embed-v2")
+	ef.apiClient.Client = &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method == http.MethodPost {
+			return newJSONResponse(http.StatusOK, taskCreateJSON("task_parent_deadline", "processing")), nil
+		}
+		<-req.Context().Done()
+		return nil, fmt.Errorf("simulated retrieve transport failure: %w", req.Context().Err())
+	})}
+	ef.apiClient.asyncMaxWait = time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err := ef.EmbedContent(ctx, audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "async polling deadline exceeded")
+	assert.Contains(t, err.Error(), "failed to send task retrieve request")
+	assert.True(t, stderrors.Is(err, context.DeadlineExceeded))
+}
+
+func TestTwelveLabsAsyncPollParentDeadlineDuringSleep(t *testing.T) {
+	var gets atomic.Int32
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_sleep_deadline", "processing"))
+			return
+		}
+		gets.Add(1)
+		fmt.Fprint(w, taskGetJSON("task_sleep_deadline", "processing", nil))
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	ef.apiClient.asyncPollInitial = 200 * time.Millisecond
+	ef.apiClient.asyncPollCap = 200 * time.Millisecond
+	ef.apiClient.asyncMaxWait = time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err := ef.EmbedContent(ctx, audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "async polling deadline exceeded")
+	assert.True(t, stderrors.Is(err, context.DeadlineExceeded))
+	assert.Equal(t, int32(1), gets.Load(), "deadline during sleep should happen after the first processing poll")
+}
+
 func TestTwelveLabsAsyncSkipsTextImage(t *testing.T) {
 	vec := make512DimVector()
 	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -610,6 +697,30 @@ func TestTwelveLabsAsyncFailedReasonSanitized(t *testing.T) {
 	assert.Less(t, len(err.Error()), 4096, "sanitized error body must be truncated to a safe display length")
 }
 
+func TestTwelveLabsAsyncFailedReasonPrefersStructuredMessageOverLargeBody(t *testing.T) {
+	var dataBuilder strings.Builder
+	for i := 0; i < 400; i++ {
+		if i > 0 {
+			dataBuilder.WriteByte(',')
+		}
+		dataBuilder.WriteString(fmt.Sprintf("%d", i))
+	}
+
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_failmsg", "processing"))
+			return
+		}
+		fmt.Fprintf(w, `{"_id":"task_failmsg","status":"failed","data":[{"embedding":[%s]}],"message":"upstream media fetch failed"}`, dataBuilder.String())
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "upstream media fetch failed")
+}
+
 // TestTwelveLabsAsyncBlockedHTTPMaxWait proves the per-HTTP-call deadline
 // added in Plan 02 actually unblocks an in-flight GET /tasks/{id} when
 // maxWait fires. Without the per-call deadline, a blocked HTTP call would
@@ -667,6 +778,27 @@ func TestTwelveLabsAsyncTaskCreateClientTimeoutReturnsError(t *testing.T) {
 	assert.True(t, stderrors.Is(err, context.DeadlineExceeded), "client timeout should preserve the underlying deadline error")
 }
 
+func TestTwelveLabsAsyncTaskCreateParentDeadlinePreservesTransportError(t *testing.T) {
+	ef := newTestAsyncEF("https://example.test/embed-v2")
+	ef.apiClient.Client = &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodPost {
+			t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
+		}
+		<-req.Context().Done()
+		return nil, fmt.Errorf("simulated create transport failure: %w", req.Context().Err())
+	})}
+	ef.apiClient.asyncMaxWait = time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err := ef.EmbedContent(ctx, audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "async task create deadline exceeded")
+	assert.Contains(t, err.Error(), "failed to send task request")
+	assert.True(t, stderrors.Is(err, context.DeadlineExceeded))
+}
+
 func TestTwelveLabsAsyncPollClientTimeoutReturnsErrorWithoutPanic(t *testing.T) {
 	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -711,6 +843,7 @@ func TestTwelveLabsAsyncTaskCreateError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "task create error")
 	assert.Contains(t, err.Error(), "invalid media source")
+	assert.Contains(t, err.Error(), "E_BAD_SRC")
 }
 
 func TestTwelveLabsAsyncTaskCreateErrorSanitizesStructuredMessage(t *testing.T) {
@@ -743,6 +876,55 @@ func TestTwelveLabsAsyncTaskCreateErrorRawFallback(t *testing.T) {
 	assert.NotContains(t, err.Error(), longBody)
 }
 
+func TestTwelveLabsAsyncTaskRetrieveErrorIncludesStructuredCode(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_retrieve_err", "processing"))
+			return
+		}
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprint(w, `{"message":"task fetch failed","code":"E_TASK_FETCH"}`)
+	})
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "task retrieve error")
+	assert.Contains(t, err.Error(), "task fetch failed")
+	assert.Contains(t, err.Error(), "E_TASK_FETCH")
+}
+
+func TestTwelveLabsAsyncTaskCreateEmptyIDRejected(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":"processing"}`)
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty _id")
+}
+
+func TestTwelveLabsAsyncTaskCreateReadyReturnsWithoutPolling(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("ready-on-create must not poll; got %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"_id":"task_ready_create","status":"ready","data":[{"embedding":[1,2,3]}]}`)
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	emb, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.NoError(t, err)
+	require.NotNil(t, emb)
+	assert.Equal(t, 3, emb.Len())
+}
+
 // TestTwelveLabsAsyncFusedRejected proves the async path rejects
 // WithAudioEmbeddingOption("fused") deterministically (RESEARCH F-02 / A5
 // review fix). The rejection must happen before any POST /tasks call.
@@ -762,4 +944,28 @@ func TestTwelveLabsAsyncFusedRejected(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "fused")
 	assert.Contains(t, err.Error(), "async")
+}
+
+func TestTwelveLabsAsyncRejectsUnknownAudioOption(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("no HTTP call expected for unsupported async audio option; got %s %s", r.Method, r.URL.Path)
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	ef.apiClient.AudioEmbeddingOption = "sync-only-future-opt"
+
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "audio embedding option")
+	assert.Contains(t, err.Error(), "async")
+}
+
+func TestNextBackoff(t *testing.T) {
+	t.Run("multiplies until cap", func(t *testing.T) {
+		assert.Equal(t, 1500*time.Millisecond, nextBackoff(time.Second, 1.5, 10*time.Second))
+	})
+
+	t.Run("clamps at cap", func(t *testing.T) {
+		assert.Equal(t, 2*time.Second, nextBackoff(1500*time.Millisecond, 2, 2*time.Second))
+	})
 }
