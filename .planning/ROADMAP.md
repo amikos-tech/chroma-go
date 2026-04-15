@@ -189,6 +189,30 @@ Plans:
 Plans:
 - [ ] 30-01: TBD — Audit sibling SearchRequestOption helpers and pin a consistent explicit-nil contract (#503)
 
+## Backlog
+
+### Phase 999.1: [CLN] Unify HTTP status code acceptance across Twelve Labs doPost/doTaskPost/doTaskGet (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Context: sync `doPost` (pkg/embeddings/twelvelabs/twelvelabs.go:264) rejects anything `!= 200 OK`; async `doTaskPost`/`doTaskGet` accept any 2xx. If Twelve Labs ever returns `201 Created` on /embed-v2 the sync path breaks. Flagged by PR #509 automated review; out of scope for Phase 26 since it is pre-existing v1 code. Single-file change + one test.
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.2: [ENH] Add default HTTP client timeout to Twelve Labs client (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Context: `applyDefaults` creates `&http.Client{}` with no `Timeout`. Async path is protected by per-call `context.WithDeadline`, but sync `doPost` has no SDK-enforced timeout — a hung Twelve Labs server blocks the caller indefinitely. Consider a sensible default (e.g., 30s) on the fallback client. Flagged by PR #509 automated review; out of scope for Phase 26 since it is pre-existing. Minor behavior change for existing sync users.
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
 ## Progress
 
 **Execution Order:**
