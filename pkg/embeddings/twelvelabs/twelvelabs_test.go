@@ -754,6 +754,49 @@ func TestTwelveLabsAsyncConfigRoundTrip(t *testing.T) {
 	assert.Equal(t, 7*time.Minute, rebuiltFromJSON.apiClient.asyncMaxWait)
 }
 
+// TestTwelveLabsAsyncConfigRejectsBrokenMaxWait proves a config claiming
+// async_polling=true with an unusable async_max_wait_ms fails loudly rather
+// than silently applying the 30-minute default or silently downgrading to the
+// sync path — both are behavior the caller never asked for.
+func TestTwelveLabsAsyncConfigRejectsBrokenMaxWait(t *testing.T) {
+	t.Setenv(APIKeyEnvVar, "broken-cfg-key")
+
+	for name, maxWait := range map[string]any{
+		"zero":        0,
+		"negative":    -1,
+		"non-numeric": "5m",
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := NewTwelveLabsEmbeddingFunctionFromConfig(embeddings.EmbeddingFunctionConfig{
+				"api_key_env_var":   APIKeyEnvVar,
+				"async_polling":     true,
+				"async_max_wait_ms": maxWait,
+			})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "async_max_wait_ms")
+		})
+	}
+
+	t.Run("missing", func(t *testing.T) {
+		_, err := NewTwelveLabsEmbeddingFunctionFromConfig(embeddings.EmbeddingFunctionConfig{
+			"api_key_env_var": APIKeyEnvVar,
+			"async_polling":   true,
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "async_max_wait_ms")
+	})
+
+	// async_polling absent stays a valid sync config — this rejection must not
+	// leak into the far more common non-async round-trip.
+	t.Run("absent async_polling", func(t *testing.T) {
+		ef, err := NewTwelveLabsEmbeddingFunctionFromConfig(embeddings.EmbeddingFunctionConfig{
+			"api_key_env_var": APIKeyEnvVar,
+		})
+		require.NoError(t, err)
+		assert.False(t, ef.apiClient.asyncPollingEnabled)
+	})
+}
+
 // TestTwelveLabsAsyncRejectsFusedAudioAtConstruction proves the fused+async
 // combination fails at NewTwelveLabsEmbeddingFunction rather than deferring
 // the error to the first EmbedContent call (RESEARCH F-02 — async endpoint
@@ -816,6 +859,29 @@ func TestTwelveLabsAsyncFailedReasonFallbackOnEmptyBody(t *testing.T) {
 	assert.Contains(t, err.Error(), "terminal status=failed")
 	assert.Contains(t, err.Error(), "(no failure detail provided)")
 	assert.NotContains(t, err.Error(), "_id", "housekeeping fields must not leak into the error message")
+}
+
+// TestTwelveLabsAsyncFailedReasonUnknownFields proves diagnostics survive when
+// the server names its failure fields something outside the known set. The
+// failure schema is undocumented (26-RESEARCH A3), so an allowlist miss must
+// fall back to the raw body rather than swallow the reason.
+func TestTwelveLabsAsyncFailedReasonUnknownFields(t *testing.T) {
+	srv := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			fmt.Fprint(w, taskCreateJSON("task_unknownfields", "processing"))
+			return
+		}
+		fmt.Fprint(w, `{"_id":"task_unknownfields","status":"failed","error_code":"QUOTA_EXCEEDED","description":"you have exceeded your quota"}`)
+	})
+
+	ef := newTestAsyncEF(srv.URL)
+	_, err := ef.EmbedContent(context.Background(), audioContent("https://example.com/a.mp3"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "terminal status=failed")
+	assert.NotContains(t, err.Error(), "(no failure detail provided)")
+	assert.Contains(t, err.Error(), "QUOTA_EXCEEDED")
+	assert.Contains(t, err.Error(), "you have exceeded your quota")
 }
 
 // TestTwelveLabsAsyncTaskCreateStatusFailedSurfacesReason proves the rare

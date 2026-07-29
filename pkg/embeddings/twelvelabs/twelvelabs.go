@@ -27,6 +27,10 @@ const (
 	taskStatusFailed            = "failed"
 )
 
+// taskHousekeepingFields carry no diagnostic value on a failed task, so a
+// body containing only these is reported as "no detail" rather than dumped.
+var taskHousekeepingFields = []string{"_id", "status"}
+
 type contextKey struct{ name string }
 
 var modelContextKey = contextKey{"model"}
@@ -388,14 +392,24 @@ func sanitizeTaskFailureDetail(body json.RawMessage) string {
 	if detail := extractTaskFailureDetail(body); detail != "" {
 		return chttp.SanitizeErrorBody([]byte(detail))
 	}
-	// No structured reason. If the body parses as a JSON object, dumping it
-	// just leaks housekeeping fields (_id, status) without diagnostic value.
-	// Non-JSON bodies may carry free-text errors worth preserving.
+	if len(body) == 0 {
+		return "(no failure detail provided)"
+	}
+	// No known field matched. The failure schema is undocumented (26-RESEARCH
+	// A3), so an allowlist can't be exhaustive — unrecognized keys are the only
+	// diagnostic signal left and must survive. Suppress only the case where
+	// nothing but housekeeping remains, which would be pure noise.
 	var probe map[string]any
-	if len(body) > 0 && json.Unmarshal(body, &probe) != nil {
-		if sanitized := chttp.SanitizeErrorBody(body); sanitized != "" {
-			return sanitized
+	if json.Unmarshal(body, &probe) == nil {
+		for _, k := range taskHousekeepingFields {
+			delete(probe, k)
 		}
+		if len(probe) == 0 {
+			return "(no failure detail provided)"
+		}
+	}
+	if sanitized := chttp.SanitizeErrorBody(body); sanitized != "" {
+		return sanitized
 	}
 	return "(no failure detail provided)"
 }
@@ -563,15 +577,17 @@ func NewTwelveLabsEmbeddingFunctionFromConfig(cfg embeddings.EmbeddingFunctionCo
 	if audioOpt, ok := cfg["audio_embedding_option"].(string); ok && audioOpt != "" {
 		opts = append(opts, WithAudioEmbeddingOption(audioOpt))
 	}
-	// Only enable async when BOTH keys are present and parseable. A missing or
-	// malformed async_max_wait_ms with async_polling=true is treated as a broken
-	// round-trip — we deliberately do NOT fall back to WithAsyncPolling(0) (the
-	// 30-minute default) because that would silently enable a 30-minute blocking
-	// bound on config the caller didn't specify. Missing key → not enabled.
+	// async_polling=true requires a usable async_max_wait_ms. Falling back to
+	// WithAsyncPolling(0) would silently impose the 30-minute default bound the
+	// caller never specified; silently skipping it would just as silently
+	// downgrade audio/video to the sync path. Both are surprises, so a broken
+	// round-trip fails loudly here instead.
 	if enabled, ok := cfg["async_polling"].(bool); ok && enabled {
-		if ms, ok := embeddings.ConfigInt(cfg, "async_max_wait_ms"); ok && ms >= 0 {
-			opts = append(opts, WithAsyncPolling(time.Duration(ms)*time.Millisecond))
+		ms, ok := embeddings.ConfigInt(cfg, "async_max_wait_ms")
+		if !ok || ms <= 0 {
+			return nil, errors.Errorf("async_polling is enabled but async_max_wait_ms is missing or invalid: %v", cfg["async_max_wait_ms"])
 		}
+		opts = append(opts, WithAsyncPolling(time.Duration(ms)*time.Millisecond))
 	}
 	return NewTwelveLabsEmbeddingFunction(opts...)
 }
