@@ -43,7 +43,12 @@ func resolveBytes(source *embeddings.BinarySource) ([]byte, error) {
 		if source.Base64 == "" {
 			return nil, errors.New("base64 source must include non-empty data")
 		}
-		if int64(len(source.Base64))*3/4 > maxMediaSourceSize {
+		// Cheap guard against decoding an oversized payload. Compare encoded
+		// lengths rather than estimating the decoded size: a *3/4 estimate folds
+		// "=" padding into the payload and rejects a string encoding exactly
+		// maxMediaSourceSize. A pre-check must only ever over-admit — the
+		// post-decode check below is authoritative.
+		if len(source.Base64) > base64.StdEncoding.EncodedLen(int(maxMediaSourceSize)) {
 			return nil, errors.Errorf("base64 payload too large: estimated decoded size exceeds maximum of %d bytes", maxMediaSourceSize)
 		}
 		data, err := base64.StdEncoding.DecodeString(source.Base64)

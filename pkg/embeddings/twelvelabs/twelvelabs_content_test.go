@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -268,4 +269,26 @@ func TestTwelveLabsEmbedContentEmptyEmbeddingVector(t *testing.T) {
 	_, err := ef.EmbedContent(context.Background(), embeddings.NewTextContent("hello"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty embedding vector")
+}
+
+// TestResolveBytesBase64AtSizeBoundary proves the cheap pre-check admits a
+// payload decoding to exactly maxMediaSourceSize. The former len*3/4 estimate
+// folded "=" padding into the payload and overshot by 2 bytes, rejecting the
+// one size the authoritative post-decode check is required to accept.
+func TestResolveBytesBase64AtSizeBoundary(t *testing.T) {
+	if testing.Short() {
+		t.Skip("allocates ~240MB to hit the 100MB boundary exactly")
+	}
+	// 104857600 = 3*34952533 + 1, so the final group carries one byte and
+	// encodes as two chars plus "==".
+	atLimit := embeddings.NewBinarySourceFromBase64(strings.Repeat("A", 139810132) + "AA==")
+	data, err := resolveBytes(&atLimit)
+	require.NoError(t, err, "a payload decoding to exactly the limit must be accepted")
+	assert.Equal(t, maxMediaSourceSize, int64(len(data)))
+
+	// One group beyond the limit must still be rejected.
+	overLimit := embeddings.NewBinarySourceFromBase64(atLimit.Base64 + strings.Repeat("A", 4))
+	_, err = resolveBytes(&overLimit)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "maximum")
 }
