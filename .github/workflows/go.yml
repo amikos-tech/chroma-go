@@ -332,6 +332,8 @@ jobs:
             test_path: ./pkg/embeddings/baseten/...
           - provider: bedrock
             test_path: ./pkg/embeddings/bedrock/...
+          - provider: twelvelabs
+            test_path: ./pkg/embeddings/twelvelabs/...
           # Local providers (no API keys)
           - provider: default_ef
             test_path: ./pkg/embeddings/default_ef/...
@@ -390,6 +392,9 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ matrix.provider == 'bedrock' && secrets.AWS_SECRET_ACCESS_KEY || '' }}
           AWS_REGION: ${{ matrix.provider == 'bedrock' && secrets.AWS_REGION || '' }}
           AWS_BEARER_TOKEN_BEDROCK: ${{ matrix.provider == 'bedrock' && secrets.AWS_BEARER_TOKEN_BEDROCK || '' }}
+          # Unset until the secret exists; the twelvelabs integration test skips
+          # without it, so the mock-server unit tests still run.
+          TWELVE_LABS_API_KEY: ${{ matrix.provider == 'twelvelabs' && secrets.TWELVE_LABS_API_KEY || '' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload Test Results
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -497,8 +502,11 @@ jobs:
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
           CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
           CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Test local runtime cross-persistence
         run: make test-crosslang-local
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

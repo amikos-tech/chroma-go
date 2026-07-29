@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -197,6 +198,51 @@ func TestResolveBytes(t *testing.T) {
 	})
 }
 
+func TestBuildMediaSourceURLValidation(t *testing.T) {
+	t.Run("rejects empty URL", func(t *testing.T) {
+		_, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "non-empty URL")
+	})
+
+	t.Run("rejects malformed URL", func(t *testing.T) {
+		_, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "example.com/audio.mp3"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "absolute URL")
+	})
+
+	t.Run("accepts absolute URL", func(t *testing.T) {
+		got, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "https://example.com/audio.mp3"})
+		require.NoError(t, err)
+		assert.Equal(t, MediaSource{URL: "https://example.com/audio.mp3"}, got)
+	})
+
+	t.Run("accepts plain http URL", func(t *testing.T) {
+		got, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "http://example.com/audio.mp3"})
+		require.NoError(t, err)
+		assert.Equal(t, MediaSource{URL: "http://example.com/audio.mp3"}, got)
+	})
+
+	t.Run("rejects non-http(s) schemes", func(t *testing.T) {
+		for _, url := range []string{
+			"ftp://example.com/clip.mp3",
+			"gopher://example.com/clip.mp3",
+			"file://localhost/etc/passwd",
+		} {
+			_, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: url})
+			require.Error(t, err, "scheme in %q must be rejected", url)
+			assert.Contains(t, err.Error(), "not supported", "url=%s", url)
+		}
+	})
+
+	t.Run("rejects opaque URLs with unsupported schemes", func(t *testing.T) {
+		// javascript: and data: URLs parse with empty host; the earlier
+		// absolute-URL check handles them, but this pins the behavior.
+		_, err := buildMediaSource(&embeddings.BinarySource{Kind: embeddings.SourceKindURL, URL: "javascript:alert(1)"})
+		require.Error(t, err)
+	})
+}
+
 func TestTwelveLabsEmbedContentValidationIncludesProviderContext(t *testing.T) {
 	ef := newTestEF("http://localhost")
 	_, err := ef.EmbedContent(context.Background(), embeddings.NewTextContent(""))
@@ -223,4 +269,26 @@ func TestTwelveLabsEmbedContentEmptyEmbeddingVector(t *testing.T) {
 	_, err := ef.EmbedContent(context.Background(), embeddings.NewTextContent("hello"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty embedding vector")
+}
+
+// TestResolveBytesBase64AtSizeBoundary proves the cheap pre-check admits a
+// payload decoding to exactly maxMediaSourceSize. The former len*3/4 estimate
+// folded "=" padding into the payload and overshot by 2 bytes, rejecting the
+// one size the authoritative post-decode check is required to accept.
+func TestResolveBytesBase64AtSizeBoundary(t *testing.T) {
+	if testing.Short() {
+		t.Skip("allocates ~240MB to hit the 100MB boundary exactly")
+	}
+	// 104857600 = 3*34952533 + 1, so the final group carries one byte and
+	// encodes as two chars plus "==".
+	atLimit := embeddings.NewBinarySourceFromBase64(strings.Repeat("A", 139810132) + "AA==")
+	data, err := resolveBytes(&atLimit)
+	require.NoError(t, err, "a payload decoding to exactly the limit must be accepted")
+	assert.Equal(t, maxMediaSourceSize, int64(len(data)))
+
+	// One group beyond the limit must still be rejected.
+	overLimit := embeddings.NewBinarySourceFromBase64(atLimit.Base64 + strings.Repeat("A", 4))
+	_, err = resolveBytes(&overLimit)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "maximum")
 }
