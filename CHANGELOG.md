@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Search API** - `WithSearchFilter(nil)` and `WithRank(nil)` now return validation errors, matching `WithGroupBy(nil)`'s existing behavior. Callers that want to omit a filter/rank/group-by should omit the option entirely rather than passing nil. This is an intentional divergence from the Python and TypeScript SDKs, which treat nil/None/undefined as a no-op for these options — chroma-go treats an explicit nil as a likely caller bug rather than an omission signal.
+- **Search API** - `WithSearchFilter(nil)` and `WithRank(nil)` now return validation errors, matching `WithGroupBy(nil)`'s existing behavior (including typed-nil pointers, e.g. `var kr *KnnRank`, which are also rejected). Callers that want to omit a filter/rank/group-by should omit the option entirely rather than passing nil. This is an intentional divergence from the Python and TypeScript SDKs, which treat nil/None/undefined as a no-op for these options — chroma-go treats an explicit nil as a likely caller bug rather than an omission signal. `WithFilter`/`WithSearchWhere` intentionally keep the SDK-parity no-op behavior (nil means "unfiltered"), since they are the primary, ergonomic filter entry point rather than a low-level struct option.
 
 ## [v0.4.1] - 2026-03-23
 

@@ -415,6 +415,12 @@ func (o *searchFilterOption) ApplyToSearchRequest(req *SearchRequest) error {
 // Logical: [And], [Or]
 // ID filtering: [IDIn]
 //
+// Unlike [WithSearchFilter], [WithRank], and [WithGroupBy], passing nil here is
+// allowed and treated as "no filter" — this matches the Python/TypeScript SDKs'
+// nil semantics. This is an intentional asymmetry: WithFilter/WithSearchWhere is
+// the primary, ergonomic entry point where nil naturally means "unfiltered",
+// while the lower-level struct-based options reject nil to catch caller bugs.
+//
 // # Example
 //
 //	NewSearchRequest(
