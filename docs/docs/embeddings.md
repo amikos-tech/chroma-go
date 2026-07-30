@@ -1073,6 +1073,7 @@ func main() {
 ## Morph
 
 [Morph](https://docs.morphllm.com/) provides embedding models via an OpenAI-compatible API.
+Morph has retired its hosted embedding API; this integration remains available for compatible custom endpoints.
 
 Supported Embedding Function Options:
 
