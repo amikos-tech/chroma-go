@@ -4,8 +4,8 @@ milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
 status: executing
 stopped_at: Phase 26 shipped — PR #509
-last_updated: "2026-04-14T12:47:58.488Z"
-last_activity: 2026-04-14
+last_updated: "2026-07-29T15:08:25.882Z"
+last_activity: 2026-07-29
 progress:
   total_phases: 11
   completed_phases: 7
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 Phase: 30
 Plan: Not started
 Status: Phase 26 shipped — PR #509
-Last activity: 2026-04-14
+Last activity: 2026-07-29 - Completed quick task 260729-p70: fix issue #512 — chroma-go-local v0.3.4 go.sum checksum mismatch
 
 Progress: [██████████] 100%
 
@@ -67,6 +67,21 @@ Decisions are logged in PROJECT.md Key Decisions table.
 ### Blockers/Concerns
 
 - Phase 28 (Morph): upstream URL may be permanently moved -- need to verify before coding
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260729-p70 | fix issue #512 — chroma-go-local v0.3.4 go.sum checksum mismatch | 2026-07-29 | 0187c56 | Verified | [260729-p70-fix-issue-512-chroma-go-local-v0-3-4-go-](./quick/260729-p70-fix-issue-512-chroma-go-local-v0-3-4-go-/) |
+
+**Note (260729-p70, updated in #514):** `chroma-go-local v0.3.5` is now permanently notarized by
+`sum.golang.org` at `h1:F/vk7Nc6eC8tVFaj9O5XAkfBYGGQj5At6ccrlNxbzvU=`. **That tag must never be
+moved** — moving a published tag after notarization is precisely what burned `v0.3.4`.
+`defaultLocalLibraryVersion` and `defaultLocalShimVersion` are pinned to `v0.3.5`.
+`localLibraryCosignMainIdentityVersions` is now a slice (`[]string{"v0.3.4", "v0.3.5"}`) rather
+than a single value: both versions' release artifacts remain live and signed, so the cosign
+identity allowance covers both — removing either entry would revoke verification for artifacts
+users still pull under that version.
 
 ## Session
 
