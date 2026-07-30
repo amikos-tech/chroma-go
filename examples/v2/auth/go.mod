@@ -1,6 +1,6 @@
 module github.com/amikos-tech/chroma-go/examples/v2/auth
 
-go 1.24.11
+go 1.25.0
 
 require github.com/amikos-tech/chroma-go v0.2.4
 
