@@ -489,6 +489,87 @@ func TestEarlyValidationInvalidSearchWhereFilter(t *testing.T) {
 		req := &SearchRequest{}
 		err := WithSearchWhere(nil).ApplyToSearchRequest(req)
 		require.NoError(t, err)
+		require.Nil(t, req.Filter, "nil where must not allocate an empty filter")
+	})
+}
+
+func TestTypedNilWhereClause(t *testing.T) {
+	t.Run("typed nil via WithSearchWhere is inert", func(t *testing.T) {
+		var w *WhereClauseString
+		req := &SearchRequest{}
+		require.NotPanics(t, func() {
+			require.NoError(t, WithSearchWhere(w).ApplyToSearchRequest(req))
+		})
+		require.Nil(t, req.Filter)
+	})
+
+	t.Run("typed nil via WithFilter is inert", func(t *testing.T) {
+		var w *WhereClauseString
+		req := &SearchRequest{}
+		require.NotPanics(t, func() {
+			require.NoError(t, WithFilter(w).ApplyToSearchRequest(req))
+		})
+		require.Nil(t, req.Filter)
+	})
+
+	t.Run("typed nil nested in And errors instead of panicking", func(t *testing.T) {
+		var w *WhereClauseString
+		clause := And(EqString(K("a"), "b"), w)
+		var err error
+		require.NotPanics(t, func() { err = clause.Validate() })
+		require.EqualError(t, err, "nil clause in $and expression")
+	})
+
+	t.Run("typed nil nested in Or errors instead of panicking", func(t *testing.T) {
+		var w *WhereClauseInt
+		clause := Or(EqString(K("a"), "b"), w)
+		var err error
+		require.NotPanics(t, func() { err = clause.Validate() })
+		require.EqualError(t, err, "nil clause in $or expression")
+	})
+
+	t.Run("typed nil is normalized away when filter already exists", func(t *testing.T) {
+		var w *WhereClauseString
+		req := &SearchRequest{}
+		require.NoError(t, WithIDs("a").ApplyToSearchRequest(req))
+		require.NoError(t, WithFilter(w).ApplyToSearchRequest(req))
+		require.NotNil(t, req.Filter)
+		require.Nil(t, req.Filter.Where, "typed nil must be normalized to a true nil")
+
+		// A surviving typed nil would panic inside SearchFilter.MarshalJSON.
+		require.NotPanics(t, func() {
+			_, err := json.Marshal(req)
+			require.NoError(t, err)
+		})
+	})
+}
+
+func TestWithFilterNilComposition(t *testing.T) {
+	t.Run("WithIDs then WithFilter(nil) preserves IDs", func(t *testing.T) {
+		req := &SearchRequest{}
+		require.NoError(t, WithIDs("a", "b").ApplyToSearchRequest(req))
+		require.NoError(t, WithFilter(nil).ApplyToSearchRequest(req))
+		require.NotNil(t, req.Filter)
+		require.Equal(t, []DocumentID{"a", "b"}, req.Filter.IDs)
+		require.Nil(t, req.Filter.Where)
+	})
+
+	t.Run("WithFilter(nil) then WithIDs preserves IDs", func(t *testing.T) {
+		req := &SearchRequest{}
+		require.NoError(t, WithFilter(nil).ApplyToSearchRequest(req))
+		require.NoError(t, WithIDs("a", "b").ApplyToSearchRequest(req))
+		require.NotNil(t, req.Filter)
+		require.Equal(t, []DocumentID{"a", "b"}, req.Filter.IDs)
+		require.Nil(t, req.Filter.Where)
+	})
+
+	t.Run("WithFilter(nil) clears a previously set where clause", func(t *testing.T) {
+		req := &SearchRequest{}
+		require.NoError(t, WithFilter(EqString(K("status"), "published")).ApplyToSearchRequest(req))
+		require.NotNil(t, req.Filter.Where)
+		require.NoError(t, WithFilter(nil).ApplyToSearchRequest(req))
+		require.NotNil(t, req.Filter)
+		require.Nil(t, req.Filter.Where)
 	})
 }
 

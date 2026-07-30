@@ -954,3 +954,28 @@ func TestWithReadLevel(t *testing.T) {
 		require.Contains(t, err.Error(), "invalid read level")
 	})
 }
+
+func TestWithFilterNilPayloadEqualsOmission(t *testing.T) {
+	build := func(t *testing.T, opts ...SearchRequestOption) string {
+		t.Helper()
+		sq := &SearchQuery{}
+		require.NoError(t, NewSearchRequest(opts...)(sq))
+		data, err := json.Marshal(sq)
+		require.NoError(t, err)
+		return string(data)
+	}
+
+	t.Run("untyped nil filter is byte-identical to omitting the option", func(t *testing.T) {
+		withNil := build(t, WithFilter(nil), WithRank(mustKnnRank(t, KnnQueryText("q"))))
+		omitted := build(t, WithRank(mustKnnRank(t, KnnQueryText("q"))))
+		require.Equal(t, omitted, withNil)
+		require.NotContains(t, withNil, `"filter"`)
+	})
+
+	t.Run("typed nil filter is byte-identical to omitting the option", func(t *testing.T) {
+		var w *WhereClauseString
+		withNil := build(t, WithFilter(w), WithRank(mustKnnRank(t, KnnQueryText("q"))))
+		omitted := build(t, WithRank(mustKnnRank(t, KnnQueryText("q"))))
+		require.Equal(t, omitted, withNil)
+	})
+}
