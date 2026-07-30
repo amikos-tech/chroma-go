@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewCohereEmbeddingFunction_UsesLegacyDefaultModel(t *testing.T) {
+func TestNewCohereEmbeddingFunction_UsesDefaultModel(t *testing.T) {
 	t.Parallel()
 
 	ef, err := NewCohereEmbeddingFunction(WithAPIKey("test-key"))
 	require.NoError(t, err)
-	require.Equal(t, ModelEmbedEnglishV20, ef.DefaultModel)
-	require.Equal(t, string(ModelEmbedEnglishV20), ef.GetConfig()["model_name"])
+	require.Equal(t, ModelEmbedEnglishV30, ef.DefaultModel)
+	require.Equal(t, string(ModelEmbedEnglishV30), ef.GetConfig()["model_name"])
 }
 
 func TestCreateEmbeddingSanitizesErrorBody(t *testing.T) {

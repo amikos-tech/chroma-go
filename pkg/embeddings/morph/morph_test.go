@@ -24,7 +24,7 @@ func TestMorphEmbeddingFunction_Persistence(t *testing.T) {
 
 	config := ef.GetConfig()
 	assert.Equal(t, "MORPH_API_KEY", config["api_key_env_var"])
-	assert.Equal(t, "morph-embedding-v2", config["model_name"])
+	assert.Equal(t, "morph-embedding-v3", config["model_name"])
 	assert.Equal(t, "https://api.morphllm.com/v1/", config["api_base"])
 
 	rebuilt, err := embeddings.BuildDense(name, config)
