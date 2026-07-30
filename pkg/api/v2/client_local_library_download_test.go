@@ -1474,13 +1474,18 @@ func newSignedChecksumArtifacts(t *testing.T, version string, checksumBody []byt
 }
 
 func TestLocalAllowedChecksumSignerIdentities(t *testing.T) {
-	require.Equal(t,
-		[]string{
-			"https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/tags/v0.3.4",
-			"https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/heads/main",
-		},
-		localAllowedChecksumSignerIdentities("v0.3.4"),
-	)
+	// v0.3.4 and v0.3.5 were published by a workflow_dispatch on main, so both must also
+	// accept the main identity. Every other version must accept its tag identity only.
+	for _, version := range []string{"v0.3.4", "v0.3.5"} {
+		require.Equal(t,
+			[]string{
+				"https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/tags/" + version,
+				"https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/heads/main",
+			},
+			localAllowedChecksumSignerIdentities(version),
+			"version %s must allow the main-signed identity", version,
+		)
+	}
 
 	require.Equal(t,
 		[]string{
@@ -1488,6 +1493,11 @@ func TestLocalAllowedChecksumSignerIdentities(t *testing.T) {
 		},
 		localAllowedChecksumSignerIdentities("v9.9.9"),
 	)
+
+	// Guard against the allowance quietly growing: the main identity is a back-compat
+	// concession, not the norm. Bumping this count is a deliberate security decision.
+	require.Len(t, localLibraryCosignMainIdentityVersions, 2,
+		"widening the main-identity allowance requires decoding the new release's Fulcio cert first")
 }
 
 func newSignedChecksumBundleArtifact(t *testing.T, version string, checksumBody []byte) []byte {

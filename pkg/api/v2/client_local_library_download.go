@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -26,7 +27,7 @@ import (
 )
 
 const (
-	defaultLocalLibraryVersion                = "v0.3.4"
+	defaultLocalLibraryVersion                = "v0.3.5"
 	defaultLocalLibraryReleaseBaseURL         = "https://releases.amikos.tech/chroma-go-local"
 	defaultLocalLibraryReleaseFallbackBaseURL = "https://github.com/amikos-tech/chroma-go-local/releases/download"
 	localLibraryModulePath                    = "github.com/amikos-tech/chroma-go-local"
@@ -39,12 +40,18 @@ const (
 	localLibraryCosignOIDCIssuer              = "https://token.actions.githubusercontent.com"
 	localLibraryCosignIdentityTemplate        = "https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/tags/%s"
 	localLibraryCosignMainIdentity            = "https://github.com/amikos-tech/chroma-go-local/.github/workflows/release.yml@refs/heads/main"
-	localLibraryCosignMainIdentityVersion     = "v0.3.4"
 	localLibraryLockFileName                  = ".download.lock"
 	localLibraryCacheDirPerm                  = os.FileMode(0700)
 	localLibraryLockFilePerm                  = os.FileMode(0600)
 	localLibraryArtifactFilePerm              = os.FileMode(0700)
 )
+
+// Versions whose release artifacts were signed by a workflow_dispatch run on main rather
+// than by a tag push, so they carry localLibraryCosignMainIdentity instead of the usual
+// refs/tags/<version> identity. A var (not const) only because Go has no const slices —
+// nothing writes to it. Add a version here only after decoding the published bundle's
+// Fulcio certificate and confirming the signer; every entry widens what we trust.
+var localLibraryCosignMainIdentityVersions = []string{"v0.3.4", "v0.3.5"}
 
 var (
 	// Intentionally mutable for tests that use httptest servers.
@@ -684,7 +691,7 @@ func localVerifyChecksumsWithAnyIdentity(version string, verify func(expectedIde
 
 func localAllowedChecksumSignerIdentities(version string) []string {
 	identities := []string{fmt.Sprintf(localLibraryCosignIdentityTemplate, version)}
-	if strings.TrimSpace(version) == localLibraryCosignMainIdentityVersion {
+	if slices.Contains(localLibraryCosignMainIdentityVersions, strings.TrimSpace(version)) {
 		identities = append(identities, localLibraryCosignMainIdentity)
 	}
 	return identities

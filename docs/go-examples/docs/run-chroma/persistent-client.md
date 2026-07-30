@@ -97,7 +97,7 @@ Runtime options:
 - `WithPersistentConfigPath(path)` - start runtime from YAML file (defaults to server mode).
 - `WithPersistentRawYAML(yaml)` - start runtime from inline YAML (defaults to server mode).
 - `WithPersistentLibraryPath(path)` - explicit library path (alternative to `CHROMA_LIB_PATH`).
-- `WithPersistentLibraryVersion(tag)` - override auto-download release tag (default `v0.3.4`).
+- `WithPersistentLibraryVersion(tag)` - override auto-download release tag (default `v0.3.5`).
 - `WithPersistentLibraryCacheDir(path)` - override local shim cache directory.
 - `WithPersistentLibraryAutoDownload(false)` - disable auto-download fallback.
 
