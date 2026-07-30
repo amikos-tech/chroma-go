@@ -725,8 +725,7 @@ func TestCloseOnceContentEF_ClosePanicCaptured(t *testing.T) {
 	inner := &mockCloseableContentEF{}
 	wrapped := wrapContentEFCloseOnce(inner)
 
-	// Replace inner's close with a panicking one via a wrapper.
-	panicking := &mockPanickingCloseContentEF{mockCloseableContentEF: *inner}
+	panicking := &mockPanickingCloseContentEF{}
 	wrappedPanic := wrapContentEFCloseOnce(panicking)
 	closer := wrappedPanic.(io.Closer)
 
