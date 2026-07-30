@@ -815,3 +815,76 @@ func TestTypedNilWhereV1Options(t *testing.T) {
 		require.NotNil(t, op.Where)
 	})
 }
+
+// TestTypedNilWhereDocumentV1Options mirrors TestTypedNilWhereV1Options for the
+// WhereDocumentFilter interface, which has the same typed-nil guard weakness.
+func TestTypedNilWhereDocumentV1Options(t *testing.T) {
+	t.Run("WithWhereDocument typed nil is inert on Get", func(t *testing.T) {
+		var wd *WhereDocumentClauseContainsOrNotContains
+		op := &CollectionGetOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhereDocument(wd).ApplyToGet(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.WhereDocument)
+	})
+
+	t.Run("WithWhereDocument typed nil is inert on Query", func(t *testing.T) {
+		var wd *WhereDocumentClauseContainsOrNotContains
+		op := &CollectionQueryOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhereDocument(wd).ApplyToQuery(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.WhereDocument)
+	})
+
+	t.Run("WithWhereDocument typed nil is inert on Delete", func(t *testing.T) {
+		var wd *WhereDocumentClauseContainsOrNotContains
+		op := &CollectionDeleteOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhereDocument(wd).ApplyToDelete(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.WhereDocument)
+	})
+
+	t.Run("WithWhereDocument still applies a valid clause", func(t *testing.T) {
+		op := &CollectionGetOp{}
+		require.NoError(t, WithWhereDocument(Contains("draft")).ApplyToGet(op))
+		require.NotNil(t, op.WhereDocument)
+	})
+}
+
+// TestPrepareAndValidateTypedNilFilters covers the op structs directly. Where and
+// WhereDocument are exported fields, so a caller assembling an op without the option
+// constructors reaches PrepareAndValidate with a typed nil.
+func TestPrepareAndValidateTypedNilFilters(t *testing.T) {
+	var w *WhereClauseString
+	var wd *WhereDocumentClauseContainsOrNotContains
+
+	t.Run("CollectionGetOp tolerates typed nil filters", func(t *testing.T) {
+		op := &CollectionGetOp{
+			FilterOp:  FilterOp{Where: w, WhereDocument: wd},
+			ProjectOp: ProjectOp{Include: []Include{IncludeDocuments}},
+		}
+		var err error
+		require.NotPanics(t, func() { err = op.PrepareAndValidate() })
+		require.NoError(t, err)
+	})
+
+	t.Run("CollectionQueryOp tolerates typed nil filters", func(t *testing.T) {
+		op := &CollectionQueryOp{
+			FilterOp:      FilterOp{Where: w, WhereDocument: wd},
+			FilterTextsOp: FilterTextsOp{QueryTexts: []string{"q"}},
+			LimitResultOp: LimitResultOp{NResults: 1},
+		}
+		var err error
+		require.NotPanics(t, func() { err = op.PrepareAndValidate() })
+		require.NoError(t, err)
+	})
+
+	t.Run("CollectionDeleteOp reports a typed nil filter as no filter at all", func(t *testing.T) {
+		op := &CollectionDeleteOp{FilterOp: FilterOp{Where: w, WhereDocument: wd}}
+		var err error
+		require.NotPanics(t, func() { err = op.PrepareAndValidate() })
+		require.EqualError(t, err, "at least one filter is required, ids, where or whereDocument")
+	})
+}
