@@ -465,7 +465,7 @@ func (w *WhereClauseWhereClauses) Validate() error {
 		return errors.Errorf("invalid operand for %s, expected at least one clause", w.operator)
 	}
 	for _, clause := range w.operand {
-		if clause == nil {
+		if isNilInterface(clause) {
 			return errors.Errorf("nil clause in %s expression", w.operator)
 		}
 		if err := clause.Validate(); err != nil {

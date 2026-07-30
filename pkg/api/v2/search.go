@@ -633,15 +633,20 @@ func (o *rankOption) ApplyToSearchRequest(req *SearchRequest) error {
 	return nil
 }
 
-// isNilRank reports whether rank is nil, including a nil pointer of a concrete
-// type wrapped in the Rank interface (e.g. a nil *KnnRank), which a plain
-// `rank == nil` check misses because the interface value itself is non-nil.
-func isNilRank(rank Rank) bool {
-	if rank == nil {
+// isNilInterface reports whether v is nil, including a nil pointer of a concrete
+// type wrapped in an interface (e.g. a nil *KnnRank or *WhereClauseString), which
+// a plain `v == nil` check misses because the interface value itself is non-nil.
+func isNilInterface(v any) bool {
+	if v == nil {
 		return true
 	}
-	v := reflect.ValueOf(rank)
-	return v.Kind() == reflect.Pointer && v.IsNil()
+	rv := reflect.ValueOf(v)
+	return rv.Kind() == reflect.Pointer && rv.IsNil()
+}
+
+// isNilRank reports whether rank is nil, including a typed nil pointer.
+func isNilRank(rank Rank) bool {
+	return isNilInterface(rank)
 }
 
 // groupByOption implements grouping for Search operations.

@@ -866,10 +866,17 @@ func WithSearchWhere(where WhereClause) *searchWhereOption {
 }
 
 func (o *searchWhereOption) ApplyToSearchRequest(req *SearchRequest) error {
-	if o.where != nil {
-		if err := o.where.Validate(); err != nil {
-			return err
+	// A nil clause (untyped or typed) means "no filter": clear any clause already
+	// set, but never allocate a filter just to hold a nil so the marshalled request
+	// omits the filter key entirely.
+	if isNilInterface(o.where) {
+		if req.Filter != nil {
+			req.Filter.Where = nil
 		}
+		return nil
+	}
+	if err := o.where.Validate(); err != nil {
+		return err
 	}
 	if req.Filter == nil {
 		req.Filter = &SearchFilter{}
