@@ -48,7 +48,7 @@ type MorphClient struct {
 	APIKey       embeddings.Secret `json:"-" validate:"required"`
 	APIKeyEnvVar string            `json:"-"`
 	Client       *http.Client      `json:"-"`
-	Model        string            `default:"morph-embedding-v2"`
+	Model        string            `default:"morph-embedding-v3"`
 	Insecure     bool
 }
 

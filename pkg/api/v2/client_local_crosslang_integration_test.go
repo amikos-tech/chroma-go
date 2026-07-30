@@ -14,9 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -157,8 +156,8 @@ func runMountedDockerChroma(t *testing.T, persistPath string) (string, func()) {
 			"--port", "8000",
 		},
 		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(nat.Port("8000/tcp")),
-			wait.ForHTTP("/api/v2/heartbeat").WithPort(nat.Port("8000/tcp")),
+			wait.ForListeningPort("8000/tcp"),
+			wait.ForHTTP("/api/v2/heartbeat").WithPort("8000/tcp"),
 		).WithDeadline(90 * time.Second),
 		HostConfigModifier: func(hostConfig *container.HostConfig) {
 			hostConfig.Mounts = []mount.Mount{

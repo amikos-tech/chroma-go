@@ -33,13 +33,16 @@ const (
 )
 
 const (
-	ModelEmbedEnglishV20      embeddings.EmbeddingModel = "embed-english-v2.0"
-	ModelEmbedEnglishV30      embeddings.EmbeddingModel = "embed-english-v3.0"
+	// Deprecated: Cohere retired embed-english-v2.0 on April 4, 2026.
+	ModelEmbedEnglishV20 embeddings.EmbeddingModel = "embed-english-v2.0"
+	ModelEmbedEnglishV30 embeddings.EmbeddingModel = "embed-english-v3.0"
+	// Deprecated: Cohere retired embed-multilingual-v2.0 on April 4, 2026.
 	ModelEmbedMultilingualV20 embeddings.EmbeddingModel = "embed-multilingual-v2.0"
 	ModelEmbedMultilingualV30 embeddings.EmbeddingModel = "embed-multilingual-v3.0"
+	// Deprecated: Cohere retired embed-english-light-v2.0 on April 4, 2026.
 	ModelEmbedEnglishLightV20 embeddings.EmbeddingModel = "embed-english-light-v2.0"
 	ModelEmbedEnglishLightV30 embeddings.EmbeddingModel = "embed-english-light-v3.0"
-	DefaultEmbedModel         embeddings.EmbeddingModel = ModelEmbedEnglishV20
+	DefaultEmbedModel         embeddings.EmbeddingModel = ModelEmbedEnglishV30
 )
 
 type TruncateMode string

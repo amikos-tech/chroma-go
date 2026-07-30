@@ -42,13 +42,10 @@ func WithAPIVersion(apiVersion ccommons.APIVersion) Option {
 }
 
 // WithModel sets the default model for the Cohere API - Available models:
-// embed-english-v3.0 1024
+// embed-english-v3.0 1024 (default)
 // embed-multilingual-v3.0 1024
 // embed-english-light-v3.0 384
 // embed-multilingual-light-v3.0 384
-// embed-english-v2.0 4096 (default)
-// embed-english-light-v2.0 1024
-// embed-multilingual-v2.0 768
 func WithModel(model embeddings.EmbeddingModel) Option {
 	return func(p *CohereEmbeddingFunction) ccommons.Option {
 		return ccommons.WithDefaultModel(model)
@@ -56,13 +53,10 @@ func WithModel(model embeddings.EmbeddingModel) Option {
 }
 
 // WithDefaultModel sets the default model for the Cohere. This can be overridden in the context of EF embed call. Available models:
-// embed-english-v3.0 1024
+// embed-english-v3.0 1024 (default)
 // embed-multilingual-v3.0 1024
 // embed-english-light-v3.0 384
 // embed-multilingual-light-v3.0 384
-// embed-english-v2.0 4096 (default)
-// embed-english-light-v2.0 1024
-// embed-multilingual-v2.0 768
 func WithDefaultModel(model embeddings.EmbeddingModel) Option {
 	return func(p *CohereEmbeddingFunction) ccommons.Option {
 		return ccommons.WithDefaultModel(model)

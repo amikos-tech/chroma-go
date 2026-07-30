@@ -1073,13 +1073,14 @@ func main() {
 ## Morph
 
 [Morph](https://docs.morphllm.com/) provides embedding models via an OpenAI-compatible API.
+Morph has retired its hosted embedding API; this integration remains available for compatible custom endpoints.
 
 Supported Embedding Function Options:
 
 - `WithAPIKey` - Set the API key directly.
 - `WithEnvAPIKey` - Use the `MORPH_API_KEY` environment variable.
 - `WithAPIKeyFromEnvVar` - Use a custom environment variable for the API key.
-- `WithModel` - Set the model. Default is `morph-embedding-v2`.
+- `WithModel` - Set the model. Default is `morph-embedding-v3`.
 - `WithBaseURL` - Set a custom base URL (default: `https://api.morphllm.com/v1/`).
 - `WithInsecure` - Allow HTTP connections (for local development only).
 

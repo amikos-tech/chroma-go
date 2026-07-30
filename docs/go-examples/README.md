@@ -228,7 +228,7 @@ v2.NinInt("status", 0, -1)
 
 ## Requirements
 
-- Go 1.21+
+- Go 1.25+
 - Chroma server (local or Chroma Cloud)
 - chroma-go v2 (`github.com/amikos-tech/chroma-go/pkg/api/v2`)
 

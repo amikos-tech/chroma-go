@@ -14,11 +14,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Masterminds/semver"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-	tcchroma "github.com/testcontainers/testcontainers-go/modules/chroma"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
@@ -770,20 +769,6 @@ func TestClientHTTPIntegrationWithBearerXChromaTokenHeaderAuth(t *testing.T) {
 	port, err := chromaContainer.MappedPort(ctx, "8000")
 	require.NoError(t, err)
 	endpoint := fmt.Sprintf("http://%s:%s", ip, port.Port())
-	//
-	//chromaContainer, err := tcchroma.Run(ctx,
-	//	fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
-	//	testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
-	//	testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_CREDENTIALS": token}),
-	//	testcontainers.WithEnv(map[string]string{"CHROMA_SERVER_AUTHN_PROVIDER": "chromadb.auth.token_authn.TokenAuthenticationServerProvider"}),
-	//	testcontainers.WithEnv(map[string]string{"CHROMA_AUTH_TOKEN_TRANSPORT_HEADER": "X-Chroma-Token"}),
-	//)
-	//require.NoError(t, err)
-	//t.Cleanup(func() {
-	//	require.NoError(t, chromaContainer.Terminate(ctx))
-	//})
-	//endpoint, err := chromaContainer.RESTEndpoint(context.Background())
-	//require.NoError(t, err)
 	chromaURL := os.Getenv("CHROMA_URL")
 	if chromaURL == "" {
 		chromaURL = endpoint
@@ -847,14 +832,13 @@ func TestClientHTTPIntegrationWithSSL(t *testing.T) {
 	}
 
 	CreateSelfSignedCert(certPath, keyPath)
-	chromaContainer, err := tcchroma.Run(ctx,
+	chromaContainer, err := testcontainers.Run(ctx,
 		fmt.Sprintf("%s:%s", chromaImage, chromaVersion),
+		testcontainers.WithExposedPorts("8000/tcp"),
+		testcontainers.WithWaitStrategy(wait.ForListeningPort("8000/tcp")),
 		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
 		testcontainers.CustomizeRequest(testcontainers.GenericContainerRequest{
 			ContainerRequest: testcontainers.ContainerRequest{
-				WaitingFor: wait.ForAll(
-					wait.ForListeningPort("8000/tcp"),
-				),
 				Entrypoint: entrypoint,
 				HostConfigModifier: func(hostConfig *container.HostConfig) {
 					hostConfig.Mounts = []mount.Mount{
@@ -874,17 +858,10 @@ func TestClientHTTPIntegrationWithSSL(t *testing.T) {
 			},
 		}),
 	)
+	testcontainers.CleanupContainer(t, chromaContainer)
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, chromaContainer.Terminate(ctx))
-	})
-	endpoint, err := chromaContainer.RESTEndpoint(context.Background())
+	chromaURL, err := chromaContainer.PortEndpoint(ctx, "8000/tcp", "https")
 	require.NoError(t, err)
-	chromaURL := os.Getenv("CHROMA_URL")
-	if chromaURL == "" {
-		chromaURL = endpoint
-	}
-	chromaURL = strings.ReplaceAll(endpoint, "http://", "https://")
 	time.Sleep(5 * time.Second)
 	t.Run("Test with insecure client", func(t *testing.T) {
 		client, err := NewHTTPClient(WithBaseURL(chromaURL), WithInsecure(), WithLogger(testLogger()))

@@ -140,7 +140,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
         with:
-          version: v2.1
+          version: v2.12.2
   windows-compile:
     name: Windows Compile Guard
     runs-on: ubuntu-latest
@@ -331,6 +331,8 @@ jobs:
             test_path: ./pkg/embeddings/jina/...
           - provider: roboflow
             test_path: ./pkg/embeddings/roboflow/...
+          # Morph retired its hosted embedding API; retain configuration tests
+          # without enabling the live test.
           - provider: morph
             test_path: ./pkg/embeddings/morph/...
           - provider: perplexity
@@ -391,7 +393,6 @@ jobs:
           NOMIC_API_KEY: ${{ matrix.provider == 'nomic' && secrets.NOMIC_API_KEY || '' }}
           JINA_API_KEY: ${{ matrix.provider == 'jina' && secrets.JINA_API_KEY || '' }}
           ROBOFLOW_API_KEY: ${{ matrix.provider == 'roboflow' && secrets.ROBOFLOW_API_KEY || '' }}
-          MORPH_API_KEY: ${{ matrix.provider == 'morph' && secrets.MORPH_API_KEY || '' }}
           PERPLEXITY_API_KEY: ${{ matrix.provider == 'perplexity' && secrets.PERPLEXITY_API_KEY || '' }}
           BASETEN_API_KEY: ${{ matrix.provider == 'baseten' && secrets.BASETEN_API_KEY || '' }}
           BASETEN_BASE_URL: ${{ matrix.provider == 'baseten' && secrets.BASETEN_BASE_URL || '' }}

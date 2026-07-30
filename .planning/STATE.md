@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: executing
-stopped_at: "Quick tasks 260730-cjl + 260730-fzu shipped — PR #519"
-last_updated: "2026-07-30T09:10:13.701Z"
+status: "Quick task 260730-p46 (GH #522) shipped — PR #524"
+stopped_at: "Phase 26 shipped — PR #509"
+last_updated: "2026-07-30T16:13:19.165Z"
 last_activity: 2026-07-30
 progress:
   total_phases: 11
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 Phase: 30
 Plan: Not started
-Status: Quick tasks 260730-cjl + 260730-fzu shipped — PR #519
-Last activity: 2026-07-30 - Shipped quick tasks 260730-cjl and 260730-fzu plus the #517 follow-up as PR #519; four review rounds added 8 typed-nil guards on paths that bypass the option constructors
+Status: Quick task 260730-p46 (GH #522) shipped — PR #524
+Last activity: 2026-07-30
 
 Progress: [██████████] 100%
 
@@ -75,6 +75,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 | 260729-p70 | fix issue #512 — chroma-go-local v0.3.4 go.sum checksum mismatch | 2026-07-29 | 0187c56 | Verified | [260729-p70-fix-issue-512-chroma-go-local-v0-3-4-go-](./quick/260729-p70-fix-issue-512-chroma-go-local-v0-3-4-go-/) |
 | 260730-cjl | Normalize nil-handling across V2 SearchRequestOption helpers (GH #503) | 2026-07-30 | dc00f59 | Verified | [260730-cjl-normalize-nil-handling-across-v2-searchr](./quick/260730-cjl-normalize-nil-handling-across-v2-searchr/) |
 | 260730-fzu | Fix typed-nil WhereClause panic and doc accuracy in V2 search nil-handling | 2026-07-30 | e695de6 | Verified | [260730-fzu-fix-typed-nil-whereclause-panic-and-doc-](./quick/260730-fzu-fix-typed-nil-whereclause-panic-and-doc-/) |
+| 260730-p46 | Remove legacy github.com/docker/docker via Testcontainers v0.43.0 + Go 1.25 floor (GH #522) | 2026-07-30 | 03bc90d | Local ✓ / CI pending | [260730-p46-remove-legacy-docker-module](./quick/260730-p46-remove-legacy-docker-module/) |
 
 **Note (260729-p70, updated in #514):** `chroma-go-local v0.3.5` is now permanently notarized by
 `sum.golang.org` at `h1:F/vk7Nc6eC8tVFaj9O5XAkfBYGGQj5At6ccrlNxbzvU=`. **That tag must never be
