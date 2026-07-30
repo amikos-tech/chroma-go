@@ -702,6 +702,85 @@ func TestCollectionQuery(t *testing.T) {
 	require.NotNil(t, r)
 }
 
+func TestCollectionSearchTypedNilRank(t *testing.T) {
+	var typedNilRank *KnnRank
+	tests := []struct {
+		name     string
+		rank     Rank
+		wantRank bool
+	}{
+		{
+			name: "direct typed nil rank is omitted",
+			rank: typedNilRank,
+		},
+		{
+			name: "typed nil rank nested in RRF remains valid JSON",
+			rank: &RrfRank{
+				Ranks: []RankWithWeight{{Rank: typedNilRank, Weight: 1}},
+				K:     60,
+			},
+			wantRank: true,
+		},
+	}
+
+	const searchPath = "/api/v2/tenants/default_tenant/databases/default_database/collections/8ecf0f7e-e806-47f8-96a1-4732ef42359e/search"
+	requestBodies := make(chan []byte, len(tests))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != searchPath {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+
+		requestBodies <- []byte(chhttp.ReadRespBody(r.Body))
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write([]byte(`{}`)); err != nil {
+			t.Errorf("write search response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	collection := &CollectionImpl{
+		name:              "test",
+		id:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+		tenant:            NewDefaultTenant(),
+		database:          NewDefaultDatabase(),
+		metadata:          NewMetadata(),
+		client:            client.(*APIClientV2),
+		embeddingFunction: embeddings.NewConsistentHashEmbeddingFunction(),
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			appendRequest := func(query *SearchQuery) error {
+				query.Searches = append(query.Searches, SearchRequest{Rank: tt.rank})
+				return nil
+			}
+
+			var result SearchResult
+			var searchErr error
+			require.NotPanics(t, func() {
+				result, searchErr = collection.Search(context.Background(), appendRequest)
+			})
+			require.NoError(t, searchErr)
+			require.NotNil(t, result)
+
+			var payload struct {
+				Searches []map[string]json.RawMessage `json:"searches"`
+			}
+			require.NoError(t, json.Unmarshal(<-requestBodies, &payload))
+			require.Len(t, payload.Searches, 1)
+			rankJSON, hasRank := payload.Searches[0]["rank"]
+			require.Equal(t, tt.wantRank, hasRank)
+			if tt.wantRank {
+				require.NotEqual(t, "null", string(rankJSON))
+			}
+		})
+	}
+}
+
 func TestCollectionModifyName(t *testing.T) {
 	rx1 := regexp.MustCompile(`/api/v2/tenants/[^/]+/databases/[^/]+/collections/[^/]+`)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
