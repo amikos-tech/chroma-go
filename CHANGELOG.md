@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - **Get/Query/Delete** - A typed-nil clause nested inside `AndDocument`/`OrDocument` now produces a `nil clause in $and expression` validation error instead of panicking, matching the `And`/`Or` behavior for metadata clauses.
+- **Search API** - Marshalling an `And`/`Or` clause directly now validates first, matching `AndDocument`/`OrDocument`. Previously a typed-nil operand bypassed the `Validate()` guard and panicked inside the nested clause's own `MarshalJSON`.
 - **Search API** - A typed-nil `WhereClause` (e.g. `var w *WhereClauseString`) no longer panics when passed to `WithFilter`/`WithSearchWhere` or nested inside `And`/`Or`. At the option boundary a typed nil is normalized to a true nil and treated as "no filter"; nested in `And`/`Or` it now produces the `nil clause in $and expression` validation error rather than dereferencing a nil pointer.
 - **Search API** - `WithFilter(nil)`/`WithSearchWhere(nil)` no longer allocate an empty `SearchFilter`, so the marshalled request omits the `filter` key entirely instead of sending `{"filter":{}}`. IDs added via `WithIDs` are still preserved regardless of option ordering.
 - **Search API** - Nil detection now covers every nillable kind, not just pointers. A caller-supplied `Rank` or `WhereClause` implementation backed by a nil map, slice, func or channel previously slipped past the guard — `WithRank` accepted it and serialized `"rank":null` instead of returning `ErrNilRank`.

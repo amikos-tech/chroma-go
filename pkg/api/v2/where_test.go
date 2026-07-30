@@ -3,6 +3,7 @@
 package v2
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -351,4 +352,28 @@ func TestWhereClauseEmptyOperandValidation(t *testing.T) {
 			require.Contains(t, err.Error(), tt.expectedErr)
 		})
 	}
+}
+
+// TestWhereClausesMarshalTypedNil covers direct marshalling of a compound clause
+// holding a typed nil, which skips the Validate() guard added for the option path.
+func TestWhereClausesMarshalTypedNil(t *testing.T) {
+	var nilClause *WhereClauseString
+
+	t.Run("typed nil in And errors instead of panicking", func(t *testing.T) {
+		var err error
+		require.NotPanics(t, func() { _, err = json.Marshal(And(EqString("k", "v"), nilClause)) })
+		require.ErrorContains(t, err, "nil clause in $and expression")
+	})
+
+	t.Run("typed nil in Or errors instead of panicking", func(t *testing.T) {
+		var err error
+		require.NotPanics(t, func() { _, err = json.Marshal(Or(EqString("k", "v"), nilClause)) })
+		require.ErrorContains(t, err, "nil clause in $or expression")
+	})
+
+	t.Run("valid compound clauses still marshal", func(t *testing.T) {
+		data, err := json.Marshal(And(EqString("a", "1"), EqString("b", "2")))
+		require.NoError(t, err)
+		require.Contains(t, string(data), "$and")
+	})
 }

@@ -475,7 +475,12 @@ func (w *WhereClauseWhereClauses) Validate() error {
 	return nil
 }
 
+// MarshalJSON validates before encoding, matching WhereDocumentClauseAnd/Or. Without
+// it a typed-nil operand reaches its own MarshalJSON with a nil receiver and panics.
 func (w *WhereClauseWhereClauses) MarshalJSON() ([]byte, error) {
+	if err := w.Validate(); err != nil {
+		return nil, err
+	}
 	var x = map[WhereFilterOperator][]WhereClause{
 		w.operator: w.operand,
 	}
