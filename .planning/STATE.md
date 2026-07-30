@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 Phase: 30
 Plan: Not started
 Status: Quick tasks 260730-cjl + 260730-fzu shipped — PR #519
-Last activity: 2026-07-30 - Shipped quick tasks 260730-cjl and 260730-fzu plus the #517 follow-up fix as PR #519
+Last activity: 2026-07-30 - Shipped quick tasks 260730-cjl and 260730-fzu plus the #517 follow-up as PR #519; four review rounds added 8 typed-nil guards on paths that bypass the option constructors
 
 Progress: [██████████] 100%
 
