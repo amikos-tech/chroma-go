@@ -396,7 +396,7 @@ func WithSearchFilter(filter *SearchFilter) *searchFilterOption {
 
 func (o *searchFilterOption) ApplyToSearchRequest(req *SearchRequest) error {
 	if o.filter == nil {
-		return errors.New("filter cannot be nil")
+		return ErrNilFilter
 	}
 	req.Filter = o.filter
 	return nil
@@ -627,7 +627,7 @@ func WithRank(rank Rank) *rankOption {
 
 func (o *rankOption) ApplyToSearchRequest(req *SearchRequest) error {
 	if isNilRank(o.rank) {
-		return errors.New("rank cannot be nil")
+		return ErrNilRank
 	}
 	req.Rank = o.rank
 	return nil
@@ -675,7 +675,7 @@ func WithGroupBy(groupBy *GroupBy) *groupByOption {
 
 func (o *groupByOption) ApplyToSearchRequest(req *SearchRequest) error {
 	if o.groupBy == nil {
-		return errors.New("groupBy cannot be nil")
+		return ErrNilGroupBy
 	}
 	if err := o.groupBy.Validate(); err != nil {
 		return err

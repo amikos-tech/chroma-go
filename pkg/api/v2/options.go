@@ -909,4 +909,13 @@ var (
 
 	// ErrNoMetadatas is returned when [WithMetadatas] is called with no metadatas.
 	ErrNoMetadatas = errors.New("at least one metadata is required")
+
+	// ErrNilFilter is returned when [WithSearchFilter] receives a nil filter.
+	ErrNilFilter = errors.New("filter cannot be nil")
+
+	// ErrNilRank is returned when [WithRank] receives a nil rank.
+	ErrNilRank = errors.New("rank cannot be nil")
+
+	// ErrNilGroupBy is returned when [WithGroupBy] receives a nil group by.
+	ErrNilGroupBy = errors.New("groupBy cannot be nil")
 )
