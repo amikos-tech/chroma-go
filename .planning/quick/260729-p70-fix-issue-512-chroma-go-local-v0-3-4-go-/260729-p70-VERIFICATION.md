@@ -6,6 +6,11 @@ score: 7/7 must-haves verified
 overrides_applied: 0
 ---
 
+> **Superseded (commit `f801d35`, PR #514):** this report verifies commit `0187c56`, which left
+> `defaultLocalLibraryVersion` and `localLibraryCosignMainIdentityVersion` pinned at `v0.3.4`. A
+> later commit intentionally overrode that decision — both are now `v0.3.5` (the latter is also
+> a slice covering both versions). See `.planning/STATE.md` for the current, accurate state.
+
 # Quick Task 260729-p70: chroma-go-local v0.3.5 Bump Verification Report
 
 **Task Goal:** Resolve GitHub issue #512 — `github.com/amikos-tech/chroma-go-local v0.3.4`

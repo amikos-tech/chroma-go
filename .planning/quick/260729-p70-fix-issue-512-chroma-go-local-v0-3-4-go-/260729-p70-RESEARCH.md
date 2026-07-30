@@ -4,6 +4,11 @@
 **Domain:** Go module checksum/notarization, upstream release pipeline (GitHub Actions + cosign + R2)
 **Confidence:** HIGH (all findings verified by file:line or live command output)
 
+> **Superseded (commit `f801d35`, PR #514):** the "leave the version constants alone" conclusion
+> below (Q1, and rows 5-6 in the constants table) was later overridden — `defaultLocalLibraryVersion`
+> and `localLibraryCosignMainIdentityVersion` were intentionally bumped to `v0.3.5` (the latter is
+> now a slice covering both versions). See `.planning/STATE.md` for the current, accurate state.
+
 ---
 
 <user_constraints>
