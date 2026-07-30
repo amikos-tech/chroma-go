@@ -387,9 +387,9 @@ type searchFilterOption struct {
 //
 // For most cases, use [WithFilter] and [WithIDs] instead, which are simpler.
 //
-// Passing nil returns a validation error instead of being treated as omission. This is an
-// intentional, permanent divergence from the Python and TypeScript SDKs, which treat nil as
-// a no-op — callers who want to omit the filter should simply not call this option.
+// Passing nil causes the enclosing search request to fail with [ErrNilFilter] instead of
+// being treated as omission — callers who want to omit the filter should simply not call
+// this option.
 func WithSearchFilter(filter *SearchFilter) *searchFilterOption {
 	return &searchFilterOption{filter: filter}
 }
@@ -415,11 +415,12 @@ func (o *searchFilterOption) ApplyToSearchRequest(req *SearchRequest) error {
 // Logical: [And], [Or]
 // ID filtering: [IDIn]
 //
-// Unlike [WithSearchFilter], [WithRank], and [WithGroupBy], passing nil here is
-// allowed and treated as "no filter" — this matches the Python/TypeScript SDKs'
-// nil semantics. This is an intentional asymmetry: WithFilter/WithSearchWhere is
-// the primary, ergonomic entry point where nil naturally means "unfiltered",
-// while the lower-level struct-based options reject nil to catch caller bugs.
+// Unlike [WithSearchFilter], [WithRank], and [WithGroupBy], passing nil here is allowed
+// and applies no metadata filter. A nil clause clears any clause set earlier on the same
+// request (ordinary last-write-wins, not nil-specific) while IDs added via [WithIDs] are
+// preserved. This asymmetry is intentional: WithFilter/WithSearchWhere is the primary,
+// ergonomic entry point where nil naturally means "unfiltered", while the lower-level
+// struct-based options reject nil to catch caller bugs.
 //
 // # Example
 //
@@ -618,9 +619,9 @@ type rankOption struct {
 //	    ),
 //	)
 //
-// Passing nil returns a validation error instead of being treated as omission. This is an
-// intentional, permanent divergence from the Python and TypeScript SDKs, which treat nil as
-// a no-op — callers who want to omit the rank should simply not call this option.
+// Passing nil causes the enclosing search request to fail with [ErrNilRank] instead of
+// being treated as omission — callers who want to omit the rank should simply not call
+// this option.
 func WithRank(rank Rank) *rankOption {
 	return &rankOption{rank: rank}
 }
@@ -666,9 +667,9 @@ type groupByOption struct {
 //	    ),
 //	)
 //
-// Passing nil returns a validation error instead of being treated as omission. This is an
-// intentional, permanent divergence from the Python and TypeScript SDKs, which treat nil as
-// a no-op — callers who want to omit grouping should simply not call this option.
+// Passing nil causes the enclosing search request to fail with [ErrNilGroupBy] instead of
+// being treated as omission — callers who want to omit grouping should simply not call
+// this option.
 func WithGroupBy(groupBy *GroupBy) *groupByOption {
 	return &groupByOption{groupBy: groupBy}
 }

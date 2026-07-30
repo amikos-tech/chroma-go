@@ -822,11 +822,12 @@ type searchWhereOption struct {
 //
 // For a more intuitive API, consider using [WithFilter] which is an alias.
 //
-// Passing nil is allowed and treated as "no filter" — unlike [WithSearchFilter],
-// [WithRank], and [WithGroupBy], which reject nil as a likely caller bug. This
-// is an intentional, tested asymmetry: WithSearchWhere/WithFilter is the primary
-// entry point where nil naturally means "unfiltered", matching Python/TypeScript
-// SDK nil semantics.
+// Passing nil is allowed and applies no metadata filter — unlike [WithSearchFilter],
+// [WithRank], and [WithGroupBy], which reject nil as a likely caller bug. A nil clause
+// clears any clause set earlier on the same request (ordinary last-write-wins, not
+// nil-specific) while IDs added via [WithIDs] are preserved. This asymmetry is
+// intentional: WithSearchWhere/WithFilter is the primary entry point where nil
+// naturally means "unfiltered".
 //
 // # Available Filter Functions
 //
