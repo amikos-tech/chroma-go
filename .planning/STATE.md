@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 Phase: 30
 Plan: Not started
 Status: Phase 26 shipped — PR #509
-Last activity: 2026-07-29 - Completed quick task 260729-p70: fix issue #512 — chroma-go-local v0.3.4 go.sum checksum mismatch
+Last activity: 2026-07-30 - Completed quick task 260730-cjl: Normalize nil-handling across V2 SearchRequestOption helpers (GH #503)
 
 Progress: [██████████] 100%
 
@@ -73,6 +73,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 260729-p70 | fix issue #512 — chroma-go-local v0.3.4 go.sum checksum mismatch | 2026-07-29 | 0187c56 | Verified | [260729-p70-fix-issue-512-chroma-go-local-v0-3-4-go-](./quick/260729-p70-fix-issue-512-chroma-go-local-v0-3-4-go-/) |
+| 260730-cjl | Normalize nil-handling across V2 SearchRequestOption helpers (GH #503) | 2026-07-30 | dc00f59 | Verified | [260730-cjl-normalize-nil-handling-across-v2-searchr](./quick/260730-cjl-normalize-nil-handling-across-v2-searchr/) |
 
 **Note (260729-p70, updated in #514):** `chroma-go-local v0.3.5` is now permanently notarized by
 `sum.golang.org` at `h1:F/vk7Nc6eC8tVFaj9O5XAkfBYGGQj5At6ccrlNxbzvU=`. **That tag must never be
