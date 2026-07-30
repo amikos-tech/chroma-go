@@ -858,10 +858,8 @@ func TestClientHTTPIntegrationWithSSL(t *testing.T) {
 			},
 		}),
 	)
+	testcontainers.CleanupContainer(t, chromaContainer)
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, chromaContainer.Terminate(ctx))
-	})
 	chromaURL, err := chromaContainer.PortEndpoint(ctx, "8000/tcp", "https")
 	require.NoError(t, err)
 	time.Sleep(5 * time.Second)
