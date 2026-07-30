@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -208,7 +209,7 @@ func TestSearchFilter(t *testing.T) {
 	t.Run("nil filter returns exact validation error", func(t *testing.T) {
 		req := &SearchRequest{}
 		err := WithSearchFilter(nil).ApplyToSearchRequest(req)
-		require.EqualError(t, err, "filter cannot be nil")
+		require.ErrorIs(t, err, ErrNilFilter)
 		require.Nil(t, req.Filter)
 	})
 
@@ -325,7 +326,7 @@ func TestWithRank(t *testing.T) {
 	t.Run("nil rank returns exact validation error", func(t *testing.T) {
 		req := &SearchRequest{}
 		err := WithRank(nil).ApplyToSearchRequest(req)
-		require.EqualError(t, err, "rank cannot be nil")
+		require.ErrorIs(t, err, ErrNilRank)
 		require.Nil(t, req.Rank)
 	})
 
@@ -342,7 +343,7 @@ func TestWithRank(t *testing.T) {
 
 		req := &SearchRequest{}
 		err := WithRank(kr).ApplyToSearchRequest(req)
-		require.EqualError(t, err, "rank cannot be nil")
+		require.ErrorIs(t, err, ErrNilRank)
 		require.Nil(t, req.Rank)
 	})
 }
@@ -952,6 +953,54 @@ func TestWithReadLevel(t *testing.T) {
 		err := WithReadLevel(ReadLevel("invalid"))(sq)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid read level")
+	})
+}
+
+func TestNilOptionSentinels(t *testing.T) {
+	tests := []struct {
+		name     string
+		apply    func(*SearchRequest) error
+		sentinel error
+		message  string
+	}{
+		{
+			name:     "WithSearchFilter",
+			apply:    WithSearchFilter(nil).ApplyToSearchRequest,
+			sentinel: ErrNilFilter,
+			message:  "filter cannot be nil",
+		},
+		{
+			name:     "WithRank",
+			apply:    WithRank(nil).ApplyToSearchRequest,
+			sentinel: ErrNilRank,
+			message:  "rank cannot be nil",
+		},
+		{
+			name:     "WithGroupBy",
+			apply:    WithGroupBy(nil).ApplyToSearchRequest,
+			sentinel: ErrNilGroupBy,
+			message:  "groupBy cannot be nil",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+" returns a discriminable sentinel", func(t *testing.T) {
+			err := tt.apply(&SearchRequest{})
+			require.ErrorIs(t, err, tt.sentinel)
+			require.EqualError(t, err, tt.message)
+		})
+
+		// Mirrors CollectionImpl.Search, which wraps option errors before returning.
+		t.Run(tt.name+" sentinel survives errors.Wrap", func(t *testing.T) {
+			err := errors.Wrap(tt.apply(&SearchRequest{}), "error applying search option")
+			require.ErrorIs(t, err, tt.sentinel)
+		})
+	}
+
+	t.Run("typed nil rank matches ErrNilRank", func(t *testing.T) {
+		var kr *KnnRank
+		err := WithRank(kr).ApplyToSearchRequest(&SearchRequest{})
+		require.ErrorIs(t, err, ErrNilRank)
 	})
 }
 
