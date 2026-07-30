@@ -46,12 +46,15 @@ const (
 	localLibraryArtifactFilePerm              = os.FileMode(0700)
 )
 
-// Versions whose release artifacts were signed by a workflow_dispatch run on main rather
-// than by a tag push, so they carry localLibraryCosignMainIdentity instead of the usual
-// refs/tags/<version> identity. A var (not const) only because Go has no const slices —
-// nothing writes to it. Add a version here only after decoding the published bundle's
-// Fulcio certificate and confirming the signer; every entry widens what we trust.
-var localLibraryCosignMainIdentityVersions = []string{"v0.3.4", "v0.3.5"}
+// localLibraryCosignMainIdentityVersions lists versions whose release artifacts were signed
+// by a workflow_dispatch run on main rather than by a tag push, so they carry
+// localLibraryCosignMainIdentity instead of the usual refs/tags/<version> identity. A function
+// (not a package-level var) so the allowance can't be widened by a stray same-package append.
+// Add a version here only after decoding the published bundle's Fulcio certificate and
+// confirming the signer; every entry widens what we trust.
+func localLibraryCosignMainIdentityVersions() []string {
+	return []string{"v0.3.4", "v0.3.5"}
+}
 
 var (
 	// Intentionally mutable for tests that use httptest servers.
@@ -691,7 +694,7 @@ func localVerifyChecksumsWithAnyIdentity(version string, verify func(expectedIde
 
 func localAllowedChecksumSignerIdentities(version string) []string {
 	identities := []string{fmt.Sprintf(localLibraryCosignIdentityTemplate, version)}
-	if slices.Contains(localLibraryCosignMainIdentityVersions, strings.TrimSpace(version)) {
+	if slices.Contains(localLibraryCosignMainIdentityVersions(), strings.TrimSpace(version)) {
 		identities = append(identities, localLibraryCosignMainIdentity)
 	}
 	return identities

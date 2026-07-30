@@ -1496,7 +1496,7 @@ func TestLocalAllowedChecksumSignerIdentities(t *testing.T) {
 
 	// Guard against the allowance quietly growing: the main identity is a back-compat
 	// concession, not the norm. Bumping this count is a deliberate security decision.
-	require.Len(t, localLibraryCosignMainIdentityVersions, 2,
+	require.Len(t, localLibraryCosignMainIdentityVersions(), 2,
 		"widening the main-identity allowance requires decoding the new release's Fulcio cert first")
 }
 
