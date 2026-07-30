@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/go-connections/nat"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -79,7 +78,7 @@ func setupCrossLangChromaContainer(t *testing.T) (string, func()) {
 		Image:        chromaImage,
 		ExposedPorts: []string{"8000/tcp"},
 		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(nat.Port("8000/tcp")),
+			wait.ForListeningPort("8000/tcp"),
 			wait.ForHTTP("/api/v2/heartbeat").WithPort("8000/tcp"),
 		).WithDeadline(60 * time.Second),
 	}
