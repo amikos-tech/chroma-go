@@ -3,6 +3,7 @@ package v2
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 
 	"github.com/pkg/errors"
 )
@@ -619,11 +620,22 @@ func WithRank(rank Rank) *rankOption {
 }
 
 func (o *rankOption) ApplyToSearchRequest(req *SearchRequest) error {
-	if o.rank == nil {
+	if isNilRank(o.rank) {
 		return errors.New("rank cannot be nil")
 	}
 	req.Rank = o.rank
 	return nil
+}
+
+// isNilRank reports whether rank is nil, including a nil pointer of a concrete
+// type wrapped in the Rank interface (e.g. a nil *KnnRank), which a plain
+// `rank == nil` check misses because the interface value itself is non-nil.
+func isNilRank(rank Rank) bool {
+	if rank == nil {
+		return true
+	}
+	v := reflect.ValueOf(rank)
+	return v.Kind() == reflect.Pointer && v.IsNil()
 }
 
 // groupByOption implements grouping for Search operations.

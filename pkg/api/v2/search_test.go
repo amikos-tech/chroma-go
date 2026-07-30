@@ -336,6 +336,15 @@ func TestWithRank(t *testing.T) {
 		require.Error(t, err)
 		require.Empty(t, sq.Searches)
 	})
+
+	t.Run("typed nil rank pointer is rejected, not silently accepted", func(t *testing.T) {
+		var kr *KnnRank
+
+		req := &SearchRequest{}
+		err := WithRank(kr).ApplyToSearchRequest(req)
+		require.EqualError(t, err, "rank cannot be nil")
+		require.Nil(t, req.Rank)
+	})
 }
 
 func TestWithKnnRank(t *testing.T) {
