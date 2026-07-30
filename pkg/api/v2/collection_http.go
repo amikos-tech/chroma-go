@@ -591,7 +591,7 @@ func (c *CollectionImpl) embedRankTextQueriesWithDepth(ctx context.Context, rank
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if child == nil {
+			if isNilInterface(child) {
 				continue
 			}
 			if err := c.embedRankTextQueriesWithDepth(ctx, child, depth+1); err != nil {
@@ -603,7 +603,7 @@ func (c *CollectionImpl) embedRankTextQueriesWithDepth(ctx context.Context, rank
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if child == nil {
+			if isNilInterface(child) {
 				continue
 			}
 			if err := c.embedRankTextQueriesWithDepth(ctx, child, depth+1); err != nil {
@@ -611,37 +611,37 @@ func (c *CollectionImpl) embedRankTextQueriesWithDepth(ctx context.Context, rank
 			}
 		}
 	case *SubRank:
-		if r.left != nil {
+		if !isNilInterface(r.left) {
 			if err := c.embedRankTextQueriesWithDepth(ctx, r.left, depth+1); err != nil {
 				return err
 			}
 		}
-		if r.right != nil {
+		if !isNilInterface(r.right) {
 			if err := c.embedRankTextQueriesWithDepth(ctx, r.right, depth+1); err != nil {
 				return err
 			}
 		}
 	case *DivRank:
-		if r.left != nil {
+		if !isNilInterface(r.left) {
 			if err := c.embedRankTextQueriesWithDepth(ctx, r.left, depth+1); err != nil {
 				return err
 			}
 		}
-		if r.right != nil {
+		if !isNilInterface(r.right) {
 			if err := c.embedRankTextQueriesWithDepth(ctx, r.right, depth+1); err != nil {
 				return err
 			}
 		}
 	case *AbsRank:
-		if r.rank != nil {
+		if !isNilInterface(r.rank) {
 			return c.embedRankTextQueriesWithDepth(ctx, r.rank, depth+1)
 		}
 	case *ExpRank:
-		if r.rank != nil {
+		if !isNilInterface(r.rank) {
 			return c.embedRankTextQueriesWithDepth(ctx, r.rank, depth+1)
 		}
 	case *LogRank:
-		if r.rank != nil {
+		if !isNilInterface(r.rank) {
 			return c.embedRankTextQueriesWithDepth(ctx, r.rank, depth+1)
 		}
 	case *MaxRank:
@@ -649,7 +649,7 @@ func (c *CollectionImpl) embedRankTextQueriesWithDepth(ctx context.Context, rank
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if child == nil {
+			if isNilInterface(child) {
 				continue
 			}
 			if err := c.embedRankTextQueriesWithDepth(ctx, child, depth+1); err != nil {
@@ -661,7 +661,7 @@ func (c *CollectionImpl) embedRankTextQueriesWithDepth(ctx context.Context, rank
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if child == nil {
+			if isNilInterface(child) {
 				continue
 			}
 			if err := c.embedRankTextQueriesWithDepth(ctx, child, depth+1); err != nil {
