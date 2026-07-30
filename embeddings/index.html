@@ -2951,13 +2951,14 @@ embedding model:</p>
 </span><span id="__span-30-32"><a id="__codelineno-30-32" name="__codelineno-30-32" href="#__codelineno-30-32"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="morph">Morph<a class="headerlink" href="#morph" title="Permanent link">&para;</a></h2>
-<p><a href="https://docs.morphllm.com/">Morph</a> provides embedding models via an OpenAI-compatible API.</p>
+<p><a href="https://docs.morphllm.com/">Morph</a> provides embedding models via an OpenAI-compatible API.
+Morph has retired its hosted embedding API; this integration remains available for compatible custom endpoints.</p>
 <p>Supported Embedding Function Options:</p>
 <ul>
 <li><code>WithAPIKey</code> - Set the API key directly.</li>
 <li><code>WithEnvAPIKey</code> - Use the <code>MORPH_API_KEY</code> environment variable.</li>
 <li><code>WithAPIKeyFromEnvVar</code> - Use a custom environment variable for the API key.</li>
-<li><code>WithModel</code> - Set the model. Default is <code>morph-embedding-v2</code>.</li>
+<li><code>WithModel</code> - Set the model. Default is <code>morph-embedding-v3</code>.</li>
 <li><code>WithBaseURL</code> - Set a custom base URL (default: <code>https://api.morphllm.com/v1/</code>).</li>
 <li><code>WithInsecure</code> - Allow HTTP connections (for local development only).</li>
 </ul>
