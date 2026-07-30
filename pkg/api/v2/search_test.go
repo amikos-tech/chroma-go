@@ -1179,3 +1179,16 @@ func TestCloneRankTypedNil(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+// TestSearchRequestMarshalTypedNilRank covers direct marshalling of a struct-literal
+// SearchRequest, which never passes through embedTextQueries' normalization.
+func TestSearchRequestMarshalTypedNilRank(t *testing.T) {
+	var kr *KnnRank
+	req := &SearchRequest{Rank: kr}
+
+	var data []byte
+	var err error
+	require.NotPanics(t, func() { data, err = json.Marshal(req) })
+	require.NoError(t, err)
+	require.NotContains(t, string(data), `"rank"`)
+}
