@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: executing
-stopped_at: "Quick tasks 260730-cjl + 260730-fzu shipped — PR #519"
-last_updated: "2026-07-30T09:10:13.701Z"
+status: "Quick task 260730-p46 (GH #522) shipped — PR #524"
+stopped_at: "Phase 26 shipped — PR #509"
+last_updated: "2026-07-30T16:13:19.165Z"
 last_activity: 2026-07-30
 progress:
   total_phases: 11
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 Phase: 30
 Plan: Not started
-Status: Quick task 260730-p46 (GH #522) complete locally on chore/522-remove-legacy-docker-module — unpushed, no PR
-Last activity: 2026-07-30 - Completed quick task 260730-p46: removed legacy github.com/docker/docker via Testcontainers v0.43.0 and raised the Go floor to 1.25.0 across all 12 modules. Dependabot PR #521 closed in favour of this deliberate bump; hnswlib delete/reinsert integrity abort filed as #523
+Status: Quick task 260730-p46 (GH #522) shipped — PR #524
+Last activity: 2026-07-30
 
 Progress: [██████████] 100%
 
