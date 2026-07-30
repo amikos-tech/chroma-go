@@ -204,6 +204,21 @@ func TestSearchFilter(t *testing.T) {
 		require.NotNil(t, req.Filter.Where)
 		require.Len(t, req.Filter.IDs, 2)
 	})
+
+	t.Run("nil filter returns exact validation error", func(t *testing.T) {
+		req := &SearchRequest{}
+		err := WithSearchFilter(nil).ApplyToSearchRequest(req)
+		require.EqualError(t, err, "filter cannot be nil")
+		require.Nil(t, req.Filter)
+	})
+
+	t.Run("composed NewSearchRequest with nil filter fails before append", func(t *testing.T) {
+		sq := &SearchQuery{}
+		opt := NewSearchRequest(WithSearchFilter(nil))
+		err := opt(sq)
+		require.Error(t, err)
+		require.Empty(t, sq.Searches)
+	})
 }
 
 func TestSearchRequestJSON(t *testing.T) {
@@ -294,6 +309,32 @@ func TestSearchQuery(t *testing.T) {
 		_ = opt2(sq)
 
 		require.Len(t, sq.Searches, 2)
+	})
+}
+
+func TestWithRank(t *testing.T) {
+	t.Run("apply valid rank to search request", func(t *testing.T) {
+		rank := mustKnnRank(t, KnnQueryText("machine learning"))
+
+		req := &SearchRequest{}
+		err := WithRank(rank).ApplyToSearchRequest(req)
+		require.NoError(t, err)
+		require.Equal(t, rank, req.Rank)
+	})
+
+	t.Run("nil rank returns exact validation error", func(t *testing.T) {
+		req := &SearchRequest{}
+		err := WithRank(nil).ApplyToSearchRequest(req)
+		require.EqualError(t, err, "rank cannot be nil")
+		require.Nil(t, req.Rank)
+	})
+
+	t.Run("composed NewSearchRequest with nil rank fails before append", func(t *testing.T) {
+		sq := &SearchQuery{}
+		opt := NewSearchRequest(WithRank(nil))
+		err := opt(sq)
+		require.Error(t, err)
+		require.Empty(t, sq.Searches)
 	})
 }
 

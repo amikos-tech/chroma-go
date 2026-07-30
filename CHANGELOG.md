@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Search API** - `WithGroupBy(nil)` now returns a validation error instead of silently omitting grouping. Callers that want no grouping should omit `WithGroupBy(...)` entirely.
+- **Search API** - `WithSearchFilter(nil)` and `WithRank(nil)` now return validation errors, matching `WithGroupBy(nil)`'s existing behavior. Callers that want to omit a filter/rank/group-by should omit the option entirely rather than passing nil. This is an intentional divergence from the Python and TypeScript SDKs, which treat nil/None/undefined as a no-op for these options — chroma-go treats an explicit nil as a likely caller bug rather than an omission signal.
 
 ## [v0.4.1] - 2026-03-23
 
