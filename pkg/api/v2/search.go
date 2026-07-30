@@ -211,8 +211,14 @@ func (f *SearchFilter) AppendIDs(ids ...DocumentID) {
 	f.IDs = append(f.IDs, ids...)
 }
 
-// SetSearchWhere sets the metadata filter clause.
+// SetSearchWhere sets the metadata filter clause. A nil clause, including a typed
+// nil such as a nil *WhereClauseString, is normalized to a true nil so it cannot
+// reach [SearchFilter.MarshalJSON] and panic there.
 func (f *SearchFilter) SetSearchWhere(where WhereClause) {
+	if isNilInterface(where) {
+		f.Where = nil
+		return
+	}
 	f.Where = where
 }
 
@@ -224,8 +230,9 @@ func (f *SearchFilter) MarshalJSON() ([]byte, error) {
 		clauses = append(clauses, IDIn(f.IDs...))
 	}
 
-	// Add where clause
-	if f.Where != nil {
+	// Add where clause. Where is an exported field, so it can hold a typed nil that
+	// SetSearchWhere never saw; isNilInterface keeps that out of the clause list.
+	if !isNilInterface(f.Where) {
 		clauses = append(clauses, f.Where)
 	}
 

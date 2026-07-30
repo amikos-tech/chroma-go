@@ -355,31 +355,40 @@ func WithWhere(where WhereFilter) *whereOption {
 	return &whereOption{where: where}
 }
 
+// A nil clause, including a typed nil, means "no filter" and is normalized to a
+// true nil rather than validated — WhereFilter is an interface, so a typed nil
+// would otherwise pass the guard and panic inside Validate.
 func (o *whereOption) ApplyToGet(op *CollectionGetOp) error {
-	if o.where != nil {
-		if err := o.where.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.where) {
+		op.Where = nil
+		return nil
+	}
+	if err := o.where.Validate(); err != nil {
+		return err
 	}
 	op.Where = o.where
 	return nil
 }
 
 func (o *whereOption) ApplyToQuery(op *CollectionQueryOp) error {
-	if o.where != nil {
-		if err := o.where.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.where) {
+		op.Where = nil
+		return nil
+	}
+	if err := o.where.Validate(); err != nil {
+		return err
 	}
 	op.Where = o.where
 	return nil
 }
 
 func (o *whereOption) ApplyToDelete(op *CollectionDeleteOp) error {
-	if o.where != nil {
-		if err := o.where.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.where) {
+		op.Where = nil
+		return nil
+	}
+	if err := o.where.Validate(); err != nil {
+		return err
 	}
 	op.Where = o.where
 	return nil

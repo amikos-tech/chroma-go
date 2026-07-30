@@ -460,7 +460,8 @@ func (c *CollectionImpl) Search(ctx context.Context, opts ...SearchCollectionOpt
 // It clones the rank tree first to avoid mutating the user's original rank objects,
 // which allows safe reuse of rank definitions across multiple searches.
 func (c *CollectionImpl) embedTextQueries(ctx context.Context, req *SearchRequest) error {
-	if req.Rank == nil {
+	if isNilInterface(req.Rank) {
+		req.Rank = nil
 		return nil
 	}
 	req.Rank = cloneRank(req.Rank)
@@ -468,8 +469,11 @@ func (c *CollectionImpl) embedTextQueries(ctx context.Context, req *SearchReques
 }
 
 // cloneRank creates a deep copy of a rank tree to avoid mutating user-provided rank objects.
+// SearchRequest.Rank is exported, so a struct-literal request can carry a typed nil past
+// WithRank's validation; isNilInterface stops it before the type switch below matches a
+// concrete case and dereferences it.
 func cloneRank(rank Rank) Rank {
-	if rank == nil {
+	if isNilInterface(rank) {
 		return nil
 	}
 	switch r := rank.(type) {
@@ -549,7 +553,7 @@ func (c *CollectionImpl) embedRankTextQueriesWithDepth(ctx context.Context, rank
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if rank == nil {
+	if isNilInterface(rank) {
 		return nil
 	}
 	if depth > MaxExpressionDepth {
@@ -575,7 +579,7 @@ func (c *CollectionImpl) embedRankTextQueriesWithDepth(ctx context.Context, rank
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if rw.Rank == nil {
+			if isNilInterface(rw.Rank) {
 				continue
 			}
 			if err := c.embedRankTextQueriesWithDepth(ctx, rw.Rank, depth+1); err != nil {
