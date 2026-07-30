@@ -634,18 +634,25 @@ func (o *rankOption) ApplyToSearchRequest(req *SearchRequest) error {
 	return nil
 }
 
-// isNilInterface reports whether v is nil, including a nil pointer of a concrete
+// isNilInterface reports whether v is nil, including a nil value of a concrete
 // type wrapped in an interface (e.g. a nil *KnnRank or *WhereClauseString), which
 // a plain `v == nil` check misses because the interface value itself is non-nil.
+// Every kind for which reflect.Value.IsNil is defined is checked, so nil maps,
+// slices and funcs backing a caller-supplied implementation are caught too.
 func isNilInterface(v any) bool {
 	if v == nil {
 		return true
 	}
 	rv := reflect.ValueOf(v)
-	return rv.Kind() == reflect.Pointer && rv.IsNil()
+	switch rv.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.Interface, reflect.UnsafePointer:
+		return rv.IsNil()
+	default:
+		return false
+	}
 }
 
-// isNilRank reports whether rank is nil, including a typed nil pointer.
+// isNilRank reports whether rank is nil, including a typed nil value.
 func isNilRank(rank Rank) bool {
 	return isNilInterface(rank)
 }

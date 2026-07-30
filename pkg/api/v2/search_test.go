@@ -1004,6 +1004,73 @@ func TestNilOptionSentinels(t *testing.T) {
 	})
 }
 
+// mapBackedRank is a caller-supplied Rank implementation backed by a nillable
+// non-pointer type, which external packages may legitimately write.
+type mapBackedRank map[string]string
+
+func (m mapBackedRank) IsOperand()                   {}
+func (m mapBackedRank) Multiply(Operand) Rank        { return m }
+func (m mapBackedRank) Sub(Operand) Rank             { return m }
+func (m mapBackedRank) Add(Operand) Rank             { return m }
+func (m mapBackedRank) Div(Operand) Rank             { return m }
+func (m mapBackedRank) Negate() Rank                 { return m }
+func (m mapBackedRank) Abs() Rank                    { return m }
+func (m mapBackedRank) Exp() Rank                    { return m }
+func (m mapBackedRank) Log() Rank                    { return m }
+func (m mapBackedRank) Max(Operand) Rank             { return m }
+func (m mapBackedRank) Min(Operand) Rank             { return m }
+func (m mapBackedRank) UnmarshalJSON([]byte) error   { return nil }
+func (m mapBackedRank) MarshalJSON() ([]byte, error) { return json.Marshal(map[string]string(m)) }
+
+func TestIsNilInterfaceNillableKinds(t *testing.T) {
+	var nilMap map[string]string
+	var nilSlice []string
+	var nilFunc func()
+	var nilChan chan int
+	var nilPtr *KnnRank
+
+	for _, tt := range []struct {
+		name string
+		v    any
+		want bool
+	}{
+		{"untyped nil", nil, true},
+		{"nil pointer", nilPtr, true},
+		{"nil map", nilMap, true},
+		{"nil slice", nilSlice, true},
+		{"nil func", nilFunc, true},
+		{"nil chan", nilChan, true},
+		{"non-nil pointer", &KnnRank{}, false},
+		{"non-nil map", map[string]string{}, false},
+		{"non-nillable kind", 42, false},
+		{"empty string", "", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isNilInterface(tt.v))
+		})
+	}
+}
+
+func TestWithRankNilNonPointerImplementation(t *testing.T) {
+	t.Run("nil map-backed rank is rejected, not serialized as null", func(t *testing.T) {
+		var mr mapBackedRank
+
+		req := &SearchRequest{}
+		err := WithRank(mr).ApplyToSearchRequest(req)
+		require.ErrorIs(t, err, ErrNilRank)
+		require.Nil(t, req.Rank)
+	})
+
+	t.Run("non-nil map-backed rank is still accepted", func(t *testing.T) {
+		mr := mapBackedRank{"k": "v"}
+
+		req := &SearchRequest{}
+		err := WithRank(mr).ApplyToSearchRequest(req)
+		require.NoError(t, err)
+		require.Equal(t, mr, req.Rank)
+	})
+}
+
 func TestWithFilterNilPayloadEqualsOmission(t *testing.T) {
 	build := func(t *testing.T, opts ...SearchRequestOption) string {
 		t.Helper()
