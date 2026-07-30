@@ -777,3 +777,41 @@ func TestDeleteWithLimit(t *testing.T) {
 		require.Contains(t, string(b), `"limit":50`)
 	})
 }
+
+// TestTypedNilWhereV1Options covers the V1 Get/Query/Delete option path, which
+// guards with a plain `o.where != nil` before calling Validate() — the same
+// typed-nil bug class fixed for the Search path.
+func TestTypedNilWhereV1Options(t *testing.T) {
+	t.Run("WithWhere typed nil is inert on Get", func(t *testing.T) {
+		var w *WhereClauseString
+		op := &CollectionGetOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhere(w).ApplyToGet(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.Where)
+	})
+
+	t.Run("WithWhere typed nil is inert on Query", func(t *testing.T) {
+		var w *WhereClauseString
+		op := &CollectionQueryOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhere(w).ApplyToQuery(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.Where)
+	})
+
+	t.Run("WithWhere typed nil is inert on Delete", func(t *testing.T) {
+		var w *WhereClauseString
+		op := &CollectionDeleteOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhere(w).ApplyToDelete(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.Where)
+	})
+
+	t.Run("WithWhere still applies a valid clause", func(t *testing.T) {
+		op := &CollectionGetOp{}
+		require.NoError(t, WithWhere(EqString("k", "v")).ApplyToGet(op))
+		require.NotNil(t, op.Where)
+	})
+}

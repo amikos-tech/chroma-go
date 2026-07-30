@@ -3,6 +3,7 @@
 package v2
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -1093,5 +1094,88 @@ func TestWithFilterNilPayloadEqualsOmission(t *testing.T) {
 		withNil := build(t, WithFilter(w), WithRank(mustKnnRank(t, KnnQueryText("q"))))
 		omitted := build(t, WithRank(mustKnnRank(t, KnnQueryText("q"))))
 		require.Equal(t, omitted, withNil)
+	})
+}
+
+// TestTypedNilWhereBypassesOptionPipeline covers the exported surfaces that skip
+// the option constructors: SearchFilter.Where is a public field and SetSearchWhere
+// is a public setter, so neither is protected by searchWhereOption's normalization.
+func TestTypedNilWhereBypassesOptionPipeline(t *testing.T) {
+	t.Run("SetSearchWhere with typed nil marshals as empty filter", func(t *testing.T) {
+		var w *WhereClauseString
+		f := &SearchFilter{}
+		f.SetSearchWhere(w)
+
+		var data []byte
+		var err error
+		require.NotPanics(t, func() { data, err = f.MarshalJSON() })
+		require.NoError(t, err)
+		require.JSONEq(t, "{}", string(data))
+	})
+
+	t.Run("direct Where field assignment with typed nil marshals as empty filter", func(t *testing.T) {
+		var w *WhereClauseString
+		f := &SearchFilter{Where: w}
+
+		var data []byte
+		var err error
+		require.NotPanics(t, func() { data, err = f.MarshalJSON() })
+		require.NoError(t, err)
+		require.JSONEq(t, "{}", string(data))
+	})
+
+	t.Run("typed nil Where alongside IDs is byte-identical to IDs alone", func(t *testing.T) {
+		var w *WhereClauseString
+		withNil := &SearchFilter{IDs: []DocumentID{"a", "b"}, Where: w}
+		idsOnly := &SearchFilter{IDs: []DocumentID{"a", "b"}}
+
+		var withNilData, idsOnlyData []byte
+		var err error
+		require.NotPanics(t, func() { withNilData, err = withNil.MarshalJSON() })
+		require.NoError(t, err)
+		idsOnlyData, err = idsOnly.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, string(idsOnlyData), string(withNilData))
+	})
+}
+
+// TestCloneRankTypedNil covers the rank clone/embed path reached by constructing a
+// SearchRequest as a struct literal: SearchRequest.Rank is exported, so WithRank's
+// isNilRank guard is bypassed and a typed nil reaches cloneRank's type switch, where
+// `case *KnnRank:` matches a nil *KnnRank and the deref panics.
+func TestCloneRankTypedNil(t *testing.T) {
+	t.Run("typed nil KnnRank clones to true nil", func(t *testing.T) {
+		var kr *KnnRank
+		var got Rank
+		require.NotPanics(t, func() { got = cloneRank(kr) })
+		require.Nil(t, got)
+	})
+
+	t.Run("typed nil ValRank clones to true nil", func(t *testing.T) {
+		var vr *ValRank
+		var got Rank
+		require.NotPanics(t, func() { got = cloneRank(vr) })
+		require.Nil(t, got)
+	})
+
+	t.Run("typed nil nested in RrfRank clones without panicking", func(t *testing.T) {
+		var kr *KnnRank
+		parent := &RrfRank{Ranks: []RankWithWeight{{Rank: kr, Weight: 1}}}
+		var got Rank
+		require.NotPanics(t, func() { got = cloneRank(parent) })
+		require.NotNil(t, got)
+		clone, ok := got.(*RrfRank)
+		require.True(t, ok)
+		require.Len(t, clone.Ranks, 1)
+		require.Nil(t, clone.Ranks[0].Rank)
+	})
+
+	t.Run("embedTextQueries tolerates a typed nil Rank on a struct-literal request", func(t *testing.T) {
+		var kr *KnnRank
+		req := &SearchRequest{Rank: kr}
+		c := &CollectionImpl{}
+		var err error
+		require.NotPanics(t, func() { err = c.embedTextQueries(context.Background(), req) })
+		require.NoError(t, err)
 	})
 }
