@@ -839,9 +839,6 @@ func TestClientHTTPIntegrationWithSSL(t *testing.T) {
 		testcontainers.WithEnv(map[string]string{"ALLOW_RESET": "true"}),
 		testcontainers.CustomizeRequest(testcontainers.GenericContainerRequest{
 			ContainerRequest: testcontainers.ContainerRequest{
-				WaitingFor: wait.ForAll(
-					wait.ForListeningPort("8000/tcp"),
-				),
 				Entrypoint: entrypoint,
 				HostConfigModifier: func(hostConfig *container.HostConfig) {
 					hostConfig.Mounts = []mount.Mount{
@@ -865,13 +862,8 @@ func TestClientHTTPIntegrationWithSSL(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, chromaContainer.Terminate(ctx))
 	})
-	endpoint, err := chromaContainer.PortEndpoint(ctx, "8000/tcp", "http")
+	chromaURL, err := chromaContainer.PortEndpoint(ctx, "8000/tcp", "https")
 	require.NoError(t, err)
-	chromaURL := os.Getenv("CHROMA_URL")
-	if chromaURL == "" {
-		chromaURL = endpoint
-	}
-	chromaURL = strings.ReplaceAll(endpoint, "http://", "https://")
 	time.Sleep(5 * time.Second)
 	t.Run("Test with insecure client", func(t *testing.T) {
 		client, err := NewHTTPClient(WithBaseURL(chromaURL), WithInsecure(), WithLogger(testLogger()))
