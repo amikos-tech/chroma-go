@@ -385,11 +385,18 @@ type searchFilterOption struct {
 // WithSearchFilter sets a pre-built [SearchFilter] on the search request.
 //
 // For most cases, use [WithFilter] and [WithIDs] instead, which are simpler.
+//
+// Passing nil returns a validation error instead of being treated as omission. This is an
+// intentional, permanent divergence from the Python and TypeScript SDKs, which treat nil as
+// a no-op — callers who want to omit the filter should simply not call this option.
 func WithSearchFilter(filter *SearchFilter) *searchFilterOption {
 	return &searchFilterOption{filter: filter}
 }
 
 func (o *searchFilterOption) ApplyToSearchRequest(req *SearchRequest) error {
+	if o.filter == nil {
+		return errors.New("filter cannot be nil")
+	}
 	req.Filter = o.filter
 	return nil
 }
@@ -603,11 +610,18 @@ type rankOption struct {
 //	        WithPage(PageLimit(10)),
 //	    ),
 //	)
+//
+// Passing nil returns a validation error instead of being treated as omission. This is an
+// intentional, permanent divergence from the Python and TypeScript SDKs, which treat nil as
+// a no-op — callers who want to omit the rank should simply not call this option.
 func WithRank(rank Rank) *rankOption {
 	return &rankOption{rank: rank}
 }
 
 func (o *rankOption) ApplyToSearchRequest(req *SearchRequest) error {
+	if o.rank == nil {
+		return errors.New("rank cannot be nil")
+	}
 	req.Rank = o.rank
 	return nil
 }
@@ -628,6 +642,10 @@ type groupByOption struct {
 //	        WithPage(PageLimit(30)),
 //	    ),
 //	)
+//
+// Passing nil returns a validation error instead of being treated as omission. This is an
+// intentional, permanent divergence from the Python and TypeScript SDKs, which treat nil as
+// a no-op — callers who want to omit grouping should simply not call this option.
 func WithGroupBy(groupBy *GroupBy) *groupByOption {
 	return &groupByOption{groupBy: groupBy}
 }
