@@ -442,31 +442,39 @@ func WithWhereDocument(whereDocument WhereDocumentFilter) *whereDocumentOption {
 	return &whereDocumentOption{whereDocument: whereDocument}
 }
 
+// As with [whereOption], a nil clause means "no document filter" and is normalized
+// to a true nil so a typed nil cannot reach Validate.
 func (o *whereDocumentOption) ApplyToGet(op *CollectionGetOp) error {
-	if o.whereDocument != nil {
-		if err := o.whereDocument.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.whereDocument) {
+		op.WhereDocument = nil
+		return nil
+	}
+	if err := o.whereDocument.Validate(); err != nil {
+		return err
 	}
 	op.WhereDocument = o.whereDocument
 	return nil
 }
 
 func (o *whereDocumentOption) ApplyToQuery(op *CollectionQueryOp) error {
-	if o.whereDocument != nil {
-		if err := o.whereDocument.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.whereDocument) {
+		op.WhereDocument = nil
+		return nil
+	}
+	if err := o.whereDocument.Validate(); err != nil {
+		return err
 	}
 	op.WhereDocument = o.whereDocument
 	return nil
 }
 
 func (o *whereDocumentOption) ApplyToDelete(op *CollectionDeleteOp) error {
-	if o.whereDocument != nil {
-		if err := o.whereDocument.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.whereDocument) {
+		op.WhereDocument = nil
+		return nil
+	}
+	if err := o.whereDocument.Validate(); err != nil {
+		return err
 	}
 	op.WhereDocument = o.whereDocument
 	return nil
