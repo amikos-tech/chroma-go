@@ -146,6 +146,9 @@ func (w *WhereDocumentClauseOr) Validate() error {
 		return errors.New("invalid content, expected at least one")
 	}
 	for _, v := range w.content {
+		if isNilInterface(v) {
+			return errors.Errorf("nil clause in %s expression", w.operator)
+		}
 		if err := v.Validate(); err != nil {
 			return err
 		}
@@ -185,6 +188,9 @@ func (w *WhereDocumentClauseAnd) Validate() error {
 		return errors.New("invalid content, expected at least one")
 	}
 	for _, v := range w.content {
+		if isNilInterface(v) {
+			return errors.Errorf("nil clause in %s expression", w.operator)
+		}
 		if err := v.Validate(); err != nil {
 			return err
 		}

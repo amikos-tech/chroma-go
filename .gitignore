@@ -50,3 +50,6 @@ twelvelabs_multimodal
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# macOS
+.DS_Store

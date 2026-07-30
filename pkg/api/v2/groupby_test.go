@@ -193,7 +193,7 @@ func TestWithGroupBy(t *testing.T) {
 	t.Run("nil groupby returns exact validation error", func(t *testing.T) {
 		req := &SearchRequest{}
 		err := WithGroupBy(nil).ApplyToSearchRequest(req)
-		require.EqualError(t, err, "groupBy cannot be nil")
+		require.ErrorIs(t, err, ErrNilGroupBy)
 		require.Nil(t, req.GroupBy)
 	})
 
@@ -296,7 +296,7 @@ func TestSearchRequestWithGroupBy(t *testing.T) {
 		)
 
 		err := opt(sq)
-		require.EqualError(t, err, "groupBy cannot be nil")
+		require.ErrorIs(t, err, ErrNilGroupBy)
 		require.Len(t, sq.Searches, 0)
 	})
 }

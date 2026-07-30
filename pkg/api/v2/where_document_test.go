@@ -4,6 +4,8 @@ package v2
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestWhereDocument(t *testing.T) {
@@ -64,4 +66,29 @@ func TestWhereDocument(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestNestedNilWhereDocumentClause mirrors the WhereClause And/Or nil-clause guard
+// for WhereDocumentFilter compound clauses.
+func TestNestedNilWhereDocumentClause(t *testing.T) {
+	var nilDoc *WhereDocumentClauseContainsOrNotContains
+
+	t.Run("nil clause in AndDocument returns an error", func(t *testing.T) {
+		clause := AndDocument(Contains("draft"), nilDoc)
+		var err error
+		require.NotPanics(t, func() { err = clause.Validate() })
+		require.EqualError(t, err, "nil clause in $and expression")
+	})
+
+	t.Run("nil clause in OrDocument returns an error", func(t *testing.T) {
+		clause := OrDocument(Contains("draft"), nilDoc)
+		var err error
+		require.NotPanics(t, func() { err = clause.Validate() })
+		require.EqualError(t, err, "nil clause in $or expression")
+	})
+
+	t.Run("valid compound document clauses still validate", func(t *testing.T) {
+		require.NoError(t, AndDocument(Contains("a"), Contains("b")).Validate())
+		require.NoError(t, OrDocument(Contains("a"), Contains("b")).Validate())
+	})
 }

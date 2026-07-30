@@ -355,31 +355,40 @@ func WithWhere(where WhereFilter) *whereOption {
 	return &whereOption{where: where}
 }
 
+// A nil clause, including a typed nil, means "no filter" and is normalized to a
+// true nil rather than validated — WhereFilter is an interface, so a typed nil
+// would otherwise pass the guard and panic inside Validate.
 func (o *whereOption) ApplyToGet(op *CollectionGetOp) error {
-	if o.where != nil {
-		if err := o.where.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.where) {
+		op.Where = nil
+		return nil
+	}
+	if err := o.where.Validate(); err != nil {
+		return err
 	}
 	op.Where = o.where
 	return nil
 }
 
 func (o *whereOption) ApplyToQuery(op *CollectionQueryOp) error {
-	if o.where != nil {
-		if err := o.where.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.where) {
+		op.Where = nil
+		return nil
+	}
+	if err := o.where.Validate(); err != nil {
+		return err
 	}
 	op.Where = o.where
 	return nil
 }
 
 func (o *whereOption) ApplyToDelete(op *CollectionDeleteOp) error {
-	if o.where != nil {
-		if err := o.where.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.where) {
+		op.Where = nil
+		return nil
+	}
+	if err := o.where.Validate(); err != nil {
+		return err
 	}
 	op.Where = o.where
 	return nil
@@ -433,31 +442,39 @@ func WithWhereDocument(whereDocument WhereDocumentFilter) *whereDocumentOption {
 	return &whereDocumentOption{whereDocument: whereDocument}
 }
 
+// As with [whereOption], a nil clause means "no document filter" and is normalized
+// to a true nil so a typed nil cannot reach Validate.
 func (o *whereDocumentOption) ApplyToGet(op *CollectionGetOp) error {
-	if o.whereDocument != nil {
-		if err := o.whereDocument.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.whereDocument) {
+		op.WhereDocument = nil
+		return nil
+	}
+	if err := o.whereDocument.Validate(); err != nil {
+		return err
 	}
 	op.WhereDocument = o.whereDocument
 	return nil
 }
 
 func (o *whereDocumentOption) ApplyToQuery(op *CollectionQueryOp) error {
-	if o.whereDocument != nil {
-		if err := o.whereDocument.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.whereDocument) {
+		op.WhereDocument = nil
+		return nil
+	}
+	if err := o.whereDocument.Validate(); err != nil {
+		return err
 	}
 	op.WhereDocument = o.whereDocument
 	return nil
 }
 
 func (o *whereDocumentOption) ApplyToDelete(op *CollectionDeleteOp) error {
-	if o.whereDocument != nil {
-		if err := o.whereDocument.Validate(); err != nil {
-			return err
-		}
+	if isNilInterface(o.whereDocument) {
+		op.WhereDocument = nil
+		return nil
+	}
+	if err := o.whereDocument.Validate(); err != nil {
+		return err
 	}
 	op.WhereDocument = o.whereDocument
 	return nil
@@ -822,6 +839,13 @@ type searchWhereOption struct {
 //
 // For a more intuitive API, consider using [WithFilter] which is an alias.
 //
+// Passing nil is allowed and applies no metadata filter — unlike [WithSearchFilter],
+// [WithRank], and [WithGroupBy], which reject nil as a likely caller bug. A nil clause
+// clears any clause set earlier on the same request (ordinary last-write-wins, not
+// nil-specific) while IDs added via [WithIDs] are preserved. This asymmetry is
+// intentional: WithSearchWhere/WithFilter is the primary entry point where nil
+// naturally means "unfiltered".
+//
 // # Available Filter Functions
 //
 // Equality:
@@ -860,10 +884,17 @@ func WithSearchWhere(where WhereClause) *searchWhereOption {
 }
 
 func (o *searchWhereOption) ApplyToSearchRequest(req *SearchRequest) error {
-	if o.where != nil {
-		if err := o.where.Validate(); err != nil {
-			return err
+	// A nil clause (untyped or typed) means "no filter": clear any clause already
+	// set, but never allocate a filter just to hold a nil so the marshalled request
+	// omits the filter key entirely.
+	if isNilInterface(o.where) {
+		if req.Filter != nil {
+			req.Filter.Where = nil
 		}
+		return nil
+	}
+	if err := o.where.Validate(); err != nil {
+		return err
 	}
 	if req.Filter == nil {
 		req.Filter = &SearchFilter{}
@@ -896,4 +927,13 @@ var (
 
 	// ErrNoMetadatas is returned when [WithMetadatas] is called with no metadatas.
 	ErrNoMetadatas = errors.New("at least one metadata is required")
+
+	// ErrNilFilter is returned when [WithSearchFilter] receives a nil filter.
+	ErrNilFilter = errors.New("filter cannot be nil")
+
+	// ErrNilRank is returned when [WithRank] receives a nil rank.
+	ErrNilRank = errors.New("rank cannot be nil")
+
+	// ErrNilGroupBy is returned when [WithGroupBy] receives a nil group by.
+	ErrNilGroupBy = errors.New("groupBy cannot be nil")
 )

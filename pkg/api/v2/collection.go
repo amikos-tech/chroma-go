@@ -276,14 +276,30 @@ type FilterOp struct {
 	WhereDocument WhereDocumentFilter `json:"where_document,omitempty"`
 }
 
-// SetWhere sets the metadata filter.
+// SetWhere sets the metadata filter. A nil filter, including a typed nil, means
+// "no filter" and is normalized away rather than stored.
 func (f *FilterOp) SetWhere(where WhereFilter) {
 	f.Where = where
+	f.normalizeNilFilters()
 }
 
-// SetWhereDocument sets the document content filter.
+// SetWhereDocument sets the document content filter. A nil filter, including a
+// typed nil, means "no filter" and is normalized away rather than stored.
 func (f *FilterOp) SetWhereDocument(where WhereDocumentFilter) {
 	f.WhereDocument = where
+	f.normalizeNilFilters()
+}
+
+// normalizeNilFilters replaces typed nils with true nils. Where and WhereDocument are
+// exported interface fields, so a caller assembling an op directly can store a typed
+// nil that passes a plain != nil guard and then panics inside Validate.
+func (f *FilterOp) normalizeNilFilters() {
+	if isNilInterface(f.Where) {
+		f.Where = nil
+	}
+	if isNilInterface(f.WhereDocument) {
+		f.WhereDocument = nil
+	}
 }
 
 // FilterIDOp provides ID-based filtering capabilities.
@@ -388,6 +404,7 @@ func (c *CollectionGetOp) PrepareAndValidate() error {
 	if len(c.Include) == 0 {
 		return errors.New("at least one include option is required")
 	}
+	c.normalizeNilFilters()
 	if c.Where != nil {
 		if err := c.Where.Validate(); err != nil {
 			return err
@@ -492,6 +509,7 @@ func (c *CollectionQueryOp) PrepareAndValidate() error {
 	if c.NResults <= 0 {
 		return errors.New("nResults must be greater than 0")
 	}
+	c.normalizeNilFilters()
 	if c.Where != nil {
 		if err := c.Where.Validate(); err != nil {
 			return errors.Wrap(err, "where validation failed")
@@ -1124,6 +1142,9 @@ func NewCollectionDeleteOp(opts ...DeleteOption) (*CollectionDeleteOp, error) {
 }
 
 func (c *CollectionDeleteOp) PrepareAndValidate() error {
+	// Normalize before the emptiness check below, so a typed nil is not miscounted
+	// as a supplied filter.
+	c.normalizeNilFilters()
 	if len(c.Ids) == 0 && c.Where == nil && c.WhereDocument == nil {
 		return errors.New("at least one filter is required, ids, where or whereDocument")
 	}

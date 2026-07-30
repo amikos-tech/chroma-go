@@ -3,9 +3,11 @@
 package v2
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -204,6 +206,21 @@ func TestSearchFilter(t *testing.T) {
 		require.NotNil(t, req.Filter.Where)
 		require.Len(t, req.Filter.IDs, 2)
 	})
+
+	t.Run("nil filter returns exact validation error", func(t *testing.T) {
+		req := &SearchRequest{}
+		err := WithSearchFilter(nil).ApplyToSearchRequest(req)
+		require.ErrorIs(t, err, ErrNilFilter)
+		require.Nil(t, req.Filter)
+	})
+
+	t.Run("composed NewSearchRequest with nil filter fails before append", func(t *testing.T) {
+		sq := &SearchQuery{}
+		opt := NewSearchRequest(WithSearchFilter(nil))
+		err := opt(sq)
+		require.Error(t, err)
+		require.Empty(t, sq.Searches)
+	})
 }
 
 func TestSearchRequestJSON(t *testing.T) {
@@ -294,6 +311,41 @@ func TestSearchQuery(t *testing.T) {
 		_ = opt2(sq)
 
 		require.Len(t, sq.Searches, 2)
+	})
+}
+
+func TestWithRank(t *testing.T) {
+	t.Run("apply valid rank to search request", func(t *testing.T) {
+		rank := mustKnnRank(t, KnnQueryText("machine learning"))
+
+		req := &SearchRequest{}
+		err := WithRank(rank).ApplyToSearchRequest(req)
+		require.NoError(t, err)
+		require.Equal(t, rank, req.Rank)
+	})
+
+	t.Run("nil rank returns exact validation error", func(t *testing.T) {
+		req := &SearchRequest{}
+		err := WithRank(nil).ApplyToSearchRequest(req)
+		require.ErrorIs(t, err, ErrNilRank)
+		require.Nil(t, req.Rank)
+	})
+
+	t.Run("composed NewSearchRequest with nil rank fails before append", func(t *testing.T) {
+		sq := &SearchQuery{}
+		opt := NewSearchRequest(WithRank(nil))
+		err := opt(sq)
+		require.Error(t, err)
+		require.Empty(t, sq.Searches)
+	})
+
+	t.Run("typed nil rank pointer is rejected, not silently accepted", func(t *testing.T) {
+		var kr *KnnRank
+
+		req := &SearchRequest{}
+		err := WithRank(kr).ApplyToSearchRequest(req)
+		require.ErrorIs(t, err, ErrNilRank)
+		require.Nil(t, req.Rank)
 	})
 }
 
@@ -903,4 +955,240 @@ func TestWithReadLevel(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid read level")
 	})
+}
+
+func TestNilOptionSentinels(t *testing.T) {
+	tests := []struct {
+		name     string
+		apply    func(*SearchRequest) error
+		sentinel error
+		message  string
+	}{
+		{
+			name:     "WithSearchFilter",
+			apply:    WithSearchFilter(nil).ApplyToSearchRequest,
+			sentinel: ErrNilFilter,
+			message:  "filter cannot be nil",
+		},
+		{
+			name:     "WithRank",
+			apply:    WithRank(nil).ApplyToSearchRequest,
+			sentinel: ErrNilRank,
+			message:  "rank cannot be nil",
+		},
+		{
+			name:     "WithGroupBy",
+			apply:    WithGroupBy(nil).ApplyToSearchRequest,
+			sentinel: ErrNilGroupBy,
+			message:  "groupBy cannot be nil",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+" returns a discriminable sentinel", func(t *testing.T) {
+			err := tt.apply(&SearchRequest{})
+			require.ErrorIs(t, err, tt.sentinel)
+			require.EqualError(t, err, tt.message)
+		})
+
+		// Mirrors CollectionImpl.Search, which wraps option errors before returning.
+		t.Run(tt.name+" sentinel survives errors.Wrap", func(t *testing.T) {
+			err := errors.Wrap(tt.apply(&SearchRequest{}), "error applying search option")
+			require.ErrorIs(t, err, tt.sentinel)
+		})
+	}
+
+	t.Run("typed nil rank matches ErrNilRank", func(t *testing.T) {
+		var kr *KnnRank
+		err := WithRank(kr).ApplyToSearchRequest(&SearchRequest{})
+		require.ErrorIs(t, err, ErrNilRank)
+	})
+}
+
+// mapBackedRank is a caller-supplied Rank implementation backed by a nillable
+// non-pointer type, which external packages may legitimately write.
+type mapBackedRank map[string]string
+
+func (m mapBackedRank) IsOperand()                   {}
+func (m mapBackedRank) Multiply(Operand) Rank        { return m }
+func (m mapBackedRank) Sub(Operand) Rank             { return m }
+func (m mapBackedRank) Add(Operand) Rank             { return m }
+func (m mapBackedRank) Div(Operand) Rank             { return m }
+func (m mapBackedRank) Negate() Rank                 { return m }
+func (m mapBackedRank) Abs() Rank                    { return m }
+func (m mapBackedRank) Exp() Rank                    { return m }
+func (m mapBackedRank) Log() Rank                    { return m }
+func (m mapBackedRank) Max(Operand) Rank             { return m }
+func (m mapBackedRank) Min(Operand) Rank             { return m }
+func (m mapBackedRank) UnmarshalJSON([]byte) error   { return nil }
+func (m mapBackedRank) MarshalJSON() ([]byte, error) { return json.Marshal(map[string]string(m)) }
+
+func TestIsNilInterfaceNillableKinds(t *testing.T) {
+	var nilMap map[string]string
+	var nilSlice []string
+	var nilFunc func()
+	var nilChan chan int
+	var nilPtr *KnnRank
+
+	for _, tt := range []struct {
+		name string
+		v    any
+		want bool
+	}{
+		{"untyped nil", nil, true},
+		{"nil pointer", nilPtr, true},
+		{"nil map", nilMap, true},
+		{"nil slice", nilSlice, true},
+		{"nil func", nilFunc, true},
+		{"nil chan", nilChan, true},
+		{"non-nil pointer", &KnnRank{}, false},
+		{"non-nil map", map[string]string{}, false},
+		{"non-nillable kind", 42, false},
+		{"empty string", "", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isNilInterface(tt.v))
+		})
+	}
+}
+
+func TestWithRankNilNonPointerImplementation(t *testing.T) {
+	t.Run("nil map-backed rank is rejected, not serialized as null", func(t *testing.T) {
+		var mr mapBackedRank
+
+		req := &SearchRequest{}
+		err := WithRank(mr).ApplyToSearchRequest(req)
+		require.ErrorIs(t, err, ErrNilRank)
+		require.Nil(t, req.Rank)
+	})
+
+	t.Run("non-nil map-backed rank is still accepted", func(t *testing.T) {
+		mr := mapBackedRank{"k": "v"}
+
+		req := &SearchRequest{}
+		err := WithRank(mr).ApplyToSearchRequest(req)
+		require.NoError(t, err)
+		require.Equal(t, mr, req.Rank)
+	})
+}
+
+func TestWithFilterNilPayloadEqualsOmission(t *testing.T) {
+	build := func(t *testing.T, opts ...SearchRequestOption) string {
+		t.Helper()
+		sq := &SearchQuery{}
+		require.NoError(t, NewSearchRequest(opts...)(sq))
+		data, err := json.Marshal(sq)
+		require.NoError(t, err)
+		return string(data)
+	}
+
+	t.Run("untyped nil filter is byte-identical to omitting the option", func(t *testing.T) {
+		withNil := build(t, WithFilter(nil), WithRank(mustKnnRank(t, KnnQueryText("q"))))
+		omitted := build(t, WithRank(mustKnnRank(t, KnnQueryText("q"))))
+		require.Equal(t, omitted, withNil)
+		require.NotContains(t, withNil, `"filter"`)
+	})
+
+	t.Run("typed nil filter is byte-identical to omitting the option", func(t *testing.T) {
+		var w *WhereClauseString
+		withNil := build(t, WithFilter(w), WithRank(mustKnnRank(t, KnnQueryText("q"))))
+		omitted := build(t, WithRank(mustKnnRank(t, KnnQueryText("q"))))
+		require.Equal(t, omitted, withNil)
+	})
+}
+
+// TestTypedNilWhereBypassesOptionPipeline covers the exported surfaces that skip
+// the option constructors: SearchFilter.Where is a public field and SetSearchWhere
+// is a public setter, so neither is protected by searchWhereOption's normalization.
+func TestTypedNilWhereBypassesOptionPipeline(t *testing.T) {
+	t.Run("SetSearchWhere with typed nil marshals as empty filter", func(t *testing.T) {
+		var w *WhereClauseString
+		f := &SearchFilter{}
+		f.SetSearchWhere(w)
+
+		var data []byte
+		var err error
+		require.NotPanics(t, func() { data, err = f.MarshalJSON() })
+		require.NoError(t, err)
+		require.JSONEq(t, "{}", string(data))
+	})
+
+	t.Run("direct Where field assignment with typed nil marshals as empty filter", func(t *testing.T) {
+		var w *WhereClauseString
+		f := &SearchFilter{Where: w}
+
+		var data []byte
+		var err error
+		require.NotPanics(t, func() { data, err = f.MarshalJSON() })
+		require.NoError(t, err)
+		require.JSONEq(t, "{}", string(data))
+	})
+
+	t.Run("typed nil Where alongside IDs is byte-identical to IDs alone", func(t *testing.T) {
+		var w *WhereClauseString
+		withNil := &SearchFilter{IDs: []DocumentID{"a", "b"}, Where: w}
+		idsOnly := &SearchFilter{IDs: []DocumentID{"a", "b"}}
+
+		var withNilData, idsOnlyData []byte
+		var err error
+		require.NotPanics(t, func() { withNilData, err = withNil.MarshalJSON() })
+		require.NoError(t, err)
+		idsOnlyData, err = idsOnly.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, string(idsOnlyData), string(withNilData))
+	})
+}
+
+// TestCloneRankTypedNil covers the rank clone/embed path reached by constructing a
+// SearchRequest as a struct literal: SearchRequest.Rank is exported, so WithRank's
+// isNilRank guard is bypassed and a typed nil reaches cloneRank's type switch, where
+// `case *KnnRank:` matches a nil *KnnRank and the deref panics.
+func TestCloneRankTypedNil(t *testing.T) {
+	t.Run("typed nil KnnRank clones to true nil", func(t *testing.T) {
+		var kr *KnnRank
+		var got Rank
+		require.NotPanics(t, func() { got = cloneRank(kr) })
+		require.Nil(t, got)
+	})
+
+	t.Run("typed nil ValRank clones to true nil", func(t *testing.T) {
+		var vr *ValRank
+		var got Rank
+		require.NotPanics(t, func() { got = cloneRank(vr) })
+		require.Nil(t, got)
+	})
+
+	t.Run("typed nil nested in RrfRank clones without panicking", func(t *testing.T) {
+		var kr *KnnRank
+		parent := &RrfRank{Ranks: []RankWithWeight{{Rank: kr, Weight: 1}}}
+		var got Rank
+		require.NotPanics(t, func() { got = cloneRank(parent) })
+		require.NotNil(t, got)
+		clone, ok := got.(*RrfRank)
+		require.True(t, ok)
+		require.Len(t, clone.Ranks, 1)
+		require.Nil(t, clone.Ranks[0].Rank)
+	})
+
+	t.Run("embedTextQueries tolerates a typed nil Rank on a struct-literal request", func(t *testing.T) {
+		var kr *KnnRank
+		req := &SearchRequest{Rank: kr}
+		c := &CollectionImpl{}
+		var err error
+		require.NotPanics(t, func() { err = c.embedTextQueries(context.Background(), req) })
+		require.NoError(t, err)
+	})
+}
+
+// TestSearchRequestMarshalTypedNilRank covers direct marshalling of a struct-literal
+// SearchRequest, which never passes through embedTextQueries' normalization.
+func TestSearchRequestMarshalTypedNilRank(t *testing.T) {
+	var kr *KnnRank
+	req := &SearchRequest{Rank: kr}
+
+	var data []byte
+	var err error
+	require.NotPanics(t, func() { data, err = json.Marshal(req) })
+	require.NoError(t, err)
+	require.NotContains(t, string(data), `"rank"`)
 }

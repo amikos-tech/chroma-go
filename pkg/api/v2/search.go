@@ -3,6 +3,7 @@ package v2
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 
 	"github.com/pkg/errors"
 )
@@ -210,8 +211,14 @@ func (f *SearchFilter) AppendIDs(ids ...DocumentID) {
 	f.IDs = append(f.IDs, ids...)
 }
 
-// SetSearchWhere sets the metadata filter clause.
+// SetSearchWhere sets the metadata filter clause. A nil clause, including a typed
+// nil such as a nil *WhereClauseString, is normalized to a true nil so it cannot
+// reach [SearchFilter.MarshalJSON] and panic there.
 func (f *SearchFilter) SetSearchWhere(where WhereClause) {
+	if isNilInterface(where) {
+		f.Where = nil
+		return
+	}
 	f.Where = where
 }
 
@@ -223,8 +230,9 @@ func (f *SearchFilter) MarshalJSON() ([]byte, error) {
 		clauses = append(clauses, IDIn(f.IDs...))
 	}
 
-	// Add where clause
-	if f.Where != nil {
+	// Add where clause. Where is an exported field, so it can hold a typed nil that
+	// SetSearchWhere never saw; isNilInterface keeps that out of the clause list.
+	if !isNilInterface(f.Where) {
 		clauses = append(clauses, f.Where)
 	}
 
@@ -309,7 +317,9 @@ func (r *SearchRequest) MarshalJSON() ([]byte, error) {
 		result["limit"] = r.Limit
 	}
 
-	if r.Rank != nil {
+	// Rank is an exported interface field, so a struct-literal request can carry a
+	// typed nil that never passed through WithRank or embedTextQueries.
+	if !isNilInterface(r.Rank) {
 		rankData, err := r.Rank.MarshalJSON()
 		if err != nil {
 			return nil, err
@@ -385,11 +395,18 @@ type searchFilterOption struct {
 // WithSearchFilter sets a pre-built [SearchFilter] on the search request.
 //
 // For most cases, use [WithFilter] and [WithIDs] instead, which are simpler.
+//
+// Passing nil causes the enclosing search request to fail with [ErrNilFilter] instead of
+// being treated as omission — callers who want to omit the filter should simply not call
+// this option.
 func WithSearchFilter(filter *SearchFilter) *searchFilterOption {
 	return &searchFilterOption{filter: filter}
 }
 
 func (o *searchFilterOption) ApplyToSearchRequest(req *SearchRequest) error {
+	if o.filter == nil {
+		return ErrNilFilter
+	}
 	req.Filter = o.filter
 	return nil
 }
@@ -406,6 +423,13 @@ func (o *searchFilterOption) ApplyToSearchRequest(req *SearchRequest) error {
 // Set operations: [InString], [InInt], [NinString], [NinInt], etc.
 // Logical: [And], [Or]
 // ID filtering: [IDIn]
+//
+// Unlike [WithSearchFilter], [WithRank], and [WithGroupBy], passing nil here is allowed
+// and applies no metadata filter. A nil clause clears any clause set earlier on the same
+// request (ordinary last-write-wins, not nil-specific) while IDs added via [WithIDs] are
+// preserved. This asymmetry is intentional: WithFilter/WithSearchWhere is the primary,
+// ergonomic entry point where nil naturally means "unfiltered", while the lower-level
+// struct-based options reject nil to catch caller bugs.
 //
 // # Example
 //
@@ -603,13 +627,43 @@ type rankOption struct {
 //	        WithPage(PageLimit(10)),
 //	    ),
 //	)
+//
+// Passing nil causes the enclosing search request to fail with [ErrNilRank] instead of
+// being treated as omission — callers who want to omit the rank should simply not call
+// this option.
 func WithRank(rank Rank) *rankOption {
 	return &rankOption{rank: rank}
 }
 
 func (o *rankOption) ApplyToSearchRequest(req *SearchRequest) error {
+	if isNilRank(o.rank) {
+		return ErrNilRank
+	}
 	req.Rank = o.rank
 	return nil
+}
+
+// isNilInterface reports whether v is nil, including a nil value of a concrete
+// type wrapped in an interface (e.g. a nil *KnnRank or *WhereClauseString), which
+// a plain `v == nil` check misses because the interface value itself is non-nil.
+// Every kind for which reflect.Value.IsNil is defined is checked, so nil maps,
+// slices and funcs backing a caller-supplied implementation are caught too.
+func isNilInterface(v any) bool {
+	if v == nil {
+		return true
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.Interface, reflect.UnsafePointer:
+		return rv.IsNil()
+	default:
+		return false
+	}
+}
+
+// isNilRank reports whether rank is nil, including a typed nil value.
+func isNilRank(rank Rank) bool {
+	return isNilInterface(rank)
 }
 
 // groupByOption implements grouping for Search operations.
@@ -628,13 +682,17 @@ type groupByOption struct {
 //	        WithPage(PageLimit(30)),
 //	    ),
 //	)
+//
+// Passing nil causes the enclosing search request to fail with [ErrNilGroupBy] instead of
+// being treated as omission — callers who want to omit grouping should simply not call
+// this option.
 func WithGroupBy(groupBy *GroupBy) *groupByOption {
 	return &groupByOption{groupBy: groupBy}
 }
 
 func (o *groupByOption) ApplyToSearchRequest(req *SearchRequest) error {
 	if o.groupBy == nil {
-		return errors.New("groupBy cannot be nil")
+		return ErrNilGroupBy
 	}
 	if err := o.groupBy.Validate(); err != nil {
 		return err

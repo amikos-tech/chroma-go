@@ -489,6 +489,87 @@ func TestEarlyValidationInvalidSearchWhereFilter(t *testing.T) {
 		req := &SearchRequest{}
 		err := WithSearchWhere(nil).ApplyToSearchRequest(req)
 		require.NoError(t, err)
+		require.Nil(t, req.Filter, "nil where must not allocate an empty filter")
+	})
+}
+
+func TestTypedNilWhereClause(t *testing.T) {
+	t.Run("typed nil via WithSearchWhere is inert", func(t *testing.T) {
+		var w *WhereClauseString
+		req := &SearchRequest{}
+		require.NotPanics(t, func() {
+			require.NoError(t, WithSearchWhere(w).ApplyToSearchRequest(req))
+		})
+		require.Nil(t, req.Filter)
+	})
+
+	t.Run("typed nil via WithFilter is inert", func(t *testing.T) {
+		var w *WhereClauseString
+		req := &SearchRequest{}
+		require.NotPanics(t, func() {
+			require.NoError(t, WithFilter(w).ApplyToSearchRequest(req))
+		})
+		require.Nil(t, req.Filter)
+	})
+
+	t.Run("typed nil nested in And errors instead of panicking", func(t *testing.T) {
+		var w *WhereClauseString
+		clause := And(EqString(K("a"), "b"), w)
+		var err error
+		require.NotPanics(t, func() { err = clause.Validate() })
+		require.EqualError(t, err, "nil clause in $and expression")
+	})
+
+	t.Run("typed nil nested in Or errors instead of panicking", func(t *testing.T) {
+		var w *WhereClauseInt
+		clause := Or(EqString(K("a"), "b"), w)
+		var err error
+		require.NotPanics(t, func() { err = clause.Validate() })
+		require.EqualError(t, err, "nil clause in $or expression")
+	})
+
+	t.Run("typed nil is normalized away when filter already exists", func(t *testing.T) {
+		var w *WhereClauseString
+		req := &SearchRequest{}
+		require.NoError(t, WithIDs("a").ApplyToSearchRequest(req))
+		require.NoError(t, WithFilter(w).ApplyToSearchRequest(req))
+		require.NotNil(t, req.Filter)
+		require.Nil(t, req.Filter.Where, "typed nil must be normalized to a true nil")
+
+		// A surviving typed nil would panic inside SearchFilter.MarshalJSON.
+		require.NotPanics(t, func() {
+			_, err := json.Marshal(req)
+			require.NoError(t, err)
+		})
+	})
+}
+
+func TestWithFilterNilComposition(t *testing.T) {
+	t.Run("WithIDs then WithFilter(nil) preserves IDs", func(t *testing.T) {
+		req := &SearchRequest{}
+		require.NoError(t, WithIDs("a", "b").ApplyToSearchRequest(req))
+		require.NoError(t, WithFilter(nil).ApplyToSearchRequest(req))
+		require.NotNil(t, req.Filter)
+		require.Equal(t, []DocumentID{"a", "b"}, req.Filter.IDs)
+		require.Nil(t, req.Filter.Where)
+	})
+
+	t.Run("WithFilter(nil) then WithIDs preserves IDs", func(t *testing.T) {
+		req := &SearchRequest{}
+		require.NoError(t, WithFilter(nil).ApplyToSearchRequest(req))
+		require.NoError(t, WithIDs("a", "b").ApplyToSearchRequest(req))
+		require.NotNil(t, req.Filter)
+		require.Equal(t, []DocumentID{"a", "b"}, req.Filter.IDs)
+		require.Nil(t, req.Filter.Where)
+	})
+
+	t.Run("WithFilter(nil) clears a previously set where clause", func(t *testing.T) {
+		req := &SearchRequest{}
+		require.NoError(t, WithFilter(EqString(K("status"), "published")).ApplyToSearchRequest(req))
+		require.NotNil(t, req.Filter.Where)
+		require.NoError(t, WithFilter(nil).ApplyToSearchRequest(req))
+		require.NotNil(t, req.Filter)
+		require.Nil(t, req.Filter.Where)
 	})
 }
 
@@ -694,5 +775,116 @@ func TestDeleteWithLimit(t *testing.T) {
 		b, err := json.Marshal(op)
 		require.NoError(t, err)
 		require.Contains(t, string(b), `"limit":50`)
+	})
+}
+
+// TestTypedNilWhereV1Options covers the V1 Get/Query/Delete option path, which
+// guards with a plain `o.where != nil` before calling Validate() — the same
+// typed-nil bug class fixed for the Search path.
+func TestTypedNilWhereV1Options(t *testing.T) {
+	t.Run("WithWhere typed nil is inert on Get", func(t *testing.T) {
+		var w *WhereClauseString
+		op := &CollectionGetOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhere(w).ApplyToGet(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.Where)
+	})
+
+	t.Run("WithWhere typed nil is inert on Query", func(t *testing.T) {
+		var w *WhereClauseString
+		op := &CollectionQueryOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhere(w).ApplyToQuery(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.Where)
+	})
+
+	t.Run("WithWhere typed nil is inert on Delete", func(t *testing.T) {
+		var w *WhereClauseString
+		op := &CollectionDeleteOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhere(w).ApplyToDelete(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.Where)
+	})
+
+	t.Run("WithWhere still applies a valid clause", func(t *testing.T) {
+		op := &CollectionGetOp{}
+		require.NoError(t, WithWhere(EqString("k", "v")).ApplyToGet(op))
+		require.NotNil(t, op.Where)
+	})
+}
+
+// TestTypedNilWhereDocumentV1Options mirrors TestTypedNilWhereV1Options for the
+// WhereDocumentFilter interface, which has the same typed-nil guard weakness.
+func TestTypedNilWhereDocumentV1Options(t *testing.T) {
+	t.Run("WithWhereDocument typed nil is inert on Get", func(t *testing.T) {
+		var wd *WhereDocumentClauseContainsOrNotContains
+		op := &CollectionGetOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhereDocument(wd).ApplyToGet(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.WhereDocument)
+	})
+
+	t.Run("WithWhereDocument typed nil is inert on Query", func(t *testing.T) {
+		var wd *WhereDocumentClauseContainsOrNotContains
+		op := &CollectionQueryOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhereDocument(wd).ApplyToQuery(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.WhereDocument)
+	})
+
+	t.Run("WithWhereDocument typed nil is inert on Delete", func(t *testing.T) {
+		var wd *WhereDocumentClauseContainsOrNotContains
+		op := &CollectionDeleteOp{}
+		var err error
+		require.NotPanics(t, func() { err = WithWhereDocument(wd).ApplyToDelete(op) })
+		require.NoError(t, err)
+		require.Nil(t, op.WhereDocument)
+	})
+
+	t.Run("WithWhereDocument still applies a valid clause", func(t *testing.T) {
+		op := &CollectionGetOp{}
+		require.NoError(t, WithWhereDocument(Contains("draft")).ApplyToGet(op))
+		require.NotNil(t, op.WhereDocument)
+	})
+}
+
+// TestPrepareAndValidateTypedNilFilters covers the op structs directly. Where and
+// WhereDocument are exported fields, so a caller assembling an op without the option
+// constructors reaches PrepareAndValidate with a typed nil.
+func TestPrepareAndValidateTypedNilFilters(t *testing.T) {
+	var w *WhereClauseString
+	var wd *WhereDocumentClauseContainsOrNotContains
+
+	t.Run("CollectionGetOp tolerates typed nil filters", func(t *testing.T) {
+		op := &CollectionGetOp{
+			FilterOp:  FilterOp{Where: w, WhereDocument: wd},
+			ProjectOp: ProjectOp{Include: []Include{IncludeDocuments}},
+		}
+		var err error
+		require.NotPanics(t, func() { err = op.PrepareAndValidate() })
+		require.NoError(t, err)
+	})
+
+	t.Run("CollectionQueryOp tolerates typed nil filters", func(t *testing.T) {
+		op := &CollectionQueryOp{
+			FilterOp:      FilterOp{Where: w, WhereDocument: wd},
+			FilterTextsOp: FilterTextsOp{QueryTexts: []string{"q"}},
+			LimitResultOp: LimitResultOp{NResults: 1},
+		}
+		var err error
+		require.NotPanics(t, func() { err = op.PrepareAndValidate() })
+		require.NoError(t, err)
+	})
+
+	t.Run("CollectionDeleteOp reports a typed nil filter as no filter at all", func(t *testing.T) {
+		op := &CollectionDeleteOp{FilterOp: FilterOp{Where: w, WhereDocument: wd}}
+		var err error
+		require.NotPanics(t, func() { err = op.PrepareAndValidate() })
+		require.EqualError(t, err, "at least one filter is required, ids, where or whereDocument")
 	})
 }
