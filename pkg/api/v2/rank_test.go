@@ -938,6 +938,21 @@ func TestRankMarshalExpressionDepthGuard(t *testing.T) {
 			rejectedDepth: 97,
 			wantContext:   "cannot marshal RrfRank expression",
 		},
+		{
+			// A second RRF rank adds an extra SumRank wrapper around the
+			// per-rank terms, costing one more level of depth budget than
+			// the single-rank case above.
+			name: "rrf-multi",
+			build: func(rank Rank) Rank {
+				return mustNewRrfRank(t, WithRrfRanks(
+					RankWithWeight{Rank: rank, Weight: 1},
+					RankWithWeight{Rank: Val(0), Weight: 1},
+				))
+			},
+			acceptedDepth: 95,
+			rejectedDepth: 96,
+			wantContext:   "cannot marshal RrfRank expression",
+		},
 	}
 
 	for _, tt := range tests {
