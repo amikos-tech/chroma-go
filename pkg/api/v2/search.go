@@ -322,7 +322,7 @@ func (r *SearchRequest) MarshalJSON() ([]byte, error) {
 	// Rank is an exported interface field, so a struct-literal request can carry a
 	// typed nil that never passed through WithRank or embedTextQueries.
 	if !isNilInterface(r.Rank) {
-		rankData, err := r.Rank.MarshalJSON()
+		rankData, err := marshalRank(r.Rank, 0)
 		if err != nil {
 			return nil, err
 		}

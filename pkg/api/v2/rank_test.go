@@ -4,6 +4,7 @@ package v2
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"testing"
 
@@ -854,16 +855,165 @@ func TestMaxExpressionDepthConstant(t *testing.T) {
 	require.LessOrEqual(t, MaxExpressionDepth, 1000)
 }
 
-func TestDeepExpressionChain(t *testing.T) {
-	// Create a deeply nested Sub expression (which doesn't flatten)
-	// This tests that such expressions can be built and serialized
-	var rank Rank = Val(0.0)
-	for i := 0; i < 50; i++ {
-		rank = rank.Sub(Val(1.0))
+func TestRankMarshalExpressionDepthGuard(t *testing.T) {
+	tests := []struct {
+		name          string
+		build         func(Rank) Rank
+		acceptedDepth int
+		rejectedDepth int
+		wantContext   string
+	}{
+		{
+			name:          "sum",
+			build:         func(rank Rank) Rank { return rank.Add(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "sub",
+			build:         func(rank Rank) Rank { return rank.Sub(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "sub-right",
+			build:         func(rank Rank) Rank { return Val(1).Sub(rank) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "mul",
+			build:         func(rank Rank) Rank { return rank.Multiply(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "div",
+			build:         func(rank Rank) Rank { return rank.Div(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "div-right",
+			build:         func(rank Rank) Rank { return Val(1).Div(rank) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "abs",
+			build:         func(rank Rank) Rank { return rank.Abs() },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "exp",
+			build:         func(rank Rank) Rank { return rank.Exp() },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "log",
+			build:         func(rank Rank) Rank { return rank.Log() },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "max",
+			build:         func(rank Rank) Rank { return rank.Max(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "min",
+			build:         func(rank Rank) Rank { return rank.Min(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name: "rrf",
+			build: func(rank Rank) Rank {
+				return mustNewRrfRank(t, WithRrfRanks(RankWithWeight{Rank: rank, Weight: 1}))
+			},
+			acceptedDepth: 96,
+			rejectedDepth: 97,
+			wantContext:   "cannot marshal RrfRank expression",
+		},
+		{
+			// A second RRF rank adds an extra SumRank wrapper around the
+			// per-rank terms, costing one more level of depth budget than
+			// the single-rank case above.
+			name: "rrf-multi",
+			build: func(rank Rank) Rank {
+				return mustNewRrfRank(t, WithRrfRanks(
+					RankWithWeight{Rank: rank, Weight: 1},
+					RankWithWeight{Rank: Val(0), Weight: 1},
+				))
+			},
+			acceptedDepth: 95,
+			rejectedDepth: 96,
+			wantContext:   "cannot marshal RrfRank expression",
+		},
 	}
 
-	// Should serialize without error (50 < MaxExpressionDepth)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Run("accepts deepest valid child", func(t *testing.T) {
+				var inner Rank = Val(0)
+				for i := 0; i < tt.acceptedDepth; i++ {
+					inner = inner.Log()
+				}
+				rank := tt.build(inner)
+
+				var data []byte
+				var err error
+				require.NotPanics(t, func() {
+					data, err = rank.MarshalJSON()
+				})
+				require.NoError(t, err)
+				require.NotEmpty(t, data)
+			})
+
+			t.Run("rejects next child depth", func(t *testing.T) {
+				var inner Rank = Val(0)
+				for i := 0; i < tt.rejectedDepth; i++ {
+					inner = inner.Log()
+				}
+				rank := tt.build(inner)
+
+				var err error
+				require.NotPanics(t, func() {
+					_, err = rank.MarshalJSON()
+				})
+				require.Error(t, err)
+				require.Contains(t, err.Error(), fmt.Sprintf("rank expression exceeds maximum depth of %d", MaxExpressionDepth))
+				if tt.wantContext != "" {
+					require.Contains(t, err.Error(), tt.wantContext)
+				}
+			})
+		})
+	}
+}
+
+// TestMarshalRankFallbackForNestedNonCompositeChild exercises the marshalRank
+// fallback with a caller-supplied Rank nested inside a built-in composite, not
+// just used standalone. Caller-supplied ranks still marshal through their own
+// MarshalJSON method when they are children of a depth-tracked expression.
+func TestMarshalRankFallbackForNestedNonCompositeChild(t *testing.T) {
+	mr := mapBackedRank{"k": "v"}
+	rank := Val(0).Add(mr)
+
 	data, err := rank.MarshalJSON()
 	require.NoError(t, err)
-	require.NotEmpty(t, data)
+
+	var result map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &result))
+	require.Contains(t, result, "$sum")
+
+	var terms []json.RawMessage
+	require.NoError(t, json.Unmarshal(result["$sum"], &terms))
+	require.Len(t, terms, 2)
+
+	mrData, err := mr.MarshalJSON()
+	require.NoError(t, err)
+	require.JSONEq(t, string(mrData), string(terms[1]))
 }

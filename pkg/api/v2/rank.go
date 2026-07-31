@@ -104,10 +104,39 @@ func (u *UnknownRank) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("UnknownRank: cannot marshal unknown operand type - this indicates a programming error")
 }
 
-func marshalRank(rank Rank) ([]byte, error) {
+func marshalRank(rank Rank, depth int) ([]byte, error) {
 	if isNilRank(rank) {
 		return nil, ErrNilRank
 	}
+	if depth > MaxExpressionDepth {
+		return nil, errors.Errorf("rank expression exceeds maximum depth of %d", MaxExpressionDepth)
+	}
+
+	// Match exact built-in composites so an external Rank that embeds one
+	// still controls its own serialization through MarshalJSON.
+	switch rank := rank.(type) {
+	case *SumRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *SubRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *MulRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *DivRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *AbsRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *ExpRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *LogRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *MaxRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *MinRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *RrfRank:
+		return rank.marshalJSONWithDepth(depth)
+	}
+
 	return rank.MarshalJSON()
 }
 
@@ -238,12 +267,16 @@ func (s *SumRank) Min(operand Operand) Rank {
 }
 
 func (s *SumRank) MarshalJSON() ([]byte, error) {
+	return s.marshalJSONWithDepth(0)
+}
+
+func (s *SumRank) marshalJSONWithDepth(depth int) ([]byte, error) {
 	if len(s.ranks) > MaxExpressionTerms {
 		return nil, errors.Errorf("sum expression exceeds maximum of %d terms", MaxExpressionTerms)
 	}
 	rankMaps := make([]json.RawMessage, len(s.ranks))
 	for i, r := range s.ranks {
-		data, err := marshalRank(r)
+		data, err := marshalRank(r, depth+1)
 		if err != nil {
 			return nil, err
 		}
@@ -306,11 +339,15 @@ func (s *SubRank) Min(operand Operand) Rank {
 }
 
 func (s *SubRank) MarshalJSON() ([]byte, error) {
-	leftData, err := marshalRank(s.left)
+	return s.marshalJSONWithDepth(0)
+}
+
+func (s *SubRank) marshalJSONWithDepth(depth int) ([]byte, error) {
+	leftData, err := marshalRank(s.left, depth+1)
 	if err != nil {
 		return nil, err
 	}
-	rightData, err := marshalRank(s.right)
+	rightData, err := marshalRank(s.right, depth+1)
 	if err != nil {
 		return nil, err
 	}
@@ -381,12 +418,16 @@ func (m *MulRank) Min(operand Operand) Rank {
 }
 
 func (m *MulRank) MarshalJSON() ([]byte, error) {
+	return m.marshalJSONWithDepth(0)
+}
+
+func (m *MulRank) marshalJSONWithDepth(depth int) ([]byte, error) {
 	if len(m.ranks) > MaxExpressionTerms {
 		return nil, errors.Errorf("mul expression exceeds maximum of %d terms", MaxExpressionTerms)
 	}
 	rankMaps := make([]json.RawMessage, len(m.ranks))
 	for i, r := range m.ranks {
-		data, err := marshalRank(r)
+		data, err := marshalRank(r, depth+1)
 		if err != nil {
 			return nil, err
 		}
@@ -454,6 +495,10 @@ func (d *DivRank) Min(operand Operand) Rank {
 }
 
 func (d *DivRank) MarshalJSON() ([]byte, error) {
+	return d.marshalJSONWithDepth(0)
+}
+
+func (d *DivRank) marshalJSONWithDepth(depth int) ([]byte, error) {
 	// Check for division by zero literal.
 	// NOTE: Only catches literal Val(0). Complex expressions like Val(1).Sub(Val(1))
 	// are not detected; the server will return Inf/NaN following NumPy semantics.
@@ -461,11 +506,11 @@ func (d *DivRank) MarshalJSON() ([]byte, error) {
 		return nil, errors.New("division by zero: denominator is a zero literal")
 	}
 
-	leftData, err := marshalRank(d.left)
+	leftData, err := marshalRank(d.left, depth+1)
 	if err != nil {
 		return nil, err
 	}
-	rightData, err := marshalRank(d.right)
+	rightData, err := marshalRank(d.right, depth+1)
 	if err != nil {
 		return nil, err
 	}
@@ -530,7 +575,11 @@ func (a *AbsRank) Min(operand Operand) Rank {
 }
 
 func (a *AbsRank) MarshalJSON() ([]byte, error) {
-	data, err := marshalRank(a.rank)
+	return a.marshalJSONWithDepth(0)
+}
+
+func (a *AbsRank) marshalJSONWithDepth(depth int) ([]byte, error) {
+	data, err := marshalRank(a.rank, depth+1)
 	if err != nil {
 		return nil, err
 	}
@@ -590,7 +639,11 @@ func (e *ExpRank) Min(operand Operand) Rank {
 }
 
 func (e *ExpRank) MarshalJSON() ([]byte, error) {
-	data, err := marshalRank(e.rank)
+	return e.marshalJSONWithDepth(0)
+}
+
+func (e *ExpRank) marshalJSONWithDepth(depth int) ([]byte, error) {
+	data, err := marshalRank(e.rank, depth+1)
 	if err != nil {
 		return nil, err
 	}
@@ -650,7 +703,11 @@ func (l *LogRank) Min(operand Operand) Rank {
 }
 
 func (l *LogRank) MarshalJSON() ([]byte, error) {
-	data, err := marshalRank(l.rank)
+	return l.marshalJSONWithDepth(0)
+}
+
+func (l *LogRank) marshalJSONWithDepth(depth int) ([]byte, error) {
+	data, err := marshalRank(l.rank, depth+1)
 	if err != nil {
 		return nil, err
 	}
@@ -719,12 +776,16 @@ func (m *MaxRank) Min(operand Operand) Rank {
 }
 
 func (m *MaxRank) MarshalJSON() ([]byte, error) {
+	return m.marshalJSONWithDepth(0)
+}
+
+func (m *MaxRank) marshalJSONWithDepth(depth int) ([]byte, error) {
 	if len(m.ranks) > MaxExpressionTerms {
 		return nil, errors.Errorf("max expression exceeds maximum of %d terms", MaxExpressionTerms)
 	}
 	rankMaps := make([]json.RawMessage, len(m.ranks))
 	for i, r := range m.ranks {
-		data, err := marshalRank(r)
+		data, err := marshalRank(r, depth+1)
 		if err != nil {
 			return nil, err
 		}
@@ -795,12 +856,16 @@ func (m *MinRank) Min(operand Operand) Rank {
 }
 
 func (m *MinRank) MarshalJSON() ([]byte, error) {
+	return m.marshalJSONWithDepth(0)
+}
+
+func (m *MinRank) marshalJSONWithDepth(depth int) ([]byte, error) {
 	if len(m.ranks) > MaxExpressionTerms {
 		return nil, errors.Errorf("min expression exceeds maximum of %d terms", MaxExpressionTerms)
 	}
 	rankMaps := make([]json.RawMessage, len(m.ranks))
 	for i, r := range m.ranks {
-		data, err := marshalRank(r)
+		data, err := marshalRank(r, depth+1)
 		if err != nil {
 			return nil, err
 		}
@@ -1149,7 +1214,10 @@ const MaxRrfRanks = 100
 // MaxExpressionTerms is the maximum number of terms allowed in variadic rank expressions (Sum, Mul, Max, Min).
 const MaxExpressionTerms = 1000
 
-// MaxExpressionDepth is the maximum nesting depth for rank expressions to prevent stack overflow.
+// MaxExpressionDepth is the maximum number of recursive marshalRank calls
+// permitted below a rank expression's top-level node, to prevent stack
+// overflow. A value of 100 allows expressions up to 101 nodes deep (the
+// top-level node plus 100 levels of nesting beneath it).
 const MaxExpressionDepth = 100
 
 func NewRrfRank(opts ...RrfOption) (*RrfRank, error) {
@@ -1235,6 +1303,10 @@ func (r *RrfRank) Min(operand Operand) Rank {
 }
 
 func (r *RrfRank) MarshalJSON() ([]byte, error) {
+	return r.marshalJSONWithDepth(0)
+}
+
+func (r *RrfRank) marshalJSONWithDepth(depth int) ([]byte, error) {
 	err := r.Validate()
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot marshal RrfRank")
@@ -1283,7 +1355,11 @@ func (r *RrfRank) MarshalJSON() ([]byte, error) {
 
 	// Negate (RRF gives higher scores for better, Chroma needs lower for better)
 	result := rrfSum.Negate()
-	return result.MarshalJSON()
+	data, err := marshalRank(result, depth+1)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot marshal RrfRank expression")
+	}
+	return data, nil
 }
 
 func (r *RrfRank) UnmarshalJSON(_ []byte) error {
