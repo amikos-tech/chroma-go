@@ -876,6 +876,12 @@ func TestRankMarshalExpressionDepthGuard(t *testing.T) {
 			rejectedDepth: 100,
 		},
 		{
+			name:          "sub-right",
+			build:         func(rank Rank) Rank { return Val(1).Sub(rank) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
 			name:          "mul",
 			build:         func(rank Rank) Rank { return rank.Multiply(Val(1)) },
 			acceptedDepth: 99,
@@ -884,6 +890,12 @@ func TestRankMarshalExpressionDepthGuard(t *testing.T) {
 		{
 			name:          "div",
 			build:         func(rank Rank) Rank { return rank.Div(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "div-right",
+			build:         func(rank Rank) Rank { return Val(1).Div(rank) },
 			acceptedDepth: 99,
 			rejectedDepth: 100,
 		},
