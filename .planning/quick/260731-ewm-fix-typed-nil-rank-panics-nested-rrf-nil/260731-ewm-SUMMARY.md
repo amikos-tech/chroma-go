@@ -96,7 +96,7 @@ The two isolated implementation commits were squash-integrated as `b0f52ed`.
 ## Files Created/Modified
 
 - `pkg/api/v2/rank.go` — Adds the shared marshal guard, accurate operand conversion, and nil-aware RRF validation.
-- `pkg/api/v2/rank_test.go` — Covers all typed-nil receiver compositions, every composite shape, RRF validation, and distinct operand errors.
+- `pkg/api/v2/rank_test.go` — Covers the ten *KnnRank typed-nil receiver compositions exercised by this task, every composite shape, RRF validation, and distinct operand errors.
 - `pkg/api/v2/options.go` — Broadens the public `ErrNilRank` contract comment.
 - `pkg/api/v2/search.go` — Documents option rejection versus direct optional-field omission.
 - `pkg/api/v2/collection_http.go` — Preserves nested typed-nil dynamic types during deep cloning.
