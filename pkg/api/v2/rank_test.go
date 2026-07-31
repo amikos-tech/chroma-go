@@ -366,6 +366,38 @@ func TestRankArithmeticTypedNilOperandMarshal(t *testing.T) {
 	}
 }
 
+func TestRrfRankUntypedNilOperandMarshal(t *testing.T) {
+	knn := mustNewKnnRank(t, KnnQueryText("test"), WithKnnReturnRank())
+	rrf := mustNewRrfRank(t, WithRrfRanks(knn.WithWeight(1.0)), WithRrfK(60))
+
+	tests := []struct {
+		name  string
+		build func() Rank
+	}{
+		{name: "Add", build: func() Rank { return rrf.Add(nil) }},
+		{name: "Multiply", build: func() Rank { return rrf.Multiply(nil) }},
+		{name: "Sub", build: func() Rank { return rrf.Sub(nil) }},
+		{name: "Div", build: func() Rank { return rrf.Div(nil) }},
+		{name: "Max", build: func() Rank { return rrf.Max(nil) }},
+		{name: "Min", build: func() Rank { return rrf.Min(nil) }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var data []byte
+			var err error
+			require.NotPanics(t, func() {
+				data, err = tt.build().MarshalJSON()
+			})
+			require.Empty(t, data)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "unknown operand type")
+			require.Contains(t, err.Error(), "programming error")
+			require.NotErrorIs(t, err, ErrNilRank)
+		})
+	}
+}
+
 func TestRankTypedNilReceiverMarshal(t *testing.T) {
 	var knn *KnnRank
 	var rankReceiver Rank = knn
@@ -816,12 +848,23 @@ func TestOperandConversion(t *testing.T) {
 		require.JSONEq(t, `{"$mul":[{"$val":1},{"$val":2.5}]}`, string(data))
 	})
 
-	t.Run("untyped nil operand becomes zero", func(t *testing.T) {
+	t.Run("untyped nil operand becomes unknown", func(t *testing.T) {
 		var operand Operand
-		rank := Val(1.0).Add(operand)
-		data, err := rank.MarshalJSON()
-		require.NoError(t, err)
-		require.JSONEq(t, `{"$sum":[{"$val":1},{"$val":0}]}`, string(data))
+		rank := operandToRank(operand)
+		unknown, ok := rank.(*UnknownRank)
+		require.True(t, ok)
+		require.NotNil(t, unknown)
+
+		var data []byte
+		var err error
+		require.NotPanics(t, func() {
+			data, err = rank.MarshalJSON()
+		})
+		require.Empty(t, data)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unknown operand type")
+		require.Contains(t, err.Error(), "programming error")
+		require.NotErrorIs(t, err, ErrNilRank)
 	})
 
 	t.Run("unsupported operand remains unknown", func(t *testing.T) {

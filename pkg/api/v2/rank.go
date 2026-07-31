@@ -49,10 +49,11 @@ func (f FloatOperand) IsOperand() {}
 //
 //	rank := NewKnnRank(KnnQueryText("query")).Add(FloatOperand(1)).Log()
 //
-// An untyped nil passed through the Operand API becomes Val(0) for compatibility.
-// Composite serialization rejects nil or typed-nil Rank children with [ErrNilRank].
-// This guarantee does not cover direct MarshalJSON calls on nil concrete Rank
-// pointers; those calls are unsupported and may panic.
+// An untyped nil passed through the Operand API becomes an [UnknownRank] and
+// fails during marshaling as a programming error. Composite serialization rejects
+// nil or typed-nil Rank children with [ErrNilRank]. This guarantee does not cover
+// direct MarshalJSON calls on nil concrete Rank pointers; those calls are
+// unsupported and may panic.
 type Rank interface {
 	Operand
 	Multiply(operand Operand) Rank
@@ -1368,12 +1369,12 @@ func (r *RrfRank) UnmarshalJSON(_ []byte) error {
 
 // operandToRank converts an Operand to a Rank.
 // Supported operand types: Rank, IntOperand, FloatOperand.
-// An untyped nil is substituted with Val(0) for fluent API chaining. A typed-nil
-// Rank becomes a nil Rank so the enclosing composite reports [ErrNilRank].
-// Unsupported Operand implementations become *UnknownRank.
+// An untyped nil becomes *UnknownRank and fails during marshaling as a programming
+// error. A typed-nil Rank becomes a nil Rank so the enclosing composite reports
+// [ErrNilRank]. Unsupported Operand implementations become *UnknownRank.
 func operandToRank(operand Operand) Rank {
 	if operand == nil {
-		return Val(0)
+		return &UnknownRank{}
 	}
 	switch v := operand.(type) {
 	case Rank:
