@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 Phase: 30
 Plan: Not started
 Status: Quick task chain (u7z/e0k/ewm/fvo) shipped — PR #527
-Last activity: 2026-07-31 - Completed quick task 260731-n7b: Document nil-receiver panic on UnknownRank promoted methods (GH #526)
+Last activity: 2026-07-31 - Completed quick task 260731-nj1: work in a PR branch to address issue #528
 
 Progress: [██████████] 100%
 
@@ -81,6 +81,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 | 260731-ewm | Fix typed-nil Rank panics, nested RRF nil laundering, error docs, tests, and inaccurate GSD records | 2026-07-31 | b0f52ed | Verified | [260731-ewm-fix-typed-nil-rank-panics-nested-rrf-nil](./quick/260731-ewm-fix-typed-nil-rank-panics-nested-rrf-nil/) |
 | 260731-fvo | Fix typed-nil rank builder panics and close related tests and documentation gaps | 2026-07-31 | 872069b | Complete | [260731-fvo-fix-typed-nil-rank-builder-panics-and-cl](./quick/260731-fvo-fix-typed-nil-rank-builder-panics-and-cl/) |
 | 260731-n7b | Document nil-receiver panic on UnknownRank promoted methods (GH #526) | 2026-07-31 | 3c0aa73 | Complete | [260731-n7b-fix-526-document-nil-receiver-panic-on-u](./quick/260731-n7b-fix-526-document-nil-receiver-panic-on-u/) |
+| 260731-nj1 | work in a PR branch to address issue #528 | 2026-07-31 | 379bd4a | Complete | [260731-nj1-work-in-a-pr-branch-to-address-issue-528](./quick/260731-nj1-work-in-a-pr-branch-to-address-issue-528/) |
 
 **Note (260729-p70, updated in #514):** `chroma-go-local v0.3.5` is now permanently notarized by
 `sum.golang.org` at `h1:F/vk7Nc6eC8tVFaj9O5XAkfBYGGQj5At6ccrlNxbzvU=`. **That tag must never be
