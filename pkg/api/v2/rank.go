@@ -1249,15 +1249,18 @@ func (r *RrfRank) UnmarshalJSON(_ []byte) error {
 
 // operandToRank converts an Operand to a Rank.
 // Supported operand types: Rank, IntOperand, FloatOperand.
-// Nil is silently substituted with Val(0) for fluid API chaining. Unknown
-// types return *UnknownRank which errors at MarshalJSON time, surfacing
-// programming errors instead of producing incorrect results.
+// An untyped nil is substituted with Val(0) for fluent API chaining. A
+// typed-nil Rank and unknown operand types become *UnknownRank, which errors
+// at MarshalJSON time instead of panicking or producing incorrect results.
 func operandToRank(operand Operand) Rank {
 	if operand == nil {
 		return Val(0)
 	}
 	switch v := operand.(type) {
 	case Rank:
+		if isNilRank(v) {
+			return &UnknownRank{}
+		}
 		return v
 	case IntOperand:
 		return Val(float64(v))

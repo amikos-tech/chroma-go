@@ -334,6 +334,34 @@ func TestUnknownRankError(t *testing.T) {
 	})
 }
 
+func TestRankArithmeticTypedNilOperandMarshal(t *testing.T) {
+	var operand *KnnRank
+
+	tests := []struct {
+		name  string
+		build func() Rank
+	}{
+		{name: "Add", build: func() Rank { return Val(1).Add(operand) }},
+		{name: "Multiply", build: func() Rank { return Val(1).Multiply(operand) }},
+		{name: "Sub", build: func() Rank { return Val(1).Sub(operand) }},
+		{name: "Div", build: func() Rank { return Val(1).Div(operand) }},
+		{name: "Max", build: func() Rank { return Val(1).Max(operand) }},
+		{name: "Min", build: func() Rank { return Val(1).Min(operand) }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rank := tt.build()
+			var err error
+			require.NotPanics(t, func() {
+				_, err = rank.MarshalJSON()
+			})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "unknown operand type")
+		})
+	}
+}
+
 func TestComplexExpressions(t *testing.T) {
 	t.Run("weighted combination", func(t *testing.T) {
 		// weighted_combo = knn1 * 0.7 + knn2 * 0.3

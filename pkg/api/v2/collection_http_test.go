@@ -706,20 +706,33 @@ func TestCollectionSearchTypedNilRank(t *testing.T) {
 	var typedNilRank *KnnRank
 	tests := []struct {
 		name     string
-		rank     Rank
-		wantRank bool
+		searches []SearchRequest
+		expected string
 	}{
 		{
-			name: "direct typed nil rank is omitted",
-			rank: typedNilRank,
+			name:     "direct typed nil rank is omitted",
+			searches: []SearchRequest{{Rank: typedNilRank}},
+			expected: `{"searches":[{}]}`,
 		},
 		{
 			name: "typed nil rank nested in RRF remains valid JSON",
-			rank: &RrfRank{
-				Ranks: []RankWithWeight{{Rank: typedNilRank, Weight: 1}},
-				K:     60,
+			searches: []SearchRequest{
+				{
+					Rank: &RrfRank{
+						Ranks: []RankWithWeight{{Rank: typedNilRank, Weight: 1}},
+						K:     60,
+					},
+				},
 			},
-			wantRank: true,
+			expected: `{"searches":[{"rank":{"$mul":[{"$val":-1},{"$div":{"left":{"$val":1},"right":{"$sum":[{"$val":60},{"$val":0}]}}}]}}]}`,
+		},
+		{
+			name: "typed nil and normal ranks preserve mixed batch order",
+			searches: []SearchRequest{
+				{Rank: typedNilRank},
+				{Rank: Val(2)},
+			},
+			expected: `{"searches":[{},{"rank":{"$val":2}}]}`,
 		},
 	}
 
@@ -755,7 +768,7 @@ func TestCollectionSearchTypedNilRank(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			appendRequest := func(query *SearchQuery) error {
-				query.Searches = append(query.Searches, SearchRequest{Rank: tt.rank})
+				query.Searches = append(query.Searches, tt.searches...)
 				return nil
 			}
 
@@ -767,16 +780,7 @@ func TestCollectionSearchTypedNilRank(t *testing.T) {
 			require.NoError(t, searchErr)
 			require.NotNil(t, result)
 
-			var payload struct {
-				Searches []map[string]json.RawMessage `json:"searches"`
-			}
-			require.NoError(t, json.Unmarshal(<-requestBodies, &payload))
-			require.Len(t, payload.Searches, 1)
-			rankJSON, hasRank := payload.Searches[0]["rank"]
-			require.Equal(t, tt.wantRank, hasRank)
-			if tt.wantRank {
-				require.NotEqual(t, "null", string(rankJSON))
-			}
+			require.JSONEq(t, tt.expected, string(<-requestBodies))
 		})
 	}
 }
@@ -1229,5 +1233,38 @@ func TestCloneRank(t *testing.T) {
 		clonedJSON, err := cloned.MarshalJSON()
 		require.NoError(t, err)
 		require.Equal(t, string(origJSON), string(clonedJSON))
+	})
+
+	t.Run("multi-level nested RRF tree is deep cloned", func(t *testing.T) {
+		leaf, err := NewKnnRank(KnnQueryText("nested query"), WithKnnReturnRank())
+		require.NoError(t, err)
+		inner, err := NewRrfRank(WithRrfRanks(RankWithWeight{Rank: leaf, Weight: 1}))
+		require.NoError(t, err)
+		middle, err := NewRrfRank(WithRrfRanks(RankWithWeight{Rank: inner, Weight: 1}))
+		require.NoError(t, err)
+		outer, err := NewRrfRank(WithRrfRanks(RankWithWeight{Rank: middle, Weight: 1}))
+		require.NoError(t, err)
+
+		clonedOuter := cloneRank(outer).(*RrfRank)
+		clonedMiddle := clonedOuter.Ranks[0].Rank.(*RrfRank)
+		clonedInner := clonedMiddle.Ranks[0].Rank.(*RrfRank)
+		clonedLeaf := clonedInner.Ranks[0].Rank.(*KnnRank)
+
+		require.NotSame(t, outer, clonedOuter)
+		require.NotSame(t, middle, clonedMiddle)
+		require.NotSame(t, inner, clonedInner)
+		require.NotSame(t, leaf, clonedLeaf)
+
+		var originalJSON, clonedJSON []byte
+		var originalErr, clonedErr error
+		require.NotPanics(t, func() {
+			originalJSON, originalErr = outer.MarshalJSON()
+		})
+		require.NoError(t, originalErr)
+		require.NotPanics(t, func() {
+			clonedJSON, clonedErr = clonedOuter.MarshalJSON()
+		})
+		require.NoError(t, clonedErr)
+		require.JSONEq(t, string(originalJSON), string(clonedJSON))
 	})
 }
