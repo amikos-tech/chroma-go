@@ -1005,23 +1005,24 @@ func TestNilOptionSentinels(t *testing.T) {
 	})
 }
 
-// mapBackedRank is a caller-supplied Rank implementation backed by a nillable
-// non-pointer type, which external packages may legitimately write.
+// mapBackedRank is a package-local Rank test double backed by a nillable
+// non-pointer type.
 type mapBackedRank map[string]string
 
-func (m mapBackedRank) IsOperand()                   {}
-func (m mapBackedRank) Multiply(Operand) Rank        { return m }
-func (m mapBackedRank) Sub(Operand) Rank             { return m }
-func (m mapBackedRank) Add(Operand) Rank             { return m }
-func (m mapBackedRank) Div(Operand) Rank             { return m }
-func (m mapBackedRank) Negate() Rank                 { return m }
-func (m mapBackedRank) Abs() Rank                    { return m }
-func (m mapBackedRank) Exp() Rank                    { return m }
-func (m mapBackedRank) Log() Rank                    { return m }
-func (m mapBackedRank) Max(Operand) Rank             { return m }
-func (m mapBackedRank) Min(Operand) Rank             { return m }
-func (m mapBackedRank) UnmarshalJSON([]byte) error   { return nil }
-func (m mapBackedRank) MarshalJSON() ([]byte, error) { return json.Marshal(map[string]string(m)) }
+func (m mapBackedRank) IsOperand()                                 {}
+func (m mapBackedRank) Multiply(Operand) Rank                      { return m }
+func (m mapBackedRank) Sub(Operand) Rank                           { return m }
+func (m mapBackedRank) Add(Operand) Rank                           { return m }
+func (m mapBackedRank) Div(Operand) Rank                           { return m }
+func (m mapBackedRank) Negate() Rank                               { return m }
+func (m mapBackedRank) Abs() Rank                                  { return m }
+func (m mapBackedRank) Exp() Rank                                  { return m }
+func (m mapBackedRank) Log() Rank                                  { return m }
+func (m mapBackedRank) Max(Operand) Rank                           { return m }
+func (m mapBackedRank) Min(Operand) Rank                           { return m }
+func (m mapBackedRank) UnmarshalJSON([]byte) error                 { return nil }
+func (m mapBackedRank) MarshalJSON() ([]byte, error)               { return json.Marshal(map[string]string(m)) }
+func (m mapBackedRank) marshalJSONWithDepth(_ int) ([]byte, error) { return m.MarshalJSON() }
 
 func TestIsNilInterfaceNillableKinds(t *testing.T) {
 	var nilMap map[string]string

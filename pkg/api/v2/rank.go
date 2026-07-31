@@ -65,6 +65,7 @@ type Rank interface {
 	Log() Rank
 	Max(operand Operand) Rank
 	Min(operand Operand) Rank
+	marshalJSONWithDepth(depth int) ([]byte, error)
 	MarshalJSON() ([]byte, error)
 	UnmarshalJSON(b []byte) error
 }
@@ -104,8 +105,8 @@ func (u *UnknownRank) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("UnknownRank: cannot marshal unknown operand type - this indicates a programming error")
 }
 
-type depthAwareRank interface {
-	marshalJSONWithDepth(depth int) ([]byte, error)
+func (u *UnknownRank) marshalJSONWithDepth(_ int) ([]byte, error) {
+	return u.MarshalJSON()
 }
 
 func marshalRank(rank Rank, depth int) ([]byte, error) {
@@ -115,10 +116,7 @@ func marshalRank(rank Rank, depth int) ([]byte, error) {
 	if depth > MaxExpressionDepth {
 		return nil, errors.Errorf("rank expression exceeds maximum depth of %d", MaxExpressionDepth)
 	}
-	if rank, ok := rank.(depthAwareRank); ok {
-		return rank.marshalJSONWithDepth(depth)
-	}
-	return rank.MarshalJSON()
+	return rank.marshalJSONWithDepth(depth)
 }
 
 // ValRank represents a constant numeric value in rank expressions.
@@ -184,6 +182,10 @@ func (v *ValRank) Min(operand Operand) Rank {
 
 func (v *ValRank) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]float64{"$val": v.value})
+}
+
+func (v *ValRank) marshalJSONWithDepth(_ int) ([]byte, error) {
+	return v.MarshalJSON()
 }
 
 func (v *ValRank) UnmarshalJSON(b []byte) error {
@@ -1081,6 +1083,10 @@ func (k *KnnRank) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{"$knn": inner})
 }
 
+func (k *KnnRank) marshalJSONWithDepth(_ int) ([]byte, error) {
+	return k.MarshalJSON()
+}
+
 func (k *KnnRank) UnmarshalJSON(b []byte) error {
 	return errors.New("json: cannot unmarshal KnnRank JSON object")
 }
@@ -1333,7 +1339,11 @@ func (r *RrfRank) marshalJSONWithDepth(depth int) ([]byte, error) {
 
 	// Negate (RRF gives higher scores for better, Chroma needs lower for better)
 	result := rrfSum.Negate()
-	return marshalRank(result, depth+1)
+	data, err := marshalRank(result, depth+1)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot marshal RrfRank")
+	}
+	return data, nil
 }
 
 func (r *RrfRank) UnmarshalJSON(_ []byte) error {

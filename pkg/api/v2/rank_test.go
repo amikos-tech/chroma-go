@@ -857,39 +857,112 @@ func TestMaxExpressionDepthConstant(t *testing.T) {
 
 func TestRankMarshalExpressionDepthGuard(t *testing.T) {
 	tests := []struct {
-		name    string
-		depth   int
-		wantErr string
+		name          string
+		build         func(Rank) Rank
+		acceptedDepth int
+		rejectedDepth int
+		wantContext   string
 	}{
 		{
-			name:  "at maximum depth",
-			depth: MaxExpressionDepth,
+			name:          "sum",
+			build:         func(rank Rank) Rank { return rank.Add(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
 		},
 		{
-			name:    "over maximum depth",
-			depth:   MaxExpressionDepth + 1,
-			wantErr: fmt.Sprintf("rank expression exceeds maximum depth of %d", MaxExpressionDepth),
+			name:          "sub",
+			build:         func(rank Rank) Rank { return rank.Sub(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "mul",
+			build:         func(rank Rank) Rank { return rank.Multiply(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "div",
+			build:         func(rank Rank) Rank { return rank.Div(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "abs",
+			build:         func(rank Rank) Rank { return rank.Abs() },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "exp",
+			build:         func(rank Rank) Rank { return rank.Exp() },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "log",
+			build:         func(rank Rank) Rank { return rank.Log() },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "max",
+			build:         func(rank Rank) Rank { return rank.Max(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name:          "min",
+			build:         func(rank Rank) Rank { return rank.Min(Val(1)) },
+			acceptedDepth: 99,
+			rejectedDepth: 100,
+		},
+		{
+			name: "rrf",
+			build: func(rank Rank) Rank {
+				return mustNewRrfRank(t, WithRrfRanks(RankWithWeight{Rank: rank, Weight: 1}))
+			},
+			acceptedDepth: 96,
+			rejectedDepth: 97,
+			wantContext:   "cannot marshal RrfRank",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var rank Rank = Val(0)
-			for i := 0; i < tt.depth; i++ {
-				rank = rank.Log()
-			}
+			t.Run("accepts deepest valid child", func(t *testing.T) {
+				var inner Rank = Val(0)
+				for i := 0; i < tt.acceptedDepth; i++ {
+					inner = inner.Log()
+				}
+				rank := tt.build(inner)
 
-			var data []byte
-			var err error
-			require.NotPanics(t, func() {
-				data, err = rank.MarshalJSON()
+				var data []byte
+				var err error
+				require.NotPanics(t, func() {
+					data, err = rank.MarshalJSON()
+				})
+				require.NoError(t, err)
+				require.NotEmpty(t, data)
 			})
-			if tt.wantErr != "" {
-				require.EqualError(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.NotEmpty(t, data)
+
+			t.Run("rejects next child depth", func(t *testing.T) {
+				var inner Rank = Val(0)
+				for i := 0; i < tt.rejectedDepth; i++ {
+					inner = inner.Log()
+				}
+				rank := tt.build(inner)
+
+				var err error
+				require.NotPanics(t, func() {
+					_, err = rank.MarshalJSON()
+				})
+				require.Error(t, err)
+				require.Contains(t, err.Error(), fmt.Sprintf("rank expression exceeds maximum depth of %d", MaxExpressionDepth))
+				if tt.wantContext != "" {
+					require.Contains(t, err.Error(), tt.wantContext)
+				}
+			})
 		})
 	}
 }
