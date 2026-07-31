@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 Phase: 30
 Plan: Not started
 Status: Quick task chain (u7z/e0k/ewm/fvo) shipped — PR #527
-Last activity: 2026-07-31 - Completed quick task 260731-tq1: Verify and address issue 499
+Last activity: 2026-07-31 - Completed quick task 260731-tq1: Verify and address issue 499 plus review findings
 
 Progress: [██████████] 100%
 
@@ -83,7 +83,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 | 260731-n7b | Document nil-receiver panic on UnknownRank promoted methods (GH #526) | 2026-07-31 | 3c0aa73 | Complete | [260731-n7b-fix-526-document-nil-receiver-panic-on-u](./quick/260731-n7b-fix-526-document-nil-receiver-panic-on-u/) |
 | 260731-nj1 | work in a PR branch to address issue #528 | 2026-07-31 | 379bd4a | Complete | [260731-nj1-work-in-a-pr-branch-to-address-issue-528](./quick/260731-nj1-work-in-a-pr-branch-to-address-issue-528/) |
 | 260731-pb1 | Harden Rank depth tracking and add complete depth-guard coverage, including RrfRank | 2026-07-31 | 3243aa4 | Complete | [260731-pb1-harden-rank-depth-tracking-and-add-compl](./quick/260731-pb1-harden-rank-depth-tracking-and-add-compl/) |
-| 260731-tq1 | Verify and address issue 499 | 2026-07-31 | 84797b1 | Verified | [260731-tq1-verify-and-address-issue-499](./quick/260731-tq1-verify-and-address-issue-499/) |
+| 260731-tq1 | Verify and address issue 499 | 2026-07-31 | 96fade3 | Verified | [260731-tq1-verify-and-address-issue-499](./quick/260731-tq1-verify-and-address-issue-499/) |
 
 **Note (260729-p70, updated in #514):** `chroma-go-local v0.3.5` is now permanently notarized by
 `sum.golang.org` at `h1:F/vk7Nc6eC8tVFaj9O5XAkfBYGGQj5At6ccrlNxbzvU=`. **That tag must never be
