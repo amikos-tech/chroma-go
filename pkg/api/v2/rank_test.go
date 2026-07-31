@@ -979,13 +979,11 @@ func TestRankMarshalExpressionDepthGuard(t *testing.T) {
 	}
 }
 
-// TestMarshalRankFallbackForNestedNonDepthAwareChild exercises the
-// depthAwareRank fallback path (rank.go marshalRank) with a caller-supplied
-// Rank nested inside a built-in composite, not just used standalone. This is
-// what the depthAwareRank doc comment describes: a type that doesn't
-// implement depthAwareRank still marshals correctly via its own
-// MarshalJSON() when it's a child of a depth-tracked expression.
-func TestMarshalRankFallbackForNestedNonDepthAwareChild(t *testing.T) {
+// TestMarshalRankFallbackForNestedNonCompositeChild exercises the marshalRank
+// fallback with a caller-supplied Rank nested inside a built-in composite, not
+// just used standalone. Caller-supplied ranks still marshal through their own
+// MarshalJSON method when they are children of a depth-tracked expression.
+func TestMarshalRankFallbackForNestedNonCompositeChild(t *testing.T) {
 	mr := mapBackedRank{"k": "v"}
 	rank := Val(0).Add(mr)
 

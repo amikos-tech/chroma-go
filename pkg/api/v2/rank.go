@@ -104,32 +104,6 @@ func (u *UnknownRank) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("UnknownRank: cannot marshal unknown operand type - this indicates a programming error")
 }
 
-// depthAwareRank is implemented by composite Rank types that recurse into
-// child Rank values during marshaling. Types that don't implement it (leaves,
-// and any caller-supplied Rank implementation) fall back to plain
-// MarshalJSON() in marshalRank. Because depthAwareRank is unexported,
-// caller-supplied Rank implementations can never satisfy it: a Rank that
-// wraps and recurses into further child Ranks outside this package is not
-// depth-guarded, and marshaling such a type resets the depth count to 0 at
-// the hand-off. This is an accepted limitation of not sealing the exported
-// Rank interface.
-type depthAwareRank interface {
-	marshalJSONWithDepth(depth int) ([]byte, error)
-}
-
-var (
-	_ depthAwareRank = (*SumRank)(nil)
-	_ depthAwareRank = (*SubRank)(nil)
-	_ depthAwareRank = (*MulRank)(nil)
-	_ depthAwareRank = (*DivRank)(nil)
-	_ depthAwareRank = (*AbsRank)(nil)
-	_ depthAwareRank = (*ExpRank)(nil)
-	_ depthAwareRank = (*LogRank)(nil)
-	_ depthAwareRank = (*MaxRank)(nil)
-	_ depthAwareRank = (*MinRank)(nil)
-	_ depthAwareRank = (*RrfRank)(nil)
-)
-
 func marshalRank(rank Rank, depth int) ([]byte, error) {
 	if isNilRank(rank) {
 		return nil, ErrNilRank
@@ -137,9 +111,32 @@ func marshalRank(rank Rank, depth int) ([]byte, error) {
 	if depth > MaxExpressionDepth {
 		return nil, errors.Errorf("rank expression exceeds maximum depth of %d", MaxExpressionDepth)
 	}
-	if dr, ok := rank.(depthAwareRank); ok {
-		return dr.marshalJSONWithDepth(depth)
+
+	// Match exact built-in composites so an external Rank that embeds one
+	// still controls its own serialization through MarshalJSON.
+	switch rank := rank.(type) {
+	case *SumRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *SubRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *MulRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *DivRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *AbsRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *ExpRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *LogRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *MaxRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *MinRank:
+		return rank.marshalJSONWithDepth(depth)
+	case *RrfRank:
+		return rank.marshalJSONWithDepth(depth)
 	}
+
 	return rank.MarshalJSON()
 }
 
