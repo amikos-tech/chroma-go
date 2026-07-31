@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: "Quick task 260730-u7z completed — GH #515"
+status: "Quick task 260731-e0k completed — typed-nil rank arithmetic"
 stopped_at: "Phase 26 shipped — PR #509"
-last_updated: "2026-07-30T18:45:34.504Z"
-last_activity: 2026-07-30
+last_updated: "2026-07-31T07:23:43.000Z"
+last_activity: 2026-07-31
 progress:
   total_phases: 11
   completed_phases: 7
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 Phase: 30
 Plan: Not started
-Status: Quick task 260730-u7z completed — GH #515
-Last activity: 2026-07-30 - Completed quick task 260730-u7z: let's address issue 515
+Status: Quick task 260731-e0k completed — typed-nil rank arithmetic
+Last activity: 2026-07-31 - Completed quick task 260731-e0k: Address typed-nil rank arithmetic and review findings
 
 Progress: [██████████] 100%
 
@@ -76,7 +76,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 | 260730-cjl | Normalize nil-handling across V2 SearchRequestOption helpers (GH #503) | 2026-07-30 | dc00f59 | Verified | [260730-cjl-normalize-nil-handling-across-v2-searchr](./quick/260730-cjl-normalize-nil-handling-across-v2-searchr/) |
 | 260730-fzu | Fix typed-nil WhereClause panic and doc accuracy in V2 search nil-handling | 2026-07-30 | e695de6 | Verified | [260730-fzu-fix-typed-nil-whereclause-panic-and-doc-](./quick/260730-fzu-fix-typed-nil-whereclause-panic-and-doc-/) |
 | 260730-p46 | Remove legacy github.com/docker/docker via Testcontainers v0.43.0 + Go 1.25 floor (GH #522) | 2026-07-30 | 03bc90d | Local ✓ / CI pending | [260730-p46-remove-legacy-docker-module](./quick/260730-p46-remove-legacy-docker-module/) |
-| 260730-u7z | let's address issue 515 | 2026-07-30 | 3f3a06f |  | [260730-u7z-let-s-address-issue-515](./quick/260730-u7z-let-s-address-issue-515/) |
+| 260730-u7z | let's address issue 515 | 2026-07-30 | b79ede4 | Verified | [260730-u7z-let-s-address-issue-515](./quick/260730-u7z-let-s-address-issue-515/) |
+| 260731-e0k | Address typed-nil rank arithmetic and review findings | 2026-07-31 | b3ef969 | Verified | [260731-e0k-address-typed-nil-rank-arithmetic-and-re](./quick/260731-e0k-address-typed-nil-rank-arithmetic-and-re/) |
 
 **Note (260729-p70, updated in #514):** `chroma-go-local v0.3.5` is now permanently notarized by
 `sum.golang.org` at `h1:F/vk7Nc6eC8tVFaj9O5XAkfBYGGQj5At6ccrlNxbzvU=`. **That tag must never be
