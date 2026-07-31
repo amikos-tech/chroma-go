@@ -107,11 +107,28 @@ func (u *UnknownRank) MarshalJSON() ([]byte, error) {
 // depthAwareRank is implemented by composite Rank types that recurse into
 // child Rank values during marshaling. Types that don't implement it (leaves,
 // and any caller-supplied Rank implementation) fall back to plain
-// MarshalJSON() in marshalRank, since they can't contribute unbounded
-// recursion depth themselves.
+// MarshalJSON() in marshalRank. Because depthAwareRank is unexported,
+// caller-supplied Rank implementations can never satisfy it: a Rank that
+// wraps and recurses into further child Ranks outside this package is not
+// depth-guarded, and marshaling such a type resets the depth count to 0 at
+// the hand-off. This is an accepted limitation of not sealing the exported
+// Rank interface.
 type depthAwareRank interface {
 	marshalJSONWithDepth(depth int) ([]byte, error)
 }
+
+var (
+	_ depthAwareRank = (*SumRank)(nil)
+	_ depthAwareRank = (*SubRank)(nil)
+	_ depthAwareRank = (*MulRank)(nil)
+	_ depthAwareRank = (*DivRank)(nil)
+	_ depthAwareRank = (*AbsRank)(nil)
+	_ depthAwareRank = (*ExpRank)(nil)
+	_ depthAwareRank = (*LogRank)(nil)
+	_ depthAwareRank = (*MaxRank)(nil)
+	_ depthAwareRank = (*MinRank)(nil)
+	_ depthAwareRank = (*RrfRank)(nil)
+)
 
 func marshalRank(rank Rank, depth int) ([]byte, error) {
 	if isNilRank(rank) {
@@ -1200,7 +1217,10 @@ const MaxRrfRanks = 100
 // MaxExpressionTerms is the maximum number of terms allowed in variadic rank expressions (Sum, Mul, Max, Min).
 const MaxExpressionTerms = 1000
 
-// MaxExpressionDepth is the maximum nesting depth for rank expressions to prevent stack overflow.
+// MaxExpressionDepth is the maximum number of recursive marshalRank calls
+// permitted below a rank expression's top-level node, to prevent stack
+// overflow. A value of 100 allows expressions up to 101 nodes deep (the
+// top-level node plus 100 levels of nesting beneath it).
 const MaxExpressionDepth = 100
 
 func NewRrfRank(opts ...RrfOption) (*RrfRank, error) {

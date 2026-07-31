@@ -1007,9 +1007,9 @@ func TestNilOptionSentinels(t *testing.T) {
 
 // mapBackedRank is a caller-supplied Rank implementation backed by a nillable
 // non-pointer type, which external packages may legitimately write. It does
-// not implement depthAwareRank, so marshalRank must fall back to its plain
-// MarshalJSON() rather than requiring every Rank implementation to know about
-// internal depth tracking.
+// not implement depthAwareRank; TestMarshalRankFallbackForNestedNonDepthAwareChild
+// (rank_test.go) verifies marshalRank falls back to its plain MarshalJSON()
+// when it's nested inside a depth-tracked composite Rank.
 type mapBackedRank map[string]string
 
 func (m mapBackedRank) IsOperand()                   {}

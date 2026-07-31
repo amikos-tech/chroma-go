@@ -936,7 +936,7 @@ func TestRankMarshalExpressionDepthGuard(t *testing.T) {
 			},
 			acceptedDepth: 96,
 			rejectedDepth: 97,
-			wantContext:   "cannot marshal RrfRank",
+			wantContext:   "cannot marshal RrfRank expression",
 		},
 	}
 
@@ -977,4 +977,30 @@ func TestRankMarshalExpressionDepthGuard(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestMarshalRankFallbackForNestedNonDepthAwareChild exercises the
+// depthAwareRank fallback path (rank.go marshalRank) with a caller-supplied
+// Rank nested inside a built-in composite, not just used standalone. This is
+// what the depthAwareRank doc comment describes: a type that doesn't
+// implement depthAwareRank still marshals correctly via its own
+// MarshalJSON() when it's a child of a depth-tracked expression.
+func TestMarshalRankFallbackForNestedNonDepthAwareChild(t *testing.T) {
+	mr := mapBackedRank{"k": "v"}
+	rank := Val(0).Add(mr)
+
+	data, err := rank.MarshalJSON()
+	require.NoError(t, err)
+
+	var result map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &result))
+	require.Contains(t, result, "$sum")
+
+	var terms []json.RawMessage
+	require.NoError(t, json.Unmarshal(result["$sum"], &terms))
+	require.Len(t, terms, 2)
+
+	mrData, err := mr.MarshalJSON()
+	require.NoError(t, err)
+	require.JSONEq(t, string(mrData), string(terms[1]))
 }
