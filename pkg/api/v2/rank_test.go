@@ -406,6 +406,7 @@ func TestSelfFlatteningRankTypedNilReceiverMarshal(t *testing.T) {
 	var mul *MulRank
 	var max *MaxRank
 	var min *MinRank
+	var abs *AbsRank
 
 	tests := []struct {
 		name  string
@@ -415,6 +416,7 @@ func TestSelfFlatteningRankTypedNilReceiverMarshal(t *testing.T) {
 		{name: "MulRank.Multiply", build: func() Rank { return mul.Multiply(Val(1)) }},
 		{name: "MaxRank.Max", build: func() Rank { return max.Max(Val(1)) }},
 		{name: "MinRank.Min", build: func() Rank { return min.Min(Val(1)) }},
+		{name: "AbsRank.Abs", build: func() Rank { return abs.Abs() }},
 	}
 
 	for _, tt := range tests {

@@ -50,7 +50,9 @@ func (f FloatOperand) IsOperand() {}
 //	rank := NewKnnRank(KnnQueryText("query")).Add(FloatOperand(1)).Log()
 //
 // An untyped nil passed through the Operand API becomes Val(0) for compatibility.
-// Nil or typed-nil Rank children fail with [ErrNilRank] when marshaled.
+// Composite serialization rejects nil or typed-nil Rank children with [ErrNilRank].
+// This guarantee does not cover direct MarshalJSON calls on nil concrete Rank
+// pointers; those calls are unsupported and may panic.
 type Rank interface {
 	Operand
 	Multiply(operand Operand) Rank
@@ -496,6 +498,9 @@ func (a *AbsRank) Negate() Rank {
 }
 
 func (a *AbsRank) Abs() Rank {
+	if a == nil {
+		return &AbsRank{rank: a}
+	}
 	return a // abs(abs(x)) = abs(x)
 }
 
