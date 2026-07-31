@@ -4,6 +4,7 @@ package v2
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"testing"
 
@@ -854,16 +855,41 @@ func TestMaxExpressionDepthConstant(t *testing.T) {
 	require.LessOrEqual(t, MaxExpressionDepth, 1000)
 }
 
-func TestDeepExpressionChain(t *testing.T) {
-	// Create a deeply nested Sub expression (which doesn't flatten)
-	// This tests that such expressions can be built and serialized
-	var rank Rank = Val(0.0)
-	for i := 0; i < 50; i++ {
-		rank = rank.Sub(Val(1.0))
+func TestRankMarshalExpressionDepthGuard(t *testing.T) {
+	tests := []struct {
+		name    string
+		depth   int
+		wantErr string
+	}{
+		{
+			name:  "at maximum depth",
+			depth: MaxExpressionDepth,
+		},
+		{
+			name:    "over maximum depth",
+			depth:   MaxExpressionDepth + 1,
+			wantErr: fmt.Sprintf("rank expression exceeds maximum depth of %d", MaxExpressionDepth),
+		},
 	}
 
-	// Should serialize without error (50 < MaxExpressionDepth)
-	data, err := rank.MarshalJSON()
-	require.NoError(t, err)
-	require.NotEmpty(t, data)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var rank Rank = Val(0)
+			for i := 0; i < tt.depth; i++ {
+				rank = rank.Log()
+			}
+
+			var data []byte
+			var err error
+			require.NotPanics(t, func() {
+				data, err = rank.MarshalJSON()
+			})
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NotEmpty(t, data)
+		})
+	}
 }
