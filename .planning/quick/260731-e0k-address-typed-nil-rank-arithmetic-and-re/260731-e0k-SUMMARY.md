@@ -32,7 +32,7 @@ key-files:
 key-decisions:
   - "Reused isNilRank in operandToRank so all six fluent binary operations share one typed-nil guard."
   - "Preserved operandToRank(nil) as Val(0); only typed-nil Rank values become UnknownRank."
-  - "Kept cloneRank unchanged because focused recursive tests confirmed its existing deep-copy behavior."
+  - "Historical decision, superseded by quick task 260731-ewm: kept cloneRank unchanged and accepted nested typed-nil RRF substitution as Val(0); the later task identifies that substitution as a defect and returns an error."
 
 requirements-completed:
   - REVIEW-01
@@ -54,13 +54,13 @@ A shared `isNilRank` guard turns typed-nil arithmetic operands into stable marsh
 ## Accomplishments
 
 - All six binary fluent rank operations reject a typed-nil Rank during marshal without panicking.
-- Search regressions pin complete JSON for direct typed nil, nested RRF, and ordered mixed-batch requests.
+- Search regressions pin complete JSON for direct typed nil, the then-accepted nested RRF substitution, and ordered mixed-batch requests. The nested substitution contract was later superseded by quick task `260731-ewm`.
 - A three-level RRF tree clones into independent nodes and preserves complete marshal output.
 - The `260730-u7z` ledger row now names reachable commit `b79ede4` with status `Verified`.
 
 ## TDD Execution
 
-- **RED:** Added a six-operation regression and confirmed each case reached a nil `*KnnRank` receiver and panicked.
+- **RED:** Added a six-operation regression using a valid `*ValRank` arithmetic receiver and a typed-nil `*KnnRank` operand; composite marshaling then panicked when it invoked the operand.
 - **GREEN:** Added the shared `isNilRank` guard in `operandToRank`; the focused regression passed.
 - **REFACTOR:** No further production change was needed.
 
@@ -79,7 +79,7 @@ A shared `isNilRank` guard turns typed-nil arithmetic operands into stable marsh
 
 - Reused the existing nillable-kind-aware helper instead of adding reflection or per-operation guards.
 - Kept untyped nil's established `Val(0)` fluent-chain behavior unchanged.
-- Added test-only recursive clone coverage because the production clone already performs the required deep copy.
+- Historical decision, superseded by quick task `260731-ewm`: added test-only recursive clone coverage and accepted the cloned nested typed nil as `Val(0)`. The later task identifies that substitution as a defect and changes nested typed-nil RRF input to an error; that later fix is not part of commit `b3ef969`.
 - Left PR-branch filtering out of scope because no PR operation was requested.
 
 ## Verification

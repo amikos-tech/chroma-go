@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: "Quick task 260731-e0k completed — typed-nil rank arithmetic"
+status: "Quick task 260731-ewm completed — typed-nil rank safety"
 stopped_at: "Phase 26 shipped — PR #509"
-last_updated: "2026-07-31T07:23:43.000Z"
+last_updated: "2026-07-31T08:08:02.000Z"
 last_activity: 2026-07-31
 progress:
   total_phases: 11
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 Phase: 30
 Plan: Not started
-Status: Quick task 260731-e0k completed — typed-nil rank arithmetic
-Last activity: 2026-07-31 - Completed quick task 260731-e0k: Address typed-nil rank arithmetic and review findings
+Status: Quick task 260731-ewm completed — typed-nil rank safety
+Last activity: 2026-07-31 - Completed quick task 260731-ewm: Fix typed-nil Rank panics, nested RRF nil laundering, error docs, tests, and inaccurate GSD records
 
 Progress: [██████████] 100%
 
@@ -78,6 +78,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 | 260730-p46 | Remove legacy github.com/docker/docker via Testcontainers v0.43.0 + Go 1.25 floor (GH #522) | 2026-07-30 | 03bc90d | Local ✓ / CI pending | [260730-p46-remove-legacy-docker-module](./quick/260730-p46-remove-legacy-docker-module/) |
 | 260730-u7z | let's address issue 515 | 2026-07-30 | b79ede4 | Verified | [260730-u7z-let-s-address-issue-515](./quick/260730-u7z-let-s-address-issue-515/) |
 | 260731-e0k | Address typed-nil rank arithmetic and review findings | 2026-07-31 | b3ef969 | Verified | [260731-e0k-address-typed-nil-rank-arithmetic-and-re](./quick/260731-e0k-address-typed-nil-rank-arithmetic-and-re/) |
+| 260731-ewm | Fix typed-nil Rank panics, nested RRF nil laundering, error docs, tests, and inaccurate GSD records | 2026-07-31 | b0f52ed | Verified | [260731-ewm-fix-typed-nil-rank-panics-nested-rrf-nil](./quick/260731-ewm-fix-typed-nil-rank-panics-nested-rrf-nil/) |
 
 **Note (260729-p70, updated in #514):** `chroma-go-local v0.3.5` is now permanently notarized by
 `sum.golang.org` at `h1:F/vk7Nc6eC8tVFaj9O5XAkfBYGGQj5At6ccrlNxbzvU=`. **That tag must never be
