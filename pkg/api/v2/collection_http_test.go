@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -702,6 +703,106 @@ func TestCollectionQuery(t *testing.T) {
 	require.NotNil(t, r)
 }
 
+func TestCollectionSearchTypedNilRank(t *testing.T) {
+	var typedNilRank *KnnRank
+	tests := []struct {
+		name      string
+		searches  []SearchRequest
+		expected  string
+		expectErr bool
+	}{
+		{
+			name:     "direct typed nil rank is omitted",
+			searches: []SearchRequest{{Rank: typedNilRank}},
+			expected: `{"searches":[{}]}`,
+		},
+		{
+			name: "typed nil rank nested in RRF returns ErrNilRank",
+			searches: []SearchRequest{
+				{
+					Rank: &RrfRank{
+						Ranks: []RankWithWeight{{Rank: typedNilRank, Weight: 1}},
+						K:     60,
+					},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "typed nil and normal ranks preserve mixed batch order",
+			searches: []SearchRequest{
+				{Rank: typedNilRank},
+				{Rank: Val(2)},
+			},
+			expected: `{"searches":[{},{"rank":{"$val":2}}]}`,
+		},
+	}
+
+	const searchPath = "/api/v2/tenants/default_tenant/databases/default_database/collections/8ecf0f7e-e806-47f8-96a1-4732ef42359e/search"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requestBodies := make(chan []byte, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost || r.URL.Path != searchPath {
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+					http.NotFound(w, r)
+					return
+				}
+
+				requestBodies <- []byte(chhttp.ReadRespBody(r.Body))
+				w.WriteHeader(http.StatusOK)
+				if _, err := w.Write([]byte(`{}`)); err != nil {
+					t.Errorf("write search response: %v", err)
+				}
+			}))
+			defer server.Close()
+
+			client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+			require.NoError(t, err)
+			collection := &CollectionImpl{
+				name:              "test",
+				id:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+				tenant:            NewDefaultTenant(),
+				database:          NewDefaultDatabase(),
+				metadata:          NewMetadata(),
+				client:            client.(*APIClientV2),
+				embeddingFunction: embeddings.NewConsistentHashEmbeddingFunction(),
+			}
+
+			appendRequest := func(query *SearchQuery) error {
+				query.Searches = append(query.Searches, tt.searches...)
+				return nil
+			}
+
+			var result SearchResult
+			var searchErr error
+			require.NotPanics(t, func() {
+				result, searchErr = collection.Search(context.Background(), appendRequest)
+			})
+
+			if tt.expectErr {
+				require.Nil(t, result)
+				require.ErrorIs(t, searchErr, ErrNilRank)
+				select {
+				case body := <-requestBodies:
+					t.Fatalf("unexpected request body: %s", body)
+				case <-time.After(time.Second):
+				}
+				return
+			}
+
+			require.NoError(t, searchErr)
+			require.NotNil(t, result)
+			select {
+			case body := <-requestBodies:
+				require.JSONEq(t, tt.expected, string(body))
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for search request body")
+			}
+		})
+	}
+}
+
 func TestCollectionModifyName(t *testing.T) {
 	rx1 := regexp.MustCompile(`/api/v2/tenants/[^/]+/databases/[^/]+/collections/[^/]+`)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1150,5 +1251,38 @@ func TestCloneRank(t *testing.T) {
 		clonedJSON, err := cloned.MarshalJSON()
 		require.NoError(t, err)
 		require.Equal(t, string(origJSON), string(clonedJSON))
+	})
+
+	t.Run("multi-level nested RRF tree is deep cloned", func(t *testing.T) {
+		leaf, err := NewKnnRank(KnnQueryText("nested query"), WithKnnReturnRank())
+		require.NoError(t, err)
+		inner, err := NewRrfRank(WithRrfRanks(RankWithWeight{Rank: leaf, Weight: 1}))
+		require.NoError(t, err)
+		middle, err := NewRrfRank(WithRrfRanks(RankWithWeight{Rank: inner, Weight: 1}))
+		require.NoError(t, err)
+		outer, err := NewRrfRank(WithRrfRanks(RankWithWeight{Rank: middle, Weight: 1}))
+		require.NoError(t, err)
+
+		clonedOuter := cloneRank(outer).(*RrfRank)
+		clonedMiddle := clonedOuter.Ranks[0].Rank.(*RrfRank)
+		clonedInner := clonedMiddle.Ranks[0].Rank.(*RrfRank)
+		clonedLeaf := clonedInner.Ranks[0].Rank.(*KnnRank)
+
+		require.NotSame(t, outer, clonedOuter)
+		require.NotSame(t, middle, clonedMiddle)
+		require.NotSame(t, inner, clonedInner)
+		require.NotSame(t, leaf, clonedLeaf)
+
+		var originalJSON, clonedJSON []byte
+		var originalErr, clonedErr error
+		require.NotPanics(t, func() {
+			originalJSON, originalErr = outer.MarshalJSON()
+		})
+		require.NoError(t, originalErr)
+		require.NotPanics(t, func() {
+			clonedJSON, clonedErr = clonedOuter.MarshalJSON()
+		})
+		require.NoError(t, clonedErr)
+		require.JSONEq(t, string(originalJSON), string(clonedJSON))
 	})
 }

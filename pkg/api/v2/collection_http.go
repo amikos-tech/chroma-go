@@ -469,12 +469,12 @@ func (c *CollectionImpl) embedTextQueries(ctx context.Context, req *SearchReques
 }
 
 // cloneRank creates a deep copy of a rank tree to avoid mutating user-provided rank objects.
-// SearchRequest.Rank is exported, so a struct-literal request can carry a typed nil past
-// WithRank's validation; isNilInterface stops it before the type switch below matches a
-// concrete case and dereferences it.
+// embedTextQueries handles direct nil or typed-nil SearchRequest.Rank values as
+// top-level omission before cloning. Nested typed nils retain their dynamic type
+// so later validation can reject them instead of silently changing semantics.
 func cloneRank(rank Rank) Rank {
 	if isNilInterface(rank) {
-		return nil
+		return rank
 	}
 	switch r := rank.(type) {
 	case *KnnRank:

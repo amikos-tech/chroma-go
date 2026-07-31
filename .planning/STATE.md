@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.4.2
 milestone_name: Bug Fixes and Robustness
-status: "Quick task 260730-p46 (GH #522) shipped — PR #524"
+status: "Quick task chain (u7z/e0k/ewm/fvo) shipped — PR #527"
 stopped_at: "Phase 26 shipped — PR #509"
-last_updated: "2026-07-30T16:13:19.165Z"
-last_activity: 2026-07-30
+last_updated: "2026-07-31T11:15:12.712Z"
+last_activity: 2026-07-31
 progress:
   total_phases: 11
   completed_phases: 7
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 Phase: 30
 Plan: Not started
-Status: Quick task 260730-p46 (GH #522) shipped — PR #524
-Last activity: 2026-07-30
+Status: Quick task chain (u7z/e0k/ewm/fvo) shipped — PR #527
+Last activity: 2026-07-31
 
 Progress: [██████████] 100%
 
@@ -76,6 +76,10 @@ Decisions are logged in PROJECT.md Key Decisions table.
 | 260730-cjl | Normalize nil-handling across V2 SearchRequestOption helpers (GH #503) | 2026-07-30 | dc00f59 | Verified | [260730-cjl-normalize-nil-handling-across-v2-searchr](./quick/260730-cjl-normalize-nil-handling-across-v2-searchr/) |
 | 260730-fzu | Fix typed-nil WhereClause panic and doc accuracy in V2 search nil-handling | 2026-07-30 | e695de6 | Verified | [260730-fzu-fix-typed-nil-whereclause-panic-and-doc-](./quick/260730-fzu-fix-typed-nil-whereclause-panic-and-doc-/) |
 | 260730-p46 | Remove legacy github.com/docker/docker via Testcontainers v0.43.0 + Go 1.25 floor (GH #522) | 2026-07-30 | 03bc90d | Local ✓ / CI pending | [260730-p46-remove-legacy-docker-module](./quick/260730-p46-remove-legacy-docker-module/) |
+| 260730-u7z | let's address issue 515 | 2026-07-30 | b79ede4 | Verified | [260730-u7z-let-s-address-issue-515](./quick/260730-u7z-let-s-address-issue-515/) |
+| 260731-e0k | Address typed-nil rank arithmetic and review findings | 2026-07-31 | b3ef969 | Verified | [260731-e0k-address-typed-nil-rank-arithmetic-and-re](./quick/260731-e0k-address-typed-nil-rank-arithmetic-and-re/) |
+| 260731-ewm | Fix typed-nil Rank panics, nested RRF nil laundering, error docs, tests, and inaccurate GSD records | 2026-07-31 | b0f52ed | Verified | [260731-ewm-fix-typed-nil-rank-panics-nested-rrf-nil](./quick/260731-ewm-fix-typed-nil-rank-panics-nested-rrf-nil/) |
+| 260731-fvo | Fix typed-nil rank builder panics and close related tests and documentation gaps | 2026-07-31 | 872069b | Complete | [260731-fvo-fix-typed-nil-rank-builder-panics-and-cl](./quick/260731-fvo-fix-typed-nil-rank-builder-panics-and-cl/) |
 
 **Note (260729-p70, updated in #514):** `chroma-go-local v0.3.5` is now permanently notarized by
 `sum.golang.org` at `h1:F/vk7Nc6eC8tVFaj9O5XAkfBYGGQj5At6ccrlNxbzvU=`. **That tag must never be

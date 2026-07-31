@@ -286,7 +286,9 @@ type SearchRequest struct {
 	// Limit specifies pagination (limit and offset).
 	Limit *SearchPage `json:"limit,omitempty"`
 
-	// Rank specifies the ranking expression (e.g., KNN similarity).
+	// Rank specifies the optional ranking expression (e.g., KNN similarity).
+	// Direct assignment of nil or a typed nil is omitted by MarshalJSON and
+	// Collection.Search. Use [WithRank] when nil input should be rejected.
 	Rank Rank `json:"rank,omitempty"`
 
 	// Select specifies which fields to include in results.
@@ -628,9 +630,11 @@ type rankOption struct {
 //	    ),
 //	)
 //
-// Passing nil causes the enclosing search request to fail with [ErrNilRank] instead of
-// being treated as omission — callers who want to omit the rank should simply not call
-// this option.
+// Passing nil or a typed nil causes the enclosing search request to fail with
+// [ErrNilRank] when the option is applied. This differs from direct assignment
+// to the optional [SearchRequest.Rank] field, where nil and typed nil are omitted
+// by SearchRequest.MarshalJSON and Collection.Search. Callers who want omission
+// should simply not call this option.
 func WithRank(rank Rank) *rankOption {
 	return &rankOption{rank: rank}
 }

@@ -931,7 +931,8 @@ var (
 	// ErrNilFilter is returned when [WithSearchFilter] receives a nil filter.
 	ErrNilFilter = errors.New("filter cannot be nil")
 
-	// ErrNilRank is returned when [WithRank] receives a nil rank.
+	// ErrNilRank is returned when supported rank options, RRF validation, or
+	// composite serialization encounter a nil or typed-nil rank.
 	ErrNilRank = errors.New("rank cannot be nil")
 
 	// ErrNilGroupBy is returned when [WithGroupBy] receives a nil group by.
