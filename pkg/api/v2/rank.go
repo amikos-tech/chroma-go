@@ -87,6 +87,15 @@ type RankWithWeight struct {
 // programming errors instead of silently producing incorrect results. Its
 // promoted arithmetic methods operate on the embedded zero-valued ValRank and
 // should not be called directly; normal conversion uses it only as a leaf.
+//
+// Calling any promoted method on a nil *UnknownRank panics, including IsOperand,
+// whose body is empty. ValRank is embedded by value, so a promoted call
+// dereferences the receiver to reach the embedded field before the method body
+// runs; the panic comes from the call convention, not from what the method does.
+// Like direct MarshalJSON calls on nil concrete [Rank] pointers, this is
+// unsupported usage rather than a defect. UnknownRank has no exported
+// constructor and callers obtain it only as a non-nil value from internal
+// conversion, so the boundary is not reachable through the public API.
 type UnknownRank struct {
 	ValRank
 }
