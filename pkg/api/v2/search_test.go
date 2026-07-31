@@ -1139,26 +1139,34 @@ func TestTypedNilWhereBypassesOptionPipeline(t *testing.T) {
 	})
 }
 
-// TestCloneRankTypedNil covers the rank clone/embed path reached by constructing a
-// SearchRequest as a struct literal: SearchRequest.Rank is exported, so WithRank's
-// isNilRank guard is bypassed and a typed nil reaches cloneRank's type switch, where
-// `case *KnnRank:` matches a nil *KnnRank and the deref panics.
+// TestCloneRankTypedNil covers direct typed-nil omission and nested typed-nil
+// preservation through the clone/embed path.
 func TestCloneRankTypedNil(t *testing.T) {
-	t.Run("typed nil KnnRank clones to true nil", func(t *testing.T) {
+	t.Run("untyped nil remains nil", func(t *testing.T) {
+		require.Nil(t, cloneRank(nil))
+	})
+
+	t.Run("typed nil KnnRank retains its concrete type", func(t *testing.T) {
 		var kr *KnnRank
 		var got Rank
 		require.NotPanics(t, func() { got = cloneRank(kr) })
-		require.Nil(t, got)
+		require.True(t, isNilRank(got))
+		cloned, ok := got.(*KnnRank)
+		require.True(t, ok)
+		require.Nil(t, cloned)
 	})
 
-	t.Run("typed nil ValRank clones to true nil", func(t *testing.T) {
+	t.Run("typed nil ValRank retains its concrete type", func(t *testing.T) {
 		var vr *ValRank
 		var got Rank
 		require.NotPanics(t, func() { got = cloneRank(vr) })
-		require.Nil(t, got)
+		require.True(t, isNilRank(got))
+		cloned, ok := got.(*ValRank)
+		require.True(t, ok)
+		require.Nil(t, cloned)
 	})
 
-	t.Run("typed nil nested in RrfRank clones without panicking", func(t *testing.T) {
+	t.Run("typed nil nested in RrfRank retains its concrete type", func(t *testing.T) {
 		var kr *KnnRank
 		parent := &RrfRank{Ranks: []RankWithWeight{{Rank: kr, Weight: 1}}}
 		var got Rank
@@ -1167,16 +1175,20 @@ func TestCloneRankTypedNil(t *testing.T) {
 		clone, ok := got.(*RrfRank)
 		require.True(t, ok)
 		require.Len(t, clone.Ranks, 1)
-		require.Nil(t, clone.Ranks[0].Rank)
+		require.True(t, isNilRank(clone.Ranks[0].Rank))
+		clonedChild, ok := clone.Ranks[0].Rank.(*KnnRank)
+		require.True(t, ok)
+		require.Nil(t, clonedChild)
 	})
 
-	t.Run("embedTextQueries tolerates a typed nil Rank on a struct-literal request", func(t *testing.T) {
+	t.Run("embedTextQueries omits a direct typed nil Rank", func(t *testing.T) {
 		var kr *KnnRank
 		req := &SearchRequest{Rank: kr}
 		c := &CollectionImpl{}
 		var err error
 		require.NotPanics(t, func() { err = c.embedTextQueries(context.Background(), req) })
 		require.NoError(t, err)
+		require.Nil(t, req.Rank)
 	})
 }
 

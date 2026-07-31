@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -705,9 +706,10 @@ func TestCollectionQuery(t *testing.T) {
 func TestCollectionSearchTypedNilRank(t *testing.T) {
 	var typedNilRank *KnnRank
 	tests := []struct {
-		name     string
-		searches []SearchRequest
-		expected string
+		name      string
+		searches  []SearchRequest
+		expected  string
+		expectErr bool
 	}{
 		{
 			name:     "direct typed nil rank is omitted",
@@ -715,7 +717,7 @@ func TestCollectionSearchTypedNilRank(t *testing.T) {
 			expected: `{"searches":[{}]}`,
 		},
 		{
-			name: "typed nil rank nested in RRF remains valid JSON",
+			name: "typed nil rank nested in RRF returns ErrNilRank",
 			searches: []SearchRequest{
 				{
 					Rank: &RrfRank{
@@ -724,7 +726,7 @@ func TestCollectionSearchTypedNilRank(t *testing.T) {
 					},
 				},
 			},
-			expected: `{"searches":[{"rank":{"$mul":[{"$val":-1},{"$div":{"left":{"$val":1},"right":{"$sum":[{"$val":60},{"$val":0}]}}}]}}]}`,
+			expectErr: true,
 		},
 		{
 			name: "typed nil and normal ranks preserve mixed batch order",
@@ -737,36 +739,36 @@ func TestCollectionSearchTypedNilRank(t *testing.T) {
 	}
 
 	const searchPath = "/api/v2/tenants/default_tenant/databases/default_database/collections/8ecf0f7e-e806-47f8-96a1-4732ef42359e/search"
-	requestBodies := make(chan []byte, len(tests))
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != searchPath {
-			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
-			http.NotFound(w, r)
-			return
-		}
-
-		requestBodies <- []byte(chhttp.ReadRespBody(r.Body))
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(`{}`)); err != nil {
-			t.Errorf("write search response: %v", err)
-		}
-	}))
-	defer server.Close()
-
-	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
-	require.NoError(t, err)
-	collection := &CollectionImpl{
-		name:              "test",
-		id:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
-		tenant:            NewDefaultTenant(),
-		database:          NewDefaultDatabase(),
-		metadata:          NewMetadata(),
-		client:            client.(*APIClientV2),
-		embeddingFunction: embeddings.NewConsistentHashEmbeddingFunction(),
-	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			requestBodies := make(chan []byte, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost || r.URL.Path != searchPath {
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+					http.NotFound(w, r)
+					return
+				}
+
+				requestBodies <- []byte(chhttp.ReadRespBody(r.Body))
+				w.WriteHeader(http.StatusOK)
+				if _, err := w.Write([]byte(`{}`)); err != nil {
+					t.Errorf("write search response: %v", err)
+				}
+			}))
+			defer server.Close()
+
+			client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+			require.NoError(t, err)
+			collection := &CollectionImpl{
+				name:              "test",
+				id:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+				tenant:            NewDefaultTenant(),
+				database:          NewDefaultDatabase(),
+				metadata:          NewMetadata(),
+				client:            client.(*APIClientV2),
+				embeddingFunction: embeddings.NewConsistentHashEmbeddingFunction(),
+			}
+
 			appendRequest := func(query *SearchQuery) error {
 				query.Searches = append(query.Searches, tt.searches...)
 				return nil
@@ -777,10 +779,26 @@ func TestCollectionSearchTypedNilRank(t *testing.T) {
 			require.NotPanics(t, func() {
 				result, searchErr = collection.Search(context.Background(), appendRequest)
 			})
+
+			if tt.expectErr {
+				require.Nil(t, result)
+				require.ErrorIs(t, searchErr, ErrNilRank)
+				select {
+				case body := <-requestBodies:
+					t.Fatalf("unexpected request body: %s", body)
+				case <-time.After(time.Second):
+				}
+				return
+			}
+
 			require.NoError(t, searchErr)
 			require.NotNil(t, result)
-
-			require.JSONEq(t, tt.expected, string(<-requestBodies))
+			select {
+			case body := <-requestBodies:
+				require.JSONEq(t, tt.expected, string(body))
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for search request body")
+			}
 		})
 	}
 }

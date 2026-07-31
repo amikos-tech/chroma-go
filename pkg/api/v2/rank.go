@@ -48,6 +48,11 @@ func (f FloatOperand) IsOperand() {}
 // Example - log compression with offset:
 //
 //	rank := NewKnnRank(KnnQueryText("query")).Add(FloatOperand(1)).Log()
+//
+// Expressions containing nil or typed-nil operands or children fail with
+// [ErrNilRank] when marshaled. This guarantee applies at supported option and
+// composite serialization boundaries; directly calling methods on an arbitrary
+// nil concrete Rank pointer is invalid.
 type Rank interface {
 	Operand
 	Multiply(operand Operand) Rank
@@ -64,7 +69,9 @@ type Rank interface {
 	UnmarshalJSON(b []byte) error
 }
 
-// RankWithWeight pairs a Rank with a weight for use in Reciprocal Rank Fusion (RRF).
+// RankWithWeight pairs a non-nil Rank with a weight for use in Reciprocal Rank
+// Fusion (RRF). RRF validation rejects nil and typed-nil Rank values with
+// [ErrNilRank].
 //
 // Create using the WithWeight method on KnnRank:
 //
@@ -75,15 +82,22 @@ type RankWithWeight struct {
 	Weight float64
 }
 
-// UnknownRank is a sentinel type returned by operandToRank when an unknown
-// operand type is encountered. It errors on MarshalJSON to surface programming
-// errors instead of silently producing incorrect results.
+// UnknownRank is a sentinel type returned by operandToRank when an unsupported
+// Operand implementation is encountered. It errors on MarshalJSON to surface
+// programming errors instead of silently producing incorrect results.
 type UnknownRank struct {
 	ValRank
 }
 
 func (u *UnknownRank) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("UnknownRank: cannot marshal unknown operand type - this indicates a programming error")
+}
+
+func marshalRank(rank Rank) ([]byte, error) {
+	if isNilRank(rank) {
+		return nil, ErrNilRank
+	}
+	return rank.MarshalJSON()
 }
 
 // ValRank represents a constant numeric value in rank expressions.
@@ -215,7 +229,7 @@ func (s *SumRank) MarshalJSON() ([]byte, error) {
 	}
 	rankMaps := make([]json.RawMessage, len(s.ranks))
 	for i, r := range s.ranks {
-		data, err := r.MarshalJSON()
+		data, err := marshalRank(r)
 		if err != nil {
 			return nil, err
 		}
@@ -278,11 +292,11 @@ func (s *SubRank) Min(operand Operand) Rank {
 }
 
 func (s *SubRank) MarshalJSON() ([]byte, error) {
-	leftData, err := s.left.MarshalJSON()
+	leftData, err := marshalRank(s.left)
 	if err != nil {
 		return nil, err
 	}
-	rightData, err := s.right.MarshalJSON()
+	rightData, err := marshalRank(s.right)
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +369,7 @@ func (m *MulRank) MarshalJSON() ([]byte, error) {
 	}
 	rankMaps := make([]json.RawMessage, len(m.ranks))
 	for i, r := range m.ranks {
-		data, err := r.MarshalJSON()
+		data, err := marshalRank(r)
 		if err != nil {
 			return nil, err
 		}
@@ -426,15 +440,15 @@ func (d *DivRank) MarshalJSON() ([]byte, error) {
 	// Check for division by zero literal.
 	// NOTE: Only catches literal Val(0). Complex expressions like Val(1).Sub(Val(1))
 	// are not detected; the server will return Inf/NaN following NumPy semantics.
-	if v, ok := d.right.(*ValRank); ok && v.value == 0 {
+	if v, ok := d.right.(*ValRank); ok && v != nil && v.value == 0 {
 		return nil, errors.New("division by zero: denominator is a zero literal")
 	}
 
-	leftData, err := d.left.MarshalJSON()
+	leftData, err := marshalRank(d.left)
 	if err != nil {
 		return nil, err
 	}
-	rightData, err := d.right.MarshalJSON()
+	rightData, err := marshalRank(d.right)
 	if err != nil {
 		return nil, err
 	}
@@ -496,7 +510,7 @@ func (a *AbsRank) Min(operand Operand) Rank {
 }
 
 func (a *AbsRank) MarshalJSON() ([]byte, error) {
-	data, err := a.rank.MarshalJSON()
+	data, err := marshalRank(a.rank)
 	if err != nil {
 		return nil, err
 	}
@@ -556,7 +570,7 @@ func (e *ExpRank) Min(operand Operand) Rank {
 }
 
 func (e *ExpRank) MarshalJSON() ([]byte, error) {
-	data, err := e.rank.MarshalJSON()
+	data, err := marshalRank(e.rank)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +630,7 @@ func (l *LogRank) Min(operand Operand) Rank {
 }
 
 func (l *LogRank) MarshalJSON() ([]byte, error) {
-	data, err := l.rank.MarshalJSON()
+	data, err := marshalRank(l.rank)
 	if err != nil {
 		return nil, err
 	}
@@ -687,7 +701,7 @@ func (m *MaxRank) MarshalJSON() ([]byte, error) {
 	}
 	rankMaps := make([]json.RawMessage, len(m.ranks))
 	for i, r := range m.ranks {
-		data, err := r.MarshalJSON()
+		data, err := marshalRank(r)
 		if err != nil {
 			return nil, err
 		}
@@ -760,7 +774,7 @@ func (m *MinRank) MarshalJSON() ([]byte, error) {
 	}
 	rankMaps := make([]json.RawMessage, len(m.ranks))
 	for i, r := range m.ranks {
-		data, err := r.MarshalJSON()
+		data, err := marshalRank(r)
 		if err != nil {
 			return nil, err
 		}
@@ -1139,6 +1153,9 @@ func (r *RrfRank) Validate() error {
 		return errors.Errorf("rrf cannot have more than %d ranks", MaxRrfRanks)
 	}
 	for i, rw := range r.Ranks {
+		if isNilRank(rw.Rank) {
+			return errors.Wrapf(ErrNilRank, "rank %d", i)
+		}
 		if rw.Weight < 0 {
 			return errors.Errorf("rank %d has negative weight %v: weights must be non-negative", i, rw.Weight)
 		}
@@ -1249,9 +1266,9 @@ func (r *RrfRank) UnmarshalJSON(_ []byte) error {
 
 // operandToRank converts an Operand to a Rank.
 // Supported operand types: Rank, IntOperand, FloatOperand.
-// An untyped nil is substituted with Val(0) for fluent API chaining. A
-// typed-nil Rank and unknown operand types become *UnknownRank, which errors
-// at MarshalJSON time instead of panicking or producing incorrect results.
+// An untyped nil is substituted with Val(0) for fluent API chaining. A typed-nil
+// Rank becomes a nil Rank so the enclosing composite reports [ErrNilRank].
+// Unsupported Operand implementations become *UnknownRank.
 func operandToRank(operand Operand) Rank {
 	if operand == nil {
 		return Val(0)
@@ -1259,7 +1276,7 @@ func operandToRank(operand Operand) Rank {
 	switch v := operand.(type) {
 	case Rank:
 		if isNilRank(v) {
-			return &UnknownRank{}
+			return nil
 		}
 		return v
 	case IntOperand:

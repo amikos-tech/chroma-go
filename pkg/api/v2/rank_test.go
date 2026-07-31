@@ -12,6 +12,10 @@ import (
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
 )
 
+type unsupportedOperand struct{}
+
+func (unsupportedOperand) IsOperand() {}
+
 // mustNewKnnRank is a test helper that panics if NewKnnRank returns an error
 func mustNewKnnRank(t *testing.T, query KnnQueryOption, knnOptions ...KnnOption) *KnnRank {
 	t.Helper()
@@ -356,8 +360,74 @@ func TestRankArithmeticTypedNilOperandMarshal(t *testing.T) {
 			require.NotPanics(t, func() {
 				_, err = rank.MarshalJSON()
 			})
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "unknown operand type")
+			require.ErrorIs(t, err, ErrNilRank)
+		})
+	}
+}
+
+func TestRankTypedNilReceiverMarshal(t *testing.T) {
+	var knn *KnnRank
+	var rankReceiver Rank = knn
+
+	tests := []struct {
+		name  string
+		build func() Rank
+	}{
+		{name: "Add through Rank interface", build: func() Rank { return rankReceiver.Add(Val(1)) }},
+		{name: "Multiply", build: func() Rank { return knn.Multiply(Val(1)) }},
+		{name: "Sub", build: func() Rank { return knn.Sub(Val(1)) }},
+		{name: "Div", build: func() Rank { return knn.Div(Val(1)) }},
+		{name: "Max", build: func() Rank { return knn.Max(Val(1)) }},
+		{name: "Min", build: func() Rank { return knn.Min(Val(1)) }},
+		{name: "Negate", build: func() Rank { return knn.Negate() }},
+		{name: "Abs", build: func() Rank { return knn.Abs() }},
+		{name: "Exp", build: func() Rank { return knn.Exp() }},
+		{name: "Log", build: func() Rank { return knn.Log() }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var rank Rank
+			require.NotPanics(t, func() {
+				rank = tt.build()
+			})
+
+			var err error
+			require.NotPanics(t, func() {
+				_, err = rank.MarshalJSON()
+			})
+			require.ErrorIs(t, err, ErrNilRank)
+		})
+	}
+}
+
+func TestCompositeRankNilChildMarshal(t *testing.T) {
+	var child *KnnRank
+
+	tests := []struct {
+		name string
+		rank Rank
+	}{
+		{name: "SumRank", rank: &SumRank{ranks: []Rank{Val(1), child}}},
+		{name: "SubRank left", rank: &SubRank{left: child, right: Val(1)}},
+		{name: "SubRank right", rank: &SubRank{left: Val(1), right: child}},
+		{name: "MulRank", rank: &MulRank{ranks: []Rank{Val(1), child}}},
+		{name: "DivRank left", rank: &DivRank{left: child, right: Val(1)}},
+		{name: "DivRank right", rank: &DivRank{left: Val(1), right: child}},
+		{name: "AbsRank", rank: &AbsRank{rank: child}},
+		{name: "ExpRank", rank: &ExpRank{rank: child}},
+		{name: "LogRank", rank: &LogRank{rank: child}},
+		{name: "MaxRank", rank: &MaxRank{ranks: []Rank{Val(1), child}}},
+		{name: "MinRank", rank: &MinRank{ranks: []Rank{Val(1), child}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var err error
+			require.NotPanics(t, func() {
+				_, err = tt.rank.MarshalJSON()
+			})
+			require.ErrorIs(t, err, ErrNilRank)
 		})
 	}
 }
@@ -515,6 +585,22 @@ func TestRrfRank(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "overflowed")
 	})
+
+	for _, tt := range []struct {
+		name string
+		rank Rank
+	}{
+		{name: "nil rank", rank: nil},
+		{name: "typed nil rank", rank: (*KnnRank)(nil)},
+	} {
+		t.Run("rrf rejects "+tt.name, func(t *testing.T) {
+			_, err := NewRrfRank(
+				WithRrfRanks(RankWithWeight{Rank: tt.rank, Weight: 1}),
+			)
+			require.ErrorIs(t, err, ErrNilRank)
+			require.Contains(t, err.Error(), "rank 0")
+		})
+	}
 }
 
 func TestRrfRankArithmetic(t *testing.T) {
@@ -671,6 +757,22 @@ func TestOperandConversion(t *testing.T) {
 		data, err := rank.MarshalJSON()
 		require.NoError(t, err)
 		require.JSONEq(t, `{"$mul":[{"$val":1},{"$val":2.5}]}`, string(data))
+	})
+
+	t.Run("untyped nil operand becomes zero", func(t *testing.T) {
+		var operand Operand
+		rank := Val(1.0).Add(operand)
+		data, err := rank.MarshalJSON()
+		require.NoError(t, err)
+		require.JSONEq(t, `{"$sum":[{"$val":1},{"$val":0}]}`, string(data))
+	})
+
+	t.Run("unsupported operand remains unknown", func(t *testing.T) {
+		rank := Val(1.0).Add(unsupportedOperand{})
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.NotErrorIs(t, err, ErrNilRank)
+		require.Contains(t, err.Error(), "unknown operand type")
 	})
 }
 
