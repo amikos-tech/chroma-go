@@ -49,10 +49,8 @@ func (f FloatOperand) IsOperand() {}
 //
 //	rank := NewKnnRank(KnnQueryText("query")).Add(FloatOperand(1)).Log()
 //
-// Expressions containing nil or typed-nil operands or children fail with
-// [ErrNilRank] when marshaled. This guarantee applies at supported option and
-// composite serialization boundaries; directly calling methods on an arbitrary
-// nil concrete Rank pointer is invalid.
+// An untyped nil passed through the Operand API becomes Val(0) for compatibility.
+// Nil or typed-nil Rank children fail with [ErrNilRank] when marshaled.
 type Rank interface {
 	Operand
 	Multiply(operand Operand) Rank
@@ -84,7 +82,9 @@ type RankWithWeight struct {
 
 // UnknownRank is a sentinel type returned by operandToRank when an unsupported
 // Operand implementation is encountered. It errors on MarshalJSON to surface
-// programming errors instead of silently producing incorrect results.
+// programming errors instead of silently producing incorrect results. Its
+// promoted arithmetic methods operate on the embedded zero-valued ValRank and
+// should not be called directly; normal conversion uses it only as a leaf.
 type UnknownRank struct {
 	ValRank
 }
@@ -187,8 +187,11 @@ func (s *SumRank) Sub(operand Operand) Rank {
 
 func (s *SumRank) Add(operand Operand) Rank {
 	r := operandToRank(operand)
-	newRanks := make([]Rank, len(s.ranks))
-	copy(newRanks, s.ranks)
+	newRanks := []Rank{s}
+	if s != nil {
+		newRanks = make([]Rank, len(s.ranks))
+		copy(newRanks, s.ranks)
+	}
 	if sum, ok := r.(*SumRank); ok {
 		return &SumRank{ranks: append(newRanks, sum.ranks...)}
 	}
@@ -319,8 +322,11 @@ func (m *MulRank) IsOperand() {}
 
 func (m *MulRank) Multiply(operand Operand) Rank {
 	r := operandToRank(operand)
-	newRanks := make([]Rank, len(m.ranks))
-	copy(newRanks, m.ranks)
+	newRanks := []Rank{m}
+	if m != nil {
+		newRanks = make([]Rank, len(m.ranks))
+		copy(newRanks, m.ranks)
+	}
 	if mul, ok := r.(*MulRank); ok {
 		return &MulRank{ranks: append(newRanks, mul.ranks...)}
 	}
@@ -683,8 +689,11 @@ func (m *MaxRank) Log() Rank {
 
 func (m *MaxRank) Max(operand Operand) Rank {
 	r := operandToRank(operand)
-	newRanks := make([]Rank, len(m.ranks))
-	copy(newRanks, m.ranks)
+	newRanks := []Rank{m}
+	if m != nil {
+		newRanks = make([]Rank, len(m.ranks))
+		copy(newRanks, m.ranks)
+	}
 	if max, ok := r.(*MaxRank); ok {
 		return &MaxRank{ranks: append(newRanks, max.ranks...)}
 	}
@@ -760,8 +769,11 @@ func (m *MinRank) Max(operand Operand) Rank {
 
 func (m *MinRank) Min(operand Operand) Rank {
 	r := operandToRank(operand)
-	newRanks := make([]Rank, len(m.ranks))
-	copy(newRanks, m.ranks)
+	newRanks := []Rank{m}
+	if m != nil {
+		newRanks = make([]Rank, len(m.ranks))
+		copy(newRanks, m.ranks)
+	}
 	if min, ok := r.(*MinRank); ok {
 		return &MinRank{ranks: append(newRanks, min.ranks...)}
 	}

@@ -401,6 +401,38 @@ func TestRankTypedNilReceiverMarshal(t *testing.T) {
 	}
 }
 
+func TestSelfFlatteningRankTypedNilReceiverMarshal(t *testing.T) {
+	var sum *SumRank
+	var mul *MulRank
+	var max *MaxRank
+	var min *MinRank
+
+	tests := []struct {
+		name  string
+		build func() Rank
+	}{
+		{name: "SumRank.Add", build: func() Rank { return sum.Add(Val(1)) }},
+		{name: "MulRank.Multiply", build: func() Rank { return mul.Multiply(Val(1)) }},
+		{name: "MaxRank.Max", build: func() Rank { return max.Max(Val(1)) }},
+		{name: "MinRank.Min", build: func() Rank { return min.Min(Val(1)) }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var rank Rank
+			require.NotPanics(t, func() {
+				rank = tt.build()
+			})
+
+			var err error
+			require.NotPanics(t, func() {
+				_, err = rank.MarshalJSON()
+			})
+			require.ErrorIs(t, err, ErrNilRank)
+		})
+	}
+}
+
 func TestCompositeRankNilChildMarshal(t *testing.T) {
 	var child *KnnRank
 
@@ -408,17 +440,25 @@ func TestCompositeRankNilChildMarshal(t *testing.T) {
 		name string
 		rank Rank
 	}{
-		{name: "SumRank", rank: &SumRank{ranks: []Rank{Val(1), child}}},
+		{name: "SumRank first of two", rank: &SumRank{ranks: []Rank{child, Val(1)}}},
+		{name: "SumRank second of two", rank: &SumRank{ranks: []Rank{Val(1), child}}},
+		{name: "SumRank middle of three", rank: &SumRank{ranks: []Rank{Val(1), child, Val(2)}}},
 		{name: "SubRank left", rank: &SubRank{left: child, right: Val(1)}},
 		{name: "SubRank right", rank: &SubRank{left: Val(1), right: child}},
-		{name: "MulRank", rank: &MulRank{ranks: []Rank{Val(1), child}}},
+		{name: "MulRank first of two", rank: &MulRank{ranks: []Rank{child, Val(1)}}},
+		{name: "MulRank second of two", rank: &MulRank{ranks: []Rank{Val(1), child}}},
+		{name: "MulRank middle of three", rank: &MulRank{ranks: []Rank{Val(1), child, Val(2)}}},
 		{name: "DivRank left", rank: &DivRank{left: child, right: Val(1)}},
 		{name: "DivRank right", rank: &DivRank{left: Val(1), right: child}},
 		{name: "AbsRank", rank: &AbsRank{rank: child}},
 		{name: "ExpRank", rank: &ExpRank{rank: child}},
 		{name: "LogRank", rank: &LogRank{rank: child}},
-		{name: "MaxRank", rank: &MaxRank{ranks: []Rank{Val(1), child}}},
-		{name: "MinRank", rank: &MinRank{ranks: []Rank{Val(1), child}}},
+		{name: "MaxRank first of two", rank: &MaxRank{ranks: []Rank{child, Val(1)}}},
+		{name: "MaxRank second of two", rank: &MaxRank{ranks: []Rank{Val(1), child}}},
+		{name: "MaxRank middle of three", rank: &MaxRank{ranks: []Rank{Val(1), child, Val(2)}}},
+		{name: "MinRank first of two", rank: &MinRank{ranks: []Rank{child, Val(1)}}},
+		{name: "MinRank second of two", rank: &MinRank{ranks: []Rank{Val(1), child}}},
+		{name: "MinRank middle of three", rank: &MinRank{ranks: []Rank{Val(1), child, Val(2)}}},
 	}
 
 	for _, tt := range tests {
@@ -601,6 +641,20 @@ func TestRrfRank(t *testing.T) {
 			require.Contains(t, err.Error(), "rank 0")
 		})
 	}
+
+	t.Run("direct invalid rrf is revalidated on marshal", func(t *testing.T) {
+		var rank *KnnRank
+		rrf := &RrfRank{
+			K: 60,
+			Ranks: []RankWithWeight{
+				{Rank: rank, Weight: 1},
+			},
+		}
+
+		_, err := rrf.MarshalJSON()
+		require.ErrorIs(t, err, ErrNilRank)
+		require.Contains(t, err.Error(), "rank 0")
+	})
 }
 
 func TestRrfRankArithmetic(t *testing.T) {
