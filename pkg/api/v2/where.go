@@ -458,6 +458,10 @@ func (w *WhereClauseWhereClauses) Operand() interface{} {
 }
 
 func (w *WhereClauseWhereClauses) Validate() error {
+	return w.validateWithDepth(0)
+}
+
+func (w *WhereClauseWhereClauses) validateWithDepth(depth int) error {
 	if w.operator != OrOperator && w.operator != AndOperator {
 		return errors.New("invalid operator, expected $and or $or")
 	}
@@ -465,14 +469,24 @@ func (w *WhereClauseWhereClauses) Validate() error {
 		return errors.Errorf("invalid operand for %s, expected at least one clause", w.operator)
 	}
 	for _, clause := range w.operand {
-		if isNilInterface(clause) {
-			return errors.Errorf("nil clause in %s expression", w.operator)
-		}
-		if err := clause.Validate(); err != nil {
+		if err := validateWhereClauseChild(clause, w.operator, depth+1); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func validateWhereClauseChild(clause WhereClause, operator WhereFilterOperator, depth int) error {
+	if isNilInterface(clause) {
+		return errors.Errorf("nil clause in %s expression", operator)
+	}
+	if depth > MaxExpressionDepth {
+		return errors.Errorf("where expression exceeds maximum depth of %d", MaxExpressionDepth)
+	}
+	if compound, ok := clause.(*WhereClauseWhereClauses); ok {
+		return compound.validateWithDepth(depth)
+	}
+	return clause.Validate()
 }
 
 // MarshalJSON validates before encoding, matching WhereDocumentClauseAnd/Or. Without
