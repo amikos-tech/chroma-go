@@ -141,26 +141,100 @@ func marshalRank(rank Rank, depth int) ([]byte, error) {
 	return rank.MarshalJSON()
 }
 
-// validateBuiltInRank validates SDK-owned Rank implementations through their
-// existing recursive serialization boundary. Caller-defined Rank types are left
-// to the public Rank contract and are not eagerly marshaled here.
+// validateBuiltInRank validates SDK-owned Rank implementations without calling
+// MarshalJSON on caller-defined Rank values. This keeps option application
+// side-effect free for custom ranks while still validating built-in descendants.
+//
+// Built-in rank type switches also appear in marshalRank, cloneRank, and
+// (*CollectionImpl).embedRankTextQueriesWithDepth. Review those switches when
+// adding a built-in Rank implementation.
 func validateBuiltInRank(rank Rank) error {
-	switch rank.(type) {
-	case *UnknownRank,
-		*ValRank,
-		*SumRank,
-		*SubRank,
-		*MulRank,
-		*DivRank,
-		*AbsRank,
-		*ExpRank,
-		*LogRank,
-		*MaxRank,
-		*MinRank,
-		*KnnRank,
-		*RrfRank:
-		_, err := marshalRank(rank, 0)
+	return validateBuiltInRankWithDepth(rank, 0)
+}
+
+func validateBuiltInRankWithDepth(rank Rank, depth int) error {
+	if isNilRank(rank) {
+		return ErrNilRank
+	}
+	if depth > MaxExpressionDepth {
+		return errors.Errorf("rank expression exceeds maximum depth of %d", MaxExpressionDepth)
+	}
+
+	validateChild := func(location string, child Rank) error {
+		if err := validateBuiltInRankWithDepth(child, depth+1); err != nil {
+			return errors.Wrap(err, location)
+		}
+		return nil
+	}
+	validateChildren := func(kind string, children []Rank) error {
+		for i, child := range children {
+			if err := validateBuiltInRankWithDepth(child, depth+1); err != nil {
+				return errors.Wrapf(err, "%s rank %d", kind, i)
+			}
+		}
+		return nil
+	}
+
+	switch rank := rank.(type) {
+	case *UnknownRank, *ValRank:
+		// These SDK-owned leaves have no descendants. Their own marshalers are
+		// side-effect free and retain JSON's finite-number validation for ValRank.
+		_, err := rank.MarshalJSON()
 		return err
+	case *KnnRank:
+		return rank.Validate()
+	case *SumRank:
+		if len(rank.ranks) > MaxExpressionTerms {
+			return errors.Errorf("sum expression exceeds maximum of %d terms", MaxExpressionTerms)
+		}
+		return validateChildren("sum", rank.ranks)
+	case *SubRank:
+		if err := validateChild("sub left", rank.left); err != nil {
+			return err
+		}
+		return validateChild("sub right", rank.right)
+	case *MulRank:
+		if len(rank.ranks) > MaxExpressionTerms {
+			return errors.Errorf("mul expression exceeds maximum of %d terms", MaxExpressionTerms)
+		}
+		return validateChildren("mul", rank.ranks)
+	case *DivRank:
+		if value, ok := rank.right.(*ValRank); ok && value != nil && value.value == 0 {
+			return errors.New("division by zero: denominator is a zero literal")
+		}
+		if err := validateChild("div left", rank.left); err != nil {
+			return err
+		}
+		return validateChild("div right", rank.right)
+	case *AbsRank:
+		return validateChild("abs rank", rank.rank)
+	case *ExpRank:
+		return validateChild("exp rank", rank.rank)
+	case *LogRank:
+		return validateChild("log rank", rank.rank)
+	case *MaxRank:
+		if len(rank.ranks) > MaxExpressionTerms {
+			return errors.Errorf("max expression exceeds maximum of %d terms", MaxExpressionTerms)
+		}
+		return validateChildren("max", rank.ranks)
+	case *MinRank:
+		if len(rank.ranks) > MaxExpressionTerms {
+			return errors.Errorf("min expression exceeds maximum of %d terms", MaxExpressionTerms)
+		}
+		return validateChildren("min", rank.ranks)
+	case *RrfRank:
+		if err := rank.Validate(); err != nil {
+			return errors.Wrap(err, "cannot marshal RrfRank")
+		}
+		if err := validateRrfNormalizedWeights(rank); err != nil {
+			return err
+		}
+		for i, weightedRank := range rank.Ranks {
+			if err := validateBuiltInRankWithDepth(weightedRank.Rank, depth+1); err != nil {
+				return errors.Wrapf(err, "rrf rank %d", i)
+			}
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -1001,7 +1075,8 @@ func WithKnnReturnRank() KnnOption {
 	}
 }
 
-// KnnRank performs K-Nearest Neighbors search and scoring.
+// KnnRank performs K-Nearest Neighbors search and scoring. Its zero value is
+// invalid; use [NewKnnRank] to apply defaults and validate the required fields.
 // Serializes to JSON as {"$knn": {...}}.
 //
 // Create using [NewKnnRank] with a query option and optional configuration:
@@ -1019,8 +1094,13 @@ func WithKnnReturnRank() KnnOption {
 //	// Weighted combination
 //	combined := rank1.Multiply(FloatOperand(0.7)).Add(rank2.Multiply(FloatOperand(0.3)))
 type KnnRank struct {
-	Query        interface{}
-	Key          Key
+	// Query is the required text, dense-vector, or sparse-vector search query.
+	Query interface{}
+	// Key is the required embedding field to search. NewKnnRank defaults it to
+	// [KEmbedding].
+	Key Key
+	// Limit is the required positive maximum number of nearest neighbours to
+	// retrieve. NewKnnRank defaults it to 16.
 	Limit        int
 	DefaultScore *float64
 	ReturnRank   bool
@@ -1053,6 +1133,9 @@ func NewKnnRank(query KnnQueryOption, knnOptions ...KnnOption) (*KnnRank, error)
 		if err := opt(knn); err != nil {
 			return nil, err
 		}
+	}
+	if err := knn.Validate(); err != nil {
+		return nil, errors.Wrap(err, "cannot construct KnnRank")
 	}
 	return knn, nil
 }
@@ -1108,9 +1191,13 @@ func (k *KnnRank) Validate() error {
 	if isNilInterface(k.Query) {
 		return errors.New("knn query cannot be nil")
 	}
-	switch k.Query.(type) {
-	case string, []float32, *embeddings.SparseVector:
-		// Valid types
+	switch query := k.Query.(type) {
+	case string, *embeddings.SparseVector:
+		// Valid types.
+	case []float32:
+		if len(query) == 0 {
+			return errors.New("knn query vector must be non-empty")
+		}
 	default:
 		return errors.Errorf("invalid KnnRank query type: %T (expected string, []float32, or *SparseVector)", k.Query)
 	}
@@ -1298,6 +1385,30 @@ func (r *RrfRank) Validate() error {
 		if math.IsNaN(rw.Weight) || math.IsInf(rw.Weight, 0) {
 			return errors.Errorf("rank %d has invalid weight: NaN and Inf are not allowed", i)
 		}
+	}
+	return nil
+}
+
+// validateRrfNormalizedWeights checks the normalization conditions without
+// constructing the temporary rank expression used for RRF serialization.
+func validateRrfNormalizedWeights(r *RrfRank) error {
+	if !r.Normalize {
+		return nil
+	}
+
+	sum := 0.0
+	for _, weightedRank := range r.Ranks {
+		weight := weightedRank.Weight
+		if weight == 0 {
+			weight = 1
+		}
+		sum += weight
+	}
+	if math.IsInf(sum, 0) {
+		return errors.New("sum of weights overflowed: use smaller weight values")
+	}
+	if sum < 1e-6 {
+		return errors.New("sum of weights must be positive when normalize=true")
 	}
 	return nil
 }

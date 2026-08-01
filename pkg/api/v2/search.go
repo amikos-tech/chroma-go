@@ -653,7 +653,7 @@ func (o *rankOption) ApplyToSearchRequest(req *SearchRequest) error {
 		return ErrNilRank
 	}
 	if err := validateBuiltInRank(o.rank); err != nil {
-		return err
+		return errors.Wrap(err, "invalid rank")
 	}
 	req.Rank = o.rank
 	return nil

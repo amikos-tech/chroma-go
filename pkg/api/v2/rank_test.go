@@ -189,6 +189,15 @@ func TestKnnRankValidation(t *testing.T) {
 			wantMessage: "limit must be >= 1",
 		},
 		{
+			name: "empty dense query",
+			rank: &KnnRank{
+				Query: []float32{},
+				Key:   KEmbedding,
+				Limit: 16,
+			},
+			wantMessage: "query vector must be non-empty",
+		},
+		{
 			name: "unsupported query type",
 			rank: &KnnRank{
 				Query: 42,
@@ -208,6 +217,32 @@ func TestKnnRankValidation(t *testing.T) {
 			data, err := tt.rank.MarshalJSON()
 			require.Error(t, err)
 			require.Nil(t, data)
+			require.Contains(t, err.Error(), tt.wantMessage)
+		})
+	}
+
+	for _, tt := range []struct {
+		name        string
+		query       KnnQueryOption
+		options     []KnnOption
+		wantMessage string
+	}{
+		{name: "nil query", wantMessage: "cannot construct KnnRank: knn query cannot be nil"},
+		{
+			name:        "empty key",
+			query:       KnnQueryText("query"),
+			options:     []KnnOption{WithKnnKey("")},
+			wantMessage: "cannot construct KnnRank: knn key must be non-empty",
+		},
+		{
+			name:        "empty dense query",
+			query:       KnnQueryVector(denseKnnVector{}),
+			wantMessage: "cannot construct KnnRank: knn query vector must be non-empty",
+		},
+	} {
+		t.Run("constructor rejects "+tt.name, func(t *testing.T) {
+			_, err := NewKnnRank(tt.query, tt.options...)
+			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.wantMessage)
 		})
 	}
@@ -250,9 +285,7 @@ func TestKnnRankValidation(t *testing.T) {
 
 func TestKnnRankWithVectors(t *testing.T) {
 	t.Run("dense vector", func(t *testing.T) {
-		// Create a KnnRank with a float32 slice directly
-		knn := mustNewKnnRank(t, nil)
-		knn.Query = []float32{0.1, 0.2, 0.3}
+		knn := mustNewKnnRank(t, KnnQueryVector(denseKnnVector{0.1, 0.2, 0.3}))
 
 		data, err := knn.MarshalJSON()
 		require.NoError(t, err)

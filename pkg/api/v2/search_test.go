@@ -5,6 +5,7 @@ package v2
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -282,6 +283,14 @@ func TestSearchFilter(t *testing.T) {
 		require.Contains(t, err.Error(), "invalid search filter")
 		require.Empty(t, sq.Searches)
 	})
+
+	t.Run("caller-defined where clauses use their interface validation", func(t *testing.T) {
+		where := &validatingWhereClause{}
+		req := &SearchRequest{}
+
+		require.NoError(t, WithSearchFilter(&SearchFilter{Where: where}).ApplyToSearchRequest(req))
+		require.Equal(t, 1, where.validateCalls)
+	})
 }
 
 func TestSearchRequestJSON(t *testing.T) {
@@ -415,10 +424,11 @@ func TestWithRank(t *testing.T) {
 			name           string
 			rank           Rank
 			wantErrNilRank bool
+			wantContext    string
 		}{
 			{name: "zero-value knn", rank: &KnnRank{}},
 			{name: "invalid rrf", rank: &RrfRank{}},
-			{name: "invalid nested knn", rank: Val(0).Add(&KnnRank{})},
+			{name: "invalid nested knn", rank: Val(0).Add(&KnnRank{}), wantContext: "sum rank 1"},
 			{name: "typed nil nested rank", rank: Val(0).Add(typedNilKnn), wantErrNilRank: true},
 		}
 
@@ -430,8 +440,12 @@ func TestWithRank(t *testing.T) {
 				err := WithRank(tt.rank).ApplyToSearchRequest(req)
 
 				require.Error(t, err)
+				require.Contains(t, err.Error(), "invalid rank")
 				if tt.wantErrNilRank {
 					require.ErrorIs(t, err, ErrNilRank)
+				}
+				if tt.wantContext != "" {
+					require.Contains(t, err.Error(), tt.wantContext)
 				}
 				require.Same(t, existing, req.Rank)
 			})
@@ -445,6 +459,24 @@ func TestWithRank(t *testing.T) {
 		require.Empty(t, sq.Searches)
 	})
 
+	t.Run("invalid RRF normalization is rejected without building its expression", func(t *testing.T) {
+		knn := mustKnnRank(t, KnnQueryText("query"))
+		req := &SearchRequest{}
+
+		err := WithRank(&RrfRank{
+			K:         60,
+			Normalize: true,
+			Ranks: []RankWithWeight{
+				knn.WithWeight(math.MaxFloat64),
+				knn.WithWeight(math.MaxFloat64),
+			},
+		}).ApplyToSearchRequest(req)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "sum of weights overflowed")
+		require.Nil(t, req.Rank)
+	})
+
 	t.Run("caller-defined rank remains accepted directly and nested", func(t *testing.T) {
 		custom := mapBackedRank{"k": "v"}
 
@@ -456,6 +488,18 @@ func TestWithRank(t *testing.T) {
 		nestedReq := &SearchRequest{}
 		require.NoError(t, WithRank(nested).ApplyToSearchRequest(nestedReq))
 		require.Equal(t, nested, nestedReq.Rank)
+	})
+
+	t.Run("does not marshal a caller-defined rank while validating a built-in tree", func(t *testing.T) {
+		custom := &countingRank{}
+		req := &SearchRequest{}
+
+		require.NoError(t, WithRank(Val(0).Add(custom)).ApplyToSearchRequest(req))
+		require.Zero(t, custom.marshalCalls)
+
+		_, err := req.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, 1, custom.marshalCalls)
 	})
 }
 
@@ -487,6 +531,36 @@ func TestWithKnnRank(t *testing.T) {
 		require.NotNil(t, knn.DefaultScore)
 		require.Equal(t, 10.0, *knn.DefaultScore)
 		require.Equal(t, Key("custom_field"), knn.Key)
+	})
+
+	t.Run("invalid final configuration fails before assignment", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			query       KnnQueryOption
+			options     []KnnOption
+			wantMessage string
+		}{
+			{name: "nil query", wantMessage: "knn query cannot be nil"},
+			{
+				name:        "empty key",
+				query:       KnnQueryText("query"),
+				options:     []KnnOption{WithKnnKey("")},
+				wantMessage: "knn key must be non-empty",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				existing := Val(42)
+				req := &SearchRequest{Rank: existing}
+
+				err := WithKnnRank(tt.query, tt.options...).ApplyToSearchRequest(req)
+
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.wantMessage)
+				require.Same(t, existing, req.Rank)
+			})
+		}
 	})
 }
 
@@ -1135,6 +1209,44 @@ func (m mapBackedRank) Max(Operand) Rank             { return m }
 func (m mapBackedRank) Min(Operand) Rank             { return m }
 func (m mapBackedRank) UnmarshalJSON([]byte) error   { return nil }
 func (m mapBackedRank) MarshalJSON() ([]byte, error) { return json.Marshal(map[string]string(m)) }
+
+type countingRank struct {
+	marshalCalls int
+}
+
+func (r *countingRank) IsOperand()                 {}
+func (r *countingRank) Multiply(Operand) Rank      { return r }
+func (r *countingRank) Sub(Operand) Rank           { return r }
+func (r *countingRank) Add(Operand) Rank           { return r }
+func (r *countingRank) Div(Operand) Rank           { return r }
+func (r *countingRank) Negate() Rank               { return r }
+func (r *countingRank) Abs() Rank                  { return r }
+func (r *countingRank) Exp() Rank                  { return r }
+func (r *countingRank) Log() Rank                  { return r }
+func (r *countingRank) Max(Operand) Rank           { return r }
+func (r *countingRank) Min(Operand) Rank           { return r }
+func (r *countingRank) UnmarshalJSON([]byte) error { return nil }
+func (r *countingRank) MarshalJSON() ([]byte, error) {
+	r.marshalCalls++
+	return []byte(`{"$custom":true}`), nil
+}
+
+type validatingWhereClause struct {
+	validateCalls int
+}
+
+func (w *validatingWhereClause) Operator() WhereFilterOperator { return EqualOperator }
+func (w *validatingWhereClause) Key() string                   { return "custom" }
+func (w *validatingWhereClause) Operand() interface{}          { return "value" }
+func (w *validatingWhereClause) String() string                { return "custom" }
+func (w *validatingWhereClause) Validate() error {
+	w.validateCalls++
+	return nil
+}
+func (w *validatingWhereClause) MarshalJSON() ([]byte, error) {
+	return []byte(`{"custom":{"$eq":"value"}}`), nil
+}
+func (w *validatingWhereClause) UnmarshalJSON([]byte) error { return nil }
 
 func TestIsNilInterfaceNillableKinds(t *testing.T) {
 	var nilMap map[string]string
