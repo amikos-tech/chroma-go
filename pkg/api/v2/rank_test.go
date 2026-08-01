@@ -143,12 +143,19 @@ func TestKnnRank(t *testing.T) {
 
 func TestKnnRankValidation(t *testing.T) {
 	var typedNilSparse *embeddings.SparseVector
+	emptySparse, err := embeddings.NewSparseVector([]int{}, []float32{})
+	require.NoError(t, err)
 
 	invalid := []struct {
 		name        string
 		rank        *KnnRank
 		wantMessage string
 	}{
+		{
+			name:        "nil rank",
+			rank:        nil,
+			wantMessage: "knn rank is nil",
+		},
 		{
 			name:        "zero value",
 			rank:        &KnnRank{},
@@ -192,6 +199,15 @@ func TestKnnRankValidation(t *testing.T) {
 			name: "empty dense query",
 			rank: &KnnRank{
 				Query: []float32{},
+				Key:   KEmbedding,
+				Limit: 16,
+			},
+			wantMessage: "query vector must be non-empty",
+		},
+		{
+			name: "empty sparse query",
+			rank: &KnnRank{
+				Query: emptySparse,
 				Key:   KEmbedding,
 				Limit: 16,
 			},

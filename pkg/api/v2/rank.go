@@ -1188,12 +1188,19 @@ func (k *KnnRank) WithWeight(weight float64) RankWithWeight {
 
 // Validate checks that the KNN query, key, and limit can form a valid rank.
 func (k *KnnRank) Validate() error {
+	if k == nil {
+		return errors.New("knn rank is nil")
+	}
 	if isNilInterface(k.Query) {
 		return errors.New("knn query cannot be nil")
 	}
 	switch query := k.Query.(type) {
-	case string, *embeddings.SparseVector:
-		// Valid types.
+	case string:
+		// Valid type.
+	case *embeddings.SparseVector:
+		if query.Len() == 0 {
+			return errors.New("knn query vector must be non-empty")
+		}
 	case []float32:
 		if len(query) == 0 {
 			return errors.New("knn query vector must be non-empty")
