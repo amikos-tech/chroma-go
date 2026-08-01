@@ -17,6 +17,11 @@ type unsupportedOperand struct{}
 
 func (unsupportedOperand) IsOperand() {}
 
+type denseKnnVector []float32
+
+func (v denseKnnVector) Len() int                   { return len(v) }
+func (v denseKnnVector) ValuesAsFloat32() []float32 { return []float32(v) }
+
 // mustNewKnnRank is a test helper that panics if NewKnnRank returns an error
 func mustNewKnnRank(t *testing.T, query KnnQueryOption, knnOptions ...KnnOption) *KnnRank {
 	t.Helper()
@@ -136,11 +141,167 @@ func TestKnnRank(t *testing.T) {
 	}
 }
 
+func TestKnnRankValidation(t *testing.T) {
+	var typedNilSparse *embeddings.SparseVector
+	emptySparse, err := embeddings.NewSparseVector([]int{}, []float32{})
+	require.NoError(t, err)
+
+	invalid := []struct {
+		name        string
+		rank        *KnnRank
+		wantMessage string
+	}{
+		{
+			name:        "nil rank",
+			rank:        nil,
+			wantMessage: "knn rank is nil",
+		},
+		{
+			name:        "zero value",
+			rank:        &KnnRank{},
+			wantMessage: "query",
+		},
+		{
+			name: "nil query",
+			rank: &KnnRank{
+				Key:   KEmbedding,
+				Limit: 16,
+			},
+			wantMessage: "query",
+		},
+		{
+			name: "typed nil sparse query",
+			rank: &KnnRank{
+				Query: typedNilSparse,
+				Key:   KEmbedding,
+				Limit: 16,
+			},
+			wantMessage: "query",
+		},
+		{
+			name: "empty key",
+			rank: &KnnRank{
+				Query: "query",
+				Limit: 16,
+			},
+			wantMessage: "key",
+		},
+		{
+			name: "limit below one",
+			rank: &KnnRank{
+				Query: "query",
+				Key:   KEmbedding,
+				Limit: 0,
+			},
+			wantMessage: "limit must be >= 1",
+		},
+		{
+			name: "empty dense query",
+			rank: &KnnRank{
+				Query: []float32{},
+				Key:   KEmbedding,
+				Limit: 16,
+			},
+			wantMessage: "query vector must be non-empty",
+		},
+		{
+			name: "empty sparse query",
+			rank: &KnnRank{
+				Query: emptySparse,
+				Key:   KEmbedding,
+				Limit: 16,
+			},
+			wantMessage: "query vector must be non-empty",
+		},
+		{
+			name: "unsupported query type",
+			rank: &KnnRank{
+				Query: 42,
+				Key:   KEmbedding,
+				Limit: 16,
+			},
+			wantMessage: "invalid KnnRank query type: int (expected string, []float32, or *SparseVector)",
+		},
+	}
+
+	for _, tt := range invalid {
+		t.Run("rejects "+tt.name, func(t *testing.T) {
+			err := tt.rank.Validate()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantMessage)
+
+			data, err := tt.rank.MarshalJSON()
+			require.Error(t, err)
+			require.Nil(t, data)
+			require.Contains(t, err.Error(), tt.wantMessage)
+		})
+	}
+
+	for _, tt := range []struct {
+		name        string
+		query       KnnQueryOption
+		options     []KnnOption
+		wantMessage string
+	}{
+		{name: "nil query", wantMessage: "cannot construct KnnRank: knn query cannot be nil"},
+		{
+			name:        "empty key",
+			query:       KnnQueryText("query"),
+			options:     []KnnOption{WithKnnKey("")},
+			wantMessage: "cannot construct KnnRank: knn key must be non-empty",
+		},
+		{
+			name:        "empty dense query",
+			query:       KnnQueryVector(denseKnnVector{}),
+			wantMessage: "cannot construct KnnRank: knn query vector must be non-empty",
+		},
+	} {
+		t.Run("constructor rejects "+tt.name, func(t *testing.T) {
+			_, err := NewKnnRank(tt.query, tt.options...)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantMessage)
+		})
+	}
+
+	sparse, err := embeddings.NewSparseVector([]int{1, 5}, []float32{0.5, 0.25})
+	require.NoError(t, err)
+	dense := denseKnnVector{0.1, 0.2}
+
+	valid := []struct {
+		name     string
+		rank     *KnnRank
+		expected string
+	}{
+		{
+			name:     "text query",
+			rank:     mustNewKnnRank(t, KnnQueryText("query")),
+			expected: `{"$knn":{"query":"query","key":"#embedding","limit":16}}`,
+		},
+		{
+			name:     "dense vector query",
+			rank:     mustNewKnnRank(t, KnnQueryVector(dense)),
+			expected: `{"$knn":{"query":[0.1,0.2],"key":"#embedding","limit":16}}`,
+		},
+		{
+			name:     "sparse vector query",
+			rank:     mustNewKnnRank(t, KnnQuerySparseVector(sparse), WithKnnKey(K("sparse_embedding"))),
+			expected: `{"$knn":{"query":{"indices":[1,5],"values":[0.5,0.25]},"key":"sparse_embedding","limit":16}}`,
+		},
+	}
+
+	for _, tt := range valid {
+		t.Run("accepts "+tt.name, func(t *testing.T) {
+			require.NoError(t, tt.rank.Validate())
+			data, err := tt.rank.MarshalJSON()
+			require.NoError(t, err)
+			require.JSONEq(t, tt.expected, string(data))
+		})
+	}
+}
+
 func TestKnnRankWithVectors(t *testing.T) {
 	t.Run("dense vector", func(t *testing.T) {
-		// Create a KnnRank with a float32 slice directly
-		knn := mustNewKnnRank(t, nil)
-		knn.Query = []float32{0.1, 0.2, 0.3}
+		knn := mustNewKnnRank(t, KnnQueryVector(denseKnnVector{0.1, 0.2, 0.3}))
 
 		data, err := knn.MarshalJSON()
 		require.NoError(t, err)
