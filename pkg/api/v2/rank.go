@@ -49,10 +49,10 @@ func (f FloatOperand) IsOperand() {}
 //
 //	rank := NewKnnRank(KnnQueryText("query")).Add(FloatOperand(1)).Log()
 //
-// An untyped nil passed through the Operand API becomes Val(0) for compatibility.
-// Composite serialization rejects nil or typed-nil Rank children with [ErrNilRank].
-// This guarantee does not cover direct MarshalJSON calls on nil concrete Rank
-// pointers; those calls are unsupported and may panic.
+// An untyped nil passed through the Operand API and a typed-nil Rank operand both
+// cause composite serialization to fail with [ErrNilRank]. This guarantee does
+// not cover direct MarshalJSON calls on nil concrete Rank pointers; those calls
+// are unsupported and may panic.
 type Rank interface {
 	Operand
 	Multiply(operand Operand) Rank
@@ -82,11 +82,12 @@ type RankWithWeight struct {
 	Weight float64
 }
 
-// UnknownRank is a sentinel type returned by operandToRank when an unsupported
-// Operand implementation is encountered. It errors on MarshalJSON to surface
-// programming errors instead of silently producing incorrect results. Its
-// promoted arithmetic methods operate on the embedded zero-valued ValRank and
-// should not be called directly; normal conversion uses it only as a leaf.
+// UnknownRank is a sentinel type returned by operandToRank only when an
+// unsupported Operand implementation is encountered. It errors on MarshalJSON
+// to surface programming errors instead of silently producing incorrect
+// results. Its promoted arithmetic methods operate on the embedded zero-valued
+// ValRank and should not be called directly; normal conversion uses it only as a
+// leaf.
 //
 // Calling any promoted method on a nil *UnknownRank panics, including IsOperand,
 // whose body is empty. ValRank is embedded by value, so a promoted call
@@ -1368,12 +1369,12 @@ func (r *RrfRank) UnmarshalJSON(_ []byte) error {
 
 // operandToRank converts an Operand to a Rank.
 // Supported operand types: Rank, IntOperand, FloatOperand.
-// An untyped nil is substituted with Val(0) for fluent API chaining. A typed-nil
-// Rank becomes a nil Rank so the enclosing composite reports [ErrNilRank].
-// Unsupported Operand implementations become *UnknownRank.
+// Untyped nil and typed-nil Rank operands become a nil Rank so the enclosing
+// composite reports [ErrNilRank]. Unsupported Operand implementations become
+// *UnknownRank.
 func operandToRank(operand Operand) Rank {
 	if operand == nil {
-		return Val(0)
+		return nil
 	}
 	switch v := operand.(type) {
 	case Rank:

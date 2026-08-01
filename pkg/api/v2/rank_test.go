@@ -366,6 +366,39 @@ func TestRankArithmeticTypedNilOperandMarshal(t *testing.T) {
 	}
 }
 
+func TestRankUntypedNilOperandMarshal(t *testing.T) {
+	knn := mustNewKnnRank(t, KnnQueryText("test"), WithKnnReturnRank())
+	rrf := mustNewRrfRank(t, WithRrfRanks(knn.WithWeight(1.0)), WithRrfK(60))
+
+	tests := []struct {
+		name  string
+		build func() Rank
+	}{
+		{name: "Add", build: func() Rank { return rrf.Add(nil) }},
+		{name: "Multiply", build: func() Rank { return rrf.Multiply(nil) }},
+		{name: "Sub", build: func() Rank { return rrf.Sub(nil) }},
+		{name: "Div", build: func() Rank { return rrf.Div(nil) }},
+		{name: "Max", build: func() Rank { return rrf.Max(nil) }},
+		{name: "Min", build: func() Rank { return rrf.Min(nil) }},
+		{name: "SumRank.Add", build: func() Rank { return Val(1).Add(Val(2)).Add(nil) }},
+		{name: "MulRank.Multiply", build: func() Rank { return Val(1).Multiply(Val(2)).Multiply(nil) }},
+		{name: "MaxRank.Max", build: func() Rank { return Val(1).Max(Val(2)).Max(nil) }},
+		{name: "MinRank.Min", build: func() Rank { return Val(1).Min(Val(2)).Min(nil) }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var data []byte
+			var err error
+			require.NotPanics(t, func() {
+				data, err = tt.build().MarshalJSON()
+			})
+			require.Empty(t, data)
+			require.ErrorIs(t, err, ErrNilRank)
+		})
+	}
+}
+
 func TestRankTypedNilReceiverMarshal(t *testing.T) {
 	var knn *KnnRank
 	var rankReceiver Rank = knn
@@ -816,12 +849,10 @@ func TestOperandConversion(t *testing.T) {
 		require.JSONEq(t, `{"$mul":[{"$val":1},{"$val":2.5}]}`, string(data))
 	})
 
-	t.Run("untyped nil operand becomes zero", func(t *testing.T) {
+	t.Run("untyped nil operand becomes nil rank", func(t *testing.T) {
 		var operand Operand
-		rank := Val(1.0).Add(operand)
-		data, err := rank.MarshalJSON()
-		require.NoError(t, err)
-		require.JSONEq(t, `{"$sum":[{"$val":1},{"$val":0}]}`, string(data))
+		rank := operandToRank(operand)
+		require.Nil(t, rank)
 	})
 
 	t.Run("unsupported operand remains unknown", func(t *testing.T) {
