@@ -141,6 +141,31 @@ func marshalRank(rank Rank, depth int) ([]byte, error) {
 	return rank.MarshalJSON()
 }
 
+// validateBuiltInRank validates SDK-owned Rank implementations through their
+// existing recursive serialization boundary. Caller-defined Rank types are left
+// to the public Rank contract and are not eagerly marshaled here.
+func validateBuiltInRank(rank Rank) error {
+	switch rank.(type) {
+	case *UnknownRank,
+		*ValRank,
+		*SumRank,
+		*SubRank,
+		*MulRank,
+		*DivRank,
+		*AbsRank,
+		*ExpRank,
+		*LogRank,
+		*MaxRank,
+		*MinRank,
+		*KnnRank,
+		*RrfRank:
+		_, err := marshalRank(rank, 0)
+		return err
+	default:
+		return nil
+	}
+}
+
 // ValRank represents a constant numeric value in rank expressions.
 // Serializes to JSON as {"$val": <value>}.
 type ValRank struct {
@@ -1078,13 +1103,29 @@ func (k *KnnRank) WithWeight(weight float64) RankWithWeight {
 	return RankWithWeight{Rank: k, Weight: weight}
 }
 
-func (k *KnnRank) MarshalJSON() ([]byte, error) {
-	// Validate query type
+// Validate checks that the KNN query, key, and limit can form a valid rank.
+func (k *KnnRank) Validate() error {
+	if isNilInterface(k.Query) {
+		return errors.New("knn query cannot be nil")
+	}
 	switch k.Query.(type) {
-	case string, []float32, *embeddings.SparseVector, nil:
+	case string, []float32, *embeddings.SparseVector:
 		// Valid types
 	default:
-		return nil, errors.Errorf("invalid KnnRank query type: %T (expected string, []float32, or *SparseVector)", k.Query)
+		return errors.Errorf("invalid KnnRank query type: %T (expected string, []float32, or *SparseVector)", k.Query)
+	}
+	if k.Key == "" {
+		return errors.New("knn key must be non-empty")
+	}
+	if k.Limit < 1 {
+		return errors.New("knn limit must be >= 1")
+	}
+	return nil
+}
+
+func (k *KnnRank) MarshalJSON() ([]byte, error) {
+	if err := k.Validate(); err != nil {
+		return nil, err
 	}
 
 	inner := map[string]interface{}{

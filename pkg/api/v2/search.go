@@ -400,7 +400,8 @@ type searchFilterOption struct {
 //
 // Passing nil causes the enclosing search request to fail with [ErrNilFilter] instead of
 // being treated as omission — callers who want to omit the filter should simply not call
-// this option.
+// this option. A non-nil Where tree is validated recursively before assignment. Empty
+// filters, IDs-only filters, and filters with a nil or typed-nil Where remain valid.
 func WithSearchFilter(filter *SearchFilter) *searchFilterOption {
 	return &searchFilterOption{filter: filter}
 }
@@ -408,6 +409,11 @@ func WithSearchFilter(filter *SearchFilter) *searchFilterOption {
 func (o *searchFilterOption) ApplyToSearchRequest(req *SearchRequest) error {
 	if o.filter == nil {
 		return ErrNilFilter
+	}
+	if !isNilInterface(o.filter.Where) {
+		if err := o.filter.Where.Validate(); err != nil {
+			return errors.Wrap(err, "invalid search filter")
+		}
 	}
 	req.Filter = o.filter
 	return nil
@@ -631,9 +637,12 @@ type rankOption struct {
 //	)
 //
 // Passing nil or a typed nil causes the enclosing search request to fail with
-// [ErrNilRank] when the option is applied. This differs from direct assignment
-// to the optional [SearchRequest.Rank] field, where nil and typed nil are omitted
-// by SearchRequest.MarshalJSON and Collection.Search. Callers who want omission
+// [ErrNilRank] when the option is applied. Exact built-in rank structures are
+// also validated recursively before assignment. Caller-defined implementations
+// retain the existing [Rank] interface contract and require no additional
+// validation method. This differs from direct assignment to the optional
+// [SearchRequest.Rank] field, where nil and typed nil are omitted by
+// SearchRequest.MarshalJSON and Collection.Search. Callers who want omission
 // should simply not call this option.
 func WithRank(rank Rank) *rankOption {
 	return &rankOption{rank: rank}
@@ -642,6 +651,9 @@ func WithRank(rank Rank) *rankOption {
 func (o *rankOption) ApplyToSearchRequest(req *SearchRequest) error {
 	if isNilRank(o.rank) {
 		return ErrNilRank
+	}
+	if err := validateBuiltInRank(o.rank); err != nil {
+		return err
 	}
 	req.Rank = o.rank
 	return nil

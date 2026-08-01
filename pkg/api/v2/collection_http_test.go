@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -799,6 +800,54 @@ func TestCollectionSearchTypedNilRank(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Fatal("timed out waiting for search request body")
 			}
+		})
+	}
+}
+
+func TestCollectionSearchRejectsInvalidOptionsBeforeSend(t *testing.T) {
+	var requestCount atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestCount.Add(1)
+		http.Error(w, "unexpected request", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+	require.NoError(t, err)
+	collection := &CollectionImpl{
+		name:              "test",
+		id:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+		tenant:            NewDefaultTenant(),
+		database:          NewDefaultDatabase(),
+		metadata:          NewMetadata(),
+		client:            client.(*APIClientV2),
+		embeddingFunction: embeddings.NewConsistentHashEmbeddingFunction(),
+	}
+
+	tests := []struct {
+		name string
+		opt  SearchCollectionOption
+	}{
+		{
+			name: "invalid rank",
+			opt:  NewSearchRequest(WithRank(&KnnRank{})),
+		},
+		{
+			name: "invalid nested filter",
+			opt: NewSearchRequest(WithSearchFilter(&SearchFilter{
+				Where: And(EqString(K("valid"), "x"), EqString(K(""), "x")),
+			})),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := collection.Search(context.Background(), tt.opt)
+			require.Nil(t, result)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "error applying search option")
+			require.NotContains(t, err.Error(), "error sending search request")
+			require.Zero(t, requestCount.Load())
 		})
 	}
 }
