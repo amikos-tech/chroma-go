@@ -402,8 +402,22 @@ func TestWhereClauseExpressionDepthGuard(t *testing.T) {
 		clause := buildExpression(MaxExpressionDepth)
 		require.NoError(t, clause.Validate())
 
-		_, err := json.Marshal(clause)
+		data, err := json.Marshal(clause)
 		require.NoError(t, err)
+		require.NotEmpty(t, data)
+	})
+
+	t.Run("validates each compound sibling from the parent depth", func(t *testing.T) {
+		clause := And(
+			buildExpression(MaxExpressionDepth-1),
+			EqString(K("shallow"), "leaf"),
+		)
+
+		require.NoError(t, clause.Validate())
+
+		data, err := json.Marshal(clause)
+		require.NoError(t, err)
+		require.NotEmpty(t, data)
 	})
 
 	t.Run("rejects one child beyond shared expression depth", func(t *testing.T) {
