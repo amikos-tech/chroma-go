@@ -139,6 +139,10 @@ func (w *WhereDocumentClauseOr) UnmarshalJSON(b []byte) error {
 }
 
 func (w *WhereDocumentClauseOr) Validate() error {
+	return w.validateWithDepth(0)
+}
+
+func (w *WhereDocumentClauseOr) validateWithDepth(depth int) error {
 	if w.operator != OrDocumentOperator {
 		return errors.New("invalid operator, expected in or")
 	}
@@ -146,10 +150,7 @@ func (w *WhereDocumentClauseOr) Validate() error {
 		return errors.New("invalid content, expected at least one")
 	}
 	for _, v := range w.content {
-		if isNilInterface(v) {
-			return errors.Errorf("nil clause in %s expression", w.operator)
-		}
-		if err := v.Validate(); err != nil {
+		if err := validateWhereDocumentFilterChild(v, w.operator, depth+1); err != nil {
 			return err
 		}
 	}
@@ -181,6 +182,10 @@ func (w *WhereDocumentClauseAnd) UnmarshalJSON(b []byte) error {
 }
 
 func (w *WhereDocumentClauseAnd) Validate() error {
+	return w.validateWithDepth(0)
+}
+
+func (w *WhereDocumentClauseAnd) validateWithDepth(depth int) error {
 	if w.operator != AndDocumentOperator {
 		return errors.New("invalid operator, expected in and")
 	}
@@ -188,14 +193,28 @@ func (w *WhereDocumentClauseAnd) Validate() error {
 		return errors.New("invalid content, expected at least one")
 	}
 	for _, v := range w.content {
-		if isNilInterface(v) {
-			return errors.Errorf("nil clause in %s expression", w.operator)
-		}
-		if err := v.Validate(); err != nil {
+		if err := validateWhereDocumentFilterChild(v, w.operator, depth+1); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func validateWhereDocumentFilterChild(filter WhereDocumentFilter, operator WhereDocumentFilterOperator, depth int) error {
+	if isNilInterface(filter) {
+		return errors.Errorf("nil clause in %s expression", operator)
+	}
+	if depth > MaxExpressionDepth {
+		return errors.Errorf("where document expression exceeds maximum depth of %d", MaxExpressionDepth)
+	}
+	switch filter := filter.(type) {
+	case *WhereDocumentClauseOr:
+		return filter.validateWithDepth(depth)
+	case *WhereDocumentClauseAnd:
+		return filter.validateWithDepth(depth)
+	default:
+		return filter.Validate()
+	}
 }
 
 func (w *WhereDocumentClauseAnd) String() string {
