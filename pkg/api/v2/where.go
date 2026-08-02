@@ -461,8 +461,7 @@ func (w *WhereClauseWhereClauses) Validate() error {
 	return w.validateWithDepth(0)
 }
 
-// validateWithDepth keeps its operator and operand checks synchronized with
-// marshalJSONWithDepth; both remain separate single-pass traversal paths.
+// Mirrors marshalJSONWithDepth's checks; see there for why the paths stay separate.
 func (w *WhereClauseWhereClauses) validateWithDepth(depth int) error {
 	if w.operator != OrOperator && w.operator != AndOperator {
 		return errors.New("invalid operator, expected $and or $or")
@@ -495,9 +494,7 @@ func (w *WhereClauseWhereClauses) MarshalJSON() ([]byte, error) {
 	return w.marshalJSONWithDepth(0)
 }
 
-// marshalJSONWithDepth keeps its operator and operand checks synchronized with
-// validateWithDepth; both remain separate single-pass traversal paths. It
-// validates and encodes each child at the depth it was reached, instead of
+// marshalJSONWithDepth validates and encodes each child at the depth it was reached, instead of
 // delegating to json.Marshal and letting each nested compound child's own
 // MarshalJSON restart validation from depth 0 (which would revalidate every
 // remaining subtree once per level).
