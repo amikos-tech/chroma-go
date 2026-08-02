@@ -461,12 +461,19 @@ func (w *WhereClauseWhereClauses) Validate() error {
 	return w.validateWithDepth(0)
 }
 
-func (w *WhereClauseWhereClauses) validateWithDepth(depth int) error {
+func (w *WhereClauseWhereClauses) validateOperatorAndOperand() error {
 	if w.operator != OrOperator && w.operator != AndOperator {
 		return errors.New("invalid operator, expected $and or $or")
 	}
 	if len(w.operand) == 0 {
 		return errors.Errorf("invalid operand for %s, expected at least one clause", w.operator)
+	}
+	return nil
+}
+
+func (w *WhereClauseWhereClauses) validateWithDepth(depth int) error {
+	if err := w.validateOperatorAndOperand(); err != nil {
+		return err
 	}
 	for _, clause := range w.operand {
 		if err := validateWhereClauseChild(clause, w.operator, depth+1); err != nil {
@@ -493,16 +500,11 @@ func (w *WhereClauseWhereClauses) MarshalJSON() ([]byte, error) {
 	return w.marshalJSONWithDepth(0)
 }
 
-// marshalJSONWithDepth validates and encodes each child at the depth it was
-// reached, instead of delegating to json.Marshal and letting each nested
-// compound child's own MarshalJSON restart validation from depth 0 (which
-// would revalidate every remaining subtree once per level).
+// marshalJSONWithDepth validates and encodes each child in one depth-aware pass.
+// Its traversal stays separate from validateWithDepth to avoid a second tree walk.
 func (w *WhereClauseWhereClauses) marshalJSONWithDepth(depth int) ([]byte, error) {
-	if w.operator != OrOperator && w.operator != AndOperator {
-		return nil, errors.New("invalid operator, expected $and or $or")
-	}
-	if len(w.operand) == 0 {
-		return nil, errors.Errorf("invalid operand for %s, expected at least one clause", w.operator)
+	if err := w.validateOperatorAndOperand(); err != nil {
+		return nil, err
 	}
 	rawOperand := make([]json.RawMessage, len(w.operand))
 	for i, clause := range w.operand {
