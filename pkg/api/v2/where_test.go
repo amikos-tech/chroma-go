@@ -355,6 +355,39 @@ func TestWhereClauseEmptyOperandValidation(t *testing.T) {
 	}
 }
 
+func TestCompoundWhereClauseSharedValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		clause      *WhereClauseWhereClauses
+		expectedErr string
+	}{
+		{
+			name: "invalid operator",
+			clause: &WhereClauseWhereClauses{
+				WhereClauseBase: WhereClauseBase{operator: EqualOperator},
+				operand:         []WhereClause{EqString(K("status"), "active")},
+			},
+			expectedErr: "invalid operator, expected $and or $or",
+		},
+		{
+			name: "empty operand",
+			clause: &WhereClauseWhereClauses{
+				WhereClauseBase: WhereClauseBase{operator: AndOperator},
+			},
+			expectedErr: "invalid operand for $and, expected at least one clause",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.EqualError(t, tt.clause.Validate(), tt.expectedErr)
+
+			_, err := tt.clause.MarshalJSON()
+			require.EqualError(t, err, tt.expectedErr)
+		})
+	}
+}
+
 // TestWhereClausesMarshalTypedNil covers direct marshalling of a compound clause
 // holding a typed nil, which skips the Validate() guard added for the option path.
 func TestWhereClausesMarshalTypedNil(t *testing.T) {
