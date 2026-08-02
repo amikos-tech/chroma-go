@@ -1,6 +1,6 @@
 ---
 phase: quick-260802-gve
-verified: 2026-08-02T09:14:39Z
+verified: 2026-08-02T10:47:08Z
 status: passed
 score: 2/2 must-haves verified
 overrides_applied: 0
@@ -8,8 +8,8 @@ overrides_applied: 0
 
 # Quick Task 260802-gve: Verification Report
 
-**Task Goal:** Verify and address issue #535: make the intentionally duplicated compound-Where traversal checks visibly coupled, without changing behavior.
-**Verified:** 2026-08-02T09:14:39Z
+**Task Goal:** Verify and address issue #535 by sharing compound-Where operator and operand validation without changing behavior or adding another tree walk.
+**Verified:** 2026-08-02T10:47:08Z
 **Status:** passed
 **Re-verification:** No — initial verification
 
@@ -19,8 +19,8 @@ overrides_applied: 0
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Future maintainers can see from either compound `Where` helper that its operator and operand checks deliberately mirror the other helper. | ✓ VERIFIED | `where.go:464-465` names `marshalJSONWithDepth` from `validateWithDepth`; `where.go:498-499` names `validateWithDepth` from `marshalJSONWithDepth`. Both say the checks remain synchronized and both helpers are separate single-pass traversal paths. |
-| 2 | Compound `Where` validation and JSON marshalling retain their current behavior, including their single-pass depth-aware traversal. | ✓ VERIFIED | Commit `891b0db` changes only two comment blocks in `pkg/api/v2/where.go` (8 additions, 4 comment-line rewraps); the executable function bodies and call graph are unchanged. The focused depth regression passed. |
+| 1 | Compound `Where` validation and JSON marshalling use one implementation of their shared operator and operand checks. | ✓ VERIFIED | `validateWithDepth` and `marshalJSONWithDepth` both call the private `validateOperatorAndOperand` method. |
+| 2 | Compound `Where` validation and JSON marshalling retain their current behavior, including their single-pass depth-aware traversal. | ✓ VERIFIED | The refactor leaves both child loops and depth-aware recursive helpers intact. Focused and package-level regressions pass. |
 
 **Score:** 2/2 truths verified
 
@@ -28,15 +28,15 @@ overrides_applied: 0
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `pkg/api/v2/where.go` | Reciprocal maintenance comments on paired compound-`Where` validation and marshalling helpers | ✓ VERIFIED | L1: file exists. L2: substantive comments are directly attached to the two private helpers and state the precise invariant. L3: public `Validate` calls `validateWithDepth(0)` and public `MarshalJSON` calls `marshalJSONWithDepth(0)`; each helper recursively invokes its own corresponding depth-aware child path. |
+| `pkg/api/v2/where.go` | Shared node-local validation used by paired compound-`Where` traversal helpers | ✓ VERIFIED | `validateOperatorAndOperand` owns both shared checks, and both traversal helpers call it before visiting children. |
+| `pkg/api/v2/where_test.go` | Regression coverage for both public paths | ✓ VERIFIED | `TestCompoundWhereClauseSharedValidation` requires identical invalid-operator and empty-operand errors from `Validate` and `MarshalJSON`. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| `WhereClauseWhereClauses.validateWithDepth` | `WhereClauseWhereClauses.marshalJSONWithDepth` | reciprocal documentation comments | ✓ WIRED | The validator’s immediately preceding comment explicitly names `marshalJSONWithDepth`, while the marshaller’s immediately preceding comment explicitly names `validateWithDepth`. The shared operator and empty-operand checks are present at `where.go:467-471` and `where.go:505-509`. |
-
-`gsd-sdk query verify.key-links` reported a parser-level “Source file not found” for the qualified Go symbol path; direct source inspection above verifies the planned documentation link.
+| `WhereClauseWhereClauses.validateWithDepth` | `WhereClauseWhereClauses.validateOperatorAndOperand` | direct method call | ✓ WIRED | Validation returns the shared guard's error before traversing children. |
+| `WhereClauseWhereClauses.marshalJSONWithDepth` | `WhereClauseWhereClauses.validateOperatorAndOperand` | direct method call | ✓ WIRED | Marshalling returns the same shared guard's error before allocating its raw operand slice. |
 
 ### Data-Flow Trace (Level 4)
 
@@ -46,8 +46,9 @@ Not applicable. This task changes only source comments; neither artifact renders
 
 | Behavior | Command | Result | Status |
 | --- | --- | --- | --- |
-| Compound validation and JSON marshalling retain shared depth behavior | `go test -tags=basicv2 ./pkg/api/v2 -run '^TestWhereClauseExpressionDepthGuard$' -count=1 -timeout=60s` | `ok github.com/amikos-tech/chroma-go/pkg/api/v2 0.463s` | ✓ PASS |
-| Source change is documentation-only and clean | `git diff --unified=0 891b0db^ 891b0db -- pkg/api/v2/where.go && git diff --check 891b0db^ 891b0db` | Only the two comment blocks changed; whitespace check produced no findings. | ✓ PASS |
+| Both paths retain shared precondition and depth behavior | `go test -tags=basicv2 ./pkg/api/v2 -run '^(TestCompoundWhereClauseSharedValidation|TestWhereClauseExpressionDepthGuard|TestWhereClauseEmptyOperandValidation)$' -count=1 -timeout=60s` | Focused tests pass. | ✓ PASS |
+| API v2 package remains green | `go test -tags=basicv2 ./pkg/api/v2 -count=1 -timeout=5m` | Package tests pass. | ✓ PASS |
+| Source and planning changes are clean | `git diff --check` | No whitespace findings. | ✓ PASS |
 
 ### Probe Execution
 
@@ -57,21 +58,21 @@ SKIPPED — neither the plan nor summary declares a probe, and no conventional `
 
 | Requirement | Source Plan | Description | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| `GH-535` | `260802-gve-PLAN.md` | Add short reciprocal comments to the paired helpers with no behavior change. | ✓ SATISFIED | Reciprocal, accurate comments are present; the committed source diff is comment-only; focused regression passes. |
+| `GH-535` | `260802-gve-PLAN.md` | Remove duplicated compound operator and operand checks without changing behavior. | ✓ SATISFIED | Both traversal helpers call one private guard; focused and package-level regressions pass. |
 
 ### Anti-Patterns Found
 
-None. `pkg/api/v2/where.go` contains no `TBD`, `FIXME`, `XXX`, `TODO`, `HACK`, or placeholder markers. No empty implementation or hardcoded-empty-data pattern is involved.
+None. The helper centralizes two identical checks without introducing an abstraction over the distinct child traversals.
 
 ### Human Verification Required
 
-None. The required outcome is source-level maintainability plus unchanged executable behavior, both directly verifiable from the code and focused regression.
+None. The required outcome is directly verifiable from source and automated regression coverage.
 
 ### Disconfirmation Checks
 
-- Partial-requirement check: both directions of the cross-reference exist; neither comment merely claims synchronization without naming its paired helper.
-- Misleading-test check: the focused test exercises both `Validate()` and `json.Marshal()` at permitted, sibling, and over-depth boundaries, rather than only checking comment presence.
-- Uncovered-path note: the focused test does not individually assert invalid compound operator or empty compound operand behavior, but `891b0db` contains no executable changes, so those existing paths are unchanged by this task.
+- Partial-requirement check: both traversal helpers directly call the shared guard; neither retains a private copy of the checks.
+- Misleading-test check: the new regression individually asserts invalid operator and empty operand behavior through both entry points, while the existing depth regression covers valid and over-depth trees.
+- Performance check: marshalling does not call `validateWithDepth`; it still validates and emits each child during one traversal.
 
 ### Gaps Summary
 
@@ -79,5 +80,5 @@ No gaps found. The task goal is achieved.
 
 ---
 
-_Verified: 2026-08-02T09:14:39Z_
+_Verified: 2026-08-02T10:47:08Z_
 _Verifier: the agent (gsd-verifier)_
