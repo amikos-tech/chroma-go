@@ -124,14 +124,21 @@ type WhereDocumentClauseOr struct {
 }
 
 func (w *WhereDocumentClauseOr) MarshalJSON() ([]byte, error) {
-	err := w.Validate()
+	return w.marshalJSONWithDepth(0)
+}
+
+func (w *WhereDocumentClauseOr) marshalJSONWithDepth(depth int) ([]byte, error) {
+	if w.operator != OrDocumentOperator {
+		return nil, errors.New("invalid operator, expected in or")
+	}
+	if len(w.content) == 0 {
+		return nil, errors.New("invalid content, expected at least one")
+	}
+	rawContent, err := marshalWhereDocumentFilterChildren(w.content, w.operator, depth)
 	if err != nil {
 		return nil, err
 	}
-	var x = map[WhereDocumentFilterOperator][]WhereDocumentFilter{
-		w.operator: w.content,
-	}
-	return json.Marshal(x)
+	return json.Marshal(map[WhereDocumentFilterOperator][]json.RawMessage{w.operator: rawContent})
 }
 
 func (w *WhereDocumentClauseOr) UnmarshalJSON(b []byte) error {
@@ -139,6 +146,10 @@ func (w *WhereDocumentClauseOr) UnmarshalJSON(b []byte) error {
 }
 
 func (w *WhereDocumentClauseOr) Validate() error {
+	return w.validateWithDepth(0)
+}
+
+func (w *WhereDocumentClauseOr) validateWithDepth(depth int) error {
 	if w.operator != OrDocumentOperator {
 		return errors.New("invalid operator, expected in or")
 	}
@@ -146,10 +157,7 @@ func (w *WhereDocumentClauseOr) Validate() error {
 		return errors.New("invalid content, expected at least one")
 	}
 	for _, v := range w.content {
-		if isNilInterface(v) {
-			return errors.Errorf("nil clause in %s expression", w.operator)
-		}
-		if err := v.Validate(); err != nil {
+		if err := validateWhereDocumentFilterChild(v, w.operator, depth+1); err != nil {
 			return err
 		}
 	}
@@ -166,14 +174,21 @@ type WhereDocumentClauseAnd struct {
 }
 
 func (w *WhereDocumentClauseAnd) MarshalJSON() ([]byte, error) {
-	err := w.Validate()
+	return w.marshalJSONWithDepth(0)
+}
+
+func (w *WhereDocumentClauseAnd) marshalJSONWithDepth(depth int) ([]byte, error) {
+	if w.operator != AndDocumentOperator {
+		return nil, errors.New("invalid operator, expected in and")
+	}
+	if len(w.content) == 0 {
+		return nil, errors.New("invalid content, expected at least one")
+	}
+	rawContent, err := marshalWhereDocumentFilterChildren(w.content, w.operator, depth)
 	if err != nil {
 		return nil, err
 	}
-	var x = map[WhereDocumentFilterOperator][]WhereDocumentFilter{
-		w.operator: w.content,
-	}
-	return json.Marshal(x)
+	return json.Marshal(map[WhereDocumentFilterOperator][]json.RawMessage{w.operator: rawContent})
 }
 
 func (w *WhereDocumentClauseAnd) UnmarshalJSON(b []byte) error {
@@ -181,6 +196,10 @@ func (w *WhereDocumentClauseAnd) UnmarshalJSON(b []byte) error {
 }
 
 func (w *WhereDocumentClauseAnd) Validate() error {
+	return w.validateWithDepth(0)
+}
+
+func (w *WhereDocumentClauseAnd) validateWithDepth(depth int) error {
 	if w.operator != AndDocumentOperator {
 		return errors.New("invalid operator, expected in and")
 	}
@@ -188,14 +207,64 @@ func (w *WhereDocumentClauseAnd) Validate() error {
 		return errors.New("invalid content, expected at least one")
 	}
 	for _, v := range w.content {
-		if isNilInterface(v) {
-			return errors.Errorf("nil clause in %s expression", w.operator)
-		}
-		if err := v.Validate(); err != nil {
+		if err := validateWhereDocumentFilterChild(v, w.operator, depth+1); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func validateWhereDocumentFilterChild(filter WhereDocumentFilter, operator WhereDocumentFilterOperator, depth int) error {
+	if isNilInterface(filter) {
+		return errors.Errorf("nil clause in %s expression", operator)
+	}
+	if depth > MaxExpressionDepth {
+		return errors.Errorf("where document expression exceeds maximum depth of %d", MaxExpressionDepth)
+	}
+	switch filter := filter.(type) {
+	case *WhereDocumentClauseOr:
+		return filter.validateWithDepth(depth)
+	case *WhereDocumentClauseAnd:
+		return filter.validateWithDepth(depth)
+	default:
+		return filter.Validate()
+	}
+}
+
+// marshalWhereDocumentFilterChildren validates and encodes each child at the
+// depth it was reached, instead of delegating to json.Marshal and letting
+// each nested compound child's own MarshalJSON restart validation from depth
+// 0 (which would revalidate every remaining subtree once per level).
+func marshalWhereDocumentFilterChildren(content []WhereDocumentFilter, operator WhereDocumentFilterOperator, depth int) ([]json.RawMessage, error) {
+	rawContent := make([]json.RawMessage, len(content))
+	for i, v := range content {
+		data, err := marshalWhereDocumentFilterChild(v, operator, depth+1)
+		if err != nil {
+			return nil, err
+		}
+		rawContent[i] = data
+	}
+	return rawContent, nil
+}
+
+func marshalWhereDocumentFilterChild(filter WhereDocumentFilter, operator WhereDocumentFilterOperator, depth int) ([]byte, error) {
+	if isNilInterface(filter) {
+		return nil, errors.Errorf("nil clause in %s expression", operator)
+	}
+	if depth > MaxExpressionDepth {
+		return nil, errors.Errorf("where document expression exceeds maximum depth of %d", MaxExpressionDepth)
+	}
+	switch filter := filter.(type) {
+	case *WhereDocumentClauseOr:
+		return filter.marshalJSONWithDepth(depth)
+	case *WhereDocumentClauseAnd:
+		return filter.marshalJSONWithDepth(depth)
+	default:
+		if err := filter.Validate(); err != nil {
+			return nil, err
+		}
+		return filter.MarshalJSON()
+	}
 }
 
 func (w *WhereDocumentClauseAnd) String() string {

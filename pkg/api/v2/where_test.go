@@ -4,6 +4,7 @@ package v2
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -375,5 +376,62 @@ func TestWhereClausesMarshalTypedNil(t *testing.T) {
 		data, err := json.Marshal(And(EqString("a", "1"), EqString("b", "2")))
 		require.NoError(t, err)
 		require.Contains(t, string(data), "$and")
+	})
+}
+
+func TestWhereClauseExpressionDepthGuard(t *testing.T) {
+	buildExpression := func(recursiveChildCalls int) WhereClause {
+		var clause WhereClause = EqString(K("depth"), "leaf")
+		for i := 0; i < recursiveChildCalls; i++ {
+			if i%2 == 0 {
+				clause = And(clause)
+			} else {
+				clause = Or(clause)
+			}
+		}
+		return clause
+	}
+
+	t.Run("shallow compound retains JSON shape", func(t *testing.T) {
+		data, err := json.Marshal(And(EqString(K("status"), "active")))
+		require.NoError(t, err)
+		require.JSONEq(t, `{"$and":[{"status":{"$eq":"active"}}]}`, string(data))
+	})
+
+	t.Run("permits shared expression depth", func(t *testing.T) {
+		clause := buildExpression(MaxExpressionDepth)
+		require.NoError(t, clause.Validate())
+
+		data, err := json.Marshal(clause)
+		require.NoError(t, err)
+		require.NotEmpty(t, data)
+	})
+
+	t.Run("validates each compound sibling from the parent depth", func(t *testing.T) {
+		clause := And(
+			buildExpression(MaxExpressionDepth-1),
+			EqString(K("shallow"), "leaf"),
+		)
+
+		require.NoError(t, clause.Validate())
+
+		data, err := json.Marshal(clause)
+		require.NoError(t, err)
+		require.NotEmpty(t, data)
+	})
+
+	t.Run("rejects one child beyond shared expression depth", func(t *testing.T) {
+		clause := buildExpression(MaxExpressionDepth + 1)
+		expectedErr := fmt.Sprintf("where expression exceeds maximum depth of %d", MaxExpressionDepth)
+
+		var validateErr error
+		require.NotPanics(t, func() { validateErr = clause.Validate() })
+		require.ErrorContains(t, validateErr, expectedErr)
+
+		var data []byte
+		var marshalErr error
+		require.NotPanics(t, func() { data, marshalErr = json.Marshal(clause) })
+		require.Nil(t, data)
+		require.ErrorContains(t, marshalErr, expectedErr)
 	})
 }
