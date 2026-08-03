@@ -903,14 +903,9 @@ func TestRrfRankArithmetic(t *testing.T) {
 			expected: `{"$exp":` + rrfStr + `}`,
 		},
 		{
-			name:     "Log",
-			apply:    func(r *RrfRank) Rank { return r.Log() },
-			expected: `{"$log":` + rrfStr + `}`,
-		},
-		{
 			name:     "Max",
-			apply:    func(r *RrfRank) Rank { return r.Max(FloatOperand(0.0)) },
-			expected: `{"$max":[` + rrfStr + `,{"$val":0}]}`,
+			apply:    func(r *RrfRank) Rank { return r.Max(FloatOperand(2.0)) },
+			expected: `{"$max":[` + rrfStr + `,{"$val":2}]}`,
 		},
 		{
 			name:     "Min",
@@ -957,7 +952,7 @@ func TestRrfRankArithmetic(t *testing.T) {
 	t.Run("wrappers remain independent across sequential calls", func(t *testing.T) {
 		a := rrf.Add(FloatOperand(1))
 		b := rrf.Multiply(FloatOperand(2))
-		c := rrf.Log()
+		c := rrf.Exp()
 
 		bJSON, err := b.MarshalJSON()
 		require.NoError(t, err)
@@ -968,7 +963,7 @@ func TestRrfRankArithmetic(t *testing.T) {
 
 		require.JSONEq(t, `{"$sum":[`+rrfStr+`,{"$val":1}]}`, string(aJSON))
 		require.JSONEq(t, `{"$mul":[`+rrfStr+`,{"$val":2}]}`, string(bJSON))
-		require.JSONEq(t, `{"$log":`+rrfStr+`}`, string(cJSON))
+		require.JSONEq(t, `{"$exp":`+rrfStr+`}`, string(cJSON))
 	})
 }
 
@@ -1208,4 +1203,82 @@ func TestMarshalRankFallbackForNestedNonCompositeChild(t *testing.T) {
 	mrData, err := mr.MarshalJSON()
 	require.NoError(t, err)
 	require.JSONEq(t, string(mrData), string(terms[1]))
+}
+
+func testRrfRank(t *testing.T) *RrfRank {
+	t.Helper()
+	knn1, err := NewKnnRank(KnnQueryText("alpha"), WithKnnReturnRank())
+	require.NoError(t, err)
+	knn2, err := NewKnnRank(KnnQueryText("beta"), WithKnnReturnRank())
+	require.NoError(t, err)
+	rrf, err := NewRrfRank(WithRrfRanks(knn1.WithWeight(1), knn2.WithWeight(1)), WithRrfK(60))
+	require.NoError(t, err)
+	return rrf
+}
+
+func TestDegenerateRrfCompositions(t *testing.T) {
+	tests := []struct {
+		name     string
+		build    func(rrf *RrfRank) Rank
+		sentinel error
+	}{
+		{"log", func(rrf *RrfRank) Rank { return rrf.Log() }, ErrDegenerateRrfLog},
+		{"max val zero", func(rrf *RrfRank) Rank { return rrf.Max(Val(0)) }, ErrDegenerateRrfMaxZero},
+		{"max float zero", func(rrf *RrfRank) Rank { return rrf.Max(FloatOperand(0)) }, ErrDegenerateRrfMaxZero},
+		{"max negative zero", func(rrf *RrfRank) Rank { return rrf.Max(FloatOperand(math.Copysign(0, -1))) }, ErrDegenerateRrfMaxZero},
+		{"max int zero", func(rrf *RrfRank) Rank { return rrf.Max(IntOperand(0)) }, ErrDegenerateRrfMaxZero},
+		{"nested log", func(rrf *RrfRank) Rank { return rrf.Log().Add(FloatOperand(1)) }, ErrDegenerateRrfLog},
+		{"nested max zero", func(rrf *RrfRank) Rank { return rrf.Max(Val(0)).Multiply(FloatOperand(2)) }, ErrDegenerateRrfMaxZero},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rank := tt.build(testRrfRank(t))
+			require.NotNil(t, rank)
+
+			_, err := json.Marshal(rank)
+			require.Error(t, err)
+			require.ErrorIs(t, err, tt.sentinel)
+
+			req := &SearchRequest{}
+			require.ErrorIs(t, WithRank(rank).ApplyToSearchRequest(req), tt.sentinel)
+			require.Nil(t, req.Rank)
+		})
+	}
+}
+
+func TestLegalRrfCompositions(t *testing.T) {
+	knn, err := NewKnnRank(KnnQueryText("alpha"), WithKnnReturnRank())
+	require.NoError(t, err)
+
+	tests := []struct {
+		name  string
+		build func(rrf *RrfRank) Rank
+	}{
+		{"max non-zero float", func(rrf *RrfRank) Rank { return rrf.Max(FloatOperand(1.0)) }},
+		{"max non-zero val", func(rrf *RrfRank) Rank { return rrf.Max(Val(0.5)) }},
+		{"max rank operand", func(rrf *RrfRank) Rank { return rrf.Max(knn) }},
+		{"min zero", func(rrf *RrfRank) Rank { return rrf.Min(FloatOperand(0)) }},
+		{"min val zero", func(rrf *RrfRank) Rank { return rrf.Min(Val(0)) }},
+		{"abs", func(rrf *RrfRank) Rank { return rrf.Abs() }},
+		{"negate", func(rrf *RrfRank) Rank { return rrf.Negate() }},
+		{"exp", func(rrf *RrfRank) Rank { return rrf.Exp() }},
+		{"add", func(rrf *RrfRank) Rank { return rrf.Add(FloatOperand(1)) }},
+		{"sub", func(rrf *RrfRank) Rank { return rrf.Sub(FloatOperand(1)) }},
+		{"multiply", func(rrf *RrfRank) Rank { return rrf.Multiply(FloatOperand(2)) }},
+		{"div", func(rrf *RrfRank) Rank { return rrf.Div(FloatOperand(2)) }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rank := tt.build(testRrfRank(t))
+			data, err := json.Marshal(rank)
+			require.NoError(t, err)
+			require.NotEmpty(t, data)
+
+			req := &SearchRequest{}
+			require.NoError(t, WithRank(rank).ApplyToSearchRequest(req))
+			require.NotNil(t, req.Rank)
+		})
+	}
 }

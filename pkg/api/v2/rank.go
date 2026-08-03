@@ -105,6 +105,55 @@ func (u *UnknownRank) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("UnknownRank: cannot marshal unknown operand type - this indicates a programming error")
 }
 
+var (
+	// ErrDegenerateRrfLog is returned when a rank built from rrf.Log() is
+	// marshalled or passed to [WithRank].
+	ErrDegenerateRrfLog = errors.New("RrfRank.Log is degenerate: RrfRank negates the fusion sum, so its value is always <= 0 and log() of a non-positive value is NaN, which the server drops")
+
+	// ErrDegenerateRrfMaxZero is returned when a rank built from rrf.Max with a
+	// literal zero operand is marshalled or passed to [WithRank].
+	ErrDegenerateRrfMaxZero = errors.New("RrfRank.Max(0) is degenerate: RrfRank negates the fusion sum, so its value is always <= 0 and max(x, 0) is a constant zero, leaving every result tied")
+)
+
+// degenerateRrfRank is a leaf returned by provably degenerate *RrfRank
+// compositions. Like [UnknownRank] it defers the failure to MarshalJSON so the
+// fluent arithmetic API keeps its single return value, and its own arithmetic
+// methods return the receiver so the error survives further composition.
+type degenerateRrfRank struct {
+	ValRank
+	err error
+}
+
+func (d *degenerateRrfRank) MarshalJSON() ([]byte, error) {
+	return nil, d.err
+}
+
+func (d *degenerateRrfRank) Multiply(_ Operand) Rank { return d }
+func (d *degenerateRrfRank) Sub(_ Operand) Rank      { return d }
+func (d *degenerateRrfRank) Add(_ Operand) Rank      { return d }
+func (d *degenerateRrfRank) Div(_ Operand) Rank      { return d }
+func (d *degenerateRrfRank) Negate() Rank            { return d }
+func (d *degenerateRrfRank) Abs() Rank               { return d }
+func (d *degenerateRrfRank) Exp() Rank               { return d }
+func (d *degenerateRrfRank) Log() Rank               { return d }
+func (d *degenerateRrfRank) Max(_ Operand) Rank      { return d }
+func (d *degenerateRrfRank) Min(_ Operand) Rank      { return d }
+
+// isLiteralZeroOperand reports whether the operand is a statically knowable
+// zero constant. Negative zero compares equal to zero, so it needs no case.
+func isLiteralZeroOperand(operand Operand) bool {
+	switch v := operand.(type) {
+	case IntOperand:
+		return v == 0
+	case FloatOperand:
+		return v == 0
+	case *ValRank:
+		return v != nil && v.value == 0
+	default:
+		return false
+	}
+}
+
 func marshalRank(rank Rank, depth int) ([]byte, error) {
 	if isNilRank(rank) {
 		return nil, ErrNilRank
@@ -176,7 +225,7 @@ func validateBuiltInRankWithDepth(rank Rank, depth int) error {
 	}
 
 	switch rank := rank.(type) {
-	case *UnknownRank, *ValRank:
+	case *UnknownRank, *ValRank, *degenerateRrfRank:
 		// These SDK-owned leaves have no descendants. Their own marshalers are
 		// side-effect free and retain JSON's finite-number validation for ValRank.
 		_, err := rank.MarshalJSON()
@@ -1313,11 +1362,12 @@ func WithRrfNormalize() RrfOption {
 // rank sum so that a smaller (more negative) score means a better match. As a
 // result, the operand to composition is always non-positive on non-empty
 // corpora, and the following transforms misbehave on that input:
-//   - Log degenerates silently: log of a non-positive value is NaN, and the
-//     server drops NaN rows, leaving an empty inner Scores slice and IDs
-//     in insertion order.
-//   - Max(Val(0)) collapses every score to 0 (max(x, 0) == 0 for x <= 0),
-//     producing an all-tied result that falls back to insertion order.
+//   - Log is rejected at build time with [ErrDegenerateRrfLog]: log of a
+//     non-positive value is NaN and the server drops NaN rows.
+//   - Max with a literal zero operand is rejected at build time with
+//     [ErrDegenerateRrfMaxZero]: max(x, 0) == 0 for x <= 0, producing an
+//     all-tied result that falls back to insertion order. A non-zero or
+//     non-constant operand stays legal.
 //   - Abs flips the ordering on RRF's non-positive output (abs(x) == -x
 //     for x <= 0, reversing the sign).
 //   - Negate inverts result ordering the same way Abs does on this input
@@ -1451,10 +1501,13 @@ func (r *RrfRank) Exp() Rank {
 }
 
 func (r *RrfRank) Log() Rank {
-	return &LogRank{rank: r}
+	return &degenerateRrfRank{err: ErrDegenerateRrfLog}
 }
 
 func (r *RrfRank) Max(operand Operand) Rank {
+	if isLiteralZeroOperand(operand) {
+		return &degenerateRrfRank{err: ErrDegenerateRrfMaxZero}
+	}
 	return &MaxRank{ranks: []Rank{r, operandToRank(operand)}}
 }
 
