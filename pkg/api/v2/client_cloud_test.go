@@ -1848,15 +1848,13 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 	// tree operates on `-rrf_sum` which is always non-positive here. Consequences:
 	//   - Negate and Abs are empirically equivalent: both flip the order with
 	//     identical scores (|baseline|). abs(x) == -x for x <= 0.
-	//   - Max(0) collapses all scores to zero (max(x, 0) == 0 for x <= 0), producing
-	//     an all-tied result set that falls back to default insertion order.
-	//   - Log returns an inner-empty Scores slice (log of non-positive is undefined),
-	//     with IDs falling back to default insertion order.
+	//   - Max(0) and Log are rejected client-side before the request is sent, so the
+	//     degenerate server behavior they used to pin is no longer observable here.
 	//   - Min(0) is a mathematical identity (min(x, 0) == x for x <= 0), making it
 	//     indistinguishable from the baseline RRF run.
 	// This corpus is intentionally pinned as a regression baseline. A richer corpus
-	// that produces at least one positive fused score would let Min(0)/Max(0)/Log/Abs
-	// exercise non-identity branches meaningfully — tracked separately.
+	// that produces at least one positive fused score would let Min(0)/Abs exercise
+	// non-identity branches meaningfully — tracked separately.
 	for _, tt := range rows {
 		t.Run(tt.name, func(t *testing.T) {
 			// Capture variables populated after Search and register a deferred logger
@@ -1981,45 +1979,16 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 						"Exp: Scores must differ from baseline (monotonic transform changes values)")
 
 				case "Log":
-					// Server bug: applying Log to non-positive fused scores silently
-					// falls back to insertion order with an empty inner Scores slice
-					// instead of returning a structured error. Pinned as a regression
-					// baseline — tracked separately in the issue tracker.
-					require.NoError(t, err, "Log: no error returned (server silently degenerates)")
-					require.NotNil(t, results, "Log: results must not be nil")
-					sr, srOk := results.(*SearchResultImpl)
-					require.True(t, srOk, "Log: result must be *SearchResultImpl")
-					require.NotEmpty(t, sr.IDs, "Log: outer IDs must not be empty")
-					require.Len(t, sr.IDs, 1, "Log: outer IDs must have exactly one query entry")
-					require.Len(t, sr.IDs[0], 5, "Log: inner IDs must have all 5 docs in insertion order")
-					require.Equal(t, []DocumentID{"1", "2", "3", "4", "5"}, sr.IDs[0],
-						"Log: IDs must fall back to default insertion order when server silently degenerates")
-					require.NotEmpty(t, sr.Scores, "Log: outer Scores must not be empty")
-					require.Len(t, sr.Scores, 1, "Log: outer Scores must have exactly one query entry")
-					require.Empty(t, sr.Scores[0],
-						"Log: inner Scores must be empty (degenerate — server dropped scores for log of non-positive)")
+					// The client rejects rrf.Log() at build time, so the request is
+					// never sent and there is no server observation to pin.
+					require.Error(t, err, "Log: search must fail before sending")
+					require.ErrorIs(t, err, ErrDegenerateRrfLog)
 
 				case "Max_0":
-					// Max(0) on an all-negative corpus collapses every score to exactly 0
-					// (max(x, 0) == 0 for x <= 0), producing an all-tied result set that
-					// falls back to default insertion order. The client could reject this
-					// construction at build time — tracked separately as an enhancement.
-					require.NoError(t, err, "Max(0): search must succeed")
-					require.NotNil(t, results, "Max(0): results must not be nil")
-					sr, srOk := results.(*SearchResultImpl)
-					require.True(t, srOk, "Max(0): result must be *SearchResultImpl")
-					require.NotEmpty(t, sr.IDs, "Max(0): outer IDs must not be empty")
-					require.NotEmpty(t, sr.Scores, "Max(0): outer Scores must not be empty")
-					require.Len(t, sr.IDs, 1, "Max(0): outer IDs must have exactly one query entry")
-					require.Len(t, sr.IDs[0], 5, "Max(0): inner IDs must have all 5 docs")
-					require.Equal(t, []DocumentID{"1", "2", "3", "4", "5"}, sr.IDs[0],
-						"Max(0): IDs must fall back to default insertion order when all scores tied at 0")
-					require.Len(t, sr.Scores, 1, "Max(0): outer Scores must have exactly one query entry")
-					require.Len(t, sr.Scores[0], 5, "Max(0): inner Scores must have 5 entries")
-					for i, s := range sr.Scores[0] {
-						require.Equal(t, float64(0), s,
-							"Max(0): expected zero score at index %d, got %v (max(-rrf_sum, 0) collapses to 0 for -rrf_sum<=0)", i, s)
-					}
+					// The client rejects rrf.Max(literal 0) at build time, so the
+					// request is never sent and there is no server observation to pin.
+					require.Error(t, err, "Max(0): search must fail before sending")
+					require.ErrorIs(t, err, ErrDegenerateRrfMaxZero)
 
 				case "Min_0":
 					// Min(0) is a mathematical identity on an all-negative baseline

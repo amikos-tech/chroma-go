@@ -452,8 +452,47 @@ func (c *CollectionImpl) Search(ctx context.Context, opts ...SearchCollectionOpt
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, errors.Wrap(err, "error unmarshalling search result")
 	}
+	if err := checkSearchResultCardinality(sq, &result); err != nil {
+		return nil, err
+	}
 
 	return &result, nil
+}
+
+// ErrDegenerateSearchResult is returned by [CollectionImpl.Search] when a
+// response selected scores but returned a different number of scores than IDs,
+// which means the ranking expression collapsed server-side.
+var ErrDegenerateSearchResult = errors.New("search result is degenerate")
+
+func checkSearchResultCardinality(sq *SearchQuery, result *SearchResultImpl) error {
+	for g := range result.IDs {
+		if g >= len(sq.Searches) {
+			break
+		}
+		if !selectsScore(sq.Searches[g].Select) || len(result.IDs[g]) == 0 {
+			continue
+		}
+		scoreCount := 0
+		if g < len(result.Scores) {
+			scoreCount = len(result.Scores[g])
+		}
+		if scoreCount != len(result.IDs[g]) {
+			return errors.Wrapf(ErrDegenerateSearchResult, "group %d returned %d ids but %d scores", g, len(result.IDs[g]), scoreCount)
+		}
+	}
+	return nil
+}
+
+func selectsScore(sel *SearchSelect) bool {
+	if sel == nil {
+		return false
+	}
+	for _, key := range sel.Keys {
+		if key == KScore {
+			return true
+		}
+	}
+	return false
 }
 
 // embedTextQueries embeds any text queries in the search request.
