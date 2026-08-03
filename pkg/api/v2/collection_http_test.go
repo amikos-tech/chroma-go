@@ -1335,3 +1335,98 @@ func TestCloneRank(t *testing.T) {
 		require.JSONEq(t, string(originalJSON), string(clonedJSON))
 	})
 }
+
+func TestCollectionSearchDegenerateCardinality(t *testing.T) {
+	tests := []struct {
+		name      string
+		selectKey []Key
+		response  string
+		expectErr bool
+	}{
+		{
+			name:      "score selected and scores empty",
+			selectKey: []Key{KID, KScore},
+			response:  `{"ids":[["a","b","c","d","e"]],"scores":[[]]}`,
+			expectErr: true,
+		},
+		{
+			name:      "score selected and scores absent",
+			selectKey: []Key{KID, KScore},
+			response:  `{"ids":[["a","b"]]}`,
+			expectErr: true,
+		},
+		{
+			name:      "score not selected",
+			selectKey: []Key{KID, KDocument},
+			response:  `{"ids":[["a","b","c","d","e"]],"scores":[[]]}`,
+			expectErr: false,
+		},
+		{
+			name:      "no select",
+			selectKey: nil,
+			response:  `{"ids":[["a","b","c","d","e"]],"scores":[[]]}`,
+			expectErr: false,
+		},
+		{
+			name:      "matching cardinality",
+			selectKey: []Key{KID, KScore},
+			response:  `{"ids":[["a","b"]],"scores":[[1.5,2.5]]}`,
+			expectErr: false,
+		},
+		{
+			name:      "null score element keeps cardinality",
+			selectKey: []Key{KID, KScore},
+			response:  `{"ids":[["a","b"]],"scores":[[1.5,null]]}`,
+			expectErr: false,
+		},
+		{
+			name:      "empty ids group",
+			selectKey: []Key{KID, KScore},
+			response:  `{"ids":[[]],"scores":[[]]}`,
+			expectErr: false,
+		},
+	}
+
+	const searchPath = "/api/v2/tenants/default_tenant/databases/default_database/collections/8ecf0f7e-e806-47f8-96a1-4732ef42359e/search"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost || r.URL.Path != searchPath {
+					http.NotFound(w, r)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+				if _, err := w.Write([]byte(tt.response)); err != nil {
+					t.Errorf("write search response: %v", err)
+				}
+			}))
+			defer server.Close()
+
+			client, err := NewHTTPClient(WithBaseURL(server.URL), WithLogger(testLogger()))
+			require.NoError(t, err)
+			collection := &CollectionImpl{
+				name:              "test",
+				id:                "8ecf0f7e-e806-47f8-96a1-4732ef42359e",
+				tenant:            NewDefaultTenant(),
+				database:          NewDefaultDatabase(),
+				metadata:          NewMetadata(),
+				client:            client.(*APIClientV2),
+				embeddingFunction: embeddings.NewConsistentHashEmbeddingFunction(),
+			}
+
+			req := NewSearchRequest(WithKnnRank(KnnQueryText("query")))
+			if tt.selectKey != nil {
+				req = NewSearchRequest(WithKnnRank(KnnQueryText("query")), WithSelect(tt.selectKey...))
+			}
+
+			result, searchErr := collection.Search(context.Background(), req)
+			if tt.expectErr {
+				require.Nil(t, result)
+				require.ErrorIs(t, searchErr, ErrDegenerateSearchResult)
+				return
+			}
+			require.NoError(t, searchErr)
+			require.NotNil(t, result)
+		})
+	}
+}
