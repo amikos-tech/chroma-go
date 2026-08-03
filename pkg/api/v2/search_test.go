@@ -1429,3 +1429,94 @@ func TestSearchRequestMarshalTypedNilRank(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, string(data), `"rank"`)
 }
+
+func TestSearchResultNullElementsPreservePosition(t *testing.T) {
+	const payload = `{"ids":[["a","b","c"]],"scores":[[1.5,null,3.5]],"documents":[["da",null,"dc"]]}`
+
+	var result SearchResultImpl
+	require.NoError(t, json.Unmarshal([]byte(payload), &result))
+
+	require.Equal(t, [][]float64{{1.5, 0, 3.5}}, result.Scores)
+	require.Equal(t, [][]string{{"da", "", "dc"}}, result.Documents)
+
+	rows := result.Rows()
+	require.Len(t, rows, 3)
+
+	require.Equal(t, DocumentID("a"), rows[0].ID)
+	require.Equal(t, 1.5, rows[0].Score)
+	require.True(t, rows[0].HasScore)
+	require.Equal(t, "da", rows[0].Document)
+	require.True(t, rows[0].HasDocument)
+
+	require.Equal(t, DocumentID("b"), rows[1].ID)
+	require.Equal(t, float64(0), rows[1].Score)
+	require.False(t, rows[1].HasScore)
+	require.Equal(t, "", rows[1].Document)
+	require.False(t, rows[1].HasDocument)
+
+	require.Equal(t, DocumentID("c"), rows[2].ID)
+	require.Equal(t, 3.5, rows[2].Score)
+	require.True(t, rows[2].HasScore)
+	require.Equal(t, "dc", rows[2].Document)
+	require.True(t, rows[2].HasDocument)
+}
+
+func TestSearchResultPresenceFlags(t *testing.T) {
+	tests := []struct {
+		name        string
+		payload     string
+		hasScore    []bool
+		hasDocument []bool
+	}{
+		{
+			name:        "no nulls",
+			payload:     `{"ids":[["a","b"]],"scores":[[1,2]],"documents":[["da","db"]]}`,
+			hasScore:    []bool{true, true},
+			hasDocument: []bool{true, true},
+		},
+		{
+			name:        "scores not selected",
+			payload:     `{"ids":[["a","b"]],"documents":[["da","db"]]}`,
+			hasScore:    []bool{false, false},
+			hasDocument: []bool{true, true},
+		},
+		{
+			name:        "documents not selected",
+			payload:     `{"ids":[["a","b"]],"scores":[[1,2]]}`,
+			hasScore:    []bool{true, true},
+			hasDocument: []bool{false, false},
+		},
+		{
+			name:        "null group",
+			payload:     `{"ids":[["a","b"]],"scores":[null],"documents":[null]}`,
+			hasScore:    []bool{false, false},
+			hasDocument: []bool{false, false},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var result SearchResultImpl
+			require.NoError(t, json.Unmarshal([]byte(tt.payload), &result))
+			rows := result.Rows()
+			require.Len(t, rows, len(tt.hasScore))
+			for i, row := range rows {
+				require.Equal(t, tt.hasScore[i], row.HasScore, "row %d HasScore", i)
+				require.Equal(t, tt.hasDocument[i], row.HasDocument, "row %d HasDocument", i)
+			}
+		})
+	}
+}
+
+func TestSearchResultPresenceFlagsDirectConstruction(t *testing.T) {
+	result := &SearchResultImpl{
+		IDs:       [][]DocumentID{{"a", "b"}},
+		Documents: [][]string{{"da", "db"}},
+		Scores:    [][]float64{{1, 2}},
+	}
+
+	for i, row := range result.Rows() {
+		require.True(t, row.HasScore, "row %d HasScore", i)
+		require.True(t, row.HasDocument, "row %d HasDocument", i)
+	}
+}

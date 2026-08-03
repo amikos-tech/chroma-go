@@ -790,6 +790,12 @@ type SearchResultImpl struct {
 	// Scores contains ranking scores for each query result set.
 	// Only populated if [WithSelect] included [KScore].
 	Scores [][]float64 `json:"scores,omitempty"`
+
+	// Presence of documents and scores per element, populated by UnmarshalJSON.
+	// A null element keeps its position in the exported slices, which cannot
+	// distinguish a null from a zero value on their own.
+	documentPresent [][]bool
+	scorePresent    [][]bool
 }
 
 // UnmarshalJSON implements custom JSON unmarshalling for SearchResultImpl.
@@ -829,19 +835,23 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 	if docsRaw, ok := temp["documents"]; ok && docsRaw != nil {
 		if docsList, ok := docsRaw.([]interface{}); ok {
 			r.Documents = make([][]string, 0, len(docsList))
+			r.documentPresent = make([][]bool, 0, len(docsList))
 			for _, docsGroup := range docsList {
 				if docsGroup == nil {
 					r.Documents = append(r.Documents, nil)
+					r.documentPresent = append(r.documentPresent, nil)
 					continue
 				}
 				if group, ok := docsGroup.([]interface{}); ok {
 					docs := make([]string, 0, len(group))
+					present := make([]bool, 0, len(group))
 					for _, doc := range group {
-						if docStr, ok := doc.(string); ok {
-							docs = append(docs, docStr)
-						}
+						docStr, ok := doc.(string)
+						docs = append(docs, docStr)
+						present = append(present, ok)
 					}
 					r.Documents = append(r.Documents, docs)
+					r.documentPresent = append(r.documentPresent, present)
 				}
 			}
 		}
@@ -920,26 +930,35 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 	if scoresRaw, ok := temp["scores"]; ok && scoresRaw != nil {
 		if scoresList, ok := scoresRaw.([]interface{}); ok {
 			r.Scores = make([][]float64, 0, len(scoresList))
+			r.scorePresent = make([][]bool, 0, len(scoresList))
 			for _, scoresGroup := range scoresList {
 				if scoresGroup == nil {
 					r.Scores = append(r.Scores, nil)
+					r.scorePresent = append(r.scorePresent, nil)
 					continue
 				}
 				if group, ok := scoresGroup.([]interface{}); ok {
 					scores := make([]float64, 0, len(group))
+					present := make([]bool, 0, len(group))
 					for _, score := range group {
 						switch scoreVal := score.(type) {
 						case float64:
 							scores = append(scores, scoreVal)
+							present = append(present, true)
 						case json.Number:
 							v, err := scoreVal.Float64()
 							if err != nil {
 								return errors.Wrapf(err, "invalid score value: %v", scoreVal)
 							}
 							scores = append(scores, v)
+							present = append(present, true)
+						default:
+							scores = append(scores, 0)
+							present = append(present, false)
 						}
 					}
 					r.Scores = append(r.Scores, scores)
+					r.scorePresent = append(r.scorePresent, present)
 				}
 			}
 		}
@@ -1000,6 +1019,7 @@ func (r *SearchResultImpl) buildRow(g, i int) ResultRow {
 	}
 	if g < len(r.Documents) && i < len(r.Documents[g]) {
 		row.Document = r.Documents[g][i]
+		row.HasDocument = elementPresent(r.documentPresent, g, i)
 	}
 	if g < len(r.Metadatas) && i < len(r.Metadatas[g]) {
 		row.Metadata = r.Metadatas[g][i]
@@ -1009,6 +1029,17 @@ func (r *SearchResultImpl) buildRow(g, i int) ResultRow {
 	}
 	if g < len(r.Scores) && i < len(r.Scores[g]) {
 		row.Score = r.Scores[g][i]
+		row.HasScore = elementPresent(r.scorePresent, g, i)
 	}
 	return row
+}
+
+// elementPresent reports whether the element at [g][i] was present on the wire.
+// A missing presence entry means the value was not produced by UnmarshalJSON,
+// so a directly constructed SearchResultImpl reports its values as present.
+func elementPresent(present [][]bool, g, i int) bool {
+	if g >= len(present) || i >= len(present[g]) {
+		return true
+	}
+	return present[g][i]
 }

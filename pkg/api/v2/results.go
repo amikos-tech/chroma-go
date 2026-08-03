@@ -12,11 +12,13 @@ import (
 // ResultRow represents a single result item with all associated data.
 // Use this with Rows() or At() for ergonomic iteration over results.
 type ResultRow struct {
-	ID        DocumentID
-	Document  string           // Empty if not included in results
-	Metadata  DocumentMetadata // nil if not included in results
-	Embedding []float32        // nil if not included in results
-	Score     float64          // Search: relevance score (higher=better); Query: distance (lower=better); Get: 0
+	ID          DocumentID
+	Document    string           // Empty if not included in results
+	HasDocument bool             // false when the server sent null or the field was not selected
+	Metadata    DocumentMetadata // nil if not included in results
+	Embedding   []float32        // nil if not included in results
+	Score       float64          // Search: relevance score (higher=better); Query: distance (lower=better); Get: 0
+	HasScore    bool             // false when the server sent null or the field was not selected
 }
 
 type GetResult interface {
@@ -195,6 +197,7 @@ func (r *GetResultImpl) buildRow(i int) ResultRow {
 	}
 	if i < len(r.Documents) && r.Documents[i] != nil {
 		row.Document = r.Documents[i].ContentString()
+		row.HasDocument = true
 	}
 	if i < len(r.Metadatas) {
 		row.Metadata = r.Metadatas[i]
@@ -462,6 +465,7 @@ func (r *QueryResultImpl) buildRow(g, i int) ResultRow {
 	}
 	if g < len(r.DocumentsLists) && i < len(r.DocumentsLists[g]) && r.DocumentsLists[g][i] != nil {
 		row.Document = r.DocumentsLists[g][i].ContentString()
+		row.HasDocument = true
 	}
 	if g < len(r.MetadatasLists) && i < len(r.MetadatasLists[g]) {
 		row.Metadata = r.MetadatasLists[g][i]
@@ -471,6 +475,7 @@ func (r *QueryResultImpl) buildRow(g, i int) ResultRow {
 	}
 	if g < len(r.DistancesLists) && i < len(r.DistancesLists[g]) {
 		row.Score = float64(r.DistancesLists[g][i])
+		row.HasScore = true
 	}
 	return row
 }
