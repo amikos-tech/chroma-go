@@ -29,11 +29,11 @@ func TestRerankResultsAlignsRanksWithSourceDocuments(t *testing.T) {
 		TopN:           2,
 		RerankEndpoint: server.URL + "/v1/rerank",
 	}
-	rf.CohereClient.BaseURL = server.URL
-	rf.CohereClient.APIVersion = ccommons.DefaultAPIVersion
-	rf.CohereClient.APIKey = embeddings.NewSecret("test-key")
-	rf.CohereClient.Client = server.Client()
-	rf.CohereClient.DefaultModel = embeddings.EmbeddingModel(ModelRerankEnglishV30)
+	rf.BaseURL = server.URL
+	rf.APIVersion = ccommons.DefaultAPIVersion
+	rf.APIKey = embeddings.NewSecret("test-key")
+	rf.Client = server.Client()
+	rf.DefaultModel = embeddings.EmbeddingModel(ModelRerankEnglishV30)
 
 	queryResults := &chromago.QueryResultImpl{
 		IDLists: []chromago.DocumentIDs{{"id-1", "id-2", "id-3"}},
