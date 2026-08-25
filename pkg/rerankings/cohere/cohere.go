@@ -211,7 +211,7 @@ func (c CohereRerankingFunction) RerankResults(ctx context.Context, queryTexts [
 		if err != nil {
 			return nil, err
 		}
-		rerankedResults.Ranks[c.ID()][i] = make([]float32, len(rerankResp.Results))
+		rerankedResults.Ranks[c.ID()][i] = make([]float32, len(queryResults.DocumentsLists[i]))
 		for _, rr := range rerankResp.Results {
 			if rr.Index < 0 || rr.Index >= len(rerankedResults.Ranks[c.ID()][i]) {
 				return nil, fmt.Errorf("invalid index %d from reranking API (valid range: 0-%d)", rr.Index, len(rerankedResults.Ranks[c.ID()][i])-1)
