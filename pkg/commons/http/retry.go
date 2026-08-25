@@ -96,6 +96,11 @@ func (r *SimpleRetryStrategy) DoWithRetry(client *http.Client, req *http.Request
 			break
 		}
 		if r.isRetryable(resp.StatusCode) {
+			// Keep the final response intact (body open) when retries are
+			// exhausted, so callers can read the status and error payload.
+			if i == r.MaxRetries-1 {
+				break
+			}
 			if resp.Body != nil {
 				_ = resp.Body.Close()
 			}
