@@ -309,3 +309,42 @@ func TestQueryResultImpl_At(t *testing.T) {
 	_, ok = result.At(0, 2)
 	require.False(t, ok)
 }
+
+func TestQueryResultRowPresenceFlags(t *testing.T) {
+	result := &QueryResultImpl{
+		IDLists:        []DocumentIDs{{"a", "b"}},
+		DocumentsLists: []Documents{{NewTextDocument("da"), nil}},
+		DistancesLists: []embeddings.Distances{{0.1}},
+	}
+
+	rows := result.Rows()
+	require.Len(t, rows, 2)
+	require.True(t, rows[0].HasScore)
+	require.True(t, rows[0].HasDocument)
+	require.False(t, rows[1].HasScore)
+	require.False(t, rows[1].HasDocument)
+}
+
+func TestQueryResultRowPresenceFlagsNoDistances(t *testing.T) {
+	var result QueryResultImpl
+	require.NoError(t, json.Unmarshal([]byte(`{"ids":[["a"]],"documents":[["da"]]}`), &result))
+
+	rows := result.Rows()
+	require.Len(t, rows, 1)
+	require.False(t, rows[0].HasScore)
+	require.True(t, rows[0].HasDocument)
+}
+
+func TestGetResultRowPresenceFlags(t *testing.T) {
+	result := &GetResultImpl{
+		Ids:       DocumentIDs{"a", "b"},
+		Documents: Documents{NewTextDocument("da"), nil},
+	}
+
+	rows := result.Rows()
+	require.Len(t, rows, 2)
+	require.False(t, rows[0].HasScore)
+	require.True(t, rows[0].HasDocument)
+	require.False(t, rows[1].HasScore)
+	require.False(t, rows[1].HasDocument)
+}
