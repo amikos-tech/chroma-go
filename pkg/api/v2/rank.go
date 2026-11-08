@@ -105,6 +105,38 @@ func (u *UnknownRank) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("UnknownRank: cannot marshal unknown operand type - this indicates a programming error")
 }
 
+// deferredErrorRank is a sentinel Rank implementation returned when a mathematically
+// invalid Rank composition is constructed (such as RrfRank.Log or RrfRank.Max with 0).
+// It defers returning an error until MarshalJSON or rank validation time, preserving
+// the fluent method chaining API while preventing silent runtime footguns.
+type deferredErrorRank struct {
+	err error
+}
+
+func (d *deferredErrorRank) IsOperand() {}
+
+func (d *deferredErrorRank) Multiply(operand Operand) Rank { return d }
+func (d *deferredErrorRank) Sub(operand Operand) Rank      { return d }
+func (d *deferredErrorRank) Add(operand Operand) Rank      { return d }
+func (d *deferredErrorRank) Div(operand Operand) Rank      { return d }
+func (d *deferredErrorRank) Negate() Rank                  { return d }
+func (d *deferredErrorRank) Abs() Rank                     { return d }
+func (d *deferredErrorRank) Exp() Rank                     { return d }
+func (d *deferredErrorRank) Log() Rank                     { return d }
+func (d *deferredErrorRank) Max(operand Operand) Rank      { return d }
+func (d *deferredErrorRank) Min(operand Operand) Rank      { return d }
+
+func (d *deferredErrorRank) MarshalJSON() ([]byte, error) {
+	if d == nil || d.err == nil {
+		return nil, errors.New("deferredErrorRank: invalid deferred error rank")
+	}
+	return nil, d.err
+}
+
+func (d *deferredErrorRank) UnmarshalJSON(_ []byte) error {
+	return errors.New("deferredErrorRank: unmarshaling is not supported")
+}
+
 func marshalRank(rank Rank, depth int) ([]byte, error) {
 	if isNilRank(rank) {
 		return nil, ErrNilRank
@@ -176,7 +208,7 @@ func validateBuiltInRankWithDepth(rank Rank, depth int) error {
 	}
 
 	switch rank := rank.(type) {
-	case *UnknownRank, *ValRank:
+	case *UnknownRank, *ValRank, *deferredErrorRank:
 		// These SDK-owned leaves have no descendants. Their own marshalers are
 		// side-effect free and retain JSON's finite-number validation for ValRank.
 		_, err := rank.MarshalJSON()
@@ -211,10 +243,26 @@ func validateBuiltInRankWithDepth(rank Rank, depth int) error {
 	case *ExpRank:
 		return validateChild("exp rank", rank.rank)
 	case *LogRank:
+		if _, ok := rank.rank.(*RrfRank); ok {
+			return errors.New("RrfRank.Log(): log of the auto-negated fused score is undefined - RRF fusion output is always non-positive after internal negation")
+		}
 		return validateChild("log rank", rank.rank)
 	case *MaxRank:
 		if len(rank.ranks) > MaxExpressionTerms {
 			return errors.Errorf("max expression exceeds maximum of %d terms", MaxExpressionTerms)
+		}
+		hasRrf := false
+		hasZero := false
+		for _, r := range rank.ranks {
+			if _, ok := r.(*RrfRank); ok {
+				hasRrf = true
+			}
+			if isZeroRank(r) {
+				hasZero = true
+			}
+		}
+		if hasRrf && hasZero {
+			return errors.New("RrfRank.Max(): max with zero of the auto-negated fused score collapses all scores to 0 - RRF fusion output is always non-positive after internal negation")
 		}
 		return validateChildren("max", rank.ranks)
 	case *MinRank:
@@ -238,6 +286,13 @@ func validateBuiltInRankWithDepth(rank Rank, depth int) error {
 	default:
 		return nil
 	}
+}
+
+func isZeroRank(rank Rank) bool {
+	if val, ok := rank.(*ValRank); ok && val != nil && val.value == 0 {
+		return true
+	}
+	return false
 }
 
 // ValRank represents a constant numeric value in rank expressions.
@@ -294,7 +349,15 @@ func (v *ValRank) Log() Rank {
 }
 
 func (v *ValRank) Max(operand Operand) Rank {
-	return &MaxRank{ranks: []Rank{v, operandToRank(operand)}}
+	r := operandToRank(operand)
+	if v != nil && v.value == 0 {
+		if _, ok := r.(*RrfRank); ok {
+			return &deferredErrorRank{
+				err: errors.New("RrfRank.Max(): max with zero of the auto-negated fused score collapses all scores to 0 - RRF fusion output is always non-positive after internal negation"),
+			}
+		}
+	}
+	return &MaxRank{ranks: []Rank{v, r}}
 }
 
 func (v *ValRank) Min(operand Operand) Rank {
@@ -807,6 +870,9 @@ func (l *LogRank) MarshalJSON() ([]byte, error) {
 }
 
 func (l *LogRank) marshalJSONWithDepth(depth int) ([]byte, error) {
+	if _, ok := l.rank.(*RrfRank); ok {
+		return nil, errors.New("RrfRank.Log(): log of the auto-negated fused score is undefined - RRF fusion output is always non-positive after internal negation")
+	}
 	data, err := marshalRank(l.rank, depth+1)
 	if err != nil {
 		return nil, err
@@ -882,6 +948,19 @@ func (m *MaxRank) MarshalJSON() ([]byte, error) {
 func (m *MaxRank) marshalJSONWithDepth(depth int) ([]byte, error) {
 	if len(m.ranks) > MaxExpressionTerms {
 		return nil, errors.Errorf("max expression exceeds maximum of %d terms", MaxExpressionTerms)
+	}
+	hasRrf := false
+	hasZero := false
+	for _, r := range m.ranks {
+		if _, ok := r.(*RrfRank); ok {
+			hasRrf = true
+		}
+		if isZeroRank(r) {
+			hasZero = true
+		}
+	}
+	if hasRrf && hasZero {
+		return nil, errors.New("RrfRank.Max(): max with zero of the auto-negated fused score collapses all scores to 0 - RRF fusion output is always non-positive after internal negation")
 	}
 	rankMaps := make([]json.RawMessage, len(m.ranks))
 	for i, r := range m.ranks {
@@ -1451,11 +1530,19 @@ func (r *RrfRank) Exp() Rank {
 }
 
 func (r *RrfRank) Log() Rank {
-	return &LogRank{rank: r}
+	return &deferredErrorRank{
+		err: errors.New("RrfRank.Log(): log of the auto-negated fused score is undefined - RRF fusion output is always non-positive after internal negation"),
+	}
 }
 
 func (r *RrfRank) Max(operand Operand) Rank {
-	return &MaxRank{ranks: []Rank{r, operandToRank(operand)}}
+	converted := operandToRank(operand)
+	if isZeroRank(converted) {
+		return &deferredErrorRank{
+			err: errors.New("RrfRank.Max(): max with zero of the auto-negated fused score collapses all scores to 0 - RRF fusion output is always non-positive after internal negation"),
+		}
+	}
+	return &MaxRank{ranks: []Rank{r, converted}}
 }
 
 func (r *RrfRank) Min(operand Operand) Rank {
