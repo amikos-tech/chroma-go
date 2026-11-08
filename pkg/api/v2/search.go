@@ -399,9 +399,13 @@ type searchFilterOption struct {
 // For most cases, use [WithFilter] and [WithIDs] instead, which are simpler.
 //
 // Passing nil causes the enclosing search request to fail with [ErrNilFilter] instead of
-// being treated as omission — callers who want to omit the filter should simply not call
+// being treated as omission: callers who want to omit the filter should simply not call
 // this option. A non-nil Where tree is validated recursively before assignment. Empty
 // filters, IDs-only filters, and filters with a nil or typed-nil Where remain valid.
+//
+// If the request already has filter criteria set (such as by [WithIDs] or [WithFilter]),
+// non-empty fields from the provided filter are merged into the existing filter (preserving
+// previously set fields that are not specified in the new filter).
 func WithSearchFilter(filter *SearchFilter) *searchFilterOption {
 	return &searchFilterOption{filter: filter}
 }
@@ -415,7 +419,25 @@ func (o *searchFilterOption) ApplyToSearchRequest(req *SearchRequest) error {
 			return errors.Wrap(err, "invalid search filter")
 		}
 	}
-	req.Filter = o.filter
+	if len(o.filter.IDs) > 0 {
+		var existingIDs []DocumentID
+		if req.Filter != nil {
+			existingIDs = req.Filter.IDs
+		}
+		if err := checkDuplicateIDs(o.filter.IDs, existingIDs); err != nil {
+			return err
+		}
+	}
+	if req.Filter == nil {
+		req.Filter = o.filter
+		return nil
+	}
+	if len(o.filter.IDs) > 0 {
+		req.Filter.IDs = append(req.Filter.IDs, o.filter.IDs...)
+	}
+	if !isNilInterface(o.filter.Where) {
+		req.Filter.Where = o.filter.Where
+	}
 	return nil
 }
 
