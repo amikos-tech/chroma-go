@@ -291,6 +291,128 @@ func TestSearchFilter(t *testing.T) {
 		require.NoError(t, WithSearchFilter(&SearchFilter{Where: where}).ApplyToSearchRequest(req))
 		require.Equal(t, 1, where.validateCalls)
 	})
+
+	t.Run("sibling option merging preserves IDs and Where regardless of order", func(t *testing.T) {
+		t.Run("WithIDs then WithSearchFilter where", func(t *testing.T) {
+			req := &SearchRequest{}
+			require.NoError(t, WithIDs("doc1", "doc2").ApplyToSearchRequest(req))
+			require.NoError(t, WithSearchFilter(&SearchFilter{Where: EqString(K("x"), "y")}).ApplyToSearchRequest(req))
+			require.Equal(t, []DocumentID{"doc1", "doc2"}, req.Filter.IDs)
+			require.Equal(t, EqString(K("x"), "y"), req.Filter.Where)
+		})
+
+		t.Run("WithSearchFilter where then WithIDs", func(t *testing.T) {
+			req := &SearchRequest{}
+			require.NoError(t, WithSearchFilter(&SearchFilter{Where: EqString(K("x"), "y")}).ApplyToSearchRequest(req))
+			require.NoError(t, WithIDs("doc1", "doc2").ApplyToSearchRequest(req))
+			require.Equal(t, []DocumentID{"doc1", "doc2"}, req.Filter.IDs)
+			require.Equal(t, EqString(K("x"), "y"), req.Filter.Where)
+		})
+
+		t.Run("WithFilter then WithSearchFilter ids", func(t *testing.T) {
+			req := &SearchRequest{}
+			require.NoError(t, WithFilter(EqString(K("status"), "pub")).ApplyToSearchRequest(req))
+			require.NoError(t, WithSearchFilter(&SearchFilter{IDs: []DocumentID{"doc1", "doc2"}}).ApplyToSearchRequest(req))
+			require.Equal(t, []DocumentID{"doc1", "doc2"}, req.Filter.IDs)
+			require.Equal(t, EqString(K("status"), "pub"), req.Filter.Where)
+		})
+
+		t.Run("WithSearchFilter ids then WithFilter", func(t *testing.T) {
+			req := &SearchRequest{}
+			require.NoError(t, WithSearchFilter(&SearchFilter{IDs: []DocumentID{"doc1", "doc2"}}).ApplyToSearchRequest(req))
+			require.NoError(t, WithFilter(EqString(K("status"), "pub")).ApplyToSearchRequest(req))
+			require.Equal(t, []DocumentID{"doc1", "doc2"}, req.Filter.IDs)
+			require.Equal(t, EqString(K("status"), "pub"), req.Filter.Where)
+		})
+
+		t.Run("all permutations of WithIDs WithFilter and WithSearchFilter", func(t *testing.T) {
+			type optionFactory = func() SearchRequestOption
+			factories := []struct {
+				name    string
+				factory optionFactory
+			}{
+				{
+					name: "WithIDs",
+					factory: func() SearchRequestOption {
+						return WithIDs("id1", "id2")
+					},
+				},
+				{
+					name: "WithFilter",
+					factory: func() SearchRequestOption {
+						return WithFilter(EqString(K("category"), "books"))
+					},
+				},
+				{
+					name: "WithSearchFilter",
+					factory: func() SearchRequestOption {
+						return WithSearchFilter(&SearchFilter{
+							IDs:   []DocumentID{"id3"},
+							Where: EqString(K("status"), "active"),
+						})
+					},
+				},
+			}
+
+			perms := [][]int{
+				{0, 1, 2},
+				{0, 2, 1},
+				{1, 0, 2},
+				{1, 2, 0},
+				{2, 0, 1},
+				{2, 1, 0},
+			}
+
+			for _, p := range perms {
+				req := &SearchRequest{}
+				for _, idx := range p {
+					require.NoError(t, factories[idx].factory().ApplyToSearchRequest(req))
+				}
+				require.NotNil(t, req.Filter)
+				require.ElementsMatch(t, []DocumentID{"id1", "id2", "id3"}, req.Filter.IDs)
+				require.NotNil(t, req.Filter.Where)
+			}
+		})
+
+		t.Run("issue 518 reproduction", func(t *testing.T) {
+			sq := &SearchQuery{}
+			opt := NewSearchRequest(
+				WithIDs("a", "b"),
+				WithFilter(EqString(K("s"), "pub")),
+				WithSearchFilter(&SearchFilter{Where: EqString(K("x"), "y")}),
+			)
+			require.NoError(t, opt(sq))
+			require.Len(t, sq.Searches, 1)
+			req := sq.Searches[0]
+			require.NotNil(t, req.Filter)
+			require.Equal(t, []DocumentID{"a", "b"}, req.Filter.IDs)
+			require.Equal(t, EqString(K("x"), "y"), req.Filter.Where)
+		})
+
+		t.Run("issue 518 reversed order", func(t *testing.T) {
+			sq := &SearchQuery{}
+			opt := NewSearchRequest(
+				WithSearchFilter(&SearchFilter{Where: EqString(K("x"), "y")}),
+				WithFilter(EqString(K("s"), "pub")),
+				WithIDs("a", "b"),
+			)
+			require.NoError(t, opt(sq))
+			require.Len(t, sq.Searches, 1)
+			req := sq.Searches[0]
+			require.NotNil(t, req.Filter)
+			require.Equal(t, []DocumentID{"a", "b"}, req.Filter.IDs)
+			require.Equal(t, EqString(K("s"), "pub"), req.Filter.Where)
+		})
+
+		t.Run("duplicate IDs error with existing filter", func(t *testing.T) {
+			req := &SearchRequest{}
+			require.NoError(t, WithIDs("a", "b").ApplyToSearchRequest(req))
+			err := WithSearchFilter(&SearchFilter{IDs: []DocumentID{"b", "c"}}).ApplyToSearchRequest(req)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "duplicate id: b")
+			require.Equal(t, []DocumentID{"a", "b"}, req.Filter.IDs)
+		})
+	})
 }
 
 func TestSearchRequestJSON(t *testing.T) {
