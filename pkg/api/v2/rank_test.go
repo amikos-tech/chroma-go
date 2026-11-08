@@ -903,14 +903,9 @@ func TestRrfRankArithmetic(t *testing.T) {
 			expected: `{"$exp":` + rrfStr + `}`,
 		},
 		{
-			name:     "Log",
-			apply:    func(r *RrfRank) Rank { return r.Log() },
-			expected: `{"$log":` + rrfStr + `}`,
-		},
-		{
 			name:     "Max",
-			apply:    func(r *RrfRank) Rank { return r.Max(FloatOperand(0.0)) },
-			expected: `{"$max":[` + rrfStr + `,{"$val":0}]}`,
+			apply:    func(r *RrfRank) Rank { return r.Max(FloatOperand(2.0)) },
+			expected: `{"$max":[` + rrfStr + `,{"$val":2}]}`,
 		},
 		{
 			name:     "Min",
@@ -957,7 +952,7 @@ func TestRrfRankArithmetic(t *testing.T) {
 	t.Run("wrappers remain independent across sequential calls", func(t *testing.T) {
 		a := rrf.Add(FloatOperand(1))
 		b := rrf.Multiply(FloatOperand(2))
-		c := rrf.Log()
+		c := rrf.Exp()
 
 		bJSON, err := b.MarshalJSON()
 		require.NoError(t, err)
@@ -968,7 +963,120 @@ func TestRrfRankArithmetic(t *testing.T) {
 
 		require.JSONEq(t, `{"$sum":[`+rrfStr+`,{"$val":1}]}`, string(aJSON))
 		require.JSONEq(t, `{"$mul":[`+rrfStr+`,{"$val":2}]}`, string(bJSON))
-		require.JSONEq(t, `{"$log":`+rrfStr+`}`, string(cJSON))
+		require.JSONEq(t, `{"$exp":`+rrfStr+`}`, string(cJSON))
+	})
+}
+
+func TestRrfRankDegenerateCompositions(t *testing.T) {
+	knn := mustNewKnnRank(t, KnnQueryText("test"), WithKnnReturnRank())
+	rrf := mustNewRrfRank(t, WithRrfRanks(knn.WithWeight(1.0)), WithRrfK(60))
+
+	expectedLogErr := "RrfRank.Log(): log of the auto-negated fused score is undefined - RRF fusion output is always non-positive after internal negation"
+	expectedMaxErr := "RrfRank.Max(): max with zero of the auto-negated fused score collapses all scores to 0 - RRF fusion output is always non-positive after internal negation"
+
+	t.Run("rejects rrf.Log on MarshalJSON", func(t *testing.T) {
+		rank := rrf.Log()
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedLogErr)
+	})
+
+	t.Run("rejects rrf.Log via validateBuiltInRank", func(t *testing.T) {
+		rank := rrf.Log()
+		err := validateBuiltInRank(rank)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedLogErr)
+	})
+
+	t.Run("rejects direct LogRank with RrfRank on MarshalJSON", func(t *testing.T) {
+		rank := &LogRank{rank: rrf}
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedLogErr)
+	})
+
+	t.Run("rejects direct LogRank with RrfRank via validateBuiltInRank", func(t *testing.T) {
+		rank := &LogRank{rank: rrf}
+		err := validateBuiltInRank(rank)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedLogErr)
+	})
+
+	t.Run("rejects chained rrf.Log compositions", func(t *testing.T) {
+		rank := rrf.Log().Add(Val(1.0)).Multiply(FloatOperand(2.0))
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedLogErr)
+	})
+
+	t.Run("rejects rrf.Max with Val(0) on MarshalJSON", func(t *testing.T) {
+		rank := rrf.Max(Val(0))
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedMaxErr)
+	})
+
+	t.Run("rejects rrf.Max with IntOperand(0)", func(t *testing.T) {
+		rank := rrf.Max(IntOperand(0))
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedMaxErr)
+	})
+
+	t.Run("rejects rrf.Max with FloatOperand(0.0)", func(t *testing.T) {
+		rank := rrf.Max(FloatOperand(0.0))
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedMaxErr)
+	})
+
+	t.Run("rejects Val(0).Max(rrf) on MarshalJSON", func(t *testing.T) {
+		rank := Val(0).Max(rrf)
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedMaxErr)
+	})
+
+	t.Run("rejects direct MaxRank with RrfRank and Val(0)", func(t *testing.T) {
+		rank := &MaxRank{ranks: []Rank{rrf, Val(0)}}
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedMaxErr)
+	})
+
+	t.Run("rejects direct MaxRank with RrfRank and Val(0) via validateBuiltInRank", func(t *testing.T) {
+		rank := &MaxRank{ranks: []Rank{rrf, Val(0)}}
+		err := validateBuiltInRank(rank)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedMaxErr)
+	})
+
+	t.Run("rejects chained rrf.Max(Val(0)) compositions", func(t *testing.T) {
+		rank := rrf.Max(Val(0)).Multiply(FloatOperand(2.0))
+		_, err := rank.MarshalJSON()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expectedMaxErr)
+	})
+
+	t.Run("allows valid rrf.Max with positive operand", func(t *testing.T) {
+		rank := rrf.Max(Val(1.0))
+		data, err := rank.MarshalJSON()
+		require.NoError(t, err)
+		require.Contains(t, string(data), `"$max"`)
+	})
+
+	t.Run("allows valid chained rrf.Add then Log", func(t *testing.T) {
+		rank := rrf.Add(FloatOperand(1.0)).Log()
+		data, err := rank.MarshalJSON()
+		require.NoError(t, err)
+		require.Contains(t, string(data), `"$log"`)
+	})
+
+	t.Run("allows valid rrf.Min with zero", func(t *testing.T) {
+		rank := rrf.Min(Val(0))
+		data, err := rank.MarshalJSON()
+		require.NoError(t, err)
+		require.Contains(t, string(data), `"$min"`)
 	})
 }
 
