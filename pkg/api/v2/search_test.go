@@ -982,6 +982,42 @@ func TestSearchResultUnmarshal(t *testing.T) {
 		require.Equal(t, 0.9, result.Scores[0][0])
 		require.Equal(t, 0.6, result.Scores[1][1])
 	})
+
+	t.Run("unmarshal with empty scores slice when IDs populated (degenerate ranking)", func(t *testing.T) {
+		jsonData := `{
+			"ids": [["id1", "id2", "id3", "id4", "id5"]],
+			"scores": [[]]
+		}`
+
+		var result SearchResultImpl
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "search result shape mismatch: query 0 returned 5 IDs but 0 scores (degenerate ranking)")
+	})
+
+	t.Run("unmarshal with mismatched scores cardinality", func(t *testing.T) {
+		jsonData := `{
+			"ids": [["id1", "id2"]],
+			"scores": [[0.9]]
+		}`
+
+		var result SearchResultImpl
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "search result shape mismatch: query 0 returned 2 IDs but 1 scores (degenerate ranking)")
+	})
+
+	t.Run("unmarshal with multiple queries where second query degenerates", func(t *testing.T) {
+		jsonData := `{
+			"ids": [["id1", "id2"], ["id3", "id4"]],
+			"scores": [[0.9, 0.8], []]
+		}`
+
+		var result SearchResultImpl
+		err := json.Unmarshal([]byte(jsonData), &result)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "search result shape mismatch: query 1 returned 2 IDs but 0 scores (degenerate ranking)")
+	})
 }
 
 func TestSearchResultImpl_Rows(t *testing.T) {
