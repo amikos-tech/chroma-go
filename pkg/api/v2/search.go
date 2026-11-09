@@ -945,6 +945,19 @@ func (r *SearchResultImpl) UnmarshalJSON(data []byte) error {
 		}
 	}
 
+	// Detect result-shape mismatch: if scores were returned for a query group,
+	// their cardinality must match the corresponding IDs slice. A mismatch indicates
+	// a degenerate ranking path (e.g. log of non-positive fused score dropping scores).
+	if scoresRaw, ok := temp["scores"]; ok && scoresRaw != nil {
+		for i, ids := range r.IDs {
+			if len(ids) > 0 {
+				if i < len(r.Scores) && r.Scores[i] != nil && len(r.Scores[i]) != len(ids) {
+					return errors.Errorf("search result shape mismatch: query %d returned %d IDs but %d scores (degenerate ranking)", i, len(ids), len(r.Scores[i]))
+				}
+			}
+		}
+	}
+
 	return nil
 }
 

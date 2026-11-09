@@ -1981,23 +1981,11 @@ func TestCloudClientSearchRRFArithmetic(t *testing.T) {
 						"Exp: Scores must differ from baseline (monotonic transform changes values)")
 
 				case "Log":
-					// Server bug: applying Log to non-positive fused scores silently
-					// falls back to insertion order with an empty inner Scores slice
-					// instead of returning a structured error. Pinned as a regression
-					// baseline — tracked separately in the issue tracker.
-					require.NoError(t, err, "Log: no error returned (server silently degenerates)")
-					require.NotNil(t, results, "Log: results must not be nil")
-					sr, srOk := results.(*SearchResultImpl)
-					require.True(t, srOk, "Log: result must be *SearchResultImpl")
-					require.NotEmpty(t, sr.IDs, "Log: outer IDs must not be empty")
-					require.Len(t, sr.IDs, 1, "Log: outer IDs must have exactly one query entry")
-					require.Len(t, sr.IDs[0], 5, "Log: inner IDs must have all 5 docs in insertion order")
-					require.Equal(t, []DocumentID{"1", "2", "3", "4", "5"}, sr.IDs[0],
-						"Log: IDs must fall back to default insertion order when server silently degenerates")
-					require.NotEmpty(t, sr.Scores, "Log: outer Scores must not be empty")
-					require.Len(t, sr.Scores, 1, "Log: outer Scores must have exactly one query entry")
-					require.Empty(t, sr.Scores[0],
-						"Log: inner Scores must be empty (degenerate — server dropped scores for log of non-positive)")
+					// Degenerate ranking: applying Log to non-positive fused scores
+					// drops scores on the server, producing a result-shape mismatch.
+					// Client-side defense-in-depth catches the mismatch and returns an error.
+					require.Error(t, err, "Log: degenerate ranking must return result-shape mismatch error")
+					require.Contains(t, err.Error(), "search result shape mismatch")
 
 				case "Max_0":
 					// Max(0) on an all-negative corpus collapses every score to exactly 0
