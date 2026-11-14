@@ -2078,6 +2078,7 @@ func (c *embeddedCollection) queryDistanceMetric() embeddingspkg.DistanceMetric 
 	c.mu.RLock()
 	metadata := c.metadata
 	embeddingFunction := c.embeddingFunction
+	schema := c.schema
 	c.mu.RUnlock()
 	if metadata != nil {
 		if value, ok := metadata.GetString(HNSWSpace); ok {
@@ -2087,6 +2088,14 @@ func (c *embeddedCollection) queryDistanceMetric() embeddingspkg.DistanceMetric 
 			}
 		}
 	}
+	// Chroma 1.3+ persists the metric in the collection schema's #embedding
+	// vector index rather than the legacy hnsw:space metadata key. Honor it so
+	// embedded queries match the server/Python client instead of falling back to
+	// the embedding function's default space (which is L2 for the default ONNX
+	// EF, yielding squared-L2 distances for cosine collections). See issue #541.
+	if metric, ok := embeddedSchemaDistanceMetric(schema); ok {
+		return metric
+	}
 	if embeddingFunction != nil {
 		switch metric := embeddingFunction.DefaultSpace(); metric {
 		case embeddingspkg.L2, embeddingspkg.COSINE, embeddingspkg.IP:
@@ -2094,6 +2103,25 @@ func (c *embeddedCollection) queryDistanceMetric() embeddingspkg.DistanceMetric 
 		}
 	}
 	return embeddingspkg.L2
+}
+
+// embeddedSchemaDistanceMetric extracts the distance metric from the persisted
+// collection schema's default (#embedding) vector index. It reports false when
+// the schema is absent or does not specify a recognized space, so callers can
+// fall back to the embedding function's default space.
+func embeddedSchemaDistanceMetric(schema *Schema) (embeddingspkg.DistanceMetric, bool) {
+	if schema == nil {
+		return "", false
+	}
+	vt, ok := schema.GetKey(EmbeddingKey)
+	if !ok || vt == nil || vt.FloatList == nil || vt.FloatList.VectorIndex == nil || vt.FloatList.VectorIndex.Config == nil {
+		return "", false
+	}
+	switch metric := embeddingspkg.DistanceMetric(strings.ToLower(strings.TrimSpace(string(vt.FloatList.VectorIndex.Config.Space)))); metric {
+	case embeddingspkg.L2, embeddingspkg.COSINE, embeddingspkg.IP:
+		return metric, true
+	}
+	return "", false
 }
 
 func computeEmbeddedDistance(metric embeddingspkg.DistanceMetric, queryVector []float32, resultVector []float32) (embeddingspkg.Distance, error) {

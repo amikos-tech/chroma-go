@@ -4495,3 +4495,100 @@ func TestEmbeddedGetOrCreateCollection_ContentEF_VerifyViaSubsequentGetCollectio
 	require.NotNil(t, gotContentEF, "contentEF should be available from embedded state even without explicit option")
 	require.Same(t, contentEF, unwrapCloseOnceContentEF(gotContentEF), "should be the same contentEF stored in state")
 }
+
+// stubSpaceEmbeddingFunction overrides DefaultSpace so the distance-metric
+// resolution can be exercised without the native ONNX runtime. The embedded
+// default EF reports L2, which is the condition behind issue #541.
+type stubSpaceEmbeddingFunction struct {
+	embeddingspkg.EmbeddingFunction
+	space embeddingspkg.DistanceMetric
+}
+
+func (e stubSpaceEmbeddingFunction) DefaultSpace() embeddingspkg.DistanceMetric {
+	return e.space
+}
+
+func TestEmbeddedCollectionQueryDistanceMetric(t *testing.T) {
+	cosineSchema, err := NewSchema(WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceCosine))))
+	require.NoError(t, err)
+	l2Schema, err := NewSchema(WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceL2))))
+	require.NoError(t, err)
+	ipSchema, err := NewSchema(WithDefaultVectorIndex(NewVectorIndexConfig(WithSpace(SpaceIP))))
+	require.NoError(t, err)
+	emptySchema, err := NewSchema()
+	require.NoError(t, err)
+
+	cosineMetadata := NewMetadataFromMap(map[string]interface{}{HNSWSpace: "cosine"})
+	l2EF := stubSpaceEmbeddingFunction{space: embeddingspkg.L2}
+	cosineEF := stubSpaceEmbeddingFunction{space: embeddingspkg.COSINE}
+
+	tests := []struct {
+		name     string
+		metadata CollectionMetadata
+		schema   *Schema
+		ef       embeddingspkg.EmbeddingFunction
+		want     embeddingspkg.DistanceMetric
+	}{
+		{
+			name:   "schema cosine without hnsw:space metadata uses cosine (issue #541)",
+			schema: cosineSchema,
+			ef:     l2EF,
+			want:   embeddingspkg.COSINE,
+		},
+		{
+			name:   "schema cosine without metadata or EF uses cosine",
+			schema: cosineSchema,
+			want:   embeddingspkg.COSINE,
+		},
+		{
+			name:   "schema ip is honored",
+			schema: ipSchema,
+			ef:     l2EF,
+			want:   embeddingspkg.IP,
+		},
+		{
+			name:     "hnsw:space metadata still takes precedence over schema",
+			metadata: cosineMetadata,
+			schema:   l2Schema,
+			ef:       l2EF,
+			want:     embeddingspkg.COSINE,
+		},
+		{
+			name:   "explicit schema space takes precedence over EF default space",
+			schema: l2Schema,
+			ef:     cosineEF,
+			want:   embeddingspkg.L2,
+		},
+		{
+			name: "no schema or metadata falls back to EF default space",
+			ef:   cosineEF,
+			want: embeddingspkg.COSINE,
+		},
+		{
+			name:   "schema without vector index falls back to EF default space",
+			schema: emptySchema,
+			ef:     cosineEF,
+			want:   embeddingspkg.COSINE,
+		},
+		{
+			name: "no schema, metadata, or EF defaults to L2",
+			want: embeddingspkg.L2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &embeddedCollection{
+				metadata:          tt.metadata,
+				schema:            tt.schema,
+				embeddingFunction: tt.ef,
+			}
+			require.Equal(t, tt.want, c.queryDistanceMetric())
+		})
+	}
+}
+
+func TestEmbeddedCollectionQueryDistanceMetricNilCollection(t *testing.T) {
+	var c *embeddedCollection
+	require.Equal(t, embeddingspkg.L2, c.queryDistanceMetric())
+}
