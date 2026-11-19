@@ -73,7 +73,15 @@ func (w *WhereDocumentClauseContainsOrNotContains) MarshalJSON() ([]byte, error)
 }
 
 func (w *WhereDocumentClauseContainsOrNotContains) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, w)
+	var x map[WhereDocumentFilterOperator]string
+	if err := json.Unmarshal(b, &x); err != nil {
+		return err
+	}
+	for operator, content := range x {
+		w.operator = operator
+		w.content = content
+	}
+	return nil
 }
 
 func (w *WhereDocumentClauseContainsOrNotContains) Validate() error {
@@ -104,7 +112,15 @@ func (w *WhereDocumentClauseRegexNotRegex) MarshalJSON() ([]byte, error) {
 }
 
 func (w *WhereDocumentClauseRegexNotRegex) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, w)
+	var x map[WhereDocumentFilterOperator]string
+	if err := json.Unmarshal(b, &x); err != nil {
+		return err
+	}
+	for operator, content := range x {
+		w.operator = operator
+		w.content = content
+	}
+	return nil
 }
 
 func (w *WhereDocumentClauseRegexNotRegex) Validate() error {
@@ -142,7 +158,19 @@ func (w *WhereDocumentClauseOr) marshalJSONWithDepth(depth int) ([]byte, error) 
 }
 
 func (w *WhereDocumentClauseOr) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, w)
+	var x map[WhereDocumentFilterOperator]json.RawMessage
+	if err := json.Unmarshal(b, &x); err != nil {
+		return err
+	}
+	for operator, raw := range x {
+		clauses, err := unmarshalWhereDocumentFilters(raw)
+		if err != nil {
+			return err
+		}
+		w.operator = operator
+		w.content = clauses
+	}
+	return nil
 }
 
 func (w *WhereDocumentClauseOr) Validate() error {
@@ -269,6 +297,70 @@ func marshalWhereDocumentFilterChild(filter WhereDocumentFilter, operator WhereD
 
 func (w *WhereDocumentClauseAnd) String() string {
 	return fmt.Sprintf("%s: %s", w.operator, w.content)
+}
+
+// unmarshalWhereDocumentFilters decodes a JSON array of document filters into
+// concrete values. A plain []WhereDocumentFilter cannot be decoded by
+// encoding/json because the element type is a non-empty interface.
+func unmarshalWhereDocumentFilters(data []byte) ([]WhereDocumentFilter, error) {
+	var rawFilters []json.RawMessage
+	if err := json.Unmarshal(data, &rawFilters); err != nil {
+		return nil, err
+	}
+	filters := make([]WhereDocumentFilter, len(rawFilters))
+	for i, raw := range rawFilters {
+		filter, err := unmarshalWhereDocumentFilter(raw)
+		if err != nil {
+			return nil, err
+		}
+		filters[i] = filter
+	}
+	return filters, nil
+}
+
+func unmarshalWhereDocumentFilter(data []byte) (WhereDocumentFilter, error) {
+	var operators map[WhereDocumentFilterOperator]json.RawMessage
+	if err := json.Unmarshal(data, &operators); err != nil {
+		return nil, err
+	}
+	if len(operators) == 0 {
+		return nil, errors.New("where document filter has no operator")
+	}
+	for operator, raw := range operators {
+		switch operator {
+		case ContainsOperator, NotContainsOperator:
+			var content string
+			if err := json.Unmarshal(raw, &content); err != nil {
+				return nil, err
+			}
+			return &WhereDocumentClauseContainsOrNotContains{
+				WhereDocumentFilterBase: WhereDocumentFilterBase{operator: operator},
+				content:                 content,
+			}, nil
+		case RegexOperator, NotRegexOperator:
+			var content string
+			if err := json.Unmarshal(raw, &content); err != nil {
+				return nil, err
+			}
+			return &WhereDocumentClauseRegexNotRegex{
+				WhereDocumentFilterBase: WhereDocumentFilterBase{operator: operator},
+				content:                 content,
+			}, nil
+		case OrDocumentOperator, AndDocumentOperator:
+			clauses, err := unmarshalWhereDocumentFilters(raw)
+			if err != nil {
+				return nil, err
+			}
+			base := WhereDocumentFilterBase{operator: operator}
+			if operator == OrDocumentOperator {
+				return &WhereDocumentClauseOr{WhereDocumentFilterBase: base, content: clauses}, nil
+			}
+			return &WhereDocumentClauseAnd{WhereDocumentFilterBase: base, content: clauses}, nil
+		default:
+			return nil, errors.Errorf("unknown where document operator %q", operator)
+		}
+	}
+	return nil, errors.New("where document filter has no operator")
 }
 
 func Contains(content string) WhereDocumentFilter {
