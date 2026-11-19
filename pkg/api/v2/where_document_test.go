@@ -95,6 +95,71 @@ func TestNestedNilWhereDocumentClause(t *testing.T) {
 	})
 }
 
+func TestWhereDocumentUnmarshalRoundTrip(t *testing.T) {
+	tests := []struct {
+		name      string
+		filter    WhereDocumentFilter
+		newTarget func() WhereDocumentFilter
+	}{
+		{
+			name:      "contains",
+			filter:    Contains("test"),
+			newTarget: func() WhereDocumentFilter { return &WhereDocumentClauseContainsOrNotContains{} },
+		},
+		{
+			name:      "not contains",
+			filter:    NotContains("test"),
+			newTarget: func() WhereDocumentFilter { return &WhereDocumentClauseContainsOrNotContains{} },
+		},
+		{
+			name:      "regex",
+			filter:    Regex("^a.*$"),
+			newTarget: func() WhereDocumentFilter { return &WhereDocumentClauseRegexNotRegex{} },
+		},
+		{
+			name:      "not regex",
+			filter:    NotRegex("^a.*$"),
+			newTarget: func() WhereDocumentFilter { return &WhereDocumentClauseRegexNotRegex{} },
+		},
+		{
+			name:      "or with nested and",
+			filter:    OrDocument(AndDocument(Contains("a"), Regex("^b")), NotContains("c")),
+			newTarget: func() WhereDocumentFilter { return &WhereDocumentClauseOr{} },
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := json.Marshal(test.filter)
+			require.NoError(t, err)
+
+			target := test.newTarget()
+			var unmarshalErr error
+			require.NotPanics(t, func() {
+				unmarshalErr = json.Unmarshal(encoded, target)
+			})
+			require.NoError(t, unmarshalErr)
+
+			reencoded, err := json.Marshal(target)
+			require.NoError(t, err)
+			require.JSONEq(t, string(encoded), string(reencoded))
+		})
+	}
+}
+
+func TestWhereDocumentUnmarshalRejectsInvalidInput(t *testing.T) {
+	var contains WhereDocumentClauseContainsOrNotContains
+	err := json.Unmarshal([]byte(`{"$contains":123}`), &contains)
+	require.Error(t, err)
+
+	var regex WhereDocumentClauseRegexNotRegex
+	err = json.Unmarshal([]byte(`{"$regex":true}`), &regex)
+	require.Error(t, err)
+
+	var or WhereDocumentClauseOr
+	err = json.Unmarshal([]byte(`{"$or":[{"$unknown":"x"}]}`), &or)
+	require.ErrorContains(t, err, "unknown where document operator")
+}
+
 func TestWhereDocumentExpressionDepthGuard(t *testing.T) {
 	buildExpression := func(recursiveChildCalls int) WhereDocumentFilter {
 		var filter WhereDocumentFilter = Contains("leaf")
